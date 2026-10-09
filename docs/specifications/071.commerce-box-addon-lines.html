@@ -15,7 +15,7 @@
     body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
     header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
     .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-implemented { background: #ecf6ee; color: #2c6b46; }
     .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
     h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
     h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
@@ -45,7 +45,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 071</span>
-  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag status-implemented">Status: Implemented</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag">Module: Aonik.Commerce</span>
   <span class="meta-tag">Depends on: Spec 068</span>
@@ -56,6 +56,13 @@
   merchandising read, the cart routes, the <code>addOns</code> quote component, and checkout's
   retail order lines — the storefront's Step&nbsp;3 (<code>/box/extras</code>) server contract.</p>
 </header>
+
+<div class="callout ok">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> Curated extras eligibility, add-on editing, pricing/drift checks and retail order materialisation are implemented in
+  <a href="../../src/Aonik.Commerce/Services/Catalog/ExtrasCatalogService.cs"><code>ExtrasCatalogService</code></a> and
+  <a href="../../src/Aonik.Commerce/Services/Checkout/BoxCartService.cs"><code>BoxCartService</code></a>.
+  Add-ons reuse existing cart lines and inventory; no recommendation engine is implied.</p>
+</div>
 
 <nav class="toc">
   <strong>Contents</strong>

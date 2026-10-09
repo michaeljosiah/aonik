@@ -49,7 +49,7 @@
       margin-right: 6px;
       text-transform: uppercase;
     }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-implemented { background: #ecf6ee; color: #2c6b46; }
     .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
     .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
     .meta-tag.priority-p3 { background: #efe6f6; color: #5a2784; }
@@ -198,7 +198,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 051</span>
-  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag status-implemented">Status: Implemented</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag priority-p3">Priority: P3</span>
   <span class="meta-tag">Domain: Commerce / Production / Costing</span>
@@ -215,6 +215,13 @@
     — never <code>Aonik.Finance</code>.
   </p>
 </header>
+
+<div class="callout ok">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> Effective-dated ingredient costs, cost history and standard food-cost rollups are implemented in
+  <a href="../../src/Aonik.Commerce/Services/Sourcing/IngredientCostService.cs"><code>IngredientCostService</code></a> and
+  <a href="../../src/Aonik.Commerce/Services/Production/ProductCostingService.cs"><code>ProductCostingService</code></a>, with admin endpoints and agent tools.
+  Actual/moving-average cost, FX and labour/overhead remain outside this v1 scope.</p>
+</div>
 
 <nav class="toc">
   <h2>Contents</h2>
@@ -744,7 +751,7 @@ IIngredientCostService.ListHistoryAsync(ingredientId, currency?)
 
 <footer>
   Spec 051 &middot; Ingredient costing &amp; product standard-cost rollup &middot;
-  Status: Draft &middot; Aonik platform architecture.
+  Status: Implemented &middot; Aonik platform architecture.
 </footer>
 
 </body>

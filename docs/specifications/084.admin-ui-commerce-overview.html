@@ -11,7 +11,7 @@
     body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
     header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
     .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
-    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    .meta-tag.status-partial { background:#fff5d9; color:#7a5a10; }
     h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
     h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
     p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
@@ -25,20 +25,21 @@
 </head>
 <body>
 <header class="spec-meta">
-  <span class="meta-tag">Spec 084</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073–083</span>
+  <span class="meta-tag">Spec 084</span><span class="meta-tag status-partial">Partial</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073–083</span>
   <h1>Commerce overview — the storefront's pulse and its attention row</h1>
   <p><code>/commerce</code> · <code>CommerceOverviewPage</code> — the section landing. Design of record: the overview attention-row update (PR #268), grown into the page the live app never had. Its job is triage: four numbers, recent orders, and an attention list where every row is a real state read from the owning surface with a link-out — never a computed guess.</p>
 </header>
+<div class="callout"><strong>Current implementation · 2026-10-09.</strong> The live order pulse, paid revenue by currency, recent orders and attention sources are implemented with bounded-window captions and independent failure states. Awaiting payment is displayed; the specified awaiting-fulfilment tile remains unimplemented even though staff fulfilment tracking is available.</div>
 
-<h2>1 · Data sources (all shipped except where 083's callouts apply)</h2>
+<h2>1 · Data sources (shipped; awaiting-fulfilment tile remains a gap)</h2>
 <table>
   <tr><th>Tile / row</th><th>Source</th></tr>
-  <tr><td>Orders · revenue (paid) · AOV · awaiting fulfilment</td><td><code>GET /orders?orderType=ProductPurchase</code> (existing spine list) aggregated client-side over the loaded window, <strong>per currency</strong> — rows carry their own currency, and summing across currencies fabricates a number. Single-currency windows render plainly; mixed windows render the dominant currency's aggregate with a "+ n orders in other currencies" note (the Spec 081 rule). The caption names the window honestly (e.g. "latest 100 orders") rather than implying all-time. Payment-status-dependent tiles (paid revenue, awaiting fulfilment) additionally gate on Spec 083's list projection; until it ships they render as count-only tiles.</td></tr>
+  <tr><td>Orders · revenue (paid) · AOV · awaiting payment</td><td><code>GET /commerce/admin/orders</code> supplies the shipped Commerce projection, aggregated client-side over the loaded window <strong>per currency</strong>. Mixed windows never become a cross-currency sum; captions name the window rather than implying all-time. Paid revenue uses captured payment status. Staff fulfilment data is available, but the original awaiting-fulfilment tile has not replaced the current awaiting-payment tile.</td></tr>
   <tr><td>Content awaiting review</td><td>074/075's product list content flags (<code>requiresReview</code> count). Links to <code>/commerce/content</code>.</td></tr>
   <tr><td>Delivery promise state</td><td><code>GET /commerce/config/delivery</code> — live date (info tone) or <strong>"no promise — customers see no date"</strong> (warn tone) on 404. Links to <code>/commerce/delivery</code>.</td></tr>
   <tr><td>Drafts staged in collections</td><td>Admin collections membership (Spec 078 data) — count of draft members. Links to <code>/commerce/merchandising</code>.</td></tr>
   <tr><td>Unpriceable extras skipped</td><td><code>GET /commerce/catalog/extras</code> → <code>skipped</code> when &gt; 0. Links to <code>/commerce/merchandising</code>.</td></tr>
-  <tr><td>Abandoned / drift-blocked carts</td><td>Behind 083's carts admin endpoint — the rows render only when that dependency ships; absent, they are omitted (not zeroed).</td></tr>
+  <tr><td>Abandoned / drift-blocked carts</td><td>Spec 083's shipped admin cart read supplies these attention rows. A failed read is unavailable, not a zero count.</td></tr>
 </table>
 
 <h2>2 · Page structure</h2>
