@@ -31,7 +31,7 @@ public class BoxAddOnTests
         var f = await h.BuildAsync("jollof");
         var (_, extraVariant) = await h.AddExtraAsync("pepper-sauce", 3.50m);
         var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
-        return (h, f, box, extraVariant);
+        return (h, f, await h.HoldDeliveryAsync(box), extraVariant);
     }
 
     [Fact]

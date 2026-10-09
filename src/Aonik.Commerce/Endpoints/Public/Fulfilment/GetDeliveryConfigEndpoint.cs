@@ -8,8 +8,7 @@ namespace Aonik.Commerce.Endpoints.Public.Fulfilment;
 
 /// <summary>
 /// Spec 069 §6 — the earliest-delivery promise, shown everywhere it appears on the storefront.
-/// Cacheable for minutes: the value only moves at cutoff or midnight, and a short-TTL stale
-/// promise is acceptable (ISR revalidation). Tenant-partitioned via <c>Vary: X-Tenant-Id</c> —
+/// Capacity changes on every reservation, so the response is never cached. Tenant-partitioned via <c>Vary: X-Tenant-Id</c> —
 /// a shared cache serving tenant A's promise to tenant B would contradict A7 outright. 404 when
 /// unconfigured: a wrong date is worse than no date; the endpoint never guesses.
 /// </summary>
@@ -23,12 +22,13 @@ public class GetDeliveryConfigEndpoint : EndpointWithoutRequest<FulfilmentPromis
     {
         Get("/commerce/config/delivery");
         AllowAnonymous();
-        Summary(s => s.Summary = "The earliest delivery date the fulfilment calendar admits.");
+        Summary(s => s.Summary = "The earliest eligible delivery date with capacity for a box.");
     }
 
     public override async Task HandleAsync(CancellationToken ct)
     {
         StorefrontCacheHeaders.Apply(HttpContext);
+        HttpContext.Response.Headers.CacheControl = "no-store";
 
         var promise = await _promises.GetEarliestDeliveryAsync(ct);
         if (promise is null)
@@ -39,11 +39,6 @@ public class GetDeliveryConfigEndpoint : EndpointWithoutRequest<FulfilmentPromis
             return;
         }
 
-        // O1 - public only when the tenant discriminator is cache-visible; a tenant resolved
-        // from the authenticated user must never be stored under a headerless key.
-        HttpContext.Response.Headers.CacheControl = StorefrontCacheHeaders.AllowsSharedCaching(HttpContext)
-            ? "public, max-age=300"
-            : "no-store";
         await Send.OkAsync(promise, ct);
     }
 }

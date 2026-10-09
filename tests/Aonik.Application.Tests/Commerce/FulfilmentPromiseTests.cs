@@ -143,6 +143,12 @@ public class FulfilmentPromiseTests
         var (options, tenantId) = CommerceTestHarness.NewDb();
         var ctx = CommerceTestHarness.CreateContext(options, tenantId);
         var clock = new CommerceTestHarness.TestClock();   // 2026-06-18 12:00 UTC (a Thursday)
+        // Explicit fixture capacity: calendar tests exercise calendar changes over known budgets.
+        ctx.DeliveryDateCapacities.AddRange(Enumerable.Range(0, 10).Select(week => new DeliveryDateCapacity
+        {
+            TenantId = tenantId, DeliveryDate = new DateOnly(2026, 6, 18).AddDays(week * 7), Unit = "box", Capacity = 10
+        }));
+        ctx.SaveChanges();
         return (new FulfilmentPromiseService(ctx, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId), clock), clock, ctx);
     }
 
@@ -295,10 +301,12 @@ public class FulfilmentPromiseTests
         var future = await service.GetDeliveryDatesAsync(new DateOnly(2030, 1, 1), 62);
         var past = await service.GetDeliveryDatesAsync(new DateOnly(2026, 1, 1), 31);
 
-        result!.FromDate.Should().Be(result.EarliestDeliveryDate);
+        result!.FromDate.Should().Be(result.EarliestDeliveryDate!.Value);
         result.ToDate.Should().Be(result.FromDate.AddDays(30));
         result.Dates.Should().Equal(Enumerable.Range(0, 5).Select(week => new DateOnly(2026, 6, 25).AddDays(week * 7)));
-        future!.Dates.Should().NotBeEmpty().And.OnlyContain(date => date.DayOfWeek == DayOfWeek.Thursday);
+        future!.Dates.Should().BeEmpty("future capacity has not been authored");
+        future.Availability.Should().Contain(date => date.Status == DeliveryAvailabilityStatuses.Unknown
+            && date.DeliveryDate.DayOfWeek == DayOfWeek.Thursday);
         future.ToDate.Should().Be(new DateOnly(2030, 3, 3));
         past!.Dates.Should().BeEmpty("a configured calendar can have no eligible dates in the requested range");
         context.ChangeTracker.HasChanges().Should().BeFalse("reading offered dates does not reserve or modify anything");
@@ -422,6 +430,11 @@ public class FulfilmentPromiseTests
         using var context = CommerceTestHarness.CreateContext(options, tenantId);
         var clock = new CommerceTestHarness.TestClock();
         var service = new FulfilmentPromiseService(context, new Aonik.TestSupport.Multitenancy.TestTenantProvider(tenantId), clock);
+        context.DeliveryDateCapacities.Add(new DeliveryDateCapacity
+        {
+            TenantId = tenantId, DeliveryDate = new DateOnly(2026, 6, 25), Unit = "box", Capacity = 1
+        });
+        await context.SaveChangesAsync();
         await service.UpsertCalendarAsync(Command());
         var date = (await service.GetDeliveryDatesAsync())!.Dates.First();
         var otherTenant = Guid.NewGuid();

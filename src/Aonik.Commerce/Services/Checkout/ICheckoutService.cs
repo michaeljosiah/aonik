@@ -23,4 +23,10 @@ public interface ICheckoutService
     /// already-completed matching event to retry its confirmation email.</summary>
     Task<bool> ConfirmPaymentAsync(Guid orderId, Guid completedPaymentIntentId, decimal amount, string currency,
         CancellationToken cancellationToken = default);
+
+    /// <summary>System discovery only; each result is reconciled in a fresh tenant scope.</summary>
+    Task<IReadOnlyList<(Guid ReservationId, Guid TenantId, Guid CartId)>> FindDueDeliveryReservationsAsync(
+        Guid? afterReservationId = null, CancellationToken cancellationToken = default);
+
+    Task ReconcileDeliveryReservationAsync(Guid cartId, CancellationToken cancellationToken = default);
 }

@@ -22,6 +22,7 @@ public class CommerceCheckoutProposalHandlerTests
             new AddBoxLineCommand(fixture.DishVariants["jollof"], 6, null),
             CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
         var approvedAccess = CartAccessContext.ForGuest(box.CartToken, filled.CartVersion);
+        approvedAccess = await harness.HoldDeliveryAsync(box.Box.CartId, approvedAccess);
         await harness.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card",
             Delivery: BoxTestHarness.ValidDelivery), approvedAccess);
 

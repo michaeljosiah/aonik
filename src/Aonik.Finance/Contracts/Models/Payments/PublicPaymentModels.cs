@@ -49,4 +49,5 @@ public record CreateCommerceGuestPaymentIntentRequest(
     string? ReturnUrl,
     string? CancelUrl,
     Guid? PaymentIntentId = null,
-    string? IdempotencyKey = null);
+    string? IdempotencyKey = null,
+    DateTime? ProviderStartDeadlineUtc = null);

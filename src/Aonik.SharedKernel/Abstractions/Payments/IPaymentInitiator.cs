@@ -31,7 +31,8 @@ public sealed record CreateGuestPaymentIntentForOrderCommand(
     string? ReturnUrl = null,
     string? CancelUrl = null,
     Guid? PaymentIntentId = null,
-    string? IdempotencyKey = null);
+    string? IdempotencyKey = null,
+    DateTime? ProviderStartDeadlineUtc = null);
 
 /// <summary>A reference to the created payment intent, including any client-side completion handles.</summary>
 public sealed record PaymentIntentRef(

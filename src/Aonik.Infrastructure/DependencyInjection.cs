@@ -220,6 +220,15 @@ public static class DependencyInjection
 #pragma warning restore EXTEXP0001
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.Configure<PostcodesIoOptions>(configuration.GetSection(PostcodesIoOptions.SectionName));
+#pragma warning disable EXTEXP0001 // The official holiday preview is one bounded read, never a checkout dependency.
+        services.AddHttpClient<Aonik.Commerce.Services.Fulfilment.IBankHolidaySource, ExternalServices.Fulfilment.GovUkBankHolidaySource>(client =>
+        {
+            client.Timeout = ExternalServices.Fulfilment.GovUkBankHolidaySource.RequestTimeout;
+            client.MaxResponseContentBufferSize = ExternalServices.Fulfilment.GovUkBankHolidaySource.MaxResponseBytes;
+        })
+        .RemoveAllResilienceHandlers()
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+#pragma warning restore EXTEXP0001
 #pragma warning disable EXTEXP0001 // This lookup makes one attempt within HttpClient's timeout, without inherited retries.
         services.AddHttpClient<Aonik.Commerce.Services.Fulfilment.IPostcodeLookup, PostcodesIoLookup>(client =>
         {

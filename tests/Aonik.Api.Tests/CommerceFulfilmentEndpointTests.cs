@@ -4,9 +4,12 @@ using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Entities.Fulfilment;
+using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Services.Checkout;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions;
 
 using FluentAssertions;
 
@@ -43,8 +46,7 @@ public class CommerceFulfilmentEndpointTests : IClassFixture<CustomWebApplicatio
         var response = await Client(tenantA).GetAsync("/commerce/config/delivery");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         response.Headers.Vary.Should().Contain("X-Tenant-Id", "A7 — a shared cache must never cross-serve tenants");
-        response.Headers.CacheControl!.Public.Should().BeTrue();
-        response.Headers.CacheControl.MaxAge.Should().Be(TimeSpan.FromMinutes(5));
+        response.Headers.CacheControl!.NoStore.Should().BeTrue();
         var promise = await response.Content.ReadFromJsonAsync<JsonElement>();
         promise.GetProperty("timezone").GetString().Should().Be("Europe/London");
         DateOnly.Parse(promise.GetProperty("earliestDeliveryDate").GetString()!)
@@ -68,6 +70,7 @@ public class CommerceFulfilmentEndpointTests : IClassFixture<CustomWebApplicatio
 
         var admin = await _factory.CreateAuthenticatedClientAsync(
             TestAuthOptions.Create().WithRoles("Operations").WithTenant(tenantId));
+        await SeedCapacitiesAsync(tenantId);
         var upsert = await admin.PutAsJsonAsync("/commerce/admin/fulfilment-calendar", new
         {
             timezone = "Europe/London",
@@ -104,13 +107,13 @@ public class CommerceFulfilmentEndpointTests : IClassFixture<CustomWebApplicatio
         var dates = await response.Content.ReadFromJsonAsync<DeliveryDatesDto>();
         dates.Should().NotBeNull();
         dates!.Timezone.Should().Be("Europe/London");
-        dates.FromDate.Should().Be(dates.EarliestDeliveryDate);
+        dates.FromDate.Should().Be(dates.EarliestDeliveryDate!.Value);
         dates.ToDate.Should().Be(dates.FromDate.AddDays(30));
         dates.Dates.Should().HaveCount(5).And.BeInAscendingOrder().And.OnlyContain(date => date.DayOfWeek == DayOfWeek.Thursday);
 
         var single = await client.GetFromJsonAsync<DeliveryDatesDto>(
             $"/commerce/config/delivery/dates?fromDate={dates.FromDate:yyyy-MM-dd}&days=1");
-        single!.Dates.Should().Equal(dates.EarliestDeliveryDate);
+        single!.Dates.Should().Equal(dates.EarliestDeliveryDate!.Value);
         var maximum = await client.GetFromJsonAsync<DeliveryDatesDto>(
             $"/commerce/config/delivery/dates?fromDate={dates.FromDate:yyyy-MM-dd}&days=62");
         maximum!.ToDate.Should().Be(dates.FromDate.AddDays(61));
@@ -172,6 +175,7 @@ public class CommerceFulfilmentEndpointTests : IClassFixture<CustomWebApplicatio
         await SeedTenantAsync(tenantId);
         var admin = await _factory.CreateAuthenticatedClientAsync(
             TestAuthOptions.Create().WithRoles("Operations").WithTenant(tenantId));
+        await SeedCapacitiesAsync(tenantId);
         var initial = await admin.PutAsJsonAsync("/commerce/admin/fulfilment-calendar", new
         {
             timezone = "Europe/London",
@@ -212,6 +216,112 @@ public class CommerceFulfilmentEndpointTests : IClassFixture<CustomWebApplicatio
         updatedDates.EarliestDeliveryDate.Should().Be(firstDate.AddDays(7));
     }
 
+    [Fact]
+    public async Task ReservationEndpoints_Should_RequireCartAuthorityAndVersion_AndPreserveExpiryOnReplay()
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        await SeedCalendarAsync(tenantId);
+        using var client = Client(tenantId);
+        var date = (await client.GetFromJsonAsync<FulfilmentPromiseDto>("/commerce/config/delivery"))!.EarliestDeliveryDate;
+        var (cartId, token, version) = await SeedCartAsync(tenantId);
+        var route = $"/commerce/carts/{cartId}/delivery-reservation";
+        (await client.GetAsync(route)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        client.DefaultRequestHeaders.Add("X-Cart-Token", token);
+        (await client.PutAsJsonAsync(route, new ReserveDeliveryDateRequest(date))).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", version);
+
+        var response = await client.PutAsJsonAsync(route, new ReserveDeliveryDateRequest(date));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Headers.CacheControl!.NoStore.Should().BeTrue();
+        var first = (await response.Content.ReadFromJsonAsync<CartDeliveryReservationDto>())!;
+        first.Reservation!.Status.Should().Be(DeliveryReservationStatuses.Held);
+        first.Reservation.ExpiresAtUtc.Should().Be(first.Reservation.SelectedAtUtc.AddMinutes(15));
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", first.CartVersion);
+        var replay = await client.PutAsJsonAsync(route, new ReserveDeliveryDateRequest(date));
+        (await replay.Content.ReadFromJsonAsync<CartDeliveryReservationDto>())!.Reservation.Should().Be(first.Reservation);
+
+        var released = await client.DeleteAsync(route);
+        released.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await released.Content.ReadFromJsonAsync<CartDeliveryReservationDto>())!.Reservation!.Status.Should().Be(DeliveryReservationStatuses.Released);
+    }
+
+    [Fact]
+    public async Task CapacityEndpoints_Should_RequireAdminAndExplicitUnit_AndExposeFullVersusUnknown()
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        await SeedCalendarAsync(tenantId);
+        using var client = Client(tenantId);
+        var date = (await client.GetFromJsonAsync<FulfilmentPromiseDto>("/commerce/config/delivery"))!.EarliestDeliveryDate;
+        var route = $"/commerce/admin/delivery-capacity/{date:yyyy-MM-dd}";
+        (await client.PutAsJsonAsync(route, new UpdateDeliveryDateCapacityRequest("box", 0)))
+            .StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+        var admin = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("Operations").WithTenant(tenantId));
+        var customer = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("PersonalUser").WithTenant(tenantId));
+        (await customer.GetAsync($"/commerce/admin/delivery-capacity?fromDate={date:yyyy-MM-dd}&days=1"))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        var configured = (await admin.GetFromJsonAsync<List<DeliveryDateCapacityDto>>($"/commerce/admin/delivery-capacity?fromDate={date:yyyy-MM-dd}&days=1"))!.Single();
+        (await admin.PutAsJsonAsync(route, new UpdateDeliveryDateCapacityRequest("portions", 1, configured.Version)))
+            .StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await admin.PutAsJsonAsync(route, new UpdateDeliveryDateCapacityRequest("box", 0, configured.Version)))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var (cartId, token, version) = await SeedCartAsync(tenantId);
+        client.DefaultRequestHeaders.Add("X-Cart-Token", token);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", version);
+        var reserve = $"/commerce/carts/{cartId}/delivery-reservation";
+        (await client.PutAsJsonAsync(reserve, new ReserveDeliveryDateRequest(date))).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await client.PutAsJsonAsync(reserve, new ReserveDeliveryDateRequest(date.AddDays(140)))).StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
+        var availability = await client.GetFromJsonAsync<DeliveryDatesDto>($"/commerce/config/delivery/dates?fromDate={date:yyyy-MM-dd}&days=2");
+        availability!.Availability!.Select(d => d.Status).Should().Equal("fully_booked", "no_delivery");
+    }
+
+    [Theory]
+    [InlineData("{\"unit\":\"box\"}")]
+    [InlineData("{\"unit\":\"box\",\"capcity\":10}")]
+    public async Task CapacityEndpoints_Should_RejectAbsentCapacity_AndAcceptAnExplicitZero(string json)
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        using var admin = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithRoles("Operations").WithTenant(tenantId));
+        const string writeRoute = "/commerce/admin/delivery-capacity/2030-01-03";
+        const string readRoute = "/commerce/admin/delivery-capacity?fromDate=2030-01-03&days=1";
+        using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+        using var rejected = await admin.PutAsync(writeRoute, content);
+
+        rejected.StatusCode.Should().BeOneOf(HttpStatusCode.BadRequest, HttpStatusCode.UnprocessableEntity);
+        (await admin.GetFromJsonAsync<List<DeliveryDateCapacityDto>>(readRoute)).Should().BeEmpty();
+        using var accepted = await admin.PutAsJsonAsync(writeRoute, new UpdateDeliveryDateCapacityRequest("box", 0));
+        accepted.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await admin.GetFromJsonAsync<List<DeliveryDateCapacityDto>>(readRoute))!.Should()
+            .ContainSingle().Which.Capacity.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task DeliveryDates_Should_WithholdPromise_WhenCalendarExistsButCapacityWasNotAuthored()
+    {
+        var tenantId = Guid.NewGuid();
+        await SeedTenantAsync(tenantId);
+        await SeedCalendarAsync(tenantId);
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            db.DeliveryDateCapacities.RemoveRange(await db.DeliveryDateCapacities.Where(row => row.TenantId == tenantId).ToListAsync());
+            await db.SaveChangesAsync();
+        }
+        using var client = Client(tenantId);
+
+        (await client.GetAsync("/commerce/config/delivery")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+        var dates = (await client.GetFromJsonAsync<DeliveryDatesDto>("/commerce/config/delivery/dates"))!;
+        dates.EarliestDeliveryDate.Should().BeNull();
+        dates.Dates.Should().BeEmpty();
+        dates.Availability.Should().Contain(date => date.Status == "unknown");
+    }
+
     // ─── Seeding ─────────────────────────────────────────────────────────────
 
     private HttpClient Client(Guid tenantId)
@@ -239,6 +349,7 @@ public class CommerceFulfilmentEndpointTests : IClassFixture<CustomWebApplicatio
 
     private async Task SeedCalendarAsync(Guid tenantId)
     {
+        await SeedCapacitiesAsync(tenantId);
         await using var scope = _factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
         scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
@@ -253,5 +364,33 @@ public class CommerceFulfilmentEndpointTests : IClassFixture<CustomWebApplicatio
             IsActive = true,
         });
         await db.SaveChangesAsync();
+    }
+
+    private async Task SeedCapacitiesAsync(Guid tenantId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        var today = DateOnly.FromDateTime(scope.ServiceProvider.GetRequiredService<IClock>().UtcNow);
+        db.DeliveryDateCapacities.AddRange(Enumerable.Range(0, 120).Select(offset => new DeliveryDateCapacity
+        {
+            TenantId = tenantId, DeliveryDate = today.AddDays(offset), Unit = "box", Capacity = 20
+        }));
+        await db.SaveChangesAsync();
+    }
+
+    private async Task<(Guid Id, string Token, string Version)> SeedCartAsync(Guid tenantId)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+        var cart = new Cart
+        {
+            TenantId = tenantId, Currency = "GBP", BoxBundleProductId = Guid.NewGuid(), BoxSize = 6,
+            AnonymousToken = CartAccess.MintToken()
+        };
+        db.Carts.Add(cart);
+        await db.SaveChangesAsync();
+        return (cart.Id, cart.AnonymousToken, Convert.ToBase64String(cart.RowVersion));
     }
 }

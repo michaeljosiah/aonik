@@ -50,6 +50,7 @@ internal sealed class CheckoutPaymentService(
                     Id = attemptId, TenantId = tenantId, OrderId = order.Id, Amount = request.Amount,
                     Currency = "GBP", PayerPartyId = payer, PurposeType = "Order", PurposeId = order.Id,
                     PaymentMethodType = "Card", ProviderCode = "Stripe", IdempotencyKey = request.IdempotencyKey,
+                    ProviderStartDeadlineUtc = request.ProviderStartDeadlineUtc,
                     Status = nameof(PaymentStatus.Pending)
                 };
                 db.PaymentIntents.Add(intent);
@@ -135,20 +136,32 @@ internal sealed class CheckoutPaymentService(
         {
             if (request is null || intent.Status != nameof(PaymentStatus.Pending))
                 throw new InvalidStateException("This payment attempt cannot start another provider request.");
-            var binding = await connectors.ResolveSelectedAsync(cancellationToken);
-            if (binding.TenantId != intent.TenantId)
-                throw new InvalidStateException("The payment connector belongs to another tenant.");
-            var providerRequest = new PaymentProviderIntentRequest(intent.OrderId, intent.Amount, intent.Currency,
-                "Card", ReturnUrl(request.ReturnUrl, binding.ReturnOrigin), ReturnUrl(request.CancelUrl, binding.ReturnOrigin),
+            var deadlineReached = intent.ProviderStartDeadlineUtc is { } deadline && clock.UtcNow >= deadline;
+            StripeConnectorBinding? binding = null;
+            if (!deadlineReached)
+            {
+                binding = await connectors.ResolveSelectedAsync(cancellationToken);
+                if (binding.TenantId != intent.TenantId)
+                    throw new InvalidStateException("The payment connector belongs to another tenant.");
+            }
+            var startedAt = clock.UtcNow;
+            deadlineReached |= intent.ProviderStartDeadlineUtc is { } currentDeadline && startedAt >= currentDeadline;
+            var providerRequest = deadlineReached ? null : new PaymentProviderIntentRequest(intent.OrderId, intent.Amount, intent.Currency,
+                "Card", ReturnUrl(request.ReturnUrl, binding!.ReturnOrigin), ReturnUrl(request.CancelUrl, binding.ReturnOrigin),
                 $"ORD-{intent.OrderId:N}", intent.Id, binding.ConnectorId, binding.ProviderAccountId, binding.LiveMode, intent.IdempotencyKey);
             // A native row-version race with local cancellation must be won BEFORE any HTTP.
+            // Missing state is not closure: even an expired first call persists this exact attempt,
+            // then claims Cancelled so a delayed creator cannot subsequently start its provider request.
             db.Attach(intent);
-            intent.ConnectorId = binding.ConnectorId;
-            intent.ProviderAccountId = binding.ProviderAccountId;
-            intent.ProviderLiveMode = binding.LiveMode;
-            intent.ProviderCreateRequestJson = JsonSerializer.Serialize(providerRequest);
-            intent.ProviderRequestStartedAtUtc = clock.UtcNow;
-            intent.Status = nameof(PaymentStatus.Processing);
+            intent.Status = deadlineReached ? nameof(PaymentStatus.Cancelled) : nameof(PaymentStatus.Processing);
+            if (providerRequest is not null)
+            {
+                intent.ConnectorId = binding!.ConnectorId;
+                intent.ProviderAccountId = binding.ProviderAccountId;
+                intent.ProviderLiveMode = binding.LiveMode;
+                intent.ProviderCreateRequestJson = JsonSerializer.Serialize(providerRequest);
+                intent.ProviderRequestStartedAtUtc = startedAt;
+            }
             try { await db.SaveChangesAsync(cancellationToken); }
             catch (DbUpdateConcurrencyException)
             {
@@ -163,6 +176,7 @@ internal sealed class CheckoutPaymentService(
                 throw;
             }
             db.Entry(intent).State = EntityState.Detached;
+            if (deadlineReached) return Response(intent);
         }
 
         // Stripe may discard idempotency keys after 24 hours. A stale unknown create requires
@@ -193,6 +207,8 @@ internal sealed class CheckoutPaymentService(
 
     private static void ValidateRequest(CreateCommerceGuestPaymentIntentRequest request)
     {
+        if (request.ProviderStartDeadlineUtc is { Kind: not DateTimeKind.Utc })
+            throw new InvalidStateException("The provider start deadline must be UTC.");
         if (request.PaymentIntentId is null || request.PaymentIntentId == Guid.Empty
             || string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 200
             || request.IdempotencyKey.Any(char.IsControl))
@@ -209,7 +225,8 @@ internal sealed class CheckoutPaymentService(
         RequireStripe(intent);
         if (intent.OrderId != request.OrderId || intent.Amount != request.Amount
             || !string.Equals(intent.Currency, request.Currency, StringComparison.OrdinalIgnoreCase)
-            || intent.IdempotencyKey != request.IdempotencyKey || intent.PaymentMethodType != "Card")
+            || intent.IdempotencyKey != request.IdempotencyKey || intent.PaymentMethodType != "Card"
+            || intent.ProviderStartDeadlineUtc != request.ProviderStartDeadlineUtc)
             throw new InvalidStateException("This payment attempt is bound to different checkout details.");
     }
 

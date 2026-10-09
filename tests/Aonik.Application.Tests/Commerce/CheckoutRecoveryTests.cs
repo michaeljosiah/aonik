@@ -1,5 +1,6 @@
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Entities.Inventory;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.SharedKernel.Abstractions;
@@ -11,6 +12,41 @@ namespace Aonik.Application.Tests.Commerce;
 
 public sealed class CheckoutRecoveryTests
 {
+    [Theory]
+    [InlineData(9, false)]
+    [InlineData(10, true)]
+    [InlineData(30, true)]
+    public async Task PaymentReadsAndReplay_Should_WithholdPaymentLinksAtTheDeadline_WithoutReleasingCapacity(
+        int minutesAfterStart, bool expired)
+    {
+        var (harness, box, checkout) = await PendingAsync();
+        var started = harness.Clock.UtcNow;
+        checkout.ClientSecret.Should().NotBeNullOrEmpty();
+        checkout.CheckoutUrl.Should().NotBeNullOrEmpty();
+        harness.Payments.States[checkout.PaymentIntentId] = harness.Payments.States[checkout.PaymentIntentId]
+            with { Status = "RequiresAction" };
+        harness.Clock.UtcNow = started.AddMinutes(minutesAfterStart);
+        var access = CartAccessContext.ForGuest(box.CartToken);
+
+        var state = await harness.Checkout().GetPaymentStateAsync(box.Box.CartId, access);
+        var replay = await harness.Checkout().CheckoutAsync(new(box.Box.CartId, "", ""), access);
+
+        state.Status.Should().Be(expired ? "processing" : "requires_action");
+        state.CanEdit.Should().BeFalse();
+        state.CheckoutUrl.Should().Be(expired ? null : checkout.CheckoutUrl);
+        replay.CheckoutUrl.Should().Be(expired ? null : checkout.CheckoutUrl);
+        replay.ClientSecret.Should().Be(expired ? null : checkout.ClientSecret);
+        replay.PaymentStatus.Should().Be("RequiresAction");
+        replay.PaymentIntentId.Should().Be(checkout.PaymentIntentId);
+        harness.Payments.Calls.Should().Be(1);
+        await using var context = harness.Commerce();
+        var hold = await context.CartDeliveryReservations.SingleAsync();
+        hold.Status.Should().Be(DeliveryReservationStatuses.PaymentPending);
+        hold.PaymentStartedAtUtc.Should().Be(started);
+        hold.PaymentDeadlineUtc.Should().Be(started.AddMinutes(10));
+        (await context.InventoryLevels.SingleAsync()).Reserved.Should().Be(6);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -50,13 +86,15 @@ public sealed class CheckoutRecoveryTests
         cancelled.OrderId.Should().Be(first.OrderId);
         cancelled.CheckoutUrl.Should().BeNull();
         (await harness.Inventory().GetAvailableAsync(box.Box.Lines.Single().VariantId)).Should().Be(10m);
+        await using (var released = harness.Commerce())
+            (await released.CartDeliveryReservations.SingleAsync()).Status.Should().Be(DeliveryReservationStatuses.Released);
         var revisedDelivery = BoxTestHarness.ValidDelivery with
         {
             Address = BoxTestHarness.ValidDelivery.Address with { Line1 = "2 Revised Street" }
         };
         var second = await harness.Checkout().CheckoutAsync(
             new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: revisedDelivery),
-            CartAccessContext.ForGuest(box.CartToken, cancelled.CartVersion));
+            await harness.HoldDeliveryAsync(box.Box.CartId, CartAccessContext.ForGuest(box.CartToken, cancelled.CartVersion)));
 
         second.OrderId.Should().Be(first.OrderId);
         second.PaymentIntentId.Should().NotBe(first.PaymentIntentId);
@@ -108,7 +146,7 @@ public sealed class CheckoutRecoveryTests
             await CurrentAccessAsync(harness, box));
         var second = await harness.Checkout().CheckoutAsync(
             new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery),
-            CartAccessContext.ForGuest(box.CartToken, cancelled.CartVersion));
+            await harness.HoldDeliveryAsync(box.Box.CartId, CartAccessContext.ForGuest(box.CartToken, cancelled.CartVersion)));
 
         var recover = () => harness.Checkout().RecoverAsync(box.Box.CartId, first.PaymentIntentId,
             CartAccessContext.ForGuest(box.CartToken, cancelled.CartVersion));
@@ -182,6 +220,7 @@ public sealed class CheckoutRecoveryTests
         (await commerce.Carts.SingleAsync()).Status.Should().Be(CartStatuses.CheckedOut);
         (await commerce.OrderChargeSummaries.SingleAsync()).PaymentStatus.Should().Be(CheckoutPaymentStatuses.Captured);
         (await commerce.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Committed);
+        (await commerce.CartDeliveryReservations.SingleAsync()).Status.Should().Be(DeliveryReservationStatuses.Committed);
         var stock = await commerce.InventoryLevels.SingleAsync();
         stock.OnHand.Should().Be(4m);
         stock.Reserved.Should().Be(0m);
@@ -210,7 +249,7 @@ public sealed class CheckoutRecoveryTests
         var full = await harness.BoxCarts().AddLineAsync(created.Box.CartId,
             new AddBoxLineCommand(fixture.DishVariants["jollof"], 6, null),
             CartAccessContext.ForGuest(created.CartToken, created.CartVersion));
-        var box = full with { CartToken = created.CartToken };
+        var box = await harness.HoldDeliveryAsync(full with { CartToken = created.CartToken });
         var checkout = await harness.Checkout().CheckoutAsync(
             new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery),
             CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
@@ -234,5 +273,6 @@ public sealed class CheckoutRecoveryTests
         var stock = await commerce.InventoryLevels.SingleAsync();
         stock.OnHand.Should().Be(10m);
         stock.Reserved.Should().Be(6m);
+        (await commerce.CartDeliveryReservations.SingleAsync()).Status.Should().Be(DeliveryReservationStatuses.PaymentPending);
     }
 }
