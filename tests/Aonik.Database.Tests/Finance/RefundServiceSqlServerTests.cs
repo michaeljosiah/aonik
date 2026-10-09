@@ -4,6 +4,7 @@ using System.Text.Json;
 using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
+using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.GiftCards;
@@ -270,6 +271,58 @@ public sealed partial class CheckoutPaymentReconciliationSqlServerTests
         await using var verify = h.NewScope();
         (await verify.ServiceProvider.GetRequiredService<FinanceDbContext>().Refunds.SingleAsync(x => x.Id == request.RefundId))
             .Status.Should().Be("Succeeded");
+    }
+
+    [SkippableTheory]
+    [InlineData("pending")]
+    [InlineData("requires_action")]
+    public async Task Refund_Should_PreserveConfirmedFailureWhenOlderProviderObservationArrives(string providerStatus)
+    {
+        RequireSql();
+        var source = new RefundSource();
+        await using var h = await BuildRefundAsync(source);
+        await SeedCashRefundSourceAsync(h, source);
+        h.Gateway.InitialRefundStatus = providerStatus;
+        var request = await PreviewRefundAsync(h, 5m);
+        await RequestRefundAsync(h, request);
+        await ReconcileRefundAsync(h, request.RefundId);
+        var olderObservation = h.Gateway.RefundStates[request.RefundId];
+        var eventId = Guid.NewGuid();
+        await using (var scope = h.NewScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+            db.PartnerWebhookEvents.Add(new PartnerWebhookEvent
+            {
+                Id = eventId, TenantId = h.Intent.TenantId, ConnectorId = olderObservation.ConnectorId,
+                ProviderCode = "Stripe", Category = "Refund", EventType = "refund.updated",
+                ProviderEventId = "evt_" + eventId.ToString("N"), PayloadHash = eventId.ToString("N"),
+                ProviderReference = olderObservation.ProviderRefundId, ClientReference = request.RefundId.ToString("N"),
+                SignatureValid = true, ReceivedAt = DateTime.UtcNow, ProcessingStatus = "Received"
+            });
+            await db.SaveChangesAsync();
+        }
+        h.Gateway.RefundStates[request.RefundId] = olderObservation with { Status = "failed" };
+        await ReconcileRefundAsync(h, request.RefundId);
+
+        // A different worker can finish an earlier provider read after the failure committed.
+        await using (var lateWorker = h.NewScope())
+            await lateWorker.ServiceProvider.GetRequiredService<RefundService>()
+                .ApplyAsync(request.RefundId, olderObservation, eventId);
+
+        await using var verify = h.NewScope();
+        var verifyDb = verify.ServiceProvider.GetRequiredService<FinanceDbContext>();
+        var refund = await verifyDb.Refunds.SingleAsync(x => x.Id == request.RefundId);
+        refund.Status.Should().Be("Failed");
+        refund.EffectsAppliedAtUtc.Should().BeNull();
+        (await verifyDb.JournalEntries.CountAsync(x => x.TenantId == h.Intent.TenantId && x.SourceId == request.RefundId))
+            .Should().Be(0);
+        var inbox = await verifyDb.PartnerWebhookEvents.SingleAsync(x => x.Id == eventId);
+        inbox.ProcessingStatus.Should().Be("Processed");
+        inbox.ProcessedAt.Should().NotBeNull();
+        var context = await verify.ServiceProvider.GetRequiredService<RefundService>().GetAsync(h.Intent.OrderId);
+        context.CanRequest.Should().BeTrue("a proven failed refund must not re-hold the order budget");
+        context.RemainingTotal.Should().Be(23.45m);
+        h.Gateway.RefundRequests.Should().ContainSingle();
     }
 
     [SkippableFact]

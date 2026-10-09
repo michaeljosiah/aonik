@@ -185,7 +185,7 @@ internal sealed partial class RefundService
                 if (changed) service.History(row, snapshot, "RefundFailed");
             }
         }
-        else if (row.EffectsAppliedAtUtc is null)
+        else if (row.EffectsAppliedAtUtc is null && row.Status != "Failed")
         {
             row.Status = status is "pending" or "requires_action" ? "Pending" : "Unknown";
             row.FailureReason = "The original refund is awaiting a confirmed provider outcome.";
