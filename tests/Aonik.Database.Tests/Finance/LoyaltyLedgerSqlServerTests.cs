@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Text.Json;
 
 using Aonik.Finance.Entities.Ledger;
@@ -141,6 +142,62 @@ public class LoyaltyLedgerSqlServerTests(SqlLocalDbFixture database) : IClassFix
         (firstPage.Items.Single().Points + secondPage.Items.Single().Points).Should().Be(100);
     }
 
+    [SkippableFact]
+    public async Task RefundRacingAfterCumulativeRead_Should_RetryAndRejectExcessOriginalAllocation()
+    {
+        var test = await SeedAsync();
+        var paid = await EarnAsync(test, isGuest: false);
+        var pause = new PauseRead(command => command.CommandText.Contains("AnkLoyaltyOperations", StringComparison.Ordinal)
+            && command.Parameters.Cast<DbParameter>().Any(parameter => Equals(parameter.Value, "ClaimIn")));
+        await using var first = Context(test, pause);
+        await using var second = Context(test);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var firstRefund = new LoyaltyRefund(Guid.NewGuid(), paid.OrderId, paid.IntentId, [new(paid.LineId, 150, 0)]);
+        var pending = Service(first, test).ReverseRefundAsync(firstRefund, timeout.Token);
+        try
+        {
+            await pause.Reached.Task.WaitAsync(TimeSpan.FromSeconds(20), timeout.Token);
+            await Service(second, test).ReverseRefundAsync(firstRefund with { RefundId = Guid.NewGuid() }, timeout.Token);
+        }
+        finally { pause.Release.TrySetResult(); }
+
+        var staleRefund = async () => await pending;
+        await staleRefund.Should().ThrowAsync<InvalidStateException>().WithMessage("*exceeds the original*");
+        await first.SaveChangesAsync(timeout.Token);
+
+        await using var verify = Context(test);
+        (await Service(verify, test).GetBalanceAsync(test.PartyId)).BalancePoints.Should().Be(50);
+        (await verify.LoyaltyOperations.CountAsync(row => row.Kind == "EarnReverse")).Should().Be(1);
+        (await verify.JournalEntries.CountAsync(row => row.SourceType == "LoyaltyEarnReverse")).Should().Be(1);
+    }
+
+    [SkippableFact]
+    public async Task RefundRacingWithGuestClaimBeforeOwnerRead_Should_ReverseTheVerifiedOwner()
+    {
+        var test = await SeedAsync();
+        var paid = await EarnAsync(test, isGuest: true);
+        var pause = new PauseRead(command => command.CommandText.Contains("AnkLoyaltyAccounts", StringComparison.Ordinal));
+        await using var refundContext = Context(test, pause);
+        await using var claimContext = Context(test);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+        var pending = Service(refundContext, test).ReverseRefundAsync(
+            new(Guid.NewGuid(), paid.OrderId, paid.IntentId, [new(paid.LineId, 50, 0)]), timeout.Token);
+        try
+        {
+            await pause.Reached.Task.WaitAsync(TimeSpan.FromSeconds(20), timeout.Token);
+            await Service(claimContext, test).AttachVerifiedGuestAsync(Verified(test, paid, test.AccountPartyId), timeout.Token);
+        }
+        finally { pause.Release.TrySetResult(); }
+        await pending;
+
+        await using var verify = Context(test);
+        var service = Service(verify, test);
+        (await service.GetBalanceAsync(test.PartyId)).BalancePoints.Should().Be(0);
+        (await service.GetBalanceAsync(test.AccountPartyId)).BalancePoints.Should().Be(150);
+        var owner = await verify.LoyaltyAccounts.SingleAsync(row => row.PartyId == test.AccountPartyId);
+        (await verify.LoyaltyOperations.SingleAsync(row => row.Kind == "EarnReverse")).AccountId.Should().Be(owner.Id);
+    }
+
     private async Task<Seed> SeedAsync()
     {
         Skip.IfNot(database.IsAvailable, database.SkipReason ?? "SQL Server unavailable.");
@@ -249,6 +306,24 @@ public class LoyaltyLedgerSqlServerTests(SqlLocalDbFixture database) : IClassFix
             if (eventData.Context!.ChangeTracker.Entries<LoyaltyOperation>().Any(entry => entry.State == EntityState.Added))
                 throw new InvalidOperationException("Injected operation failure");
             return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class PauseRead(Func<DbCommand, bool> matches) : DbCommandInterceptor
+    {
+        private int _paused;
+        public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override async ValueTask<InterceptionResult<DbDataReader>> ReaderExecutingAsync(DbCommand command,
+            CommandEventData eventData, InterceptionResult<DbDataReader> result, CancellationToken cancellationToken = default)
+        {
+            if (matches(command) && Interlocked.CompareExchange(ref _paused, 1, 0) == 0)
+            {
+                Reached.TrySetResult();
+                await Release.Task.WaitAsync(TimeSpan.FromSeconds(25), cancellationToken);
+            }
+            return result;
         }
     }
 }

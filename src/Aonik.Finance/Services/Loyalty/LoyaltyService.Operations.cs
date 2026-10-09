@@ -60,6 +60,13 @@ internal sealed partial class LoyaltyService
                     throw new InvalidStateException("The refund was already recorded with different facts.");
                 return true;
             }
+            var earned = await OperationAsync("Earn", command.OrderId, ct)
+                ?? throw new InvalidStateException("The original loyalty award is unavailable.");
+            var redeemed = await OperationAsync("Redeem", command.PaymentIntentId, ct)
+                ?? throw new InvalidStateException("The original loyalty redemption is unavailable.");
+            // Capture the version BEFORE reading cumulative refunds or a later owner claim.
+            // Every writer of those facts touches this owner; a concurrent change forces a fresh calculation.
+            var originalOwner = await OwnedAccountAsync(earned.AccountId, ct);
             var previousJson = await db.LoyaltyOperations.AsNoTracking()
                 .Where(x => x.TenantId == TenantId && x.Kind == "EarnReverse" && x.OrderId == command.OrderId)
                 .Select(x => x.DetailsJson).ToListAsync(ct);
@@ -74,12 +81,7 @@ internal sealed partial class LoyaltyService
                     || checked(earlier.Sum(x => x.RedeemedPointsToRestore) + line.RedeemedPointsToRestore) > saved.RedeemedPoints)
                     throw new InvalidStateException("The refund exceeds the original line point allocation.");
             }
-            var earned = await OperationAsync("Earn", command.OrderId, ct)
-                ?? throw new InvalidStateException("The original loyalty award is unavailable.");
-            var redeemed = await OperationAsync("Redeem", command.PaymentIntentId, ct)
-                ?? throw new InvalidStateException("The original loyalty redemption is unavailable.");
             var claim = await OperationAsync("ClaimIn", earned.Id, ct);
-            var originalOwner = await OwnedAccountAsync(earned.AccountId, ct);
             var earnOwner = claim is null ? originalOwner : await OwnedAccountAsync(claim.AccountId, ct);
             var redeemOwner = await OwnedAccountAsync(redeemed.AccountId, ct);
             // Claim and reversal always contend on the original owner's native version.
