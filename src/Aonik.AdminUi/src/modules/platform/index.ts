@@ -39,6 +39,7 @@ import {
 } from '@/pages/settings';
 import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
 import { TasksPage } from '@/pages/tasks';
+import { ContactEnquiriesPage, ContactEnquiryDetailPage } from '@/pages/contact/ContactEnquiriesPage';
 import {
   ObservabilityPage,
   ObservabilityTopologyPage,
@@ -72,6 +73,7 @@ const navigation: NavigationSection[] = [
         icon: 'Building2',
         href: '/customers',
       },
+      { id: 'contact-enquiries', label: 'Contact enquiries', icon: 'Mail', href: '/contact-enquiries' },
     ],
   },
   {
@@ -161,6 +163,8 @@ const navigation: NavigationSection[] = [
 // Routes
 // ---------------------------------------------------------------------------
 const routes: ModuleRouteConfig[] = [
+  { screen: { id: 'contact-enquiries', label: 'Contact enquiries', permissions: { allOf: ['Customers.Read'] }, policy: 'AdminReadPolicy', icon: 'mail' }, path: '/contact-enquiries', element: ContactEnquiriesPage },
+  { screen: { id: 'contact-enquiry-detail', label: 'Contact enquiry', permissions: { allOf: ['Customers.Read'] }, policy: 'AdminReadPolicy', icon: 'mail' }, path: '/contact-enquiries/:id', element: ContactEnquiryDetailPage, isDynamic: true },
   // Platform-owned registry and compliance surfaces (Spec 097 §10.1): never module-gated.
   { screen: { id: "customers", label: "Customers", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "users" }, path: '/customers', element: CustomersListPage },
   { screen: { id: "customer-detail", label: "Customer", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "users" }, path: '/customers/:partyId', element: CustomerDetailPage, isDynamic: true },
@@ -293,6 +297,7 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
+  { pathPrefix: '/contact-enquiries', trail: ['Contact enquiries'] },
   { pathPrefix: '/customers', trail: ['Customers'] },
   { pathPrefix: '/compliance', trail: ['Documents'] },
   { pathPrefix: '/access', trail: ['Team'] },

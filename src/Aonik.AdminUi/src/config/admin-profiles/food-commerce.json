@@ -30,6 +30,8 @@
     "workspace": {},
     "customers": {},
     "customer-detail": {},
+    "contact-enquiries": {},
+    "contact-enquiry-detail": {},
     "access.users": {},
     "access.user-detail": {},
     "access.roles": {},
@@ -116,6 +118,9 @@
       "items": [
         {
           "screen": "customers"
+        },
+        {
+          "screen": "contact-enquiries"
         },
         {
           "id": "team",

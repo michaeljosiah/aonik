@@ -49,6 +49,7 @@ builder.Services.AddAonikCors(builder.Configuration);
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
 builder.Services.AddDeliveryCoverageRateLimit(builder.Configuration);
 builder.Services.AddAccountAccessRateLimit(builder.Configuration);
+builder.Services.AddContactEnquiryRateLimit(builder.Configuration);
 
 // FastEndpoints — explicitly enumerate the module assemblies so endpoints
 // AND validators (Validator<TRequest>) defined in each module are
@@ -169,6 +170,18 @@ app.UseAonikExceptionHandler(app.Environment);
 // Sensitive routes remain private even when auth, tenant resolution or binding rejects them early.
 app.Use(async (context, next) =>
 {
+    if (context.Request.Path.StartsWithSegments("/v1/contact-enquiries")
+        || context.Request.Path.StartsWithSegments("/v1/admin/contact-enquiries"))
+    {
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            return Task.CompletedTask;
+        });
+    }
+
     if (context.Request.Path.StartsWithSegments("/identity/account-access")
         || context.Request.Path.StartsWithSegments("/identity/email-change")
         || context.Request.Path.StartsWithSegments("/identity/password/forgot")

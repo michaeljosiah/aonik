@@ -153,6 +153,13 @@ public static class DependencyInjection
 
         services.AddHostedService<ProfilePhotoStorageInitializer>();
 
+        services.Configure<ClamAvOptions>(configuration.GetSection(ClamAvOptions.SectionName));
+        services.AddSingleton<ClamAvScanner>();
+        services.AddSingleton<Aonik.Platform.Contracts.Services.ContactEnquiries.IContactImageProcessor, ContactImageProcessor>();
+        services.AddKeyedScoped<IFileStore>(FileStoreKeys.ContactImages, (sp, _) =>
+            new ContactImageFileStore(sp.GetRequiredService<IBlobStorageFactory>(),
+                sp.GetRequiredService<IOptions<BlobStorageOptions>>(), environment));
+
         // Multitenancy
 
         services.AddHttpContextAccessor();

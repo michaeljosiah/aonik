@@ -105,6 +105,8 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IPayaboSetupProfileService, PayaboSetupProfileService>();
         services.AddScoped<IPublicBusinessProfileService, PublicBusinessProfileService>();
         services.AddScoped<ISignupListService, SignupListService>();
+        services.AddScoped<Aonik.Platform.Contracts.Services.ContactEnquiries.IContactEnquiryService,
+            Aonik.Platform.Services.ContactEnquiries.ContactEnquiryService>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Ai.ITenantTextToSpeechSettingsService, TenantTextToSpeechSettingsService>();
         // Voice provider settings — same JSON-payload-on-existing-Settings-table pattern as TTS.
         // See docs/specifications/022.aonik-voice-realtime.md Phase 2.

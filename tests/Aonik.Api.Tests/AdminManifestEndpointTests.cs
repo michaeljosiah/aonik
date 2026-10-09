@@ -189,6 +189,7 @@ public class AdminManifestEndpointTests : IClassFixture<CustomWebApplicationFact
 
         // Assert
         manifest!.AllowedPolicies.Should().Contain("AdminUserPolicy");
+        manifest.AllowedPolicies.Should().Contain("AdminReadPolicy", "staff contact-enquiry pages use the same policy as their read endpoints");
         manifest.AllowedPolicies.Contains("AdminPolicy").Should().Be(admin);
         manifest.AllowedPolicies.Contains("AdminUserWritePolicy").Should().Be(write);
         manifest.AllowedPolicies.Should().NotContain("PlatformAdmin");

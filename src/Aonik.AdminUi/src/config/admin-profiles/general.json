@@ -60,6 +60,8 @@
     "settings.fx-rates": {},
     "customers": {},
     "customer-detail": {},
+    "contact-enquiries": {},
+    "contact-enquiry-detail": {},
     "compliance": {},
     "documents": {},
     "document-new": {},
@@ -119,6 +121,9 @@
         },
         {
           "screen": "customers"
+        },
+        {
+          "screen": "contact-enquiries"
         },
         {
           "screen": "approvals"

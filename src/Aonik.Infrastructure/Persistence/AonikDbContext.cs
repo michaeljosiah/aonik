@@ -31,6 +31,7 @@ using Aonik.Finance.Entities.Pricing;
 using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.SignupLists;
+using Aonik.Platform.Entities.ContactEnquiries;
 using Aonik.Ai.Entities;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
@@ -101,6 +102,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
     public virtual DbSet<MarketingPreference> MarketingPreferences { get; set; } = null!;
     public virtual DbSet<SignupSubscription> SignupSubscriptions { get; set; } = null!;
+    public virtual DbSet<ContactEnquiry> ContactEnquiries { get; set; } = null!;
+    public virtual DbSet<ContactEnquiryAttachment> ContactEnquiryAttachments { get; set; } = null!;
 
     // CMS
     public virtual DbSet<ContentBlock> ContentBlocks { get; set; } = null!;
@@ -460,6 +463,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapPlatformTable<NotificationPreference>(modelBuilder, "NotificationPreferences");
         MapPlatformTable<MarketingPreference>(modelBuilder, "MarketingPreferences");
         MapPlatformTable<SignupSubscription>(modelBuilder, "SignupSubscriptions");
+        MapPlatformTable<ContactEnquiry>(modelBuilder, "ContactEnquiries");
+        MapPlatformTable<ContactEnquiryAttachment>(modelBuilder, "ContactEnquiryAttachments");
 
         MapPlatformTable<ContentBlock>(modelBuilder, "ContentBlocks");
         MapPlatformTable<ContentBlockMedia>(modelBuilder, "ContentBlockMedia");

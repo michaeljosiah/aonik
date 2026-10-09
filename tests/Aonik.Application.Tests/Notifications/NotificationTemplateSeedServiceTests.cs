@@ -1,6 +1,7 @@
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Seeding;
+using Aonik.Platform.Services.ContactEnquiries;
 using Aonik.SharedKernel.Abstractions.Messaging;
 using Aonik.TestSupport.Multitenancy;
 
@@ -17,7 +18,9 @@ public sealed class NotificationTemplateSeedServiceTests
         TransactionalEmailTemplateNames.OrderConfirmation,
         TransactionalEmailTemplateNames.AccountSetupAccess,
         TransactionalEmailTemplateNames.PasswordReset,
-        TransactionalEmailTemplateNames.EmailChangeConfirmation
+        TransactionalEmailTemplateNames.EmailChangeConfirmation,
+        ContactEnquiryEmailTemplates.Staff,
+        ContactEnquiryEmailTemplates.Acknowledgement
     ];
 
     [Fact]
@@ -32,7 +35,7 @@ public sealed class NotificationTemplateSeedServiceTests
 
         (await context.NotificationTemplates.Select(x => x.Id).ToArrayAsync()).Should().BeEquivalentTo(firstIds);
         var templates = await context.NotificationTemplates.Where(x => TransactionalNames.Contains(x.Name)).ToListAsync();
-        templates.Should().HaveCount(4);
+        templates.Should().HaveCount(6);
         templates.Should().OnlyContain(x => x.TenantId == null && x.IsShared && x.IsActive && x.Channel == "Email");
         templates.Select(x => x.Name).Should().BeEquivalentTo(TransactionalNames);
         templates.Should().OnlyContain(x => x.BodyTemplate.Contains("brand.display_name | escape")
@@ -78,7 +81,7 @@ public sealed class NotificationTemplateSeedServiceTests
         (await context.NotificationTemplateBindings.SingleAsync(x => x.Id == binding.Id))
             .OverrideTemplateId.Should().Be(custom.Id);
         (await context.NotificationTemplates.CountAsync(x => x.TenantId == null
-            && TransactionalNames.Contains(x.Name))).Should().Be(4);
+            && TransactionalNames.Contains(x.Name))).Should().Be(6);
     }
 
     private static PlatformDbContext CreateContext(Guid tenantId)
