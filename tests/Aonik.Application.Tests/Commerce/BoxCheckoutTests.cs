@@ -38,7 +38,7 @@ public class BoxCheckoutTests
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 4, null), Token(box));
         var full = await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(
             f.DishVariants["jollof"], 2, Sel("""{"protein":"salmon"}""")), Token(box));
-        return (h, f, full with { CartToken = box.CartToken });
+        return (h, f, await h.HoldDeliveryAsync(full with { CartToken = box.CartToken }));
     }
 
     [Fact]

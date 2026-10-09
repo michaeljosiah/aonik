@@ -59,8 +59,19 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
             return null;
         }
 
-        var earliest = FulfilmentPromiseCalculator.EarliestDelivery(calendar, _clock.UtcNow);
-        return earliest is { } date ? new FulfilmentPromiseDto(date, calendar.Timezone) : null;
+        var now = _clock.UtcNow;
+        if (FulfilmentPromiseCalculator.EarliestDelivery(calendar, now) is not { } earliest) return null;
+        var days = Math.Min(FulfilmentPromiseCalculator.MaxOfferedDays, DateOnly.MaxValue.DayNumber - earliest.DayNumber + 1);
+        var eligible = FulfilmentPromiseCalculator.DeliveryDates(calendar, now, earliest, days)!;
+        var availability = await DeliveryReservationService.ReadAvailabilityAsync(_dbContext, tenantId, eligible.Dates, now, cancellationToken);
+        foreach (var date in eligible.Dates)
+        {
+            // An unknown earlier pool prevents asserting that a later date is the next one.
+            if (availability[date].Status == DeliveryAvailabilityStatuses.Unknown) return null;
+            if (availability[date].Status == DeliveryAvailabilityStatuses.Available)
+                return new FulfilmentPromiseDto(date, calendar.Timezone);
+        }
+        return null;
     }
 
     public async Task<FulfilmentCalendarDto?> GetCalendarAsync(CancellationToken cancellationToken = default)
@@ -69,7 +80,7 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
         var calendar = await _dbContext.FulfilmentCalendars
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.TenantId == tenantId, cancellationToken);
-        return calendar is null ? null : Map(calendar);
+        return calendar is null ? null : Map(calendar) with { CurrentPromise = await GetEarliestDeliveryAsync(cancellationToken) };
     }
 
     public async Task<DeliveryDatesDto?> GetDeliveryDatesAsync(
@@ -80,13 +91,29 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
         var calendar = await _dbContext.FulfilmentCalendars.AsNoTracking()
             .FirstOrDefaultAsync(c => c.TenantId == tenantId && !c.IsDeleted, cancellationToken);
         var now = _clock.UtcNow;
-        return calendar is null ? null : FulfilmentPromiseCalculator.DeliveryDates(calendar, now, fromDate, days);
+        var eligible = calendar is null ? null : FulfilmentPromiseCalculator.DeliveryDates(calendar, now, fromDate, days);
+        if (eligible is null) return null;
+        var availability = await DeliveryReservationService.ReadAvailabilityAsync(_dbContext, tenantId, eligible.Dates, now, cancellationToken);
+        var results = Enumerable.Range(0, days).Select(offset => eligible.FromDate.AddDays(offset))
+            .Select(date => availability.GetValueOrDefault(date) ?? new DeliveryDateAvailabilityDto(date, DeliveryAvailabilityStatuses.NoDelivery)).ToList();
+        return eligible with
+        {
+            EarliestDeliveryDate = (await GetEarliestDeliveryAsync(cancellationToken))?.EarliestDeliveryDate,
+            Dates = results.Where(date => date.Status == DeliveryAvailabilityStatuses.Available).Select(date => date.DeliveryDate).ToList(),
+            Availability = results,
+            ServerNowUtc = now
+        };
     }
 
     public async Task<ValidatedDeliveryDateDto> ValidateDeliveryDateAsync(
         DateOnly date, CancellationToken cancellationToken = default)
     {
-        var offered = await GetDeliveryDatesAsync(date, 1, cancellationToken);
+        // A cart already owning the final slot must pass calendar validation. Capacity is
+        // checked through its reservation, not by requiring an additional free slot here.
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var calendar = await _dbContext.FulfilmentCalendars.AsNoTracking()
+            .FirstOrDefaultAsync(c => c.TenantId == tenantId, cancellationToken);
+        var offered = calendar is null ? null : FulfilmentPromiseCalculator.DeliveryDates(calendar, _clock.UtcNow, date, 1);
         if (offered is null || !offered.Dates.Contains(date))
             throw new StorefrontValidationException("The selected delivery date is unavailable. Refresh the offered dates and choose again.");
         return new ValidatedDeliveryDateDto(date, offered.Timezone);
@@ -224,7 +251,7 @@ internal sealed class FulfilmentPromiseService : IFulfilmentPromiseService
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return Map(calendar);
+        return Map(calendar) with { CurrentPromise = await GetEarliestDeliveryAsync(cancellationToken) };
     }
 
     /// <summary>The DTO echoes the promise this calendar computes right now (A5).</summary>

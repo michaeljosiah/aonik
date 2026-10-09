@@ -27,6 +27,7 @@ public class GuestOrderReadTests
             ? CartAccessContext.ForParty(party, "")
             : CartAccessContext.ForGuest(box.CartToken, box.CartVersion);
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(fixture.DishVariants["jollof"], 6, null), access);
+        access = await harness.HoldDeliveryAsync(box.Box.CartId, access);
         var checkout = await harness.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card",
             Delivery: BoxTestHarness.ValidDelivery), access);
         return (harness, box, checkout);

@@ -38,6 +38,7 @@ internal sealed class CheckoutService : ICheckoutService
     private readonly IDeliveryCoverageService _coverage;
     private readonly IPartyService _parties;
     private readonly IClock _clock;
+    private readonly DeliveryReservationService _deliveryReservations;
 
     public CheckoutService(
         CommerceDbContext dbContext,
@@ -67,6 +68,7 @@ internal sealed class CheckoutService : ICheckoutService
         _coverage = coverage;
         _parties = parties;
         _clock = clock;
+        _deliveryReservations = new DeliveryReservationService(dbContext, tenantProvider, clock);
     }
 
     private static readonly JsonSerializerOptions EnvelopeSerializerOptions =
@@ -314,13 +316,11 @@ internal sealed class CheckoutService : ICheckoutService
             command.Provider, command.PaymentMethodType, command.ReturnUrl, command.CancelUrl, command.CustomerAccountId,
             subtotal, discount.Amount, discount.DiscountId, discount.Code, tax, total, orderItems, invoiceLines,
             reservationLines.Select(line => new CheckoutStockLine(line.Item.Id, line.Quantity)).ToList(), selections, delivery);
-        var preparationJson = preparation.Serialize();
-        cart.CheckoutState = CartCheckoutStates.Preparing;
-        cart.CheckoutPreparationJson = preparationJson;
-        CartActivity.ServerEdit(_dbContext, cart, _clock);
-        try { await _dbContext.SaveChangesAsync(cancellationToken); }
+        _ = preparation.Serialize();
+        try { preparation = await ClaimPreparationAsync(cart.Id, preparation, access, command.RequireFreshCart, cancellationToken); }
         catch (DbUpdateConcurrencyException)
         {
+            DetachCheckout(cart.Id, preparation);
             var winner = await LoadAuthorizedAsync(cart.Id, access, cancellationToken);
             if (command.RequireFreshCart)
                 throw new CartWriteConflictException(winner, "commerce.cart_conflict", "The approved cart changed. Read it before proposing checkout again.");
@@ -332,10 +332,57 @@ internal sealed class CheckoutService : ICheckoutService
         }
         catch
         {
-            CartTracking.Detach(_dbContext, tenantId, cart.Id);
+            DetachCheckout(cart.Id, preparation);
             throw;
         }
         return await ResumeAsync(cart.Id, preparation, access, cancellationToken);
+    }
+
+    private async Task<CheckoutPreparation> ClaimPreparationAsync(Guid cartId, CheckoutPreparation preparation,
+        CartAccessContext access, bool requireFreshCart, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+                {
+                    DetachCheckout(cartId, preparation);
+                    await using var transaction = _dbContext.Database.IsRelational()
+                        ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
+                    var current = await LoadAuthorizedAsync(cartId, access, ct);
+                    if (!requireFreshCart && current.CheckoutPreparationJson is not null
+                        && (current.CheckoutState is CartCheckoutStates.Preparing or CartCheckoutStates.AwaitingPayment
+                            || current.Status == CartStatuses.CheckedOut))
+                        return CheckoutPreparation.Read(current);
+                    CartWriteGuard.RequireCurrent(current, access);
+                    var claimed = preparation;
+                    if (current.BoxBundleProductId is not null)
+                    {
+                        var hold = await _deliveryReservations.BeginPaymentTrackedAsync(current,
+                            preparation.Delivery!.DeliveryDate, preparation.AttemptId, ct);
+                        claimed = preparation with
+                        {
+                            DeliveryReservationId = hold.Id, ProviderStartDeadlineUtc = hold.PaymentDeadlineUtc
+                        };
+                    }
+                    var json = claimed.Serialize();
+                    current.CheckoutPreparationJson = json;
+                    current.CheckoutState = CartCheckoutStates.Preparing;
+                    CartActivity.ServerEdit(_dbContext, current, _clock);
+                    await _dbContext.SaveChangesAsync(ct);
+                    if (transaction is not null) await transaction.CommitAsync(ct);
+                    return claimed;
+                }, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < 2)
+            {
+                DetachCheckout(cartId, preparation);
+                var current = await LoadAuthorizedAsync(cartId, access, cancellationToken);
+                if (!CartWriteGuard.IsEditable(current) || !ActiveBoxCarts.MatchesVersion(current, access.ExpectedCartVersion))
+                    throw; // The caller converges a competing checkout; only shared pool contention retries here.
+            }
+        }
     }
 
     private async Task<CheckoutResult> ResumeAsync(Guid cartId, CheckoutPreparation preparation,
@@ -375,6 +422,9 @@ internal sealed class CheckoutService : ICheckoutService
                     IdempotencyKey: $"cart:{cart.Id:N}", ProvenanceJson: revision), token);
                 await _orders.RefreshPendingItemsAsync(order.Id, preparation.AttemptId, cart.BuyerPartyId ?? preparation.GuestPartyId, preparation.Currency, preparation.Items, token);
                 cart.OrderId = order.Id;
+                if (preparation.DeliveryReservationId is { } reservationId)
+                    await _deliveryReservations.BindOrderTrackedAsync(cart, reservationId, preparation.AttemptId,
+                        order.Id, preparation.Delivery!.DeliveryDate, token);
                 Guid? invoiceId = null;
                 if (preparation.CustomerAccountId is { } customerId)
                     invoiceId = (await _invoices.CreateForOrderAsync(new CreateInvoiceForOrderCommand(order.Id,
@@ -442,7 +492,8 @@ internal sealed class CheckoutService : ICheckoutService
             ? new PaymentIntentRef(recordedState.PaymentIntentId, recordedState.Status, CheckoutUrl: recordedState.CheckoutUrl)
             : await _payments.CreateGuestIntentForOrderAsync(new CreateGuestPaymentIntentForOrderCommand(orderId,
                 preparation.Total, preparation.Currency, preparation.Provider, preparation.PaymentMethodType,
-                preparation.ReturnUrl, preparation.CancelUrl, preparation.AttemptId, $"commerce:{cartId:N}:{preparation.AttemptId:N}"), ct);
+                preparation.ReturnUrl, preparation.CancelUrl, preparation.AttemptId, $"commerce:{cartId:N}:{preparation.AttemptId:N}",
+                preparation.ProviderStartDeadlineUtc), ct);
         if (intent.PaymentIntentId != preparation.AttemptId) throw new InvalidOperationException("Payment returned a different checkout attempt.");
         await _orders.LinkFundingAsync(orderId, intent.PaymentIntentId, ct);
         var state = await _payments.GetStateAsync(preparation.AttemptId, ct);
@@ -454,8 +505,8 @@ internal sealed class CheckoutService : ICheckoutService
         {
             charge.PaymentStatus = state?.Status ?? intent.Status;
             var terminal = state?.CanNoLongerPay == true || charge.PaymentStatus == CheckoutPaymentStatuses.Captured;
-            charge.PaymentCheckoutUrl = terminal ? null : state?.CheckoutUrl ?? intent.CheckoutUrl;
-            charge.PaymentClientSecret = terminal ? null : intent.ClientSecret ?? charge.PaymentClientSecret;
+            charge.PaymentCheckoutUrl = terminal || DeadlinePassed(preparation) ? null : state?.CheckoutUrl ?? intent.CheckoutUrl;
+            charge.PaymentClientSecret = terminal || DeadlinePassed(preparation) ? null : intent.ClientSecret ?? charge.PaymentClientSecret;
             // A concurrent completion/recovery wins through the summary's native version.
             try { await _dbContext.SaveChangesAsync(ct); }
             catch (DbUpdateConcurrencyException) { _dbContext.Entry(charge).State = EntityState.Detached; }
@@ -478,10 +529,10 @@ internal sealed class CheckoutService : ICheckoutService
             ? "succeeded" : cart.CheckoutState == CartCheckoutStates.Retryable ? "cancelled" : state?.Status switch
             {
                 "Failed" => "failed", "Cancelled" => "cancelled", "Expired" => "cancelled",
-                "RequiresAction" => "requires_action", _ => "processing"
+                "RequiresAction" when !DeadlinePassed(preparation) => "requires_action", _ => "processing"
             };
         return new(cart.OrderId, intentId, status, CartWriteGuard.IsEditable(cart), Convert.ToBase64String(cart.RowVersion),
-            state?.CanNoLongerPay == true || state?.Status == CheckoutPaymentStatuses.Captured ? null : state?.CheckoutUrl);
+            DeadlinePassed(preparation) || state?.CanNoLongerPay == true || state?.Status == CheckoutPaymentStatuses.Captured ? null : state?.CheckoutUrl);
     }
 
     public async Task<CartPaymentStateDto> RecoverAsync(Guid cartId, Guid expectedPaymentIntentId, CartAccessContext access,
@@ -495,8 +546,75 @@ internal sealed class CheckoutService : ICheckoutService
             return await GetPaymentStateAsync(cartId, access, cancellationToken);
         if (!ActiveBoxCarts.MatchesVersion(cart, access.ExpectedCartVersion))
             throw new CartWriteConflictException(cart, "commerce.cart_conflict", "The cart changed. Reload checkout.");
+        await RecoverPaymentAsync(cart, preparation!, access, cancellationToken);
+        return await GetPaymentStateAsync(cartId, access, cancellationToken);
+    }
+
+    private bool DeadlinePassed(CheckoutPreparation? preparation)
+        => preparation?.ProviderStartDeadlineUtc is { } deadline && deadline <= _clock.UtcNow;
+
+    public async Task<IReadOnlyList<(Guid ReservationId, Guid TenantId, Guid CartId)>> FindDueDeliveryReservationsAsync(
+        Guid? afterReservationId = null, CancellationToken cancellationToken = default)
+    {
+        var now = _clock.UtcNow;
+        var due = _dbContext.CartDeliveryReservations.AcrossTenants().AsNoTracking()
+            .Where(r => !r.IsDeleted && (r.Status == DeliveryReservationStatuses.Held && r.ExpiresAtUtc <= now
+                || r.Status == DeliveryReservationStatuses.PaymentPending && r.PaymentDeadlineUtc <= now));
+        if (afterReservationId is { } after) due = due.Where(r => r.Id.CompareTo(after) > 0);
+        var page = await due.OrderBy(r => r.Id).Take(50)
+            .Select(r => new { r.Id, r.TenantId, r.CartId }).ToListAsync(cancellationToken);
+        return page.Select(r => (r.Id, r.TenantId, r.CartId)).ToList();
+    }
+
+    public async Task ReconcileDeliveryReservationAsync(Guid cartId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var cart = await _dbContext.Carts.AsNoTracking()
+            .SingleOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
+        if (cart is null) return;
+        var hold = await _dbContext.CartDeliveryReservations.AsNoTracking()
+            .SingleOrDefaultAsync(r => r.CartId == cartId && r.TenantId == tenantId, cancellationToken);
+        if (hold is { Status: DeliveryReservationStatuses.PaymentPending }
+            && hold.PaymentDeadlineUtc <= _clock.UtcNow && cart.CheckoutPreparationJson is not null)
+        {
+            var preparation = CheckoutPreparation.Read(cart);
+            if (hold.Id != preparation.DeliveryReservationId || hold.PaymentAttemptId != preparation.AttemptId
+                || hold.PaymentDeadlineUtc != preparation.ProviderStartDeadlineUtc
+                || hold.DeliveryDate != preparation.Delivery?.DeliveryDate
+                || hold.OrderId != cart.OrderId
+                    && !(cart.CheckoutState == CartCheckoutStates.Preparing && hold.OrderId is null))
+                throw new InvalidOperationException("Delivery reservation does not match checkout.");
+            await RecoverPaymentAsync(cart, preparation, null, cancellationToken);
+        }
+        else if (hold is { Status: DeliveryReservationStatuses.Held } && hold.ExpiresAtUtc <= _clock.UtcNow)
+        {
+            try
+            {
+                await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+                {
+                    DetachCheckout(cartId, null);
+                    await using var transaction = _dbContext.Database.IsRelational()
+                        ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
+                    var current = await _dbContext.Carts.SingleAsync(c => c.Id == cartId && c.TenantId == tenantId, ct);
+                    if (!CartWriteGuard.IsEditable(current) && current.Status != CartStatuses.Abandoned) return;
+                    if (!await _deliveryReservations.ExpireHeldTrackedAsync(current, ct)) return;
+                    CartActivity.ServerEdit(_dbContext, current, _clock);
+                    await _dbContext.SaveChangesAsync(ct);
+                    if (transaction is not null) await transaction.CommitAsync(ct);
+                }, cancellationToken);
+            }
+            catch { DetachCheckout(cartId, null); throw; }
+        }
+    }
+
+    private async Task RecoverPaymentAsync(Entities.Cart.Cart cart, CheckoutPreparation preparation,
+        CartAccessContext? access, CancellationToken cancellationToken)
+    {
+        var cartId = cart.Id;
+        var expectedPaymentIntentId = preparation.AttemptId;
+        var expectedVersion = Convert.ToBase64String(cart.RowVersion);
         // Invoice creation commits independently, including before Commerce finishes preparation.
-        if (preparation?.CustomerAccountId is not null || cart.OrderId is { } invoicedOrder
+        if (preparation.CustomerAccountId is not null || cart.OrderId is { } invoicedOrder
             && await _dbContext.OrderChargeSummaries.AsNoTracking()
                 .AnyAsync(s => s.TenantId == cart.TenantId && s.OrderId == invoicedOrder && s.InvoiceId != null, cancellationToken))
             throw new StorefrontValidationException("Invoice checkout recovery requires staff assistance.");
@@ -506,33 +624,50 @@ internal sealed class CheckoutService : ICheckoutService
         if (cart.CheckoutState == CartCheckoutStates.AwaitingPayment)
         {
             state = await _payments.GetStateAsync(expectedPaymentIntentId, cancellationToken);
-            if (state is null) return await GetPaymentStateAsync(cartId, access, cancellationToken);
+            if (state is null && DeadlinePassed(preparation))
+            {
+                // Missing is not cancellation proof. The frozen deadline lets Finance atomically
+                // cancel an unstarted attempt even when a delayed creator is racing this sweep.
+                await _payments.CreateGuestIntentForOrderAsync(new CreateGuestPaymentIntentForOrderCommand(
+                    cart.OrderId!.Value, preparation.Total, preparation.Currency, preparation.Provider,
+                    preparation.PaymentMethodType, preparation.ReturnUrl, preparation.CancelUrl,
+                    preparation.AttemptId, $"commerce:{cartId:N}:{preparation.AttemptId:N}",
+                    preparation.ProviderStartDeadlineUtc), cancellationToken);
+                state = await _payments.GetStateAsync(expectedPaymentIntentId, cancellationToken);
+            }
+            if (state is null) return;
+            ValidatePaymentState(state, cart.OrderId!.Value, preparation);
             state = await _payments.ExpireAsync(expectedPaymentIntentId, cancellationToken);
-            ValidatePaymentState(state, cart.OrderId!.Value, preparation!);
+            ValidatePaymentState(state, cart.OrderId!.Value, preparation);
             if (state.Status == CheckoutPaymentStatuses.Captured)
             {
                 await ConfirmPaymentAsync(state.OrderId, state.PaymentIntentId, state.Amount, state.Currency, cancellationToken);
-                return await GetPaymentStateAsync(cartId, access, cancellationToken);
+                return;
             }
-            if (!state.CanNoLongerPay) return await GetPaymentStateAsync(cartId, access, cancellationToken);
+            if (!state.CanNoLongerPay) return;
         }
+        else if (cart.CheckoutState != CartCheckoutStates.Preparing) return;
         try
         {
             await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
             {
-                DetachCheckout(cartId, preparation!);
+                DetachCheckout(cartId, preparation);
                 await using var transaction = _dbContext.Database.IsRelational()
                     ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
-                var current = await LoadAuthorizedAsync(cartId, access, ct);
+                var current = access is not null ? await LoadAuthorizedAsync(cartId, access, ct)
+                    : await _dbContext.Carts.SingleAsync(c => c.Id == cartId && c.TenantId == cart.TenantId, ct);
                 if (CheckoutPreparation.Read(current).AttemptId != expectedPaymentIntentId
                     || current.CheckoutState != cart.CheckoutState || current.Status != CartStatuses.Open)
                     throw new CartWriteConflictException(current, "commerce.cart_conflict", "Checkout changed while payment was resolving.");
-                if (!ActiveBoxCarts.MatchesVersion(current, access.ExpectedCartVersion))
+                if (!ActiveBoxCarts.MatchesVersion(current, expectedVersion))
                     throw new CartWriteConflictException(current, "commerce.cart_conflict", "The cart changed. Reload checkout.");
                 current.CheckoutState = CartCheckoutStates.Retryable;
-                CartActivity.UserEdit(_dbContext, current, _clock);
+                if (access is not null) CartActivity.UserEdit(_dbContext, current, _clock);
+                else CartActivity.ServerEdit(_dbContext, current, _clock);
                 await _dbContext.SaveChangesAsync(ct);
                 await _inventory.ReleaseAsync(cartId, ct);
+                if (preparation.DeliveryReservationId is not null)
+                    await _deliveryReservations.ReleaseTrackedAsync(current, expectedPaymentIntentId, ct);
                 if (current.OrderId is { } orderId)
                 {
                     var summary = await LoadChargeAsync(current.TenantId, orderId, ct);
@@ -540,13 +675,12 @@ internal sealed class CheckoutService : ICheckoutService
                     if (summary.InvoiceId is not null) throw new StorefrontValidationException("Invoice checkout recovery requires staff assistance.");
                     summary.PaymentStatus = state?.Status ?? "Cancelled";
                     summary.PaymentCheckoutUrl = null; summary.PaymentClientSecret = null;
-                    await _dbContext.SaveChangesAsync(ct);
                 }
+                await _dbContext.SaveChangesAsync(ct);
                 if (transaction is not null) await transaction.CommitAsync(ct);
             }, cancellationToken);
         }
-        catch { DetachCheckout(cartId, preparation!); throw; }
-        return await GetPaymentStateAsync(cartId, access, cancellationToken);
+        catch { DetachCheckout(cartId, preparation); throw; }
     }
 
     private static void ValidatePaymentState(PaymentIntentStateRef state, Guid orderId, CheckoutPreparation preparation)
@@ -578,13 +712,15 @@ internal sealed class CheckoutService : ICheckoutService
         var summary = await _dbContext.OrderChargeSummaries.AsNoTracking()
             .SingleOrDefaultAsync(s => s.TenantId == cart.TenantId && s.OrderId == orderId, ct)
             ?? throw new InvalidOperationException("Checkout snapshot is missing.");
+        var expired = cart.CheckoutPreparationJson is not null && DeadlinePassed(CheckoutPreparation.Read(cart));
         return new(orderId, summary.InvoiceId, summary.PaymentIntentId, summary.PaymentStatus, summary.Subtotal,
             summary.DiscountTotal, summary.TaxTotal, summary.Total, summary.Currency,
-            summary.PaymentClientSecret, summary.PaymentCheckoutUrl, GuestOrderToken(cart));
+            expired ? null : summary.PaymentClientSecret, expired ? null : summary.PaymentCheckoutUrl, GuestOrderToken(cart));
     }
 
     private void DetachCheckout(Guid cartId, CheckoutPreparation? preparation, Guid? orderId = null)
     {
+        _deliveryReservations.Detach(cartId);
         var tenantId = _tenantProvider.GetCurrentTenantId();
         orderId ??= _dbContext.ChangeTracker.Entries<Entities.Cart.Cart>()
             .FirstOrDefault(e => e.Entity.TenantId == tenantId && e.Entity.Id == cartId)?.Entity.OrderId;
@@ -657,6 +793,9 @@ internal sealed class CheckoutService : ICheckoutService
                     summary.PaymentCheckoutUrl = null;
                     summary.PaymentClientSecret = null;
                     cart.Status = CartStatuses.CheckedOut;
+                    if (preparation?.DeliveryReservationId is { } reservationId)
+                        await _deliveryReservations.CommitTrackedAsync(cart, reservationId, completedPaymentIntentId,
+                            orderId, preparation.Delivery!.DeliveryDate, ct);
                     CartActivity.ServerEdit(_dbContext, cart, _clock);
                     await _dbContext.SaveChangesAsync(ct);
                     await _inventory.CommitAsync(cart.Id, ct);

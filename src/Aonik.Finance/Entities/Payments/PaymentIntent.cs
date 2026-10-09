@@ -53,6 +53,9 @@ public class PaymentIntent : AuditableEntity, ITenantScoped
     public string? ProviderCreateRequestJson { get; set; }
     public DateTime? ProviderRequestStartedAtUtc { get; set; }
 
+    /// <summary>Immutable server deadline for claiming the first provider request. Null means no deadline.</summary>
+    public DateTime? ProviderStartDeadlineUtc { get; set; }
+
     // ── Partner-collection linkage (spec 031) ───────────────────────────────
     public Guid? ConnectorId { get; set; }
 

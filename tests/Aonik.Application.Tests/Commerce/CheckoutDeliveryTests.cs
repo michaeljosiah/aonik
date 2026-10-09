@@ -169,6 +169,6 @@ public class CheckoutDeliveryTests
         var box = await harness.BoxCarts().CreateAsync(new(fixture.BundleProductId, 6));
         await harness.BoxCarts().AddLineAsync(box.Box.CartId, new(fixture.DishVariants["dish"], 6, null),
             CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
-        return (harness, box);
+        return (harness, await harness.HoldDeliveryAsync(box));
     }
 }

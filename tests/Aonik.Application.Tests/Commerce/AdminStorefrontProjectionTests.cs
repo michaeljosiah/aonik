@@ -45,6 +45,7 @@ public class AdminStorefrontProjectionTests
         var access = CartAccessContext.ForParty(party, "");
         await carts.AddLineAsync(box.Box.CartId, new AddBoxLineCommand(f.DishVariants["jollof"], 6, null), access);
         await carts.AddExtraLineAsync(box.Box.CartId, new AddBoxExtraCommand(extraVariant, 2), access);
+        access = await h.HoldDeliveryAsync(box.Box.CartId, access);
         var checkout = await h.Checkout().CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card",
             Delivery: BoxTestHarness.ValidDelivery), access);
 

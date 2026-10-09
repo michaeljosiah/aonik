@@ -14,8 +14,8 @@ public sealed class GetDeliveryDatesEndpoint(IFulfilmentPromiseService promises)
         AllowAnonymous();
         Summary(s =>
         {
-            s.Summary = "Calendar-eligible delivery dates in a bounded range.";
-            s.Description = "Optional fromDate defaults to the earliest date. days defaults to 31 (1–62). This read does not reserve capacity.";
+            s.Summary = "Delivery availability in a bounded range, including full and unknown dates.";
+            s.Description = "Optional fromDate defaults to the earliest calendar-eligible date. days defaults to 31 (1–62). This read does not reserve capacity.";
         });
     }
 

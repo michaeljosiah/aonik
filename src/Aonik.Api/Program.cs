@@ -170,7 +170,10 @@ app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/commerce/carts")
         || context.Request.Path.StartsWithSegments("/commerce/delivery")
-        || context.Request.Path.StartsWithSegments("/commerce/admin/delivery-coverage"))
+        || context.Request.Path.StartsWithSegments("/commerce/admin/delivery-coverage")
+        || context.Request.Path.StartsWithSegments("/commerce/admin/delivery-capacity")
+        || context.Request.Path.StartsWithSegments("/commerce/admin/fulfilment-calendar")
+        || context.Request.Path.StartsWithSegments("/commerce/config/delivery"))
         context.Response.Headers.CacheControl = "no-store";
     await next();
 });

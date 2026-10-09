@@ -5,6 +5,7 @@ using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.Commerce.Services.Fulfilment;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
@@ -19,6 +20,7 @@ internal sealed class CartService : ICartService
     private readonly ITenantProvider _tenantProvider;
     private readonly IProductPricingService _pricing;
     private readonly IClock _clock;
+    private readonly DeliveryReservationService _deliveryReservations;
 
     public CartService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IProductPricingService pricing, IClock clock)
     {
@@ -26,6 +28,7 @@ internal sealed class CartService : ICartService
         _tenantProvider = tenantProvider;
         _pricing = pricing;
         _clock = clock;
+        _deliveryReservations = new DeliveryReservationService(dbContext, tenantProvider, clock);
     }
 
     public async Task<CartDto> CreateCartAsync(CreateCartCommand command, CancellationToken cancellationToken = default)
@@ -71,6 +74,8 @@ internal sealed class CartService : ICartService
         var cart = await LoadAuthorizedAsync(cartId, tenantId, access, cancellationToken);
         CartWriteGuard.RequireCurrent(cart, access);
         var json = CartDraftData.Serialize(draft);
+        if (cart.BoxBundleProductId is not null && CartDraftData.Read(cart)?.DeliveryDate != draft.DeliveryDate)
+            return await SaveDraftDateAsync(cartId, json, draft.DeliveryDate, access, cancellationToken);
         if (cart.CheckoutDraftJson != json)
         {
             cart.CheckoutDraftJson = json;
@@ -78,6 +83,47 @@ internal sealed class CartService : ICartService
         }
         return new CartCheckoutDraftResponse(cart.Id, Convert.ToBase64String(cart.RowVersion),
             cart.Status, cart.OrderId, CartDraftData.Read(cart));
+    }
+
+    private async Task<CartCheckoutDraftResponse> SaveDraftDateAsync(Guid cartId, string? json, DateOnly? date,
+        CartAccessContext access, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+                {
+                    _deliveryReservations.Detach(cartId);
+                    await using var transaction = _dbContext.Database.IsRelational()
+                        ? await _dbContext.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct) : null;
+                    var current = await LoadAuthorizedAsync(cartId, tenantId, access, ct);
+                    CartWriteGuard.RequireCurrent(current, access);
+                    await _deliveryReservations.SelectTrackedAsync(current, date, ct);
+                    current.CheckoutDraftJson = json;
+                    CartActivity.UserEdit(_dbContext, current, _clock);
+                    // Cart and capacity native versions arbitrate this atomic date replacement together.
+                    await _dbContext.SaveChangesAsync(ct);
+                    if (transaction is not null) await transaction.CommitAsync(ct);
+                    return new CartCheckoutDraftResponse(current.Id, Convert.ToBase64String(current.RowVersion),
+                        current.Status, current.OrderId, CartDraftData.Read(current));
+                }, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < 2)
+            {
+                _deliveryReservations.Detach(cartId);
+                var current = await LoadAuthorizedAsync(cartId, tenantId, access, cancellationToken);
+                CartWriteGuard.RequireCurrent(current, access);
+                // Only pool contention retries. A competing edit must still present a fresh cart version.
+            }
+            catch
+            {
+                _deliveryReservations.Detach(cartId);
+                CartTracking.Detach(_dbContext, tenantId, cartId);
+                throw;
+            }
+        }
     }
 
     public async Task<CartDto> AddItemAsync(AddCartItemCommand command, CartAccessContext access, CancellationToken cancellationToken = default)

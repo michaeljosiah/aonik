@@ -224,6 +224,14 @@ internal static class ScheduledJobDefinitions
                 options.InventoryReservationSweep.CronExpression,
                 options.InventoryReservationSweep.Enabled,
                 moduleId: ModuleIds.Commerce),
+            new ScheduledJobDefinition<DeliveryReservationSweepJob>(
+                DeliveryReservationSweepJob.Key,
+                new TriggerKey("DeliveryReservationSweepJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Delivery Reservation Sweep",
+                "Expires unpaid date holds and reconciles overdue payment attempts before releasing capacity.",
+                options.DeliveryReservationSweep.CronExpression,
+                options.DeliveryReservationSweep.Enabled,
+                moduleId: ModuleIds.Commerce),
             new ScheduledJobDefinition<LowStockScanJob>(
                 LowStockScanJob.Key,
                 new TriggerKey("LowStockScanJob-trigger", ScheduledJobGroups.ScheduledJobs),

@@ -39,6 +39,8 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<BundleSizePreset> BundleSizePresets => Set<BundleSizePreset>();
     public DbSet<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar> FulfilmentCalendars => Set<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar>();
     public DbSet<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails> OrderDeliveryDetails => Set<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails>();
+    public DbSet<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity> DeliveryDateCapacities => Set<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity>();
+    public DbSet<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation> CartDeliveryReservations => Set<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation>();
     public DbSet<InventoryLevel> InventoryLevels => Set<InventoryLevel>();
     public DbSet<InventoryReservation> InventoryReservations => Set<InventoryReservation>();
     public DbSet<Entities.Cart.Cart> Carts => Set<Entities.Cart.Cart>();
@@ -102,6 +104,10 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<BundleSizePreset>(modelBuilder, "BundleSizePresets");
         MapTable<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar>(modelBuilder, "FulfilmentCalendars");
         MapTable<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails>(modelBuilder, "OrderDeliveryDetails");
+        MapTable<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity>(modelBuilder, "DeliveryDateCapacities");
+        MapTable<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation>(modelBuilder, "CartDeliveryReservations");
+        MapTable<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity>(modelBuilder, "DeliveryDateCapacities");
+        MapTable<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation>(modelBuilder, "CartDeliveryReservations");
         MapTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapTable<Entities.Cart.Cart>(modelBuilder, "Carts");

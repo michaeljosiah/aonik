@@ -46,6 +46,7 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
         builder.Property(x => x.ProviderAccountId).HasMaxLength(200);
         builder.Property(x => x.ProviderPaymentIntentReference).HasMaxLength(200);
         builder.Property(x => x.ProviderCreateRequestJson).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.ProviderStartDeadlineUtc).HasColumnType("datetime2");
         builder.Property(x => x.CollectionMethod).HasMaxLength(30);
         builder.Property(x => x.MobileNetwork).HasMaxLength(50);
         builder.Property(x => x.MaskedPhoneNumber).HasMaxLength(50);

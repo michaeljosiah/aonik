@@ -14,6 +14,159 @@ namespace Aonik.Application.Tests.Payments;
 
 public class CheckoutPaymentServiceTests
 {
+    [Theory]
+    [InlineData(DateTimeKind.Local)]
+    [InlineData(DateTimeKind.Unspecified)]
+    public async Task Create_Should_RejectNonUtcDeadlineBeforeCreatingAttempt(DateTimeKind kind)
+    {
+        using var test = new CheckoutPaymentTestHarness();
+        await test.SeedOrderAsync();
+        var request = test.Request with { ProviderStartDeadlineUtc = DateTime.SpecifyKind(test.Now.AddMinutes(1), kind) };
+
+        await test.Service.Invoking(service => service.CreateAsync(request)).Should()
+            .ThrowAsync<InvalidStateException>().WithMessage("*deadline must be UTC*");
+
+        (await test.Db.PaymentIntents.CountAsync()).Should().Be(0);
+        test.Gateway.Requests.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task Create_Should_DurablyCloseMissingAttemptAtOrAfterDeadline_WithoutConfigurationOrProvider(int secondsUntilDeadline)
+    {
+        using var test = new CheckoutPaymentTestHarness();
+        await test.SeedOrderAsync();
+        var request = test.Request with { ProviderStartDeadlineUtc = test.Now.AddSeconds(secondsUntilDeadline) };
+        test.Connectors.Setup(c => c.ResolveSelectedAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("No connector is needed for proven no-start closure."));
+
+        (await test.Service.GetStateAsync(test.AttemptId)).Should().BeNull();
+        var result = await test.Service.CreateAsync(request);
+        var replay = await test.Service.CreateAsync(request);
+        var state = await test.Service.GetStateAsync(test.AttemptId);
+
+        result.Status.Should().Be("Cancelled");
+        replay.Should().Be(result);
+        state!.CanNoLongerPay.Should().BeTrue();
+        var intent = (await test.Db.PaymentIntents.AsNoTracking().ToListAsync()).Should().ContainSingle().Subject;
+        intent.ProviderStartDeadlineUtc.Should().Be(request.ProviderStartDeadlineUtc);
+        intent.ProviderRequestStartedAtUtc.Should().BeNull();
+        intent.ProviderCreateRequestJson.Should().BeNull();
+        intent.ConnectorId.Should().BeNull();
+        test.Connectors.Verify(c => c.ResolveSelectedAsync(It.IsAny<CancellationToken>()), Times.Never);
+        test.Gateway.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Create_Should_PersistDeadlineBeforeStartingWithinItsWindow()
+    {
+        using var test = new CheckoutPaymentTestHarness();
+        await test.SeedOrderAsync();
+        var request = test.Request with { ProviderStartDeadlineUtc = test.Now.AddTicks(1) };
+        test.Gateway.OnCreate = async (providerRequest, ct) =>
+        {
+            var intent = await test.Db.PaymentIntents.AsNoTracking().SingleAsync(ct);
+            intent.ProviderStartDeadlineUtc.Should().Be(request.ProviderStartDeadlineUtc);
+            intent.ProviderRequestStartedAtUtc.Should().Be(test.Now);
+            return test.Gateway.Result(providerRequest);
+        };
+
+        var result = await test.Service.CreateAsync(request);
+
+        result.Status.Should().Be("Pending");
+        test.Gateway.Requests.Should().ContainSingle();
+        (await test.Service.GetStateAsync(test.AttemptId))!.CanNoLongerPay.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Create_Should_RecheckDeadlineAfterConnectorResolutionBeforeClaimingProviderStart()
+    {
+        using var test = new CheckoutPaymentTestHarness();
+        await test.SeedOrderAsync();
+        var deadline = test.Now.AddMinutes(1);
+        test.Connectors.Setup(c => c.ResolveSelectedAsync(It.IsAny<CancellationToken>())).Returns(() =>
+        {
+            test.Clock.SetupGet(c => c.UtcNow).Returns(deadline);
+            return Task.FromResult(test.Binding);
+        });
+
+        var result = await test.Service.CreateAsync(test.Request with { ProviderStartDeadlineUtc = deadline });
+
+        result.Status.Should().Be("Cancelled");
+        var intent = await test.Db.PaymentIntents.AsNoTracking().SingleAsync();
+        intent.ProviderRequestStartedAtUtc.Should().BeNull();
+        intent.ProviderCreateRequestJson.Should().BeNull();
+        test.Gateway.Requests.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Create_Should_CancelUnstartedConfigurationFailureAfterDeadline_InSameScope()
+    {
+        using var test = new CheckoutPaymentTestHarness();
+        await test.SeedOrderAsync();
+        var deadline = test.Now.AddMinutes(1);
+        var request = test.Request with { ProviderStartDeadlineUtc = deadline };
+        test.Connectors.Setup(c => c.ResolveSelectedAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException());
+        await test.Service.Invoking(s => s.CreateAsync(request)).Should().ThrowAsync<InvalidOperationException>();
+        test.Clock.SetupGet(c => c.UtcNow).Returns(deadline);
+
+        var result = await test.Service.CreateAsync(request);
+
+        result.Status.Should().Be("Cancelled");
+        (await test.Service.GetStateAsync(test.AttemptId))!.CanNoLongerPay.Should().BeTrue();
+        test.Connectors.Verify(c => c.ResolveSelectedAsync(It.IsAny<CancellationToken>()), Times.Once);
+        test.Gateway.Requests.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("remove")]
+    [InlineData("extend")]
+    [InlineData("shorten")]
+    [InlineData("add")]
+    public async Task Create_Should_RejectChangingImmutableDeadlineOnReplay(string change)
+    {
+        using var test = new CheckoutPaymentTestHarness();
+        await test.SeedOrderAsync();
+        var request = test.Request with { ProviderStartDeadlineUtc = change == "add" ? null : test.Now.AddMinutes(1) };
+        await test.Service.CreateAsync(request);
+        var altered = request with
+        {
+            ProviderStartDeadlineUtc = change switch
+            {
+                "remove" => null,
+                "shorten" => test.Now,
+                _ => test.Now.AddMinutes(2)
+            }
+        };
+
+        await test.Service.Invoking(s => s.CreateAsync(altered)).Should().ThrowAsync<InvalidStateException>()
+            .WithMessage("*different checkout details*");
+
+        test.Gateway.Requests.Should().ContainSingle();
+        (await test.Db.PaymentIntents.AsNoTracking().SingleAsync()).ProviderStartDeadlineUtc.Should().Be(request.ProviderStartDeadlineUtc);
+    }
+
+    [Fact]
+    public async Task Create_Should_ResumeStartedTimeoutWithSameRequestAfterDeadline_WithoutClaimingClosure()
+    {
+        using var test = new CheckoutPaymentTestHarness();
+        await test.SeedOrderAsync();
+        var request = test.Request with { ProviderStartDeadlineUtc = test.Now.AddMinutes(1) };
+        test.Gateway.OnCreate = (_, _) => throw new TimeoutException();
+        await test.Service.Invoking(s => s.CreateAsync(request)).Should().ThrowAsync<TimeoutException>();
+        var original = test.Gateway.Requests.Single();
+        test.Clock.SetupGet(c => c.UtcNow).Returns(test.Now.AddMinutes(2));
+        test.Gateway.OnCreate = null;
+
+        var result = await test.Service.CreateAsync(request);
+
+        result.Status.Should().Be("Pending");
+        test.Gateway.Requests.Should().Equal(original, original);
+        (await test.Service.GetStateAsync(test.AttemptId))!.CanNoLongerPay.Should().BeFalse();
+        (await test.Db.PaymentIntents.AsNoTracking().SingleAsync()).ProviderRequestStartedAtUtc.Should().Be(test.Now);
+    }
+
     [Fact]
     public async Task Create_Should_RejectSubminimumChargeBeforePersistingAttempt()
     {
@@ -155,8 +308,10 @@ public class CheckoutPaymentServiceTests
         using var test = new CheckoutPaymentTestHarness();
         await test.SeedOrderAsync();
         test.Gateway.OnCreate = (_, _) => throw new TimeoutException();
-        await test.Service.Invoking(s => s.CreateAsync(test.Request)).Should().ThrowAsync<TimeoutException>();
+        var request = test.Request with { ProviderStartDeadlineUtc = test.Now.AddMinutes(1) };
+        await test.Service.Invoking(s => s.CreateAsync(request)).Should().ThrowAsync<TimeoutException>();
         var original = test.Gateway.Requests.Single();
+        test.Clock.SetupGet(c => c.UtcNow).Returns(test.Now.AddMinutes(2));
         test.Gateway.OnCreate = null;
         test.Reconciler.Setup(r => r.ReconcileAsync(test.AttemptId, true, null, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Aonik.SharedKernel.Abstractions.Payments.PaymentIntentStateRef(

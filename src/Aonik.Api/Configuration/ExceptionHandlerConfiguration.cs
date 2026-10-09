@@ -357,6 +357,13 @@ public static class ExceptionHandlerConfiguration
                 });
                 return;
 
+            case DeliveryReservationException reservation:
+                await WriteJsonAsync(context,
+                    reservation.Code == DeliveryReservationException.Unavailable
+                        ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status409Conflict,
+                    new { error = reservation.Message, code = reservation.Code });
+                return;
+
             case DeliveryCoverageException coverage:
                 await WriteJsonAsync(context,
                     coverage.Code == DeliveryCoverageException.Unavailable

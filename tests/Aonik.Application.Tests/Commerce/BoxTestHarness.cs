@@ -70,6 +70,19 @@ internal sealed class BoxTestHarness
     public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);
     public InventoryService Inventory() => new(Commerce(), _tenant, new TenantContext { TenantId = _tenantId }, _clock);
     public CartService Carts() => new(Commerce(), _tenant, Pricing(), _clock);
+    public async Task<CartAccessContext> HoldDeliveryAsync(Guid cartId, CartAccessContext access)
+    {
+        await using var context = Commerce();
+        var hold = await new DeliveryReservationService(context, _tenant, _clock)
+            .ReserveAsync(cartId, ValidDelivery.DeliveryDate, access);
+        return access with { ExpectedCartVersion = hold.CartVersion };
+    }
+
+    public async Task<BoxCartDto> HoldDeliveryAsync(BoxCartDto box)
+    {
+        var access = await HoldDeliveryAsync(box.Box.CartId, CartAccessContext.ForGuest(box.CartToken, box.CartVersion));
+        return box with { CartVersion = access.ExpectedCartVersion! };
+    }
     public BundleSizePlanService Plans() => new(Commerce(), _tenant);
     public StorefrontOrderService StorefrontOrders() => new(
         Commerce(), _tenant, new CoreOrderService(Ordering(), _tenant, _clock, _user), GuestOrderAccess);
@@ -125,6 +138,10 @@ internal sealed class BoxTestHarness
             TenantId = _tenantId, Timezone = "Europe/London", IsActive = true,
             DeliveryDaysJson = "[\"thursday\"]", LeadDays = 7,
             CutoffLocalTime = new TimeOnly(23, 59)
+        });
+        ctx.DeliveryDateCapacities.Add(new DeliveryDateCapacity
+        {
+            TenantId = _tenantId, DeliveryDate = ValidDelivery.DeliveryDate, Unit = "box", Capacity = 100
         });
         await ctx.SaveChangesAsync();
         await builder.BuildCatalogueAsync();

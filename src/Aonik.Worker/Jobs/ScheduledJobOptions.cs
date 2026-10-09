@@ -14,6 +14,7 @@ public sealed class ScheduledJobOptions
     public DocumentIngestionBackfillJobOptions DocumentIngestionBackfill { get; set; } = new();
     public WorkItemDispatchJobOptions WorkItemDispatch { get; set; } = new();
     public InventoryReservationSweepJobOptions InventoryReservationSweep { get; set; } = new();
+    public DeliveryReservationSweepJobOptions DeliveryReservationSweep { get; set; } = new();
     public LowStockScanJobOptions LowStockScan { get; set; } = new();
     public BoxCartAbandonSweepJobOptions BoxCartAbandonSweep { get; set; } = new();
 
@@ -113,6 +114,12 @@ public sealed class GrantExpirySweepJobOptions
     /// breakage is recorded (Spec 087 §8).
     /// </summary>
     public string CronExpression { get; set; } = "0 30 * * * ?";
+}
+
+public sealed class DeliveryReservationSweepJobOptions
+{
+    public bool Enabled { get; set; } = true;
+    public string CronExpression { get; set; } = "0 * * * * ?";
 }
 
 public sealed class InventoryReservationSweepJobOptions
