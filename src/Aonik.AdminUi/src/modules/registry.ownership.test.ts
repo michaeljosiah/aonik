@@ -194,6 +194,17 @@ describe('registry route ownership', () => {
     expect(owners('/compliance/documents')).toEqual(['platform']);
   });
 
+  it('requires staff policy and customer-read permission for contact pages in both profiles', () => {
+    for (const businessType of ['base', 'food-commerce']) {
+      const manifest = { ...manifestWithout('finance'), businessType, permissions: ['Customers.Read'], allowedPolicies: ['AdminUserPolicy', 'AdminReadPolicy'] };
+      const allowed = resolveCurrentAdminProfile(registry, manifest);
+      expect(isProfilePathVisible(registry, allowed, '/contact-enquiries')).toBe(true);
+      expect(isProfilePathVisible(registry, allowed, '/contact-enquiries/example')).toBe(true);
+      expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...manifest, permissions: [] }), '/contact-enquiries')).toBe(false);
+      expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...manifest, allowedPolicies: ['AdminUserPolicy'] }), '/contact-enquiries/example')).toBe(false);
+    }
+  });
+
   it('never marks the home route or Customers as finance-owned for the 403 redirect rule', () => {
     expect(pathRequiresBackendModule(registry, 'finance', '/')).toBe(false);
     expect(pathRequiresBackendModule(registry, 'finance', '/customers')).toBe(false);

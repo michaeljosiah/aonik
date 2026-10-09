@@ -40,6 +40,13 @@ public class BlobStorageOptions
         PublicBaseUrl = null
     };
 
+    /// <summary>Private contact photos, served only through authorized enquiry endpoints.</summary>
+    public ContentTypeOptions ContactImages { get; set; } = new()
+    {
+        Path = "contact-private",
+        ContainerName = "contact-private"
+    };
+
     /// <summary>
     /// Configuration for documents.
     /// </summary>

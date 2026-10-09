@@ -120,7 +120,7 @@ internal class GetAdminManifestEndpoint : EndpointWithoutRequest<AdminManifestRe
 
         var permissions = await _permissionService.GetUserPermissionsAsync(userId, ct);
         var allowedPolicies = new List<string>();
-        foreach (var policy in new[] { "AdminUserPolicy", "AdminPolicy", "AdminWritePolicy", "AdminUserWritePolicy", "PlatformAdmin" })
+        foreach (var policy in new[] { "AdminUserPolicy", "AdminPolicy", "AdminReadPolicy", "AdminWritePolicy", "AdminUserWritePolicy", "PlatformAdmin" })
         {
             if ((await _authorizationService.AuthorizeAsync(User, policy)).Succeeded)
                 allowedPolicies.Add(policy);

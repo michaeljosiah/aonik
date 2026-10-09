@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Platform.Contracts.Services.Modules;
+using Aonik.Platform.Contracts.Models.ContactEnquiries;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai.Speech;
 using Aonik.SharedKernel.Modules;
@@ -107,6 +108,10 @@ public static class ExceptionHandlerConfiguration
             }
             catch (Exception ex)
             {
+                var privateContact = context.Request.Path.StartsWithSegments("/v1/contact-enquiries")
+                    || context.Request.Path.StartsWithSegments("/v1/admin/contact-enquiries");
+                if (privateContact && ex is OperationCanceledException && context.RequestAborted.IsCancellationRequested)
+                    throw;
                 // Expected policy responses are classified BEFORE the unconditional error logging and
                 // span stamping: they are 403/409 answers the pipeline produces on purpose, not faults.
                 // The response bodies below are unchanged either way.
@@ -118,27 +123,41 @@ public static class ExceptionHandlerConfiguration
                 }
                 else
                 {
-                    LogException(context, ex);
-                    StampActivity(ex);
+                    LogException(context, ex, privateContact);
+                    StampActivity(ex, privateContact);
                 }
 
                 if (context.Response.HasStarted)
                 {
+                    if (privateContact && policy is null)
+                    {
+                        // A private object stream can fail after headers. Abort the truncated
+                        // download without handing a provider exception to host error logging.
+                        context.Abort();
+                        return;
+                    }
                     // Response already on the wire — can't change it. Re-throw
                     // so the host's default fallback runs.
                     throw;
                 }
 
-                await WriteErrorResponseAsync(context, ex, includeDetails);
+                await WriteErrorResponseAsync(context, ex, includeDetails && !privateContact);
             }
         });
     }
 
-    private static void LogException(HttpContext context, Exception ex)
+    private static void LogException(HttpContext context, Exception ex, bool privateContact = false)
     {
         var logger = context.RequestServices
             .GetService<ILoggerFactory>()
             ?.CreateLogger(LoggerCategoryName);
+
+        if (privateContact)
+        {
+            logger?.LogError("Contact request failed (status=500, exceptionType={ExceptionType}, requestId={RequestId}).",
+                ex.GetType().FullName, context.TraceIdentifier);
+            return;
+        }
 
         var innermost = GetInnermost(ex);
         logger?.LogError(
@@ -153,16 +172,17 @@ public static class ExceptionHandlerConfiguration
             FlattenChain(ex));
     }
 
-    private static void StampActivity(Exception ex)
+    private static void StampActivity(Exception ex, bool privateContact = false)
     {
         var activity = Activity.Current;
         if (activity is null) return;
 
         activity.SetTag("error", true);
         activity.SetTag("error.type", ex.GetType().FullName);
-        activity.SetTag("error.message", ex.Message);
+        var message = privateContact ? "Contact request failed." : ex.Message;
+        activity.SetTag("error.message", message);
         activity.SetTag("aonik.unhandled_exception", true);
-        activity.SetStatus(ActivityStatusCode.Error, ex.Message);
+        activity.SetStatus(ActivityStatusCode.Error, message);
     }
 
     /// <summary>
@@ -184,6 +204,12 @@ public static class ExceptionHandlerConfiguration
     /// </summary>
     private static PolicyResponse? ClassifyPolicyResponse(Exception ex) => ex switch
     {
+        ContactEnquiryValidationException => new PolicyResponse(StatusCodes.Status422UnprocessableEntity,
+            "contact.validation_failed", null, null, LogLevel.Information),
+        ContactEnquiryConflictException => new PolicyResponse(StatusCodes.Status409Conflict,
+            "contact.submission_conflict", null, null, LogLevel.Information),
+        ContactEnquiryUnavailableException => new PolicyResponse(StatusCodes.Status503ServiceUnavailable,
+            "contact.unavailable", null, null, LogLevel.Warning),
         // A module the tenant switched off (Spec 097 §11): the intended, routine answer for every
         // request into that module — the noisiest of the three by far, hence Information.
         ModuleDisabledException disabled => new PolicyResponse(
@@ -255,6 +281,26 @@ public static class ExceptionHandlerConfiguration
         // front-end can switch on `error` field rather than parsing message strings.
         switch (ex)
         {
+            case ContactEnquiryValidationException enquiryValidation:
+                await WriteJsonAsync(context, StatusCodes.Status422UnprocessableEntity, new
+                {
+                    code = "contact.validation_failed", error = ex.Message,
+                    fieldErrors = enquiryValidation.FieldErrors,
+                    imageProblems = enquiryValidation.ImageProblems.Select(image => new
+                    {
+                        index = image.Index, fileName = image.FileName, code = image.Code, message = image.Message
+                    })
+                });
+                return;
+            case ContactEnquiryConflictException:
+                await WriteJsonAsync(context, StatusCodes.Status409Conflict,
+                    new { code = "contact.submission_conflict", error = ex.Message });
+                return;
+            case ContactEnquiryUnavailableException:
+                context.Response.Headers.RetryAfter = "60";
+                await WriteJsonAsync(context, StatusCodes.Status503ServiceUnavailable,
+                    new { code = "contact.unavailable", error = ex.Message });
+                return;
             case PermissionDeniedException permissionDenied:
                 await WriteJsonAsync(context, StatusCodes.Status403Forbidden, new
                 {

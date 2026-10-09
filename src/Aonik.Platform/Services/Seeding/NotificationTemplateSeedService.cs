@@ -1,6 +1,7 @@
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Notifications;
 using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.ContactEnquiries;
 using Aonik.SharedKernel.Abstractions.Messaging;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -221,6 +222,28 @@ internal class NotificationTemplateSeedService
             <p><a href="{{ action_url | escape }}">Confirm email address</a></p>
             <p>This link expires at {{ expires_at | escape }}.</p>
             <p>If you did not request this change, you can ignore this email.</p>
+            """),
+        TransactionalTemplate(
+            ContactEnquiryEmailTemplates.Staff,
+            "Private staff notification for a durably accepted contact enquiry",
+            "New contact enquiry",
+            """
+            <h1>New contact enquiry</h1>
+            <p>Reference: {{ enquiry_id | escape }}<br/>Received: {{ received_at | escape }}</p>
+            <p>Name: {{ name | escape }}<br/>Email: {{ email | escape }}<br/>Topic: {{ topic | escape }}</p>
+            {% if order_number != blank %}<p>Unverified order reference: {{ order_number | escape }}</p>{% endif %}
+            <p style="white-space: pre-wrap;">{{ message | escape }}</p>
+            <p><a href="{{ detail_url | escape }}">View enquiry and private images</a></p>
+            """),
+        TransactionalTemplate(
+            ContactEnquiryEmailTemplates.Acknowledgement,
+            "Reference-only acknowledgement of a durably accepted contact enquiry",
+            "We received your enquiry",
+            """
+            <h1>We received your enquiry</h1>
+            <p>Your enquiry was received at {{ received_at | escape }}.</p>
+            <p>Your reference is <strong>{{ enquiry_id | escape }}</strong>.</p>
+            <p>If you did not submit an enquiry, you can ignore this email.</p>
             """)
     ];
 

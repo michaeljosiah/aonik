@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <None Update="Storage/Fixtures/rainbow.heic" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

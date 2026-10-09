@@ -179,6 +179,32 @@ public class ExceptionHandlerClassificationTests : IClassFixture<CustomWebApplic
         activity.GetTagItem("error").Should().Be(true);
     }
 
+    [Theory]
+    [InlineData("/v1/contact-enquiries", "Testing")]
+    [InlineData("/v1/admin/contact-enquiries/123/images/456", "Development")]
+    public async Task ContactFailure_Should_RedactProviderMessagesFromLogsSpansAndDevelopmentResponses(string path, string environment)
+    {
+        var secret = "customer-photo-guest@example.test-private-storage";
+        var (context, logs, activity) = await RunPipelineAsync(new IOException(secret, new Exception(secret)), path, environment);
+
+        context.Response.StatusCode.Should().Be(500);
+        (await ReadBodyAsync(context)).GetRawText().Should().NotContain(secret).And.NotContain("exceptionMessage");
+        var entry = logs.Entries.Should().ContainSingle(x => x.Category == UnhandledCategory).Subject;
+        entry.Message.Should().Contain(nameof(IOException)).And.NotContain(secret);
+        entry.Exception.Should().BeNull();
+        activity.Status.Should().Be(ActivityStatusCode.Error);
+        activity.StatusDescription.Should().NotContain(secret);
+        activity.TagObjects.Select(x => x.Value?.ToString()).Should().NotContain(value => value != null && value.Contains(secret));
+    }
+
+    [Fact]
+    public async Task ContactCancellation_Should_PropagateTheDisconnectedClientsCancellation()
+    {
+        var cancelled = new CancellationToken(canceled: true);
+        var run = () => RunPipelineAsync(new OperationCanceledException(cancelled), "/v1/contact-enquiries", requestAborted: cancelled);
+        await run.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     // ─── Through the real host ─────────────────────────────────────────────────
 
     [Fact]
@@ -216,7 +242,8 @@ public class ExceptionHandlerClassificationTests : IClassFixture<CustomWebApplic
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
-    private static async Task<(DefaultHttpContext Context, CapturingLoggerProvider Logs, Activity Activity)> RunPipelineAsync(Exception toThrow)
+    private static async Task<(DefaultHttpContext Context, CapturingLoggerProvider Logs, Activity Activity)> RunPipelineAsync(
+        Exception toThrow, string path = "/ledger", string environment = "Testing", CancellationToken requestAborted = default)
     {
         var logs = new CapturingLoggerProvider();
         var services = new ServiceCollection()
@@ -224,13 +251,13 @@ public class ExceptionHandlerClassificationTests : IClassFixture<CustomWebApplic
             .BuildServiceProvider();
 
         var app = new ApplicationBuilder(services);
-        app.UseAonikExceptionHandler(new TestHostEnvironment());
+        app.UseAonikExceptionHandler(new TestHostEnvironment { EnvironmentName = environment });
         app.Run(_ => throw toThrow);
         var pipeline = app.Build();
 
-        var context = new DefaultHttpContext { RequestServices = services };
+        var context = new DefaultHttpContext { RequestServices = services, RequestAborted = requestAborted };
         context.Request.Method = HttpMethods.Get;
-        context.Request.Path = "/ledger";
+        context.Request.Path = path;
         context.Response.Body = new MemoryStream();
 
         using var source = new ActivitySource("Aonik.Api.Tests.ExceptionHandler");

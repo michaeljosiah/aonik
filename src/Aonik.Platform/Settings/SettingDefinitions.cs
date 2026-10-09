@@ -14,6 +14,7 @@ public static class SettingDefinitions
             // Only the typed, opt-in public profile endpoint may expose this document.
             [BusinessProfileSettingNames.Profile] = new SettingDefinition(BusinessProfileSettingNames.Profile),
             [AccountAccessSettingNames.Configuration] = new SettingDefinition(AccountAccessSettingNames.Configuration),
+            [ContactEnquirySettingNames.Configuration] = new SettingDefinition(ContactEnquirySettingNames.Configuration),
             [SignupListSettingNames.Configuration] = new SettingDefinition(SignupListSettingNames.Configuration),
             [StripeSettingNames.ConnectorId] = new SettingDefinition(StripeSettingNames.ConnectorId),
 

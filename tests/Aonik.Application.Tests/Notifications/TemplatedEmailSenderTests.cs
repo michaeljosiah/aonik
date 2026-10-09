@@ -5,6 +5,7 @@ using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Entities.Notifications;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Notifications;
+using Aonik.Platform.Services.ContactEnquiries;
 using Aonik.Platform.Services.Seeding;
 using Aonik.SharedKernel.Abstractions.Messaging;
 using Aonik.TestSupport.Multitenancy;
@@ -19,6 +20,34 @@ namespace Aonik.Application.Tests.Notifications;
 public sealed class TemplatedEmailSenderTests
 {
     private readonly Guid _tenantId = Guid.NewGuid();
+
+    [Theory]
+    [InlineData(ContactEnquiryEmailTemplates.Staff, "New contact enquiry")]
+    [InlineData(ContactEnquiryEmailTemplates.Acknowledgement, "We received your enquiry")]
+    public async Task ContactTemplates_Should_EscapeStaffContent_AndKeepAcknowledgementReferenceOnly(string templateName, string subject)
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var transport = new RecordingEmailSender();
+        var model = new Dictionary<string, object?>
+        {
+            ["enquiry_id"] = "reference-42", ["received_at"] = "2026-10-09 12:00 UTC",
+            ["name"] = "Alex <script>", ["email"] = "alex&name@example.test", ["topic"] = "order",
+            ["order_number"] = "<unverified>", ["message"] = "<script>alert('bad')</script>",
+            ["detail_url"] = "https://admin.example.test/contact-enquiries/reference-42"
+        };
+
+        await CreateSender(context, transport).SendAsync(new(templateName, "recipient@example.test", model));
+
+        var message = transport.Messages.Should().ContainSingle().Which;
+        message.Subject.Should().Be(subject);
+        message.Body.Should().Contain("reference-42").And.NotContain("<script>");
+        if (templateName == ContactEnquiryEmailTemplates.Staff)
+            message.Body.Should().Contain("Alex &lt;script&gt;").And.Contain("&lt;unverified&gt;")
+                .And.Contain("&lt;script&gt;alert").And.Contain("https://admin.example.test/contact-enquiries/reference-42");
+        else
+            message.Body.Should().NotContain("Alex").And.NotContain("alert").And.NotContain("admin.example.test");
+    }
 
     [Fact]
     public async Task SendAsync_Should_RenderTheReceiptAndEscapeAuthoredValues_WithPublishedBranding()
