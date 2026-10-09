@@ -149,7 +149,8 @@ public sealed class GiftCheckoutTests
         var box = await h.BoxCarts().CreateAsync(new(fixture.BundleProductId, 6, new(fixture.DishVariants["dish"], 6)));
         box = await h.HoldDeliveryAsync(box);
         var access = CartAccessContext.ForGuest(box.CartToken, box.CartVersion);
-        var draft = await h.Carts().SaveCheckoutDraftAsync(box.Box.CartId, new(Gift: new(true, hidePrices, card, "Happy birthday!\nFrom <Pat>")), access);
+        var draft = await h.Carts().SaveCheckoutDraftAsync(box.Box.CartId,
+            new(DeliveryDate: Delivery.DeliveryDate, Gift: new(true, hidePrices, card, "Happy birthday!\nFrom <Pat>")), access);
         return (h, box, access with { ExpectedCartVersion = draft.CartVersion });
     }
 }
