@@ -1,7 +1,9 @@
 using System.Text.Json;
 
+using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
+using Aonik.Commerce.Services.Checkout;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
@@ -58,10 +60,7 @@ internal sealed class DiscountService(CommerceDbContext db, ITenantProvider tena
         var rows = await discounts.OrderBy(row => row.Code).ThenBy(row => row.Id)
             .Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToListAsync(cancellationToken);
         var ids = rows.Select(row => row.Id).ToArray();
-        var reserved = await db.DiscountReservations.AsNoTracking()
-            .Where(row => row.TenantId == tenantId && ids.Contains(row.DiscountId) && row.Status == DiscountReservationStatuses.Reserved)
-            .GroupBy(row => row.DiscountId).Select(group => new { Id = group.Key, Count = group.Count() })
-            .ToDictionaryAsync(row => row.Id, row => row.Count, cancellationToken);
+        var reserved = await ReservedCountsAsync(ids, cancellationToken);
         return new(rows.Select(row => Map(row, reserved.GetValueOrDefault(row.Id))).ToArray(), total, query.Page, query.PageSize);
     }
 
@@ -215,6 +214,8 @@ internal sealed class DiscountService(CommerceDbContext db, ITenantProvider tena
             throw new DiscountException(DiscountException.CurrencyMismatch);
         if (lines.Any(line => line.Index < 0 || line.Amount < 0) || lines.Select(line => line.Index).Distinct().Count() != lines.Count)
             throw new InvalidStateException("Discount lines require unique nonnegative indexes and amounts.");
+        if (lines.Any(line => line.Amount != decimal.Round(line.Amount, 4)))
+            throw new InvalidStateException("Discount charge lines must have at most four decimal places so recorded allocations match the order amounts.");
         var products = ReadProducts(discount)?.ToHashSet();
         var eligible = lines.Where(line => line.Kind == "Goods" && line.Amount > 0
                 && line.ProductId != Guid.Empty && (products is null || products.Contains(line.ProductId)))
@@ -243,11 +244,34 @@ internal sealed class DiscountService(CommerceDbContext db, ITenantProvider tena
         return rows[0];
     }
 
-    private Task<int> ReservedCountAsync(Guid discountId, CancellationToken ct)
+    private async Task<int> ReservedCountAsync(Guid discountId, CancellationToken ct)
+        => (await ReservedCountsAsync([discountId], ct)).GetValueOrDefault(discountId);
+
+    private async Task<Dictionary<Guid, int>> ReservedCountsAsync(IReadOnlyCollection<Guid> discountIds, CancellationToken ct)
     {
+        if (discountIds.Count == 0) return [];
         var tenantId = tenantProvider.GetCurrentTenantId();
-        return db.DiscountReservations.AsNoTracking().CountAsync(row => row.TenantId == tenantId
-            && row.DiscountId == discountId && row.Status == DiscountReservationStatuses.Reserved, ct);
+        var reservations = await db.DiscountReservations.AsNoTracking()
+            .Where(row => row.TenantId == tenantId && discountIds.Contains(row.DiscountId)
+                && row.Status == DiscountReservationStatuses.Reserved)
+            .Select(row => new { row.CartId, row.AttemptId, row.DiscountId }).ToListAsync(ct);
+        var counts = reservations.GroupBy(row => row.DiscountId).ToDictionary(group => group.Key, group => group.Count());
+        var backed = reservations.Select(row => (row.CartId, row.AttemptId, row.DiscountId)).ToHashSet();
+        // Checkout preparations from #344 through #354 consumed usage only on payment, but
+        // have no reservation ID. Keep their pending use occupied during the #355 rollout.
+        // Earlier summary-only checkout already incremented TimesRedeemed at submission.
+        var legacy = await db.Carts.AsNoTracking().Where(cart => cart.TenantId == tenantId && cart.Status == CartStatuses.Open
+                && (cart.CheckoutState == CartCheckoutStates.Preparing || cart.CheckoutState == CartCheckoutStates.AwaitingPayment)
+                && cart.CheckoutPreparationJson != null)
+            .Select(cart => new { cart.Id, cart.CheckoutPreparationJson }).ToListAsync(ct);
+        foreach (var cart in legacy)
+        {
+            var preparation = CheckoutPreparation.Read(new Cart { Id = cart.Id, CheckoutPreparationJson = cart.CheckoutPreparationJson });
+            if (preparation.DiscountReservationId is null && preparation.DiscountId is { } discountId
+                && discountIds.Contains(discountId) && !backed.Contains((cart.Id, preparation.AttemptId, discountId)))
+                counts[discountId] = counts.GetValueOrDefault(discountId) + 1;
+        }
+        return counts;
     }
 
     private async Task<DiscountReservation> GetExactReservationAsync(Guid cartId, Guid reservationId, Guid attemptId, CancellationToken ct)

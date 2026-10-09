@@ -1,6 +1,9 @@
+using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Promotions;
+using Aonik.Commerce.Services.Checkout;
 using Aonik.IntegrationTests.Support;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.TestSupport.Multitenancy;
@@ -13,6 +16,103 @@ namespace Aonik.Database.Tests.Commerce;
 
 public sealed class DiscountReservationSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
 {
+    [SkippableTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LegacyPreparation_Should_BlockLastUseWithoutSummary_UntilReleaseOrPaidCounter(bool paid)
+    {
+        RequireSql();
+        var test = new Harness();
+        var discount = await SeedAsync(test, maximum: 1);
+        await using var db = Context(test);
+        var service = Service(db, test);
+        var quote = await service.ComputeAsync("SAVE", Lines(test), "GBP");
+        var preparation = new CheckoutPreparation(Guid.NewGuid(), null, "GBP", "Stripe", "Card", null, null, null,
+            20m, 2m, discount.Id, "SAVE", 0m, 18m, [], [], [], [], null).Serialize();
+        var legacy = new Cart { TenantId = test.TenantId, Currency = "GBP", CheckoutState = CartCheckoutStates.Preparing,
+            CheckoutPreparationJson = preparation };
+        db.Carts.Add(legacy); await db.SaveChangesAsync();
+
+        var blocked = () => WriteAsync(db, test, () => service.ReserveTrackedAsync(test.CartId, test.AttemptId,
+            "SAVE", Lines(test), "GBP", quote));
+        (await blocked.Should().ThrowAsync<DiscountException>()).Which.Code.Should().Be(DiscountException.AlreadyUsed);
+        (await service.ListAsync(new())).Items.Single().ReservedCount.Should().Be(1);
+        (await db.DiscountReservations.CountAsync()).Should().Be(0);
+        await db.Database.CreateExecutionStrategy().ExecuteAsync(async () =>
+        {
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            if (paid)
+            {
+                legacy.Status = CartStatuses.CheckedOut;
+                await service.MarkRedeemedAsync(discount.Id);
+            }
+            else
+            {
+                legacy.CheckoutState = CartCheckoutStates.Retryable;
+                await db.SaveChangesAsync();
+            }
+            await transaction.CommitAsync();
+        });
+        var closed = (await service.ListAsync(new())).Items.Single();
+        closed.ReservedCount.Should().Be(0);
+        closed.TimesRedeemed.Should().Be(paid ? 1 : 0);
+        if (paid)
+        {
+            var exhausted = () => service.ComputeAsync("SAVE", Lines(test), "GBP");
+            (await exhausted.Should().ThrowAsync<DiscountException>()).Which.Code.Should().Be(DiscountException.AlreadyUsed);
+        }
+        else
+        {
+            var reservation = await WriteAsync(db, test, () => service.ReserveTrackedAsync(test.CartId,
+                test.AttemptId, "SAVE", Lines(test), "GBP", quote));
+            reservation.Should().NotBeNull();
+        }
+        await using var verify = Context(test);
+        (await verify.Carts.SingleAsync()).CheckoutPreparationJson.Should().Be(preparation, "rollout counting does not rewrite legacy snapshots");
+    }
+
+    [SkippableFact]
+    public async Task Reserve_Should_RejectUnrepresentableAllocationWithoutMutation_AndAllowValidRetry()
+    {
+        RequireSql();
+        var test = new Harness();
+        await using var db = Context(test);
+        var otherProductId = Guid.NewGuid();
+        db.Products.AddRange(
+            new Product { Id = test.ProductId, TenantId = test.TenantId, Name = "Eligible", Slug = "eligible" },
+            new Product { Id = otherProductId, TenantId = test.TenantId, Name = "Other", Slug = "other" });
+        await db.SaveChangesAsync();
+        var service = Service(db, test);
+        var discount = await service.CreateAsync(new("PRECISE", DiscountKinds.FixedAmount, 2m, "GBP",
+            EligibleProductIds: [test.ProductId]));
+        var unrepresentable = 1.2345m * 0.81m;
+        // Discounting the eligible goods completely leaves an exact GBP10 payable, so the
+        // payment penny guard alone cannot detect the allocation/order-column mismatch.
+        DiscountChargeLine[] invalid = [new(0, test.ProductId, unrepresentable), new(1, otherProductId, 10m)];
+        var expected = new DiscountComputation(discount.Id, "PRECISE", unrepresentable, [new(0, unrepresentable)]);
+        var reserve = () => WriteAsync(db, test, () => service.ReserveTrackedAsync(test.CartId,
+            test.AttemptId, "PRECISE", invalid, "GBP", expected));
+        await reserve.Should().ThrowAsync<InvalidStateException>().WithMessage("*four decimal places*");
+        await db.SaveChangesAsync();
+        await using (var verify = Context(test))
+        {
+            (await verify.DiscountReservations.CountAsync()).Should().Be(0);
+            var unchanged = await verify.Discounts.SingleAsync();
+            Convert.ToBase64String(unchanged.RowVersion).Should().Be(discount.Version);
+            unchanged.TimesRedeemed.Should().Be(0);
+        }
+        DiscountChargeLine[] valid = [new(0, test.ProductId, 0.9999m), new(1, otherProductId, 10m)];
+        var quote = await service.ComputeAsync("PRECISE", valid, "GBP");
+        quote.Amount.Should().Be(0.9999m);
+        var reservationId = await WriteAsync(db, test, () => service.ReserveTrackedAsync(test.CartId,
+            test.AttemptId, "PRECISE", valid, "GBP", quote));
+        await using var final = Context(test);
+        var reservation = (await final.DiscountReservations.ToListAsync()).Should().ContainSingle().Subject;
+        reservation.Id.Should().Be(reservationId!.Value);
+        reservation.RowVersion.Should().HaveCount(8);
+        (await final.Discounts.SingleAsync()).TimesRedeemed.Should().Be(0);
+    }
+
     [SkippableFact]
     public async Task Reserve_Should_RejectConcurrentAuthoringEvenForUnlimitedCampaign()
     {

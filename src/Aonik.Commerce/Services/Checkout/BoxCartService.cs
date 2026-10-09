@@ -1359,20 +1359,20 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             CartLineKinds.AddOn,
             l.UnitPriceSnapshot)));
 
-        // A closed cart's quote pins to its durable charge summary — a later plan price edit
-        // must not display a figure different from what was actually charged (J7).
+        // A retry keeps its order id while preparing a new attempt. Its current preparation
+        // takes precedence over the previous cancelled attempt's charge summary.
         OrderChargeSummary? summary = null;
-        if (!CartWriteGuard.IsEditable(cart) && cart.OrderId is { } orderId)
-        {
-            summary = await _dbContext.OrderChargeSummaries
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.OrderId == orderId, ct);
-        }
-        if (summary is null && !CartWriteGuard.IsEditable(cart) && cart.CheckoutPreparationJson is not null)
+        if (!CartWriteGuard.IsEditable(cart) && cart.CheckoutPreparationJson is not null)
         {
             var frozen = CheckoutPreparation.Read(cart);
             summary = new OrderChargeSummary { Subtotal = frozen.Subtotal, DiscountTotal = frozen.DiscountTotal,
                 DiscountCode = frozen.DiscountCode, TaxTotal = frozen.TaxTotal, Total = frozen.Total };
+        }
+        else if (!CartWriteGuard.IsEditable(cart) && cart.OrderId is { } orderId)
+        {
+            summary = await _dbContext.OrderChargeSummaries
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.OrderId == orderId, ct);
         }
 
         var quote = await BuildQuoteAsync(tenantId, cart, plan, boxLines, addOnLines, summary, ct);

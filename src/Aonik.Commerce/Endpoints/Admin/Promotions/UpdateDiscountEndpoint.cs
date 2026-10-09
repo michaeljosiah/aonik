@@ -7,7 +7,9 @@ using FastEndpoints;
 namespace Aonik.Commerce.Endpoints.Admin.Promotions;
 
 public record UpdateDiscountRequest(string Kind, decimal Value, [property: JsonRequired] bool IsActive,
-    string? Currency, int? MaxRedemptions, DateTime? ExpiresAt, IReadOnlyList<Guid>? EligibleProductIds, string ExpectedVersion);
+    [property: JsonRequired] string? Currency, [property: JsonRequired] int? MaxRedemptions,
+    [property: JsonRequired] DateTime? ExpiresAt, [property: JsonRequired] IReadOnlyList<Guid>? EligibleProductIds,
+    string ExpectedVersion);
 
 public sealed class UpdateDiscountEndpoint(IDiscountService discounts) : Endpoint<UpdateDiscountRequest, DiscountDto>
 {

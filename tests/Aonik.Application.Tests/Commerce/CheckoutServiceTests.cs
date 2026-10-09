@@ -3,6 +3,7 @@ using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
+using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
@@ -292,10 +293,14 @@ public class CheckoutServiceTests
     }
 
     [Theory]
-    [InlineData(null)]
-    [InlineData(19)]
-    public async Task DiscountedCheckout_Should_RequireTheCurrentTotalBeforeAnyPaymentOrReservation(decimal? expectedTotal)
+    [InlineData(null, "SAVE10", false)]
+    [InlineData(19, "SAVE10", false)]
+    [InlineData(18, "", true)]
+    [InlineData(18, null, false)]
+    public async Task DiscountedCheckout_Should_RequireTheCurrentTotalBeforeAnyPaymentOrReservation(
+        int? expectedTotalValue, string? commandCode, bool savedCode)
     {
+        decimal? expectedTotal = expectedTotalValue;
         var h = new Harness();
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: [new CreateVariantLine("TEA", "Tea")]));
@@ -306,8 +311,15 @@ public class CheckoutServiceTests
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m), Owner(cart));
 
+        if (savedCode)
+        {
+            await using var draft = h.Commerce();
+            (await draft.Carts.SingleAsync()).CheckoutDraftJson = "{\"discountCode\":\"SAVE10\"}";
+            await draft.SaveChangesAsync();
+        }
+
         var checkout = () => h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card",
-            DiscountCode: "SAVE10", ExpectedTotal: expectedTotal), Owner(cart));
+            DiscountCode: commandCode, ExpectedTotal: expectedTotal), Owner(cart));
 
         (await checkout.Should().ThrowAsync<DiscountException>()).Which.Code.Should().Be(DiscountException.PriceChanged);
         h.Payments.LastOrderId.Should().BeEmpty();

@@ -36,8 +36,9 @@ public class CommerceCheckoutProposalHandlerTests
     [Theory]
     [InlineData(null)]
     [InlineData(18)]
-    public async Task HandleAsync_Should_ExecutePreciselyApprovedCartVersionAndTotal(decimal? expectedTotal)
+    public async Task HandleAsync_Should_ExecutePreciselyApprovedCartVersionAndTotal(int? expectedTotalValue)
     {
+        decimal? expectedTotal = expectedTotalValue;
         var cartId = Guid.NewGuid();
         var orderId = Guid.NewGuid();
         var checkout = new Mock<ICheckoutService>(MockBehavior.Strict);

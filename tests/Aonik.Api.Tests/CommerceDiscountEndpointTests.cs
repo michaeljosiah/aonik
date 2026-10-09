@@ -49,7 +49,8 @@ public sealed class CommerceDiscountEndpointTests(CustomWebApplicationFactory fa
         Private(invalid);
         (await ReadCartAsync(seeded)).CheckoutDraftJson.Should().Contain("SAVE10").And.Contain("Keep me");
 
-        SetVersion(client, seeded.Version);
+        // InMemory does not generate a new native rowversion after a saved edit.
+        SetVersion(client, "CAcGBQQDAgE=");
         using var stale = await client.DeleteAsync(path);
         stale.StatusCode.Should().Be(HttpStatusCode.Conflict);
         Private(stale);
@@ -151,7 +152,9 @@ public sealed class CommerceDiscountEndpointTests(CustomWebApplicationFactory fa
         updated.IsActive.Should().BeFalse();
         // InMemory does not synthesize native discount rowversions; send an explicit wrong token.
         using var wrong = await admin.PutAsJsonAsync(AdminPath + "/" + discount.Id,
-            new { kind = "Percentage", value = 15m, isActive = true, expectedVersion = "AQIDBAUGBwg=" });
+            new { kind = "Percentage", value = 15m, isActive = true, currency = (string?)null,
+                maxRedemptions = (int?)null, expiresAt = (DateTime?)null, eligibleProductIds = (Guid[]?)null,
+                expectedVersion = "AQIDBAUGBwg=" });
         wrong.StatusCode.Should().Be(HttpStatusCode.Conflict);
         using var bounds = await admin.GetAsync(AdminPath + "?pageSize=101");
         bounds.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
@@ -161,7 +164,52 @@ public sealed class CommerceDiscountEndpointTests(CustomWebApplicationFactory fa
         negative.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
     }
 
-    private sealed record Seed(Guid TenantId, Guid CartId, string Token, string Version);
+    [Theory]
+    [InlineData("currency")]
+    [InlineData("maxRedemptions")]
+    [InlineData("expiresAt")]
+    [InlineData("eligibleProductIds")]
+    public async Task AdminReplacement_Should_RequireExplicitNullToClearOptionalRestrictions(string omittedField)
+    {
+        var seeded = await SeedAsync();
+        using var admin = await factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(seeded.TenantId).WithRoles("Operations"));
+        var expiry = DateTime.UtcNow.AddDays(1);
+        using var created = await admin.PostAsJsonAsync(AdminPath, new { code = "BOUNDED", kind = "Percentage",
+            value = 10m, currency = "GBP", maxRedemptions = 5, expiresAt = expiry,
+            eligibleProductIds = new[] { seeded.ProductId } });
+        created.EnsureSuccessStatusCode();
+        var discount = (await created.Content.ReadFromJsonAsync<DiscountDto>())!;
+        var replacement = new Dictionary<string, object?>
+        {
+            ["kind"] = "Percentage", ["value"] = 10m, ["isActive"] = true,
+            ["currency"] = null, ["maxRedemptions"] = null, ["expiresAt"] = null,
+            ["eligibleProductIds"] = null, ["expectedVersion"] = discount.Version
+        };
+        replacement.Remove(omittedField);
+
+        using var omitted = await admin.PutAsJsonAsync(AdminPath + "/" + discount.Id, replacement);
+
+        omitted.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        Private(omitted);
+        var unchanged = (await admin.GetFromJsonAsync<PagedResult<DiscountDto>>(AdminPath + "?search=BOUNDED"))!.Items.Single();
+        unchanged.Currency.Should().Be("GBP");
+        unchanged.MaxRedemptions.Should().Be(5);
+        unchanged.ExpiresAt.Should().Be(expiry);
+        unchanged.EligibleProductIds.Should().Equal(seeded.ProductId);
+        unchanged.Version.Should().Be(discount.Version);
+
+        replacement[omittedField] = null;
+        using var cleared = await admin.PutAsJsonAsync(AdminPath + "/" + discount.Id, replacement);
+        cleared.StatusCode.Should().Be(HttpStatusCode.OK);
+        Private(cleared);
+        var updated = (await cleared.Content.ReadFromJsonAsync<DiscountDto>())!;
+        updated.Currency.Should().BeNull();
+        updated.MaxRedemptions.Should().BeNull();
+        updated.ExpiresAt.Should().BeNull();
+        updated.EligibleProductIds.Should().BeNull();
+    }
+
+    private sealed record Seed(Guid TenantId, Guid CartId, string Token, string Version, Guid ProductId);
 
     private async Task<Seed> SeedAsync()
     {
@@ -184,7 +232,7 @@ public sealed class CommerceDiscountEndpointTests(CustomWebApplicationFactory fa
             new Discount { TenantId = tenantId, Code = "USD", Kind = DiscountKinds.FixedAmount, Value = 5, Currency = "USD" },
             new Discount { TenantId = tenantId, Code = "INELIGIBLE", Value = 10, EligibleProductIdsJson = JsonSerializer.Serialize(new[] { Guid.NewGuid() }) });
         await db.SaveChangesAsync();
-        return new(tenantId, cart.Id, cart.AnonymousToken!, Convert.ToBase64String(cart.RowVersion));
+        return new(tenantId, cart.Id, cart.AnonymousToken!, Convert.ToBase64String(cart.RowVersion), product.Id);
     }
 
     private HttpClient Client(Seed seed, bool token = true)

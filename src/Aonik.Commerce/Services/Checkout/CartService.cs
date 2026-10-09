@@ -105,10 +105,10 @@ internal sealed class CartService : ICartService
         var cart = await LoadAuthorizedAsync(cartId, snapshot.TenantId, access, ct);
         CartWriteGuard.RequireCurrent(cart, access);
         var draft = CartDraftData.Read(cart) ?? new CartCheckoutDraftDto();
-        var json = CartDraftData.Serialize(draft with { DiscountCode = code });
-        if (cart.CheckoutDraftJson != json)
+        var existingCode = string.IsNullOrWhiteSpace(draft.DiscountCode) ? null : draft.DiscountCode.Trim();
+        if (!string.Equals(existingCode, code, StringComparison.OrdinalIgnoreCase))
         {
-            cart.CheckoutDraftJson = json;
+            cart.CheckoutDraftJson = CartDraftData.Serialize(draft with { DiscountCode = code });
             await SaveCartEditAsync(cart, ct);
         }
         // The guest token can be revoked by adoption between a committed write and this read.

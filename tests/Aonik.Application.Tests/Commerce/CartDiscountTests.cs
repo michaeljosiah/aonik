@@ -15,6 +15,37 @@ namespace Aonik.Application.Tests.Commerce;
 
 public class CartDiscountTests
 {
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData(" save10 ", "SAVE10")]
+    [InlineData("save10", " save10 ")]
+    public async Task UnchangedCoupon_Should_NotRewriteTheDraftOrRenewActivity(string? savedCode, string? requestedCode)
+    {
+        var h = new BoxTestHarness();
+        var (id, token, _) = await SeedGenericAsync(h);
+        await using var db = h.Commerce();
+        var original = await db.Carts.SingleAsync();
+        original.CheckoutDraftJson = savedCode is null ? null
+            : System.Text.Json.JsonSerializer.Serialize(new CartCheckoutDraftDto(DiscountCode: savedCode),
+                new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+        await db.SaveChangesAsync();
+        var json = original.CheckoutDraftJson;
+        var activity = original.LastActivityAtUtc;
+        var version = Convert.ToBase64String(original.RowVersion);
+        h.Clock.UtcNow = h.Clock.UtcNow.AddHours(2);
+        var access = CartAccessContext.ForGuest(token, version);
+
+        var result = requestedCode is null
+            ? await h.Carts().RemoveDiscountAsync(id, access)
+            : await h.Carts().ApplyDiscountAsync(id, requestedCode, access);
+
+        result.CartVersion.Should().Be(version);
+        var unchanged = await db.Carts.AsNoTracking().SingleAsync();
+        unchanged.CheckoutDraftJson.Should().Be(json);
+        unchanged.LastActivityAtUtc.Should().Be(activity);
+        unchanged.RowVersion.Should().Equal(original.RowVersion);
+    }
+
     [Fact]
     public async Task CouponEdits_Should_PreserveDraft_RejectReplacementAndStaleWrites_AndClearOnlyCode()
     {
@@ -41,7 +72,8 @@ public class CartDiscountTests
         repeated.CartVersion.Should().Be(applied.CartVersion);
         var invalid = () => service.ApplyDiscountAsync(id, "MISSING", latest);
         await invalid.Should().ThrowAsync<DiscountException>().Where(x => x.Code == DiscountException.Invalid);
-        var stale = () => service.RemoveDiscountAsync(id, access);
+        // InMemory does not generate a new native rowversion after a saved edit.
+        var stale = () => service.RemoveDiscountAsync(id, access with { ExpectedCartVersion = "CAcGBQQDAgE=" });
         await stale.Should().ThrowAsync<CartWriteConflictException>();
 
         var removed = await service.RemoveDiscountAsync(id, latest);
@@ -116,6 +148,34 @@ public class CartDiscountTests
         result.Quote.Discount.Should().Be(new DiscountCodeStatusDto("WITHDRAWN", 15m));
         var change = () => h.Carts().PreviewDiscountAsync(id, "SAVE10", CartAccessContext.ForGuest(token));
         await change.Should().ThrowAsync<CartWriteConflictException>();
+    }
+
+    [Fact]
+    public async Task RetryingBoxQuote_Should_PreferCurrentPreparationOverTheCancelledOrderCharge()
+    {
+        var h = new BoxTestHarness();
+        var fixture = await h.BuildAsync("dish");
+        var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(fixture.BundleProductId, 6));
+        await using var db = h.Commerce();
+        var cart = await db.Carts.SingleAsync();
+        cart.OrderId = Guid.NewGuid();
+        cart.CheckoutState = CartCheckoutStates.Preparing;
+        cart.CheckoutPreparationJson = new CheckoutPreparation(Guid.NewGuid(), null, "GBP", "Stripe", "Card",
+            null, null, null, 95m, 19m, Guid.NewGuid(), "CURRENT", 2m, 85m,
+            [], [], [], [], null).Serialize();
+        db.OrderChargeSummaries.Add(new OrderChargeSummary { TenantId = h.TenantId, OrderId = cart.OrderId.Value,
+            Currency = "GBP", Subtotal = 95m, DiscountTotal = 9.50m, DiscountCode = "PREVIOUS",
+            TaxTotal = 0m, Total = 85.50m, PaymentStatus = "Cancelled" });
+        await db.SaveChangesAsync();
+
+        var result = await h.BoxCarts().QuoteAsync(box.Box.CartId, CartAccessContext.ForGuest(box.CartToken));
+
+        result.Quote.Total.Should().Be(85m);
+        result.Quote.Discount.Should().Be(new DiscountCodeStatusDto("CURRENT", 19m));
+        result.Quote.Components.Single(x => x.Key == "discount").Amount.Should().Be(-19m);
+        result.Quote.Components.Single(x => x.Key == "deliveryCharged").Amount.Should().Be(7m);
+        result.Quote.Components.Sum(x => x.Amount).Should().Be(85m);
+        (await db.OrderChargeSummaries.AsNoTracking().SingleAsync()).DiscountCode.Should().Be("PREVIOUS");
     }
 
     [Fact]

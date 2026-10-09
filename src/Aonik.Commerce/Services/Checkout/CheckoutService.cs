@@ -278,7 +278,8 @@ internal sealed class CheckoutService : ICheckoutService
         var taxable = subtotal - discount.Amount;
         var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
         var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
-        if (!string.IsNullOrWhiteSpace(code) && command.ExpectedTotal != total)
+        if ((command.ExpectedTotal is { } expectedTotal && expectedTotal != total)
+            || (!string.IsNullOrWhiteSpace(code) && command.ExpectedTotal is null))
             throw new DiscountException(DiscountException.PriceChanged);
         if (total <= 0)
             throw new StorefrontValidationException("The payable total for this cart is zero or below; it cannot be checked out.");
