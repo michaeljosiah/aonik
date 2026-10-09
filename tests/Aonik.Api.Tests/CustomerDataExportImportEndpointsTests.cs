@@ -9,6 +9,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Api.Tests;
@@ -212,6 +213,107 @@ public class CustomerDataExportImportEndpointsTests : IClassFixture<CustomWebApp
     }
 
     // ─── Helpers ────────────────────────────────────────────
+
+    [Fact]
+    public async Task ExportThenImport_Should_RemapDefaultShippingAddress_ToTheImportedOwnedAddress()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        await SeedCustomerAsync(tenantId, userId, partyId);
+        var originalAddressId = await SeedDefaultAddressAsync(tenantId, partyId);
+        using var client = await CreateClientAsync(tenantId, userId, includeWritePermission: true);
+        var bundle = (await client.GetFromJsonAsync<CustomerDataBundle>($"/admin/customers/{partyId}/export", JsonOptions))!;
+        bundle.Data["Party"].Single().GetProperty("defaultShippingAddressId").GetGuid().Should().Be(originalAddressId);
+
+        using var response = await client.PostAsJsonAsync("/admin/customers/import", new { bundle, conflictMode = "skip" }, JsonOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = (await response.Content.ReadFromJsonAsync<ImportResponse>(JsonOptions))!;
+        result.Warnings.Should().BeEmpty();
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var imported = await db.Parties.AsNoTracking().SingleAsync(party => party.Id == result.NewPartyId);
+        var address = await db.PartyAddresses.AsNoTracking().SingleAsync(row => row.PartyId == imported.Id);
+        imported.DefaultShippingAddressId.Should().Be(address.Id).And.NotBe(originalAddressId);
+        address.Line1.Should().Be("12 Saved Street");
+        (await db.Parties.AsNoTracking().SingleAsync(party => party.Id == partyId)).DefaultShippingAddressId.Should().Be(originalAddressId);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("foreign")]
+    [InlineData("deleted")]
+    [InlineData("wrong-entity")]
+    public async Task Import_Should_ClearInvalidDefaultAddress_WithWarning(string reason)
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        await SeedCustomerAsync(tenantId, userId, partyId);
+        using var client = await CreateClientAsync(tenantId, userId, includeWritePermission: true);
+        var bundle = (await client.GetFromJsonAsync<CustomerDataBundle>($"/admin/customers/{partyId}/export", JsonOptions))!;
+        var source = bundle.Data["Party"].Single().Deserialize<Party>(JsonOptions)!;
+        var addressId = reason == "wrong-entity" ? partyId : Guid.NewGuid();
+        source.DefaultShippingAddressId = addressId;
+        bundle.Data["Party"] = [JsonSerializer.SerializeToElement(source, JsonOptions)];
+        if (reason is "foreign" or "deleted")
+            bundle.Data["PartyAddress"] = [JsonSerializer.SerializeToElement(new PartyAddress
+            {
+                Id = addressId, PartyId = reason == "foreign" ? Guid.NewGuid() : partyId,
+                Type = "Shipping", Line1 = "Unusable address", City = "London", Country = "GB",
+                IsDeleted = reason == "deleted"
+            }, JsonOptions)];
+
+        using var response = await client.PostAsJsonAsync("/admin/customers/import", new { bundle, conflictMode = "skip" }, JsonOptions);
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var result = (await response.Content.ReadFromJsonAsync<ImportResponse>(JsonOptions))!;
+        result.Warnings.Should().ContainSingle().Which.Should().Contain("default shipping address was cleared");
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        (await db.Parties.AsNoTracking().SingleAsync(party => party.Id == result.NewPartyId)).DefaultShippingAddressId.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Export_Should_OmitUnusableDefaultPointer_WithoutChangingStoredParty(bool deleted)
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        await SeedCustomerAsync(tenantId, userId, partyId);
+        var addressId = await SeedDefaultAddressAsync(tenantId, partyId, deleted: deleted, foreign: !deleted);
+        using var client = await CreateClientAsync(tenantId, userId);
+
+        var bundle = (await client.GetFromJsonAsync<CustomerDataBundle>($"/admin/customers/{partyId}/export", JsonOptions))!;
+
+        bundle.Data["Party"].Single().GetProperty("defaultShippingAddressId").ValueKind.Should().Be(JsonValueKind.Null);
+        bundle.Data.Should().NotContainKey("PartyAddress");
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        (await db.Parties.AsNoTracking().SingleAsync(party => party.Id == partyId)).DefaultShippingAddressId.Should().Be(addressId);
+    }
+
+    private async Task<Guid> SeedDefaultAddressAsync(Guid tenantId, Guid partyId, bool deleted = false, bool foreign = false)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var address = new PartyAddress
+        {
+            PartyId = foreign ? Guid.NewGuid() : partyId, Type = "Shipping", Line1 = "12 Saved Street",
+            City = "London", Postcode = "SW1A 1AA", Country = "GB", IsDeleted = deleted
+        };
+        db.PartyAddresses.Add(address);
+        (await db.Parties.SingleAsync(party => party.Id == partyId)).DefaultShippingAddressId = address.Id;
+        await db.SaveChangesAsync();
+        return address.Id;
+    }
 
     private async Task<HttpClient> CreateClientAsync(
         Guid tenantId,
