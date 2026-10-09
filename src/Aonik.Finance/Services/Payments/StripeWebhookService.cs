@@ -52,7 +52,43 @@ internal sealed class StripeWebhookService(
 
         Guid? intentId = null;
         Guid? orderId = null;
-        if (verified.Supported)
+        Guid? refundId = null;
+        var isRefund = verified.Supported && verified.ProviderRefundId is not null;
+        var needsReconciliation = false;
+        var ignored = !verified.Supported;
+        if (isRefund)
+        {
+            if (verified.ProviderRefundId!.Length > 200 || !verified.ProviderRefundId.StartsWith("re_", StringComparison.Ordinal)
+                || verified.ProviderRefundId.Any(c => !char.IsAsciiLetterOrDigit(c) && c != '_')
+                || string.IsNullOrWhiteSpace(verified.ProviderPaymentIntentId) || verified.ProviderPaymentIntentId.Length > 200)
+                throw new InvalidStateException("Stripe refund notification has invalid provider references.");
+            // Dashboard refunds have no local metadata. Only the original, account-bound PI
+            // can associate that signed notification with one of our captured payments.
+            var intent = await context.PaymentIntents.AsNoTracking().SingleOrDefaultAsync(p => p.TenantId == connector.TenantId
+                && !p.IsDeleted && p.ConnectorId == connectorId && p.ProviderCode == "Stripe"
+                && p.ProviderAccountId == binding.ProviderAccountId && p.ProviderLiveMode == binding.LiveMode
+                && p.ProviderPaymentIntentReference == verified.ProviderPaymentIntentId, cancellationToken);
+            if (verified.RefundId is { } candidateRefund)
+            {
+                var refund = await context.Refunds.AsNoTracking().SingleOrDefaultAsync(r => r.TenantId == connector.TenantId
+                    && r.Id == candidateRefund && !r.IsDeleted, cancellationToken)
+                    ?? throw new InvalidOperationException("Stripe refund correlation is not yet available.");
+                if (intent is null || refund.PaymentIntentId != intent.Id || refund.ConnectorId != connectorId
+                    || verified.TenantId != connector.TenantId || verified.ConnectorId != connectorId
+                    || verified.PaymentIntentId != intent.Id || verified.OrderId != intent.OrderId
+                    || (refund.ProviderReference is not null && refund.ProviderReference != verified.ProviderRefundId))
+                    throw new InvalidStateException("Stripe notification does not match its refund.");
+                refundId = refund.Id;
+            }
+            if (intent is not null)
+            {
+                intentId = intent.Id;
+                orderId = intent.OrderId;
+                needsReconciliation = refundId is null;
+            }
+            else ignored = true; // A signed refund for an unrelated merchant payment is not a local refund.
+        }
+        else if (verified.Supported)
         {
             if (verified.PaymentIntentId is not { } candidateIntent || verified.OrderId is not { } candidateOrder
                 || verified.TenantId != connector.TenantId || verified.ConnectorId != connectorId)
@@ -79,20 +115,22 @@ internal sealed class StripeWebhookService(
             TenantId = connector.TenantId,
             ConnectorId = connectorId,
             ProviderCode = "Stripe",
-            Category = "Collection",
+            Category = isRefund ? "Refund" : "Collection",
             EventType = verified.EventType,
             ProviderEventId = verified.EventId,
-            ProviderReference = verified.SessionId ?? verified.ProviderPaymentIntentId ?? string.Empty,
-            ClientReference = intentId?.ToString("N") ?? string.Empty,
+            ProviderReference = verified.ProviderRefundId ?? verified.SessionId ?? verified.ProviderPaymentIntentId ?? string.Empty,
+            ClientReference = (refundId ?? intentId)?.ToString("N") ?? string.Empty,
             PayloadHash = verified.PayloadHash,
-            RawPayload = JsonSerializer.Serialize(new { verified.EventId, verified.EventType, verified.LiveMode }),
+            RawPayload = JsonSerializer.Serialize(new { verified.EventId, verified.EventType, verified.LiveMode, verified.ProviderPaymentIntentId }),
             SignatureValid = true,
             ReceivedAt = clock.UtcNow,
-            ProcessingStatus = verified.Supported ? "Received" : "Ignored",
-            ProcessedAt = verified.Supported ? null : clock.UtcNow
+            ProcessingStatus = ignored ? "Ignored" : needsReconciliation ? "NeedsReconciliation" : "Received",
+            ProcessedAt = ignored ? clock.UtcNow : null
         };
         context.PartnerWebhookEvents.Add(inbox);
-        if (intentId is { } paymentIntentId)
+        if (refundId is { } localRefundId)
+            context.EnqueueIntegrationEvent(new RefundReconciliationRequestedEvent(connector.TenantId, localRefundId, inbox.Id));
+        else if (!isRefund && intentId is { } paymentIntentId)
             context.EnqueueIntegrationEvent(new CheckoutPaymentReconciliationRequestedEvent(connector.TenantId, paymentIntentId, inbox.Id));
         try
         {

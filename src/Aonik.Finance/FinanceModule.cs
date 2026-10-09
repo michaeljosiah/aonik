@@ -69,6 +69,10 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.GiftCards.GiftCardService>();
         services.AddScoped<SharedKernel.Abstractions.GiftCards.IGiftCardService>(sp => sp.GetRequiredService<Services.GiftCards.GiftCardService>());
         services.AddScoped<Services.Loyalty.LoyaltyService>();
+        services.AddScoped<Services.Payments.RefundService>();
+        services.AddScoped<SharedKernel.Abstractions.Payments.IOrderRefundService>(sp => sp.GetRequiredService<Services.Payments.RefundService>());
+        services.AddScoped<SharedKernel.Abstractions.Payments.IOrderRefundStatusReader, Services.Payments.RefundStatusReader>();
+        services.AddScoped<Contracts.Services.Payments.IRefundReconciler>(sp => sp.GetRequiredService<Services.Payments.RefundService>());
         services.AddScoped<SharedKernel.Abstractions.Loyalty.ILoyaltyService>(sp => sp.GetRequiredService<Services.Loyalty.LoyaltyService>());
 
         // Spec 088 P4 - standing authorisations. Authoring stays Finance-internal; only the

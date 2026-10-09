@@ -9,9 +9,12 @@ using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Finance.Entities.Orders;
+using Aonik.Finance.Entities.Payments;
+using Aonik.Finance.Services.Payments;
 using Aonik.Infrastructure.Persistence;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Payments;
 
 using FluentAssertions;
 
@@ -25,6 +28,67 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
     private readonly CustomWebApplicationFactory _factory;
 
     public GuestStorefrontOrderEndpointTests(CustomWebApplicationFactory factory) => _factory = factory;
+
+    [Fact]
+    public async Task OrderRefundSummary_Should_BeSafeForTheOwnerAndGuestCapability_WithoutChangingOriginalTotals()
+    {
+        var tenantId = Guid.NewGuid();
+        var options = TestAuthOptions.Create().WithTenant(tenantId).WithRoles("PersonalUser").WithPermissions("Customers.Read");
+        using var customer = await _factory.CreateAuthenticatedClientAsync(options);
+        var partyId = await WorkspaceTestSeeding.SeedPartyAsync(_factory, tenantId, options.UserId, "Refund customer");
+        var seeded = await SeedGuestCheckoutAsync(tenantId, paymentStatus: "Captured");
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+            var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
+            (await db.Carts.SingleAsync(cart => cart.Id == seeded.CartId)).BuyerPartyId = partyId;
+            var item = await db.Set<OrderItem>().SingleAsync(item => item.OrderId == seeded.OrderId);
+            db.Set<PaymentIntent>().Add(new PaymentIntent { Id = seeded.PaymentIntentId, TenantId = tenantId, OrderId = seeded.OrderId,
+                Amount = 95m, Currency = "GBP", Status = "Captured", ProviderPaymentIntentReference = "pi_private_refund_source" });
+            var source = new CheckoutRefundSource(seeded.OrderId, seeded.PaymentIntentId, null, "GBP", 95m, 0m, 95m,
+                [new(item.Id.ToString("N"), item.Id, "ProductPurchase", "Recorded purchase", 95m, 0m, 0, 0)]);
+            var request = new RefundRequest(Guid.NewGuid(), "Private operator reason", [new(item.Id.ToString("N"), 25m)], new string('a', 64));
+            var snapshot = new RefundSnapshot(source, request, Guid.NewGuid(), [new(item.Id.ToString("N"), item.Id, 25m, false, 0m, 0, 0)],
+                25m, 0m, null, null, null, null);
+            db.Set<Refund>().Add(new Refund { Id = request.RefundId, TenantId = tenantId, PaymentIntentId = seeded.PaymentIntentId,
+                Amount = 25m, Currency = "GBP", Status = "Succeeded", RequestSnapshotJson = snapshot.Serialize(),
+                EffectsAppliedAtUtc = DateTime.UtcNow, ProviderReference = "re_private_refund_reference", Reason = request.Reason });
+            await db.SaveChangesAsync();
+        }
+        using var guest = Client(tenantId);
+        guest.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+        foreach (var (client, path) in new[] { (customer, $"/commerce/storefront/orders/{seeded.OrderId}"), (guest, GuestPath(seeded.OrderId)) })
+        {
+            using var response = await client.GetAsync(path);
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
+            AssertPrivateHeaders(response);
+            var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var refund = body.GetProperty("refund");
+            refund.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(
+                new[] { "status", "cashReturned", "giftRestored", "totalReturned" });
+            refund.GetProperty("status").GetString().Should().Be("PartiallyRefunded");
+            refund.GetProperty("cashReturned").GetDecimal().Should().Be(25m);
+            refund.GetProperty("giftRestored").GetDecimal().Should().Be(0m);
+            refund.GetProperty("totalReturned").GetDecimal().Should().Be(25m);
+            body.GetProperty("paymentStatus").GetString().Should().Be("Captured");
+            body.GetProperty("total").GetDecimal().Should().Be(95m);
+            body.GetProperty("cardAmount").GetDecimal().Should().Be(95m);
+            body.GetRawText().Should().NotContain("Private operator reason").And.NotContain("re_private_refund_reference")
+                .And.NotContain("pi_private_refund_source").And.NotContain("requestedBy").And.NotContain("paymentIntentId");
+        }
+        var otherOptions = TestAuthOptions.Create().WithTenant(tenantId).WithRoles("PersonalUser").WithPermissions("Customers.Read");
+        using var other = await _factory.CreateAuthenticatedClientAsync(otherOptions);
+        await WorkspaceTestSeeding.SeedPartyAsync(_factory, tenantId, otherOptions.UserId, "Another customer");
+        using var foreign = await other.GetAsync($"/commerce/storefront/orders/{seeded.OrderId}");
+        foreign.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await foreign.Content.ReadAsStringAsync()).Should().NotContain("cashReturned");
+        using var missing = await customer.GetAsync($"/commerce/storefront/orders/{Guid.NewGuid()}");
+        missing.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        using var wrongTenant = Client(Guid.NewGuid());
+        wrongTenant.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+        using var hidden = await wrongTenant.GetAsync(GuestPath(seeded.OrderId));
+        hidden.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
 
     [Fact]
     public async Task Read_Should_ReturnConfirmationDetails_AndPollPersistedPaymentStatusWithTheSameToken()
@@ -54,11 +118,12 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         [
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal",
             "total", "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus", "loyalty",
-            "giftCardPaid", "cardAmount",
+            "giftCardPaid", "cardAmount", "refund",
         ]);
         body.GetProperty("loyalty").ValueKind.Should().Be(JsonValueKind.Null);
         body.GetProperty("giftCardPaid").GetDecimal().Should().Be(0m);
         body.GetProperty("cardAmount").GetDecimal().Should().Be(95m);
+        body.GetProperty("refund").GetProperty("status").GetString().Should().Be("None");
         var delivery = body.GetProperty("delivery");
         delivery.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(new[]
             { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes", "gift", "saleTerms" });

@@ -23,7 +23,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Aonik.Api.Tests;
 
-public sealed class StripeWebhookEndpointTests : IClassFixture<StripeWebhookEndpointTests.Factory>
+public sealed partial class StripeWebhookEndpointTests : IClassFixture<StripeWebhookEndpointTests.Factory>
 {
     private const string Secret = "whsec_fixture_only";
     private static readonly DateTime Now = new(2026, 10, 9, 12, 0, 0, DateTimeKind.Utc);

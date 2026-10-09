@@ -7593,6 +7593,9 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("OriginalOperationId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid?>("PaymentId")
                         .HasColumnType("uniqueidentifier");
 
@@ -7618,6 +7621,8 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "JournalEntryLineId")
                         .IsUnique();
+
+                    b.HasIndex("TenantId", "OriginalOperationId");
 
                     b.HasIndex("TenantId", "GiftCardId", "OccurredAtUtc");
 
@@ -10702,9 +10707,22 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("EffectsAppliedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("FailureReason")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal>("GiftReclaimAmount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
+                    b.Property<Guid?>("GiftReclaimCardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("GiftReclaimReleasedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -10719,12 +10737,18 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<DateTime?>("ProviderRequestStartedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("RawResponseJson")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Reason")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("RequestSnapshotJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -10748,9 +10772,15 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "GiftReclaimCardId");
+
                     b.HasIndex("TenantId", "PaymentId");
 
                     b.HasIndex("TenantId", "PaymentIntentId");
+
+                    b.HasIndex("TenantId", "ConnectorId", "ProviderReference")
+                        .IsUnique()
+                        .HasFilter("[ProviderReference] IS NOT NULL AND [ConnectorId] IS NOT NULL AND [IsDeleted] = 0");
 
                     b.ToTable("AnkRefunds", "dbo");
                 });

@@ -99,6 +99,17 @@ internal sealed partial class GiftCardService(
     {
         var card = await FindSourceAsync(source, cancellationToken) ?? throw new NotFoundException("Issued gift card was not found.");
         await GiftCardAccounting.RequireIssuedAsync(db, TenantId, card, cancellationToken);
+        if (await db.GiftCardOperations.AsNoTracking().AnyAsync(x => x.TenantId == TenantId
+                && x.GiftCardId == card.Id && x.Kind == "Reclaim" && !x.IsDeleted, cancellationToken)
+            || await db.Refunds.AsNoTracking().AnyAsync(x => x.TenantId == TenantId && !x.IsDeleted
+                && x.GiftReclaimCardId == card.Id && x.EffectsAppliedAtUtc == null
+                && x.GiftReclaimReleasedAtUtc == null, cancellationToken))
+        {
+            await BalanceAsync(card, cancellationToken);
+            // Delivery advertises the original face value. A purchase refund requires resolution,
+            // while ordinary spending must still allow the same instrument to be resent.
+            throw new InvalidStateException("This gift-card purchase has a pending or completed refund; contact support before fulfilling it.");
+        }
         string code;
         try { code = CodeProtector(card.Id).Unprotect(card.ProtectedCode); }
         catch (CryptographicException) { throw new InvalidStateException("The issued gift card is temporarily unavailable."); }
@@ -128,7 +139,13 @@ internal sealed partial class GiftCardService(
                 && line.Id == operation.JournalEntryLineId && line.JournalEntryId == operation.JournalEntryId
                 && line.LedgerAccountId == policy.Ledger!.LiabilityAccountId && line.Currency == "GBP" && line.Amount == operation.Amount
                 && ((operation.Kind == "Issue" && line.Direction == JournalDirections.Credit)
-                    || (operation.Kind == "Redeem" && line.Direction == JournalDirections.Debit))
+                    || (operation.Kind == "Redeem" && line.Direction == JournalDirections.Debit)
+                    || (operation.Kind == "Restore" && line.Direction == JournalDirections.Credit
+                        && db.GiftCardOperations.Any(original => original.TenantId == TenantId && original.Id == operation.OriginalOperationId
+                            && original.GiftCardId == card.Id && original.Kind == "Redeem"))
+                    || (operation.Kind == "Reclaim" && line.Direction == JournalDirections.Debit
+                        && db.GiftCardOperations.Any(original => original.TenantId == TenantId && original.Id == operation.OriginalOperationId
+                            && original.GiftCardId == card.Id && original.Kind == "Issue")))
                 && db.JournalEntries.Any(entry => entry.TenantId == TenantId && entry.Id == line.JournalEntryId
                     && entry.Status == "Posted" && entry.LedgerId == policy.Ledger.LedgerId
                     && entry.SourceId == operation.SourceId && entry.SourceType == "GiftCard" + operation.Kind)), ct);
@@ -140,6 +157,9 @@ internal sealed partial class GiftCardService(
             select line.Direction == JournalDirections.Credit ? line.Amount : -line.Amount).SumAsync(ct);
         var reserved = await db.GiftCardCheckoutAttempts.AsNoTracking()
             .Where(x => x.TenantId == TenantId && x.GiftCardId == card.Id && x.Status == "Reserved").SumAsync(x => x.ReservedAmount, ct);
+        reserved += await db.Refunds.AsNoTracking().Where(x => x.TenantId == TenantId && !x.IsDeleted
+            && x.GiftReclaimCardId == card.Id && x.EffectsAppliedAtUtc == null && x.GiftReclaimReleasedAtUtc == null)
+            .SumAsync(x => x.GiftReclaimAmount, ct);
         return new(card.MaskedCode, card.Currency, balance, reserved,
             UnavailableReason(card) is null ? Math.Max(0, balance - reserved) : 0,
             card.ExpiresAtUtc <= clock.UtcNow ? "Expired" : card.Status, card.ExpiresAtUtc);

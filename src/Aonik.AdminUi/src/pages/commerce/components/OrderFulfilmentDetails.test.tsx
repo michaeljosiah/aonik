@@ -6,7 +6,7 @@ vi.mock('@/services/commerceStorefrontService', () => ({ commerceStorefrontServi
 
 describe('staff fulfilment control', () => {
   it('offers only the next explicit stage to a writer and no invented confirmation time', () => {
-    const html = renderToStaticMarkup(<OrderFulfilmentDetails orderId="order" canWrite
+    const html = renderToStaticMarkup(<OrderFulfilmentDetails orderId="order" tenantId="tenant" canWrite
       fulfilment={{ status: 'Confirmed', version: 'native-version', history: [] }} onUpdated={async () => {}} />);
     expect(html).toContain('Mark as Cooking');
     expect(html).not.toContain('Mark as Delivered');
@@ -14,7 +14,7 @@ describe('staff fulfilment control', () => {
   });
 
   it('shows recorded progress to read-only staff without a write button', () => {
-    const html = renderToStaticMarkup(<OrderFulfilmentDetails orderId="order" canWrite={false}
+    const html = renderToStaticMarkup(<OrderFulfilmentDetails orderId="order" tenantId="tenant" canWrite={false}
       fulfilment={{ status: 'OutForDelivery', version: 'v', history: [
         { fromStatus: 'Cooking', toStatus: 'OutForDelivery', actorId: 'staff-42', occurredAtUtc: '2026-10-09T12:00:00Z' },
       ] }} onUpdated={async () => {}} />);

@@ -650,6 +650,8 @@ export interface AdminOrderChargeDto {
   taxTotal: number;
   total: number;
   currency: string;
+  giftCardPaid?: number;
+  cardAmount?: number | null;
 }
 
 /** Kitchen-landing selection snapshot (per bundle slot line). */

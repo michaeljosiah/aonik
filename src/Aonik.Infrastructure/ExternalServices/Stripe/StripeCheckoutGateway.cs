@@ -7,7 +7,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Infrastructure.ExternalServices.Stripe;
 
-internal sealed class StripeCheckoutGateway(
+internal sealed partial class StripeCheckoutGateway(
     HttpClient httpClient,
     IStripeConnectorResolver connectorResolver,
     ITenantProvider tenantProvider) : IPaymentProviderGateway

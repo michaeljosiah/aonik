@@ -14,6 +14,8 @@ describe('storefront administration transport', () => {
   });
 
   it.each([
+    ['order detail', (config: object) => storefront.getStorefrontOrder('order', config), 'get'],
+    ['order fulfilment', (config: object) => storefront.updateOrderFulfilment('order', 'Cooking', 'version', config), 'put'],
     ['calendar read', (config: object) => storefront.getFulfilmentCalendar(config), 'get'],
     ['calendar write', (config: object) => storefront.upsertFulfilmentCalendar({ timezone: 'Europe/London', deliveryDays: ['Friday'], cutoffLocalTime: '12:00', leadDays: 2, blackoutDates: [], isActive: true }, config), 'put'],
     ['public promise', (config: object) => storefront.getPublicDelivery(config), 'get'],

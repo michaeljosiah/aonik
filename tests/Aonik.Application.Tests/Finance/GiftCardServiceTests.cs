@@ -25,7 +25,7 @@ using LedgerEntity = Aonik.Finance.Entities.Ledger.Ledger;
 
 namespace Aonik.Application.Tests.Finance;
 
-public sealed class GiftCardServiceTests
+public sealed partial class GiftCardServiceTests
 {
     [Fact]
     public async Task Policy_Should_DefaultDisabled_AndFingerprintAllAuthoredAccountingTerms()

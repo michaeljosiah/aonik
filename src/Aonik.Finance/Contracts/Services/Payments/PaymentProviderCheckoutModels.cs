@@ -37,4 +37,6 @@ public sealed record VerifiedStripeWebhook(
     string? SessionId,
     string? ProviderPaymentIntentId,
     string PayloadHash,
-    bool Supported);
+    bool Supported,
+    Guid? RefundId = null,
+    string? ProviderRefundId = null);

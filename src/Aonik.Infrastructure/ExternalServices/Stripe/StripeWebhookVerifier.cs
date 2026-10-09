@@ -42,15 +42,18 @@ internal sealed class StripeWebhookVerifier : IStripeWebhookVerifier
 
         var session = verified.Data?.Object as Session;
         var payment = verified.Data?.Object as PaymentIntent;
+        var refund = verified.Data?.Object as Refund;
         var supported = (session is not null && verified.Type is "checkout.session.completed"
             or "checkout.session.expired" or "checkout.session.async_payment_succeeded" or "checkout.session.async_payment_failed")
             || (payment is not null && verified.Type is "payment_intent.processing" or "payment_intent.requires_action"
-                or "payment_intent.payment_failed" or "payment_intent.succeeded" or "payment_intent.canceled");
-        var metadata = session?.Metadata ?? payment?.Metadata;
+                or "payment_intent.payment_failed" or "payment_intent.succeeded" or "payment_intent.canceled")
+            || (refund is not null && verified.Type is "refund.created" or "refund.updated" or "refund.failed");
+        var metadata = session?.Metadata ?? payment?.Metadata ?? refund?.Metadata;
         return new VerifiedStripeWebhook(verified.Id, verified.Type, verified.Livemode,
             ReadGuid(metadata, "paymentIntentId"), ReadGuid(metadata, "orderId"), ReadGuid(metadata, "tenantId"),
-            ReadGuid(metadata, "connectorId"), session?.Id, session?.PaymentIntentId ?? payment?.Id,
-            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawBody))), supported);
+            ReadGuid(metadata, "connectorId"), session?.Id, session?.PaymentIntentId ?? payment?.Id ?? refund?.PaymentIntentId,
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(rawBody))), supported,
+            refund is null ? null : ReadGuid(metadata, "refundId"), refund?.Id);
     }
 
     private static Guid? ReadGuid(IDictionary<string, string>? metadata, string key)

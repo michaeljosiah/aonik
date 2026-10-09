@@ -6,16 +6,16 @@ public class Refund : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
 
-    /// <summary>Card Payment being refunded; null when this reverses a partner collection (see <see cref="PaymentIntentId"/>).</summary>
+    /// <summary>Original external cash receipt, when present.</summary>
     public Guid? PaymentId { get; set; }
 
-    /// <summary>PaymentIntent being reversed for a partner-collection refund (RefundCollectionAsync).</summary>
+    /// <summary>Original funding intent; checkout returns may also identify their actual cash Payment.</summary>
     public Guid? PaymentIntentId { get; set; }
 
     public decimal Amount { get; set; }
     public string Currency { get; set; } = string.Empty;
 
-    /// <summary>PartnerTransactionStatus vocabulary, stored as string.</summary>
+    /// <summary>Provider-specific lifecycle; storefront returns distinguish Requested, Unknown, Pending, Succeeded, Failed and NeedsReconciliation.</summary>
     public string Status { get; set; } = string.Empty;
     public string? Reason { get; set; }
 
@@ -29,4 +29,11 @@ public class Refund : AuditableEntity, ITenantScoped
 
     /// <summary>Redacted vendor response - codes and status only, never PANs / MSISDNs / secrets.</summary>
     public string? RawResponseJson { get; set; }
+
+    public string? RequestSnapshotJson { get; set; }
+    public DateTime? ProviderRequestStartedAtUtc { get; set; }
+    public DateTime? EffectsAppliedAtUtc { get; set; }
+    public Guid? GiftReclaimCardId { get; set; }
+    public decimal GiftReclaimAmount { get; set; }
+    public DateTime? GiftReclaimReleasedAtUtc { get; set; }
 }

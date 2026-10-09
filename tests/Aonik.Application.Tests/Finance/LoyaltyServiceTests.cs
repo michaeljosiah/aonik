@@ -227,6 +227,29 @@ public sealed class LoyaltyServiceTests
     }
 
     [Fact]
+    public async Task RefundTracked_Should_PreserveCallerChanges_AndReplayTheOriginalPointEffects()
+    {
+        using var h = await Harness.CreateAsync();
+        await h.FundAsync(100);
+        var (intent, instruction) = await h.CaptureAsync(redeemed: 100);
+        var owner = await h.Db.LoyaltyAccounts.SingleAsync();
+        owner.HighestFivePoundMarkSeen = 7;
+        var refund = new LoyaltyRefund(Guid.NewGuid(), intent.OrderId, intent.Id,
+            [new(instruction.Lines[0].OrderItemId, 99, 50)]);
+
+        await h.Service.ReverseRefundTrackedAsync(refund);
+        await h.Db.SaveChangesAsync();
+        await h.Service.ReverseRefundTrackedAsync(refund);
+        await h.Db.SaveChangesAsync();
+
+        h.Db.Entry(owner).State.Should().NotBe(EntityState.Detached);
+        (await h.Db.LoyaltyAccounts.AsNoTracking().SingleAsync()).HighestFivePoundMarkSeen.Should().Be(7);
+        (await h.Service.GetBalanceAsync(h.PartyId)).BalancePoints.Should().Be(149);
+        h.Db.LoyaltyOperations.Count(x => x.SourceId == refund.RefundId).Should().Be(2);
+        h.Db.JournalEntries.Count(x => x.SourceId == refund.RefundId).Should().Be(2);
+    }
+
+    [Fact]
     public async Task Refund_Should_CapCumulativeOriginalLineAllocations_AndReplayExactly()
     {
         using var h = await Harness.CreateAsync();

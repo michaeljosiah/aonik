@@ -38,6 +38,15 @@ internal sealed partial class LoyaltyService
 
     public async Task ReverseRefundAsync(LoyaltyRefund command, CancellationToken cancellationToken = default)
     {
+        await InTransactionAsync(async ct =>
+        {
+            await ReverseRefundTrackedAsync(command, ct);
+            return true;
+        }, cancellationToken);
+    }
+
+    internal async Task ReverseRefundTrackedAsync(LoyaltyRefund command, CancellationToken ct = default)
+    {
         if (command.RefundId == Guid.Empty || command.OrderId == Guid.Empty || command.PaymentIntentId == Guid.Empty
             || command.Lines is null || command.Lines.Count is < 1 or > 500
             || command.Lines.Any(x => x is null || x.OrderItemId == Guid.Empty || x.EarnedPointsToReverse < 0 || x.RedeemedPointsToRestore < 0)
@@ -45,53 +54,49 @@ internal sealed partial class LoyaltyService
             || !command.Lines.Any(x => x.EarnedPointsToReverse > 0 || x.RedeemedPointsToRestore > 0))
             throw new InvalidStateException("The refund must reference original order line point allocations.");
         command = command with { Lines = command.Lines.OrderBy(x => x.OrderItemId).ToArray() };
-        await InTransactionAsync(async ct =>
+        var attempt = await AttemptAsync(command.PaymentIntentId, ct);
+        if (attempt is null || attempt.OrderId != command.OrderId || attempt.Status != "Completed")
+            throw new InvalidStateException("The original completed loyalty payment is unavailable.");
+        var original = Read(attempt);
+        var details = Serialize(command);
+        var prior = await OperationAsync("EarnReverse", command.RefundId, ct);
+        if (prior is not null)
         {
-            var attempt = await AttemptAsync(command.PaymentIntentId, ct);
-            if (attempt is null || attempt.OrderId != command.OrderId || attempt.Status != "Completed")
-                throw new InvalidStateException("The original completed loyalty payment is unavailable.");
-            var original = Read(attempt);
-            var details = Serialize(command);
-            var prior = await OperationAsync("EarnReverse", command.RefundId, ct);
-            if (prior is not null)
-            {
-                var restored = await OperationAsync("RedemptionRestore", command.RefundId, ct);
-                if (prior.DetailsJson != details || restored?.DetailsJson != details)
-                    throw new InvalidStateException("The refund was already recorded with different facts.");
-                return true;
-            }
-            var earned = await OperationAsync("Earn", command.OrderId, ct)
-                ?? throw new InvalidStateException("The original loyalty award is unavailable.");
-            var redeemed = await OperationAsync("Redeem", command.PaymentIntentId, ct)
-                ?? throw new InvalidStateException("The original loyalty redemption is unavailable.");
-            // Capture the version BEFORE reading cumulative refunds or a later owner claim.
-            // Every writer of those facts touches this owner; a concurrent change forces a fresh calculation.
-            var originalOwner = await OwnedAccountAsync(earned.AccountId, ct);
-            var previousJson = await db.LoyaltyOperations.AsNoTracking()
-                .Where(x => x.TenantId == TenantId && x.Kind == "EarnReverse" && x.OrderId == command.OrderId)
-                .Select(x => x.DetailsJson).ToListAsync(ct);
-            var previous = previousJson.Select(x => JsonSerializer.Deserialize<LoyaltyRefund>(x, Json)
-                ?? throw new InvalidStateException("An original refund allocation is unavailable.")).ToArray();
-            foreach (var line in command.Lines)
-            {
-                var saved = original.Lines.SingleOrDefault(x => x.OrderItemId == line.OrderItemId)
-                    ?? throw new InvalidStateException("The refund line does not belong to this payment.");
-                var earlier = previous.SelectMany(x => x.Lines).Where(x => x.OrderItemId == line.OrderItemId).ToArray();
-                if (checked(earlier.Sum(x => x.EarnedPointsToReverse) + line.EarnedPointsToReverse) > saved.EarnedPoints
-                    || checked(earlier.Sum(x => x.RedeemedPointsToRestore) + line.RedeemedPointsToRestore) > saved.RedeemedPoints)
-                    throw new InvalidStateException("The refund exceeds the original line point allocation.");
-            }
-            var claim = await OperationAsync("ClaimIn", earned.Id, ct);
-            var earnOwner = claim is null ? originalOwner : await OwnedAccountAsync(claim.AccountId, ct);
-            var redeemOwner = await OwnedAccountAsync(redeemed.AccountId, ct);
-            // Claim and reversal always contend on the original owner's native version.
-            Touch(originalOwner);
-            await PostAsync(earnOwner, "EarnReverse", command.RefundId, -command.Lines.Sum(x => x.EarnedPointsToReverse), original.Ledger,
-                original.Ledger.EarnExpenseAccountId, command.OrderId, earned.Id, details, null, ct);
-            await PostAsync(redeemOwner, "RedemptionRestore", command.RefundId, command.Lines.Sum(x => x.RedeemedPointsToRestore), original.Ledger,
-                original.Ledger.RedeemExpenseAccountId, command.OrderId, redeemed.Id, details, null, ct);
-            return true;
-        }, cancellationToken);
+            var restored = await OperationAsync("RedemptionRestore", command.RefundId, ct);
+            if (prior.DetailsJson != details || restored?.DetailsJson != details)
+                throw new InvalidStateException("The refund was already recorded with different facts.");
+            return;
+        }
+        var earned = await OperationAsync("Earn", command.OrderId, ct)
+            ?? throw new InvalidStateException("The original loyalty award is unavailable.");
+        var redeemed = await OperationAsync("Redeem", command.PaymentIntentId, ct)
+            ?? throw new InvalidStateException("The original loyalty redemption is unavailable.");
+        // Capture the version BEFORE reading cumulative refunds or a later owner claim.
+        // Every writer of those facts touches this owner; a concurrent change forces a fresh calculation.
+        var originalOwner = await OwnedAccountAsync(earned.AccountId, ct);
+        var previousJson = await db.LoyaltyOperations.AsNoTracking()
+            .Where(x => x.TenantId == TenantId && x.Kind == "EarnReverse" && x.OrderId == command.OrderId)
+            .Select(x => x.DetailsJson).ToListAsync(ct);
+        var previous = previousJson.Select(x => JsonSerializer.Deserialize<LoyaltyRefund>(x, Json)
+            ?? throw new InvalidStateException("An original refund allocation is unavailable.")).ToArray();
+        foreach (var line in command.Lines)
+        {
+            var saved = original.Lines.SingleOrDefault(x => x.OrderItemId == line.OrderItemId)
+                ?? throw new InvalidStateException("The refund line does not belong to this payment.");
+            var earlier = previous.SelectMany(x => x.Lines).Where(x => x.OrderItemId == line.OrderItemId).ToArray();
+            if (checked(earlier.Sum(x => x.EarnedPointsToReverse) + line.EarnedPointsToReverse) > saved.EarnedPoints
+                || checked(earlier.Sum(x => x.RedeemedPointsToRestore) + line.RedeemedPointsToRestore) > saved.RedeemedPoints)
+                throw new InvalidStateException("The refund exceeds the original line point allocation.");
+        }
+        var claim = await OperationAsync("ClaimIn", earned.Id, ct);
+        var earnOwner = claim is null ? originalOwner : await OwnedAccountAsync(claim.AccountId, ct);
+        var redeemOwner = await OwnedAccountAsync(redeemed.AccountId, ct);
+        // Claim and reversal always contend on the original owner's native version.
+        Touch(originalOwner);
+        await PostAsync(earnOwner, "EarnReverse", command.RefundId, -command.Lines.Sum(x => x.EarnedPointsToReverse), original.Ledger,
+            original.Ledger.EarnExpenseAccountId, command.OrderId, earned.Id, details, null, ct);
+        await PostAsync(redeemOwner, "RedemptionRestore", command.RefundId, command.Lines.Sum(x => x.RedeemedPointsToRestore), original.Ledger,
+            original.Ledger.RedeemExpenseAccountId, command.OrderId, redeemed.Id, details, null, ct);
     }
 
     public async Task AttachVerifiedGuestAsync(AccountAccessVerifiedEvent verified, CancellationToken cancellationToken = default)
