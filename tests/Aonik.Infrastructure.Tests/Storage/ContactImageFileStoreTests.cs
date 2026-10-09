@@ -20,9 +20,9 @@ public sealed class ContactImageFileStoreTests : IDisposable
         var store = Store(settings);
         using var original = new MemoryStream([1, 2, 3]);
         var uploaded = await store.UploadAsync(Guid.NewGuid(), Guid.NewGuid(), original, "image.jpg", "image/jpeg");
-        await using var read = await store.OpenReadAsync(uploaded.StorageKey);
         using var bytes = new MemoryStream();
-        await read!.CopyToAsync(bytes);
+        await using (var read = await store.OpenReadAsync(uploaded.StorageKey))
+            await read!.CopyToAsync(bytes);
         bytes.ToArray().Should().Equal(1, 2, 3);
         uploaded.StorageKey.TrimStart('/').Should().StartWith("tenants/");
         Action publicUrl = () => store.GetUrl(uploaded.StorageKey);
