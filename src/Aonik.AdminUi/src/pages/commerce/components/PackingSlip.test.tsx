@@ -32,12 +32,17 @@ describe('recipient packing slip', () => {
   it('renders original line and total amounts only from the optional server price envelope', () => {
     const html = renderToStaticMarkup(<PackingSlip packing={{ ...packing,
       gift: { ...packing.gift!, hidePrices: false },
-      prices: { charge: { currency: 'GBP', subtotal: 98, discountTotal: 0, discountCode: null, taxTotal: 0, total: 98 },
-        items: [{ itemIndex: 5, unitPrice: 95, amount: 95 }, { itemIndex: 6, unitPrice: 3, amount: 3 }] },
+      items: [...packing.items, { itemIndex: 7, itemType: 'DeliveryFee', name: 'Delivery', sku: 'delivery', quantity: 1 }],
+      prices: { charge: { currency: 'GBP', subtotal: 98, discountTotal: 10, discountCode: 'TEN', taxTotal: 2, total: 97 },
+        items: [{ itemIndex: 5, unitPrice: 95, amount: 95 }, { itemIndex: 6, unitPrice: 3, amount: 3 }, { itemIndex: 7, unitPrice: 7, amount: 7 }] },
     }} />);
     expect(html).toContain('£95.00');
     expect(html).toContain('£3.00');
     expect(html).toContain('£98.00');
+    expect(html).toContain('Delivery: £7.00');
+    expect(html).toContain('Tax: £2.00');
+    expect(html).toContain('Total: £97.00');
+    expect(html).not.toContain('1 × Delivery');
     expect(html).toContain('Charges');
   });
 

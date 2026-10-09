@@ -1411,8 +1411,19 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         // from the recorded subtotal, and delivery is whatever the payment actually included.
         var frozenAddOns = addOnLines.Where(l => !l.IsDeleted).Sum(l =>
             (l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity);
-        var greetingCard = summary?.GreetingCardCharged ?? await GreetingCardPricing.ResolveAsync(_settingStore,
-            tenantId, cart.Currency, CartDraftData.Read(cart)?.Gift, ct);
+        var greetingCard = summary?.GreetingCardCharged ?? 0m;
+        if (summary is null)
+        {
+            try
+            {
+                greetingCard = await GreetingCardPricing.ResolveAsync(_settingStore,
+                    tenantId, cart.Currency, CartDraftData.Read(cart)?.Gift, ct);
+            }
+            catch (StorefrontValidationException ex)
+            {
+                throw new CartWriteConflictException(cart, "commerce.greeting_card_unavailable", ex.Message);
+            }
+        }
         var boxPrice = summary is not null
             ? summary.Subtotal - personalisation - surcharges - frozenAddOns - greetingCard
             : BoxPricing.BoxPrice(plan, size);

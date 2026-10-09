@@ -54,6 +54,10 @@ export function PackingSlip({ packing }: { packing: AdminOrderPackingDto }) {
         <p>Subtotal: {formatCurrency(charge.subtotal, charge.currency)}</p>
         {charge.discountTotal !== 0 && <p>Discount: {formatCurrency(-charge.discountTotal, charge.currency)}</p>}
         {charge.taxTotal !== 0 && <p>Tax: {formatCurrency(charge.taxTotal, charge.currency)}</p>}
+        {packing.items.filter(item => item.itemType === 'DeliveryFee').map(item => {
+          const price = packing.prices?.items.find(line => line.itemIndex === item.itemIndex);
+          return price ? <p key={item.itemIndex}>Delivery: {formatCurrency(price.amount, charge.currency)}</p> : null;
+        })}
         <p className="font-semibold">Total: {formatCurrency(charge.total, charge.currency)}</p>
       </section>}
     </article>

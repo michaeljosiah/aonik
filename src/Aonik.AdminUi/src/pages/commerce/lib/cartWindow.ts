@@ -13,7 +13,7 @@ import { cartBlocked, type CartBoxMetaLike } from './cartState';
 export interface CartWindowRow {
   status: string;
   currency: string;
-  total: number;
+  total: number | null;
   boxMeta: CartBoxMetaLike | null;
 }
 
@@ -37,8 +37,15 @@ export function summariseCartWindow(rows: readonly CartWindowRow[]): CartWindowS
   // stale boxMeta on a frozen cart must not be counted as a live problem.
   const blocked = open.filter((row) => cartBlocked(row.boxMeta).blocked).length;
 
+  const unavailable = open.filter(row => row.total == null).length;
+  if (unavailable > 0) {
+    return { openValue: 'Price unavailable', blocked, abandoned,
+      moneyCaption: `this page · ${unavailable} cart price${unavailable === 1 ? '' : 's'} unavailable` };
+  }
+
   const byCurrency = new Map<string, number>();
   for (const row of open) {
+    if (row.total == null) continue;
     byCurrency.set(row.currency, (byCurrency.get(row.currency) ?? 0) + row.total);
   }
 

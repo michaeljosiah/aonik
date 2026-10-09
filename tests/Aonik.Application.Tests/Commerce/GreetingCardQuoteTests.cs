@@ -118,11 +118,51 @@ public class GreetingCardQuoteTests
         else h.Settings[CommerceSettingNames.StorefrontGreetingCard] = offer;
         var quote = () => h.BoxCarts().GetAsync(box.Box.CartId, access);
 
-        (await quote.Should().ThrowAsync<StorefrontValidationException>()).Which.Message.Should().Contain("Gift.IncludeGreetingCard");
+        var conflict = (await quote.Should().ThrowAsync<CartWriteConflictException>()).Which;
+        conflict.Code.Should().Be("commerce.greeting_card_unavailable");
+        conflict.CartId.Should().Be(box.Box.CartId);
+        conflict.Message.Should().Contain("Gift.IncludeGreetingCard");
         await h.Carts().SaveCheckoutDraftAsync(box.Box.CartId, draft with { Gift = null }, access);
         var restored = await h.BoxCarts().GetAsync(box.Box.CartId, access);
 
         restored.Box.Lines.Should().HaveCount(2);
+        restored.Quote.Components.Should().NotContain(x => x.Key == "greetingCard");
+        restored.Quote.Total.Should().Be(105m);
+    }
+
+    [Fact]
+    public async Task CurrentBox_Should_ReturnRecoveryIdentity_WhenSelectedCardBecomesUnavailable()
+    {
+        var (h, _, box, guestAccess) = await ArrangeAsync();
+        var partyId = Guid.NewGuid();
+        var adopted = await h.Carts().AdoptAsync(box.Box.CartId, partyId, guestAccess);
+        var access = CartAccessContext.ForParty(partyId, adopted.CartVersion);
+        var draft = new CartCheckoutDraftDto(Notes: "Keep the delivery instructions",
+            Gift: new(true, IncludeGreetingCard: true, GreetingCardMessage: "Enjoy!"));
+        var saved = await h.Carts().SaveCheckoutDraftAsync(box.Box.CartId, draft, access);
+        h.Settings[CommerceSettingNames.StorefrontGreetingCard] = """{"isEnabled":false,"currency":"GBP","amount":3}""";
+
+        var readCurrent = () => h.BoxCarts().GetCurrentAsync(partyId);
+
+        var conflict = (await readCurrent.Should().ThrowAsync<CartWriteConflictException>()).Which;
+        conflict.Code.Should().Be("commerce.greeting_card_unavailable");
+        conflict.CartId.Should().Be(box.Box.CartId);
+        conflict.CartVersion.Should().Be(saved.CartVersion);
+        var recoveryAccess = CartAccessContext.ForParty(partyId, conflict.CartVersion);
+        var recovery = await h.Carts().GetCartAsync(conflict.CartId, recoveryAccess);
+        recovery.Should().NotBeNull();
+        recovery!.CheckoutDraft.Should().Be(draft);
+        await h.Carts().SaveCheckoutDraftAsync(conflict.CartId,
+            recovery.CheckoutDraft! with { Gift = recovery.CheckoutDraft.Gift! with { IncludeGreetingCard = false } },
+            recoveryAccess);
+        var restored = await h.BoxCarts().GetCurrentAsync(partyId);
+
+        restored.Should().NotBeNull();
+        restored!.Box.CartId.Should().Be(box.Box.CartId);
+        restored.Box.Lines.Should().BeEquivalentTo(box.Box.Lines);
+        restored.CheckoutDraft!.Notes.Should().Be(draft.Notes);
+        restored.CheckoutDraft.Gift!.GiftIntent.Should().BeTrue();
+        restored.CheckoutDraft.Gift.IncludeGreetingCard.Should().BeFalse();
         restored.Quote.Components.Should().NotContain(x => x.Key == "greetingCard");
         restored.Quote.Total.Should().Be(105m);
     }

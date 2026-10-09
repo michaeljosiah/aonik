@@ -56,7 +56,8 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         ]);
         var delivery = body.GetProperty("delivery");
         delivery.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(new[]
-            { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes" });
+            { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes", "gift" });
+        delivery.GetProperty("gift").ValueKind.Should().Be(JsonValueKind.Null);
         delivery.GetProperty("deliveryDate").GetString().Should().Be("2026-10-25");
         delivery.GetProperty("timezone").GetString().Should().Be("Europe/London");
         delivery.GetProperty("purchaser").GetProperty("email").GetString().Should().Be("purchaser@example.com");

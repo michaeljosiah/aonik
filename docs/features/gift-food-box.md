@@ -16,7 +16,7 @@ Configure the tenant setting `Commerce.Storefront.GreetingCard` with a complete 
 {"isEnabled":true,"currency":"GBP","amount":3}
 ```
 
-There is no global or hard-coded tenant fallback. Public storefront configuration exposes `greetingCard: { amount, currency }` when enabled and valid. A selected card with unavailable or incompatible configuration blocks a new quote/checkout until removed or corrected. Unselected cards require no configuration. Amounts must be positive, have whole pennies and match the cart currency.
+There is no global or hard-coded tenant fallback. Public storefront configuration exposes `greetingCard: { amount, currency }` when enabled and valid. A selected card with unavailable or incompatible configuration blocks a new quote/checkout until removed or corrected. Box reads return `409 commerce.greeting_card_unavailable` with the authorized cart ID and current version, so even a customer resuming on another device can read `GET /commerce/carts/{cartId}/checkout-draft`, remove the card through the existing versioned PUT and continue. Admin cart lists remain readable with an explicitly unavailable total for affected boxes. Unselected cards require no configuration. Amounts must be positive, have whole pennies and match the cart currency.
 
 Quotes expose a separate `greetingCard` component. Checkout materializes one `GreetingCard` order item and invoice line, without a catalog product, food selection or inventory reservation. The fee belongs to subtotal and tax calculation but does not change the box price. Unrestricted discount campaigns can include it; selected-product campaigns cannot. Delivery and stored-value Gift Cards retain their exclusions.
 

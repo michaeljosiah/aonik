@@ -426,7 +426,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
     }
 
     private sealed record CartComputed(
-        decimal Total,
+        decimal? Total,
         AdminCartBoxMetaDto? BoxMeta,
         IReadOnlyDictionary<Guid, LineFlags> LineFlags);
 
@@ -717,7 +717,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                 && (containerBlocked
                     || flags.Values.Any(f => f.Unavailable || f.PriceChanged || f.SelectionDrift.Count > 0));
 
-            decimal total;
+            decimal? total;
             if (!isEditable && cart.CheckoutPreparationJson is not null)
             {
                 total = CheckoutPreparation.Read(cart).Total;
@@ -746,8 +746,18 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                 total = lines.Sum(l => (l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity);
             }
 
-            if (isEditable)
-                total += await GreetingCardPricing.ResolveAsync(_settings, tenantId, cart.Currency, CartDraftData.Read(cart)?.Gift, ct);
+            if (isEditable && isBox && CartDraftData.Read(cart)?.Gift is { GiftIntent: true, IncludeGreetingCard: true })
+            {
+                var price = await GreetingCardPricing.ReadAsync(_settings, tenantId, ct);
+                if (price is not null && string.Equals(price.Currency, cart.Currency, StringComparison.OrdinalIgnoreCase))
+                    total += price.Amount;
+                else
+                {
+                    // A bad offer must not hide the tenant's whole cart list or imply a free card.
+                    total = null;
+                    drift = true;
+                }
+            }
 
             var boxMeta = cart.BoxBundleProductId is null || cart.BoxSize is null
                 ? null

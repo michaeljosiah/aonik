@@ -688,7 +688,8 @@ export interface AdminCartRowDto {
   status: string;
   currency: string;
   itemCount: number;
-  total: number;
+  /** Null when a selected greeting card has no available price. */
+  total: number | null;
   boxMeta: AdminCartBoxMetaDto | null;
   orderId: string | null;
   updatedAtUtc: string;
@@ -743,7 +744,7 @@ export interface AdminCartDetailDto {
   orderId: string | null;
   updatedAtUtc: string;
   /** The charged total. NOT derivable from the lines — see the server DTO's note. */
-  total: number;
+  total: number | null;
   lines: AdminCartLineDto[];
 }
 
