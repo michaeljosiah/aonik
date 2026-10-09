@@ -9,6 +9,7 @@ public sealed class GiftCardOperation : AuditableEntity, ITenantScoped
     public Guid GiftCardId { get; set; }
     public string Kind { get; set; } = string.Empty;
     public Guid SourceId { get; set; }
+    public Guid? OriginalOperationId { get; set; }
     public Guid OrderId { get; set; }
     public Guid JournalEntryId { get; set; }
     public Guid JournalEntryLineId { get; set; }

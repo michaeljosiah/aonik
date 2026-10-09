@@ -1,7 +1,7 @@
 // Storefront order drawer (Spec 083 §2) — route-addressable at /commerce/orders/:orderId so
 // deep links (including Spec 084's recent-orders rows) open it directly.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Card as AonikCard, Pill } from '@/components/layout/aonik';
@@ -10,33 +10,57 @@ import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/comp
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useModules } from '@/modules/useModules';
+import { getSelectedTenant } from '@/lib/tenantContext';
 import type { AdminOrderStorefrontDto } from '@/types/commerce';
 
 import { BuyerLabel } from './BuyerLabel';
 import { LifecycleStepper } from './LifecycleStepper';
 import { OrderLineItems } from './OrderLineItems';
 import { OrderDeliveryDetails } from './OrderDeliveryDetails';
-import { OrderFulfilmentDetails, fulfilmentLabel } from './OrderFulfilmentDetails';
-import { orderLifecycle } from '../lib/orderLifecycle';
+import { OrderFulfilmentDetails } from './OrderFulfilmentDetails';
+import { fulfilmentLabel, orderLifecycle } from '../lib/orderLifecycle';
 import { paymentTone, fulfilmentTone } from '../lib/statusTone';
+import { OrderRefunds } from './OrderRefunds';
 
 interface OrderDrawerProps {
   orderId: string;
   onClose: () => void;
 }
 
-export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
-  const { allowsPolicy } = useModules();
+function subscribeToTenantChange(changed: () => void) {
+  window.addEventListener('aonik:tenant-changed', changed);
+  return () => window.removeEventListener('aonik:tenant-changed', changed);
+}
+
+export function OrderDrawer(props: OrderDrawerProps) {
+  const modules = useModules();
+  const tenantId = useSyncExternalStore(subscribeToTenantChange, () => getSelectedTenant()?.tenantId ?? null, () => null);
+  return <OrderDrawerContent key={`${modules.contextKey}:${tenantId}:${props.orderId}`} {...props} tenantId={tenantId}
+    identityScope={modules.contextKey} canWriteFulfilment={modules.allowsPolicy('AdminWritePolicy')}
+    canReadRefunds={modules.allowsPolicy('AdminReadPolicy') && modules.hasPermission('Payment.Read')}
+    canWriteRefunds={modules.allowsPolicy('AdminWritePolicy') && modules.hasPermission('Payment.Refund')} />;
+}
+
+function OrderDrawerContent({ orderId, onClose, tenantId, identityScope, canWriteFulfilment, canReadRefunds, canWriteRefunds }: OrderDrawerProps & {
+  tenantId: string | null; identityScope: string; canWriteFulfilment: boolean; canReadRefunds: boolean; canWriteRefunds: boolean;
+}) {
   const [order, setOrder] = useState<AdminOrderStorefrontDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestAbort = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
+    requestAbort.current?.abort();
+    if (!tenantId || getSelectedTenant()?.tenantId !== tenantId) { setOrder(null); setError('Select a tenant to view this order.'); setLoading(false); return; }
+    const controller = new AbortController();
+    requestAbort.current = controller;
     setLoading(true);
     setError(null);
     try {
-      setOrder(await commerceStorefrontService.getStorefrontOrder(orderId));
+      const result = await commerceStorefrontService.getStorefrontOrder(orderId, { headers: { 'X-Tenant-Id': tenantId }, signal: controller.signal });
+      if (!controller.signal.aborted && getSelectedTenant()?.tenantId === tenantId) setOrder(result);
     } catch (err: unknown) {
+      if (controller.signal.aborted || getSelectedTenant()?.tenantId !== tenantId) return;
       setOrder(null);
       const message =
         err && typeof err === 'object' && 'userMessage' in err
@@ -44,12 +68,13 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
           : '';
       setError(message || 'This order could not be loaded.');
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted && getSelectedTenant()?.tenantId === tenantId) setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, tenantId]);
 
   useEffect(() => {
     void load();
+    return () => requestAbort.current?.abort();
   }, [load]);
 
   const charge = order?.charge;
@@ -102,8 +127,8 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
               </AonikCard>
 
               <OrderDeliveryDetails delivery={order.delivery} />
-              {order.fulfilment && <OrderFulfilmentDetails orderId={order.orderId} fulfilment={order.fulfilment}
-                canWrite={allowsPolicy('AdminWritePolicy')} onUpdated={load} />}
+              {order.fulfilment && tenantId && <OrderFulfilmentDetails orderId={order.orderId} tenantId={tenantId} fulfilment={order.fulfilment}
+                canWrite={canWriteFulfilment} onUpdated={load} />}
 
               <AonikCard
                 title="Items"
@@ -147,9 +172,12 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
                         emphasis
                       />
                     </div>
+                    {(charge.giftCardPaid ?? 0) > 0 && <ChargeRow label="Gift card funding" amount={charge.giftCardPaid!} currency={currency} />}
+                    {charge.cardAmount != null && <ChargeRow label="Card funding" amount={charge.cardAmount} currency={currency} />}
                   </dl>
                 </AonikCard>
               )}
+              {canReadRefunds && tenantId && <OrderRefunds orderId={orderId} tenantId={tenantId} identityScope={identityScope} canWrite={canWriteRefunds} />}
             </div>
           )}
         </SheetBody>
@@ -160,12 +188,6 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
               <Link to={`/commerce/orders/${order.orderId}/packing`}>Packing slip</Link>
             </Button>
           )}
-          {/* Refund is a Finance HIGH-tier action (money movement) and is not wired for
-              commerce — it stays visibly disabled with the reason rather than absent, so the
-              operator learns where the capability lives instead of wondering. */}
-          <Button variant="outline" disabled title="Refunds are a Finance action and are not wired for storefront orders yet">
-            Refund
-          </Button>
           <Button onClick={onClose}>Close</Button>
         </SheetFooter>
       </SheetContent>

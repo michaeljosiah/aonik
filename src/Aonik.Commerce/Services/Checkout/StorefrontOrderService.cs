@@ -3,6 +3,7 @@ using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Fulfilment;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
+using Aonik.SharedKernel.Abstractions.Payments;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -76,7 +77,8 @@ public record StorefrontOrderDetailDto(
     string? OrderNumber = null,
     string? DiscountCode = null,
     string? FulfilmentStatus = null,
-    OrderLoyaltyDto? Loyalty = null, decimal GiftCardPaid = 0m, decimal? CardAmount = null);
+    OrderLoyaltyDto? Loyalty = null, decimal GiftCardPaid = 0m, decimal? CardAmount = null,
+    OrderRefundStatusDto? Refund = null);
 
 internal sealed class StorefrontOrderService : IStorefrontOrderService
 {
@@ -84,13 +86,16 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
     private readonly ITenantProvider _tenantProvider;
     private readonly IOrderService _orders;
     private readonly GuestOrderAccess _guestOrders;
+    private readonly IOrderRefundStatusReader? _refunds;
 
-    public StorefrontOrderService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IOrderService orders, GuestOrderAccess guestOrders)
+    public StorefrontOrderService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IOrderService orders, GuestOrderAccess guestOrders,
+        IOrderRefundStatusReader? refunds = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _orders = orders;
         _guestOrders = guestOrders;
+        _refunds = refunds;
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>> ListMyOrdersAsync(Guid partyId, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default)
@@ -232,6 +237,7 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             delivery is null ? null : OrderDeliveryMapper.Map(delivery), order.OrderNumber, summary.DiscountCode,
             OrderFulfilmentData.Status(delivery?.FulfilmentStatus, summary.PaymentStatus, order.Status),
             CheckoutLoyaltyData.ForOrder(summary, cart), CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m,
-            summary.Total - (CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m));
+            summary.Total - (CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m),
+            _refunds is null ? null : await _refunds.ReadAsync(orderId, cancellationToken));
     }
 }

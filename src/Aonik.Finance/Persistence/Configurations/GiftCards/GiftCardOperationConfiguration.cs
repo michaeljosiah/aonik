@@ -15,5 +15,6 @@ public sealed class GiftCardOperationConfiguration : IEntityTypeConfiguration<Gi
         builder.HasIndex(x => new { x.TenantId, x.Kind, x.SourceId }).IsUnique();
         builder.HasIndex(x => new { x.TenantId, x.JournalEntryLineId }).IsUnique();
         builder.HasIndex(x => new { x.TenantId, x.GiftCardId, x.OccurredAtUtc });
+        builder.HasIndex(x => new { x.TenantId, x.OriginalOperationId });
     }
 }

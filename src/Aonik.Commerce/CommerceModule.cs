@@ -75,6 +75,7 @@ public sealed class CommerceModule : IModule
         services.AddScoped<CheckoutLoyaltyQuotes>();
         services.AddScoped<GiftCardPurchasePricing>();
         services.AddScoped<CheckoutGiftCards>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Payments.ICheckoutRefundSourceReader, CheckoutRefundSourceReader>();
         services.AddScoped<GiftCardCartService>();
         services.AddScoped<Services.GiftCards.IGiftCardDeliveryService, Services.GiftCards.GiftCardDeliveryService>();
         services.AddKeyedScoped<Aonik.SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.GiftCards.GiftCardDeliveryTaskHandler>(

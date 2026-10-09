@@ -4,6 +4,7 @@ using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Ordering.Services;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Payments;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -11,11 +12,43 @@ using FluentAssertions;
 
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace Aonik.Application.Tests.Commerce;
 
 public class GuestOrderReadTests
 {
+    [Fact]
+    public async Task RefundReader_Should_RunOnlyAfterOwnerOrGuestAuthorizationAndDurableOrderChecks()
+    {
+        var (harness, _, checkout) = await CheckoutAsync();
+        await using var commerce = harness.Commerce();
+        await using var ordering = harness.Ordering();
+        var tenant = new TestTenantProvider(harness.TenantId);
+        var refunds = new Mock<IOrderRefundStatusReader>(MockBehavior.Strict);
+        refunds.Setup(reader => reader.ReadAsync(checkout.OrderId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new OrderRefundStatusDto("PartiallyRefunded", 10m, 0m, 10m));
+        var service = new StorefrontOrderService(commerce, tenant,
+            new CoreOrderService(ordering, tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider(),
+                new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()), harness.GuestOrderAccess, refunds.Object);
+
+        (await service.GetMyOrderAsync(Guid.NewGuid(), checkout.OrderId)).Should().BeNull();
+        (await service.GetGuestOrderAsync(checkout.OrderId, "invalid-token")).Should().BeNull();
+        var missingId = Guid.NewGuid();
+        (await service.GetGuestOrderAsync(missingId, harness.GuestOrderAccess.Issue(harness.TenantId, missingId))).Should().BeNull();
+        refunds.VerifyNoOtherCalls();
+
+        var result = await service.GetGuestOrderAsync(checkout.OrderId, checkout.GuestOrderToken);
+        result!.Refund.Should().Be(new OrderRefundStatusDto("PartiallyRefunded", 10m, 0m, 10m));
+        result.Total.Should().Be(checkout.Total);
+        refunds.Verify(reader => reader.ReadAsync(checkout.OrderId, It.IsAny<CancellationToken>()), Times.Once);
+
+        (await commerce.OrderChargeSummaries.SingleAsync(summary => summary.OrderId == checkout.OrderId)).IsDeleted = true;
+        await commerce.SaveChangesAsync();
+        (await service.GetGuestOrderAsync(checkout.OrderId, checkout.GuestOrderToken)).Should().BeNull();
+        refunds.Verify(reader => reader.ReadAsync(checkout.OrderId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     private static async Task<(BoxTestHarness Harness, BoxCartDto Box, CheckoutResult Checkout)> CheckoutAsync(
         Guid? partyId = null)
     {
@@ -216,7 +249,7 @@ public class GuestOrderReadTests
         json.EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal", "total",
             "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus", "loyalty",
-            "giftCardPaid", "cardAmount" });
+            "giftCardPaid", "cardAmount", "refund" });
         result!.Loyalty.Should().BeNull();
         result.GiftCardPaid.Should().Be(0m);
         result.CardAmount.Should().Be(result.Total);

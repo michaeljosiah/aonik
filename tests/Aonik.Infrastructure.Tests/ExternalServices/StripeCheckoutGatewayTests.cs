@@ -16,7 +16,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Infrastructure.Tests.ExternalServices;
 
-public class StripeCheckoutGatewayTests
+public partial class StripeCheckoutGatewayTests
 {
     [Fact]
     public async Task Create_Should_VerifyMerchantAndSendExactKeyedHostedCardPaymentWithoutSecretsInResult()
@@ -223,9 +223,9 @@ public class StripeCheckoutGatewayTests
 
     private static JsonObject Account(string id = "acct_merchant") => new() { ["object"] = "account", ["id"] = id };
 
-    private sealed record ObservedRequest(string Path, string Body, string? Authorization, string? IdempotencyKey, string? StripeAccount);
+    private sealed record ObservedRequest(string Path, string Body, string? Authorization, string? IdempotencyKey, string? StripeAccount, string Query = "");
 
-    private sealed class Harness : IDisposable
+    private sealed partial class Harness : IDisposable
     {
         public Guid TenantId { get; } = Guid.NewGuid();
         public Guid ConnectorId { get; } = Guid.NewGuid();
@@ -257,7 +257,10 @@ public class StripeCheckoutGatewayTests
                 var body = request.Content is null ? "" : Uri.UnescapeDataString(await request.Content.ReadAsStringAsync(ct));
                 Requests.Add(new ObservedRequest(request.RequestUri.AbsolutePath, body, request.Headers.Authorization?.ToString(),
                     request.Headers.TryGetValues("Idempotency-Key", out var keys) ? keys.Single() : null,
-                    request.Headers.TryGetValues("Stripe-Account", out var accounts) ? accounts.Single() : null));
+                    request.Headers.TryGetValues("Stripe-Account", out var accounts) ? accounts.Single() : null,
+                    Uri.UnescapeDataString(request.RequestUri.Query)));
+                if (RefundFailure is not null && request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath == "/v1/refunds")
+                    throw RefundFailure;
                 return new HttpResponseMessage(Statuses.Count > 0 ? Statuses.Dequeue() : HttpStatusCode.OK)
                 {
                     Content = new StringContent(Responses.Dequeue().ToJsonString(), Encoding.UTF8, "application/json"),

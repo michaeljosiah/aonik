@@ -19,11 +19,15 @@ internal class RefundConfiguration : IEntityTypeConfiguration<Refund>
         builder.Property(x => x.ProviderReference).HasMaxLength(200);
         builder.Property(x => x.FailureReason).HasMaxLength(1000);
         builder.Property(x => x.RawResponseJson).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.RequestSnapshotJson).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.GiftReclaimAmount).HasPrecision(19, 4);
 
         builder.HasIndex(x => new { x.TenantId, x.PaymentId });
         builder.HasIndex(x => new { x.TenantId, x.PaymentIntentId });
+        builder.HasIndex(x => new { x.TenantId, x.GiftReclaimCardId });
+        builder.HasIndex(x => new { x.TenantId, x.ConnectorId, x.ProviderReference }).IsUnique()
+            .HasFilter("[ProviderReference] IS NOT NULL AND [ConnectorId] IS NOT NULL AND [IsDeleted] = 0");
 
-        // PaymentId (card Payment) and PaymentIntentId (partner-collection) are soft references - a refund
-        // points at exactly one of them - and ConnectorId is likewise soft, so none is a hard FK.
+        // These are soft references; checkout returns identify their aggregate intent and cash receipt.
     }
 }

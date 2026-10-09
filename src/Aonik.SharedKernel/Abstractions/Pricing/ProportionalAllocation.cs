@@ -4,8 +4,9 @@ public static class ProportionalAllocation
 {
     // Retains reporting's 4dp rounding and largest-weight/first-row tie break, but spreads
     // a large negative remainder across rows instead of making one tiny line negative.
-    public static decimal[] Allocate(decimal total, IReadOnlyList<decimal> weights, bool capAtWeights = true)
+    public static decimal[] Allocate(decimal total, IReadOnlyList<decimal> weights, bool capAtWeights = true, int precision = 4)
     {
+        if (precision is < 0 or > 4) throw new ArgumentOutOfRangeException(nameof(precision));
         if (total < 0 || weights.Any(weight => weight < 0)) throw new ArgumentException("Allocation amounts cannot be negative.");
         var shares = new decimal[weights.Count];
         if (weights.Count == 0 || total == 0) return shares;
@@ -20,7 +21,7 @@ public static class ProportionalAllocation
         if (capAtWeights && total > sum) throw new ArgumentException("A discount cannot exceed eligible goods.");
         for (var index = 0; index < shares.Length; index++)
         {
-            shares[index] = Math.Round(total * effective[index] / sum, 4, MidpointRounding.AwayFromZero);
+            shares[index] = Math.Round(total * effective[index] / sum, precision, MidpointRounding.AwayFromZero);
             if (capAtWeights) shares[index] = Math.Min(shares[index], weights[index]);
         }
         var remainder = total - shares.Sum();

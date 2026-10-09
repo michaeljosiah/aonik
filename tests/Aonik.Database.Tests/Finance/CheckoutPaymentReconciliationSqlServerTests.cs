@@ -261,7 +261,8 @@ public sealed partial class CheckoutPaymentReconciliationSqlServerTests(SqlLocal
         (await context.LoyaltyCheckoutAttempts.SingleAsync(x => x.PaymentIntentId == harness.Intent.Id)).Status.Should().Be("Released");
     }
 
-    private async Task<Harness> BuildAsync(IInterceptor? failure = null, bool loyalty = false, bool seedPayment = true)
+    private async Task<Harness> BuildAsync(IInterceptor? failure = null, bool loyalty = false, bool seedPayment = true,
+        Action<IServiceCollection>? configureServices = null)
     {
         var tenantId = Guid.NewGuid();
         var settings = new Mock<ITenantSettingStore>();
@@ -293,6 +294,7 @@ public sealed partial class CheckoutPaymentReconciliationSqlServerTests(SqlLocal
             ReturnOrigin = "https://shop.example", SecretKey = "sk_test_fixture", SigningSecrets = ["whsec_fixture"]
         });
         services.AddSingleton(connectors.Object);
+        configureServices?.Invoke(services);
         var root = services.BuildServiceProvider();
         var payerId = Guid.NewGuid();
         // Party is Platform-owned; seed the actual entity so the runtime read model is exercised.
@@ -385,7 +387,7 @@ public sealed partial class CheckoutPaymentReconciliationSqlServerTests(SqlLocal
         public ValueTask DisposeAsync() => root.DisposeAsync();
     }
 
-    private sealed class RecordingGateway(Guid tenantId) : IPaymentProviderGateway
+    private sealed partial class RecordingGateway(Guid tenantId) : IPaymentProviderGateway
     {
         public string ProviderCode => "Stripe";
         public ConcurrentQueue<PaymentProviderIntentRequest> Requests { get; } = new();

@@ -24,6 +24,22 @@ public interface IPaymentProviderGateway
     Task<PaymentProviderCheckoutSnapshot> ExpireCheckoutAsync(
         PaymentProviderCheckoutReference reference, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("This provider does not support checkout expiration.");
+
+    Task<PaymentProviderRefundSnapshot> CreateRefundAsync(
+        PaymentProviderRefundRequest request, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This provider does not support refunds.");
+
+    Task<PaymentProviderRefundSnapshot> GetRefundAsync(
+        PaymentProviderRefundRequest request, string providerRefundId, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This provider does not support refund reconciliation.");
+
+    Task<PaymentProviderRefundSnapshot?> FindRefundAsync(
+        PaymentProviderRefundRequest request, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This provider does not support refund reconciliation.");
+
+    Task<PaymentProviderRefundBudget> GetRefundBudgetAsync(
+        PaymentProviderRefundRequest request, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This provider does not support refund reconciliation.");
 }
 
 public record PaymentProviderIntentRequest(

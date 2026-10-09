@@ -83,6 +83,58 @@ public class StripeWebhookVerifierTests
         result.SessionId.Should().BeNull();
     }
 
+    [Theory]
+    [InlineData("refund.created")]
+    [InlineData("refund.updated")]
+    [InlineData("refund.failed")]
+    public void Verify_Should_AllowlistRefundCorrelationWithoutRetainingSensitiveProviderFields(string eventType)
+    {
+        var id = Guid.NewGuid();
+        var payload = Payload();
+        var metadata = payload["data"]!["object"]!["metadata"]!.DeepClone().AsObject();
+        metadata["refundId"] = id.ToString("N");
+        payload["type"] = eventType;
+        payload["data"]!["object"] = new JsonObject
+        {
+            ["object"] = "refund", ["id"] = "re_one", ["payment_intent"] = "pi_one", ["metadata"] = metadata,
+            ["description"] = "secret_do_not_store", ["instructions_email"] = "customer@example.test",
+            ["destination_details"] = new JsonObject { ["private"] = "customer@example.test" },
+        };
+        var body = payload.ToJsonString();
+        var signature = EventUtility.GenerateSignatureHeader(body, "whsec_fixture", Timestamp);
+
+        var result = new StripeWebhookVerifier().Verify(body, signature, ["whsec_fixture"], Now);
+
+        result.Supported.Should().BeTrue();
+        result.RefundId.Should().Be(id);
+        result.ProviderRefundId.Should().Be("re_one");
+        result.ProviderPaymentIntentId.Should().Be("pi_one");
+        result.PaymentIntentId.Should().Be(IntentId);
+        result.SessionId.Should().BeNull();
+        result.ToString().Should().NotContain("customer@example.test").And.NotContain("secret_do_not_store");
+    }
+
+    [Fact]
+    public void Verify_Should_PreserveExternalRefundProviderReferenceWithoutInventingLocalIds()
+    {
+        var payload = Payload();
+        payload["type"] = "refund.created";
+        payload["data"]!["object"] = new JsonObject
+        {
+            ["object"] = "refund", ["id"] = "re_dashboard", ["payment_intent"] = "pi_one", ["metadata"] = new JsonObject(),
+        };
+        var body = payload.ToJsonString();
+
+        var result = new StripeWebhookVerifier().Verify(body,
+            EventUtility.GenerateSignatureHeader(body, "whsec_fixture", Timestamp), ["whsec_fixture"], Now);
+
+        result.Supported.Should().BeTrue();
+        result.RefundId.Should().BeNull();
+        result.PaymentIntentId.Should().BeNull();
+        result.ProviderPaymentIntentId.Should().Be("pi_one");
+        result.ProviderRefundId.Should().Be("re_dashboard");
+    }
+
     private static JsonObject Payload() => new()
     {
         ["object"] = "event", ["id"] = "evt_fixture", ["type"] = "checkout.session.completed",

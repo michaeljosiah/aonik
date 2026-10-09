@@ -77,3 +77,4 @@ export function orderLifecycle(input: {
     halted: null,
   };
 }
+export const fulfilmentLabel = (stage: string) => stage === 'OutForDelivery' ? 'Out for delivery' : stage;
