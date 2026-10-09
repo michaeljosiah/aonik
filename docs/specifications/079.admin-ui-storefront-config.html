@@ -11,7 +11,7 @@
     body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
     header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
     .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
-    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    .meta-tag.status-implemented { background:#ecf6ee; color:#2c6b46; }
     h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
     h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
     p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
@@ -25,10 +25,11 @@
 </head>
 <body>
 <header class="spec-meta">
-  <span class="meta-tag">Spec 079</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Spec 070 §9</span>
+  <span class="meta-tag">Spec 079</span><span class="meta-tag status-implemented">Implemented</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Spec 070 §9</span>
   <h1>Storefront config — the tunables document, beside what the customer sees</h1>
   <p><code>/commerce/storefront-config</code> · <code>StorefrontConfigPage</code>. Design of record: artboard <code>cs-config</code> (PR #268). The single document of values the frontend must never hard-code, edited on the left and rendered on the right <em>exactly as the customer's pages consume it</em> — the same public read, the same values.</p>
 </header>
+<div class="callout"><strong>Current implementation · 2026-10-09.</strong> The storefront document editor saves touched fields, preserves omission and clear semantics, validates JSON, and reloads the public preview. Currency is read-only tenant data. Later operational settings are outside this editor's defined field set.</div>
 
 <h2>1 · API contract</h2>
 <table>

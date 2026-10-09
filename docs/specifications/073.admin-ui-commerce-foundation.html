@@ -11,7 +11,7 @@
     body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
     header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
     .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
-    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    .meta-tag.status-implemented { background:#ecf6ee; color:#2c6b46; }
     h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
     h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
     h3 { font-size:16.5px; margin:26px 0 8px; }
@@ -28,13 +28,14 @@
 </head>
 <body>
 <header class="spec-meta">
-  <span class="meta-tag">Spec 073</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Aonik.AdminUi</span>
+  <span class="meta-tag">Spec 073</span><span class="meta-tag status-implemented">Implemented</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Aonik.AdminUi</span>
   <h1>Admin UI commerce module foundation</h1>
   <p>The scaffold every storefront admin page (Specs 074–084) stands on: a new <code>commerce</code> frontend module, its navigation section, service and type layout, and the four shared visual components the page specs reuse. The approved designs live in <code>Templates/aonik-admin-starterkit</code> (PR #268, sections "Commerce · Storefront · Specs 066–072"); this spec turns the app-level plumbing they assume into concrete files.</p>
 </header>
+<div class="callout"><strong>Current implementation · 2026-10-09.</strong> Commerce module registration, route navigation, service clients, DTOs and shared components are available. Navigation and permissions follow the tenant- and identity-bound manifest and Admin profiles (Spec 098). Workspace panels remain outside this specification's scope.</div>
 
 <h2>1 · Why a foundation spec</h2>
-<p>The live Admin UI has <strong>no commerce module</strong>. Its "Catalog" is the bill-payment catalog (billers, services, partners); there are no product, cart, or storefront surfaces of any kind. Every page in Specs 074–084 is therefore greenfield, and they all need the same module registration, nav section, data-layer shape, and a handful of shared components. Building that once, first, keeps the eleven page specs implementable in any order afterwards (each declares its dependency on this spec only).</p>
+<p>At the original design baseline, the Admin UI had <strong>no commerce module</strong>; its "Catalog" was the bill-payment catalog. Specs 074–084 shared the need for module registration, navigation, a data-layer shape and reusable components. That foundation is now implemented. The original scaffold and page scope below remain the design record; Spec 098 supersedes its original navigation and manifest assumptions.</p>
 
 <h2>2 · Module registration</h2>
 <table>
@@ -42,7 +43,7 @@
   <tr><td><code>src/modules/commerce/index.ts</code></td><td><strong>Create.</strong> Exports <code>commerceModule: AdminModule</code> with <code>id: 'commerce'</code>, the <code>routes[]</code> below, and <code>breadcrumbs[]</code> (longest-prefix entries per route). Import page components from the <code>@/pages/commerce</code> barrel.</td></tr>
   <tr><td><code>src/modules/registry.ts</code></td><td><strong>Modify.</strong> Add <code>commerceModule</code> to <code>allModules</code> (after <code>financeModule</code> — order matters for aggregation).</td></tr>
   <tr><td><code>src/pages/commerce/</code></td><td><strong>Create</strong> feature folder with barrel <code>index.ts</code>. Page files land here per Specs 074–084; shared pieces under <code>src/pages/commerce/components/</code>.</td></tr>
-  <tr><td>Server manifest (<code>GetAdminManifestEndpoint</code>)</td><td><strong>Modify (the one backend line in this series).</strong> The manifest endpoint hard-codes its <code>enabledModules</code> list — and in the NORMAL flow the manifest is present, so <code>useModules()</code> would strip every commerce route and the sidebar filter would hide the menu; fail-open only covers a failed request. Add <code>commerce</code> to the served module list (with whatever per-tenant gating that endpoint applies to the others).</td></tr>
+  <tr><td>Server manifest (<code>GetAdminManifestEndpoint</code>)</td><td><strong>Implemented.</strong> Commerce enablement and allowed policies are included in the tenant- and identity-bound manifest. <code>useModules()</code> resolves the current Admin profile from that manifest; absence or failure leaves protected navigation unavailable.</td></tr>
 </table>
 <p>Route table this module will carry when the series is complete (each page spec adds its rows):</p>
 <table>
@@ -59,7 +60,7 @@
 </table>
 
 <h2>3 · Navigation</h2>
-<p>The rendered sidebar reads <code>SIDEBAR_NAV</code> in <code>src/components/layout/aonik/sidebarNav.ts</code> — <em>not</em> the module <code>navigation</code> arrays. Add to the <strong>products</strong> section one nav item with children (one child level is the house pattern):</p>
+<p>The original scaffold proposed the following <code>SIDEBAR_NAV</code> section. Current navigation is resolved through the active Admin profile (Spec 098); this example records the route grouping, not the current sidebar data source:</p>
 <pre><code>{ id: 'commerce', label: 'Commerce', icon: 'cart', href: '/commerce', children: [
   { id: 'cm-overview',      label: 'Overview',          icon: 'dashboard', href: '/commerce' },
   { id: 'cm-products',      label: 'Products',          icon: 'box',       href: '/commerce/products' },
@@ -73,8 +74,8 @@
 ]}</code></pre>
 <ul>
   <li>Icon values are keys into <code>ICON_PATHS</code> in <code>src/components/layout/aonik/AonikTemplateIcon.tsx</code>. <code>calendar</code>, <code>settings</code>, <code>receipt</code> exist; <strong>add</strong> <code>cart</code>, <code>box</code>, <code>sliders</code>, <code>file</code>, <code>stack</code>, <code>dashboard</code> path entries if absent (port the starterkit's SVG paths from <code>Templates/aonik-admin-starterkit/kit/icons-extra.jsx</code>).</li>
-  <li>Audience: <code>'tenant'</code>-visible (default <code>all</code> is fine); the runtime manifest (<code>/api/admin/manifest</code> → <code>enabledModules</code>/<code>disabledNavItems</code>) is the per-tenant gate. The module must render correctly when the manifest is absent (fail-open), matching <code>useModules()</code> behaviour.</li>
-  <li><strong>The hard-coded sidebar must learn module enablement.</strong> <code>AonikSidebar</code> filters only <code>disabledNavItems</code>/<code>disabledRoutes</code> today — a manifest that omits <code>commerce</code> from <code>enabledModules</code> removes the routes but leaves a visible menu of dead links. Extend <code>NavItem</code> with optional <code>moduleId?: string</code>, tag the commerce parent <code>moduleId: 'commerce'</code>, and filter in <code>AonikSidebar</code>: when a manifest is present, an item whose <code>moduleId</code> is not in <code>enabledModules</code> does not render (manifest absent → render, preserving fail-open).</li>
+  <li>The runtime manifest's <code>enabledModules</code>, allowed policies and permissions gate the current profile's navigation. An absent manifest fails closed; it does not expose Commerce routes.</li>
+  <li><strong>Navigation and routes share profile resolution.</strong> Disabled modules and unauthorized screens are omitted together, avoiding menus of dead links. The initial hard-coded sidebar proposal is superseded by Spec 098.</li>
   <li>The generic label is deliberate: this is the product-agnostic storefront engine. Vertical identity (dishes, boxes-of-food) belongs to tenant data and config, per ADR-013 — nav copy never says "food".</li>
 </ul>
 
@@ -87,7 +88,7 @@
   <tr><td><code>src/services/commerceContentService.ts</code></td><td><strong>Create.</strong> Content block upsert, confirm-review, content-variants CRUD, coverage.</td></tr>
   <tr><td><code>src/services/commerceStorefrontService.ts</code></td><td><strong>Create.</strong> Size plan, fulfilment calendar, collections, facet groups, storefront config, public reads used for previews (<code>/commerce/config/storefront</code>, <code>/commerce/config/delivery</code>, <code>/commerce/catalog/extras</code>).</td></tr>
 </table>
-<div class="callout"><strong>Policy reality.</strong> Reads sit behind <code>AdminUserPolicy</code>, writes behind <code>AdminWritePolicy</code> — enforced server-side. The frontend has no permission hook: fire the call and surface the interceptor's <code>userMessage</code> (403 included) exactly as <code>CatalogCategoriesPage</code> does. Do not invent client-side permission checks.</div>
+<div class="callout"><strong>Policy reality.</strong> Endpoint policies and service permissions remain enforced server-side; staff reads that expose customer information use <code>AdminReadPolicy</code>. The frontend reuses <code>useModules().allowsPolicy()</code> and <code>hasPermission()</code> to gate controls, and surfaces the interceptor's <code>userMessage</code> for rejected requests. Client visibility never replaces server authorization.</div>
 
 <h2>5 · Shared components (<code>src/pages/commerce/components/</code>)</h2>
 <table>
@@ -116,8 +117,8 @@
 
 <h2>8 · Acceptance</h2>
 <ol>
-  <li><code>commerceModule</code> registered; all routes above resolve to placeholder-or-real pages without breaking <code>tsc -b</code>.</li>
-  <li>The Commerce nav section renders with working icons in both themes, disappears entirely (no dead links) when the manifest omits the module from <code>enabledModules</code>, and fails open when the manifest is unreachable.</li>
+  <li><code>commerceModule</code> is registered; all routes above resolve to implemented pages without breaking <code>tsc -b</code>. Remaining page-specific scope is recorded in each page specification.</li>
+  <li>The Commerce nav section renders with working icons in both themes, disappears when the manifest omits the module, and fails closed when the manifest is unreachable.</li>
   <li><code>src/types/commerce.ts</code> compiles and matches the JSON casing of the shipped DTOs (spot-check against a live <code>GET /commerce/admin/option-groups</code> and <code>GET /commerce/config/storefront</code>); list services return the normalized pagination shape, with a unit-tested mapper.</li>
   <li>The four shared components exist with the exact props above, render in light and dark, and <code>SignedAmount</code> has unit tests covering positive/negative/zero.</li>
   <li>Electron/hash-router compatibility: all new links use router navigation (no <code>window.location.pathname</code> reliance).</li>

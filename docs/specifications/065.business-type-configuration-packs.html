@@ -15,7 +15,7 @@
     body { margin: 0; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; margin-left: auto; margin-right: auto; }
     header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
     .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-partial { background: #fff5d9; color: #7a5a10; }
     .meta-tag.size-small { background: #e7f6ee; color: #2c6b46; }
     .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
     .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
@@ -59,7 +59,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 065</span>
-  <span class="meta-tag status-draft">Status: Draft (Rev 1)</span>
+  <span class="meta-tag status-partial">Status: Partial (Rev 1)</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Priority: P1</span>
   <span class="meta-tag">Domain: Platform / Agents / Commerce / PersonalFinance</span>
@@ -78,6 +78,13 @@
     is its first instance.
   </p>
 </header>
+
+<div class="callout">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> The first-party pack loader, applier, provisioning integration and tenant business-type picker are implemented.
+  <a href="../../src/Aonik.Platform/Services/Packs/ConfigPackApplier.cs"><code>ConfigPackApplier</code></a>
+  persists <code>AppliedPackVersion</code>, but the tenant response and admin screen do not yet expose it as required by &sect;14.
+  Operator-authored packs and live tenant re-typing remain outside v1.</p>
+</div>
 
 <div class="callout p0">
   <span class="callout-label">The split is the point</span>
@@ -411,12 +418,12 @@ later (demo / trial only):
 <h2 id="refs">17. References</h2>
 <ul>
   <li><a href="../decisions/014-business-type-configuration-packs.md">ADR-014 — Business-type configuration packs</a> (the decision) &middot; <a href="../decisions/013-product-identity-is-configuration.md">ADR-013</a> (identity = config; the manifest is where it lands) &middot; <a href="064.debrand-product-identity-from-platform-code.html">Spec&nbsp;064</a> (authors the Simi pack) &middot; <a href="033.tenant-managed-agent-extensibility.html">Spec&nbsp;033</a> (the <code>Agent</code> override the applier drives) &middot; <a href="../decisions/005-adopt-module-first-modular-monolith.md">ADR-005</a> (module-first).</li>
-  <li>Seams &amp; stores: <code>src/Aonik.SharedKernel/Abstractions/{IGlobalSeedContributor,IDemoSeedContributor,ITenantProvisioningContributor}.cs</code>, <code>src/Aonik.SharedKernel/Modules/IModule.cs</code>; <code>src/Aonik.Platform/Services/Identity/TenantProvisioner.cs</code>, <code>src/Aonik.Platform/Services/Seeding/DemoSeedService.cs</code>; <code>src/Aonik.Agents/Framework/{AgentConfigurationService,DomainAgentResolver}.cs</code>, <code>src/Aonik.Agents/Entities/Agent.cs</code>; <code>src/Aonik.Platform/Settings/SettingDefinitions.cs</code>, <code>src/Aonik.Infrastructure/ReferenceData/ReferenceDataService.cs</code>; provisioning contributors <code>src/Aonik.Finance/Services/Provisioning/FinanceTenantProvisioningContributor.cs</code>, <code>src/Aonik.Ai/Services/AiTenantProvisioningContributor.cs</code>; <code>src/Aonik.Commerce/CommerceModule.cs</code> (no contributor today).</li>
+  <li>Seams &amp; stores: <code>src/Aonik.SharedKernel/Abstractions/{IGlobalSeedContributor,IDemoSeedContributor,ITenantProvisioningContributor}.cs</code>, <code>src/Aonik.SharedKernel/Modules/IModule.cs</code>; <code>src/Aonik.Platform/Services/Identity/TenantProvisioner.cs</code>, <code>src/Aonik.Platform/Services/Seeding/DemoSeedService.cs</code>; <code>src/Aonik.Agents/Framework/{AgentConfigurationService,DomainAgentResolver}.cs</code>, <code>src/Aonik.Agents/Entities/Agent.cs</code>; <code>src/Aonik.Platform/Settings/SettingDefinitions.cs</code>, <code>src/Aonik.Infrastructure/ReferenceData/ReferenceDataService.cs</code>; provisioning contributors <code>src/Aonik.Finance/Services/Provisioning/FinanceTenantProvisioningContributor.cs</code>, <code>src/Aonik.Ai/Services/AiTenantProvisioningContributor.cs</code>; <code>src/Aonik.Commerce/CommerceModule.cs</code> (registers <code>CommerceTenantProvisioningContributor</code>).</li>
   <li>Prior art: <code>src/Aonik.Platform/Services/Settings/PayaboSetupProfileService.cs</code> (the user-level version). Dead hook: <code>src/Aonik.SharedKernel/Events/Integration/PlatformEvents.cs</code> (<code>TenantProvisionedEvent</code>).</li>
 </ul>
 
 <footer>
-  Spec 065 &middot; Draft Rev 1 &middot; 2026-07-14 &middot; implements ADR-014 &middot; Domain: Platform / Agents / Commerce / PersonalFinance
+  Spec 065 &middot; Status: Partial (Rev 1) &middot; 2026-07-14 &middot; implements ADR-014 &middot; Domain: Platform / Agents / Commerce / PersonalFinance
 </footer>
 
 </body>

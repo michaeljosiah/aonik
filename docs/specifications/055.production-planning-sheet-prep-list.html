@@ -49,7 +49,7 @@
       margin-right: 6px;
       text-transform: uppercase;
     }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-implemented { background: #ecf6ee; color: #2c6b46; }
     .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
     .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
     .meta-tag.priority-p3 { background: #efe6f6; color: #5a2784; }
@@ -198,7 +198,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 055</span>
-  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag status-implemented">Status: Implemented</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag priority-p3">Priority: P3</span>
   <span class="meta-tag">Domain: Commerce / Production / Planning</span>
@@ -215,6 +215,13 @@
     orders through the <code>SharedKernel</code> Ordering contract — never <code>Aonik.Finance</code>.
   </p>
 </header>
+
+<div class="callout ok">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> Production sheets, BOM prep lists, stock netting, supplier-pack suggestions and agent reads are implemented in
+  <a href="../../src/Aonik.Commerce/Services/Production/ProductionPlanningService.cs"><code>ProductionPlanningService</code></a>.
+  Planning supports the original created-at window and an explicit delivery-date selector added by Spec 069.
+  Forecasting, MRP and scheduling remain outside this scope.</p>
+</div>
 
 <nav class="toc">
   <h2>Contents</h2>
@@ -510,7 +517,7 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   <tbody>
     <tr><td>Order type</td><td><code>OrderType == "ProductPurchase"</code> only</td><td>Only sell-side product demand drives production; purchase orders (Spec&nbsp;053) and other order types are excluded.</td></tr>
     <tr><td>Status</td><td>Committed, non-terminal-failed statuses — exactly <code>{ Pending, UnderReview, Approved, Transmitted, Complete }</code> from <code>OrderStatusCodes</code>. Excluded: <code>Draft</code>, <code>Cancelled</code>, <code>Failed</code>, <code>Expired</code>.</td><td>Plan against real committed demand, not speculative baskets. Checkout creates the <code>ProductPurchase</code> order in <strong>Draft</strong> and only payment completion advances it to <strong>Complete</strong> (Spec&nbsp;042 §11) — a Draft is an initiated, unpaid checkout, so counting it would cook for orders that may never fund. <code>Cancelled</code>/<code>Failed</code>/<code>Expired</code> are the terminal failures (<code>IsTerminal()</code> minus Complete). The in-between codes are non-terminal committed states any ops flow may use and are included.</td></tr>
-    <tr><td>Date field</td><td>The order <strong>creation instant</strong> (<code>Order.CreatedAt</code>, UTC) must fall in the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code></td><td>The Order spine exposes no product fulfilment/needed-by date on <code>Order</code> or <code>OrderFulfilmentRef</code>, and this spec adds no new column; v1 filters on <code>CreatedAt</code> <strong>only</strong>, the one demand-date field available. Half-open bounds mean adjacent windows tile without double-counting a boundary order. A requested needed-by date is an additive spine field — see <a href="#open">Open</a>.</td></tr>
+    <tr><td>Date field</td><td>Either the order <strong>creation instant</strong> (<code>Order.CreatedAt</code>, UTC) within the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code>, or an explicit <strong>delivery date</strong></td><td>The original created-at window remains supported. Spec 069 adds a separate delivery-date selector over Commerce's immutable <code>OrderDeliveryDetails</code>; it does not require a new date on the Order spine. Half-open created-at bounds prevent adjacent windows from double-counting a boundary order.</td></tr>
     <tr><td>Quantity — simple/variant line</td><td><code>OrderItem.Quantity</code> = portions for the variant in <code>OrderItem.ProductId</code></td><td>A <code>ProductPurchase</code> line already carries retail quantity, and checkout writes the <em>variant</em> id into the soft-ref <code>ProductId</code> for simple lines (Spec&nbsp;041/042 line shape); one unit sold = one portion demanded.</td></tr>
     <tr><td>Quantity — bundle line</td><td>Expanded through <code>OrderBundleSelection</code>: each selection row contributes (<code>ProductVariantId</code>, <code>Quantity</code>) demand; the bundle line itself is never counted</td><td>A build-your-own-box line carries the <strong>bundle product id</strong> in <code>ProductId</code>, not a variant (Spec&nbsp;042 §12 Option A) — the kitchen makes the chosen <em>components</em>. Commerce owns the selection rows (soft-linked by <code>OrderId</code> + <code>OrderItemIndex</code>, quantities already the line totals: selection × boxes), so the expansion is a direct Commerce read. A line is a bundle line exactly when selection rows exist for it; without rows it falls through as simple demand and an unresolvable <code>ProductId</code> surfaces via the diagnostic names.</td></tr>
   </tbody>
@@ -713,7 +720,7 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   <thead><tr><th>#</th><th>Requirement</th></tr></thead>
   <tbody>
     <tr><td>R1</td><td><code>GetProductionSheetAsync(window)</code> returns per-<code>ProductVariant</code> portion demand aggregated from <code>ProductPurchase</code> orders in the window, read through the <code>SharedKernel.Abstractions.Ordering</code> read contract (no <code>Aonik.Finance</code> reference), tenant-scoped.</td></tr>
-    <tr><td>R2</td><td>The order-inclusion filter is explicit, centralised in one place, and documented (§9): order type = <code>ProductPurchase</code>; status ∈ <code>{ Pending, UnderReview, Approved, Transmitted, Complete }</code> (never <code>Draft</code> — an unpaid checkout intent — nor <code>Cancelled</code>/<code>Failed</code>/<code>Expired</code>); <code>Order.CreatedAt</code> (UTC) within the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code> — the spine exposes no needed-by date and this spec adds no new column.</td></tr>
+    <tr><td>R2</td><td>The order-inclusion filter is explicit and centralised (§9): order type = <code>ProductPurchase</code>; status ∈ <code>{ Pending, UnderReview, Approved, Transmitted, Complete }</code> (never <code>Draft</code> — an unpaid checkout intent — nor <code>Cancelled</code>/<code>Failed</code>/<code>Expired</code>). Select either <code>Order.CreatedAt</code> (UTC) within the <strong>half-open</strong> <code>[FromUtc, ToUtc)</code>, or the delivery date stored in Commerce's <code>OrderDeliveryDetails</code>.</td></tr>
     <tr><td>R3</td><td><code>GetPrepListAsync(window)</code> explodes the production sheet through active recipes via <code>IRecipeService.ExplodeManyAsync</code> (Spec&nbsp;050 §11), returning per-<code>Ingredient</code> required quantity in base unit, merged across variants.</td></tr>
     <tr><td>R4</td><td>Variants with no active recipe are surfaced as a diagnostic (<code>VariantsWithoutRecipe</code>, from 050), never silently under-counted.</td></tr>
     <tr><td>R5</td><td>Netting (caller flag <code>netAgainstStock</code>, default true) computes <code>Shortfall</code> against Spec&nbsp;052's <code>Available</code> (<code>OnHand&nbsp;−&nbsp;Reserved</code>), never raw <code>OnHand</code>, and adds a <code>SuggestedOrderQuantity</code> per the §11 seed precedence (ReorderQuantity as-is; else cheapest single-currency active-catalog whole packs; else the shortfall); with <code>netAgainstStock = false</code> those fields are <code>null</code> and the prep list is a pure requirements list.</td></tr>
@@ -818,16 +825,12 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
   <strong>Named / rolling production windows.</strong> A <code>ProductionWindow</code> entity with its own
   identity (a saved "kitchen week", a rolling next-N-days) rather than an ad-hoc date range on the request.
 </div>
-<div class="callout open">
-  <span class="callout-label">Open</span>
-  <strong>Requested / needed-by fulfilment date.</strong> v1 filters the window on order creation date
-  (<code>Order.CreatedAt</code>) because the Order spine carries no product fulfilment/needed-by date on
-  <code>Order</code> or <code>OrderFulfilmentRef</code>. Planning by <em>when a thing is needed</em> — so an
-  order placed today but due tomorrow lands in tomorrow's sheet — requires an <strong>additive field on the
-  Order spine</strong> (a small <code>OrderFulfilmentRef</code>/<code>Order</code> column). That is a
-  follow-up, and adopting it would take this spec's schema footprint (§14 — an additive index only) to a
-  real column; the §9 filter is
-  centralised so only its date predicate would move.
+<div class="callout ok">
+  <span class="callout-label">Implemented extension</span>
+  <strong>Planning by delivery date.</strong> Spec 069 adds immutable <code>OrderDeliveryDetails</code>
+  in Commerce. Production-sheet and prep-list reads now accept that explicit date as an alternative
+  to the original created-at window. An order placed today for tomorrow can therefore appear in
+  tomorrow's delivery plan without adding a needed-by field to the Order spine.
 </div>
 <div class="callout open">
   <span class="callout-label">Open</span>
@@ -863,7 +866,7 @@ record PrepListLineDto   ( Guid IngredientId, string IngredientName, string Base
 
 <footer>
   Spec 055 &middot; Production planning — the production sheet &amp; ingredient prep list &middot;
-  Status: Draft &middot; Aonik platform architecture.
+  Status: Implemented &middot; Aonik platform architecture.
 </footer>
 
 </body>

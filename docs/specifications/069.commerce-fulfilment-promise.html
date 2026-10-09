@@ -15,7 +15,7 @@
     body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
     header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
     .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-partial { background: #fff5d9; color: #7a5a10; }
     .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
     h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
     h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
@@ -45,19 +45,19 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 069</span>
-  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag status-partial">Status: Partial</span>
   <span class="meta-tag size-medium">Size: Medium (phase 1)</span>
   <span class="meta-tag">Module: Aonik.Commerce</span>
   <span class="meta-tag">Independent</span>
   <span class="meta-tag">2026-07-21</span>
   <h1>Commerce fulfilment promise — delivery calendar &amp; earliest-delivery date</h1>
   <p class="small">A per-tenant fulfilment calendar and the computed "earliest delivery" promise —
-  the single most-repeated data point in the Abby's Table storefront (five surfaces) and currently
-  unrepresentable anywhere in Aonik. Build area D of the
-  <a href="../abbys-table-storefront-plan.html">storefront capability plan</a>. Phase 1 (this
-  spec's build) is the promise; phase 2 (delivery capture at checkout) is scoped here and built
-  with the Steps 3–5 checkout work.</p>
+  used across the Abby's Table storefront. Build area D of the
+  <a href="../abbys-table-storefront-plan.html">storefront capability plan</a>. Phase 1 is implemented;
+  phase 2 delivery capture and capacity are implemented with the response-contract gap below.</p>
 </header>
+
+<div class="callout"><strong>Implementation status · 2026-10-09.</strong> Calendar promises, offered dates, immutable order address/date snapshots, checkout date validation, delivery-date kitchen planning and atomic per-date capacity holds are implemented. Invalid chosen dates return a validation error; clients must refresh the offered-dates endpoint. Embedding alternative dates in that error remains pending. Capacity, cutoff and lead time require explicit tenant configuration; zone fees, time slots and carrier integration remain deferred.</div>
 
 <h2>Contents</h2>
 <div class="toc">
@@ -68,7 +68,7 @@
     <li><a href="#model">Domain model</a></li>
     <li><a href="#algorithm">The computation</a></li>
     <li><a href="#services">Service &amp; API surface</a></li>
-    <li><a href="#phase2">Phase 2 — delivery at checkout (scoped, not built)</a></li>
+    <li><a href="#phase2">Phase 2 — delivery at checkout (one response-contract gap)</a></li>
     <li><a href="#persistence">Persistence &amp; migration</a></li>
     <li><a href="#security">Security &amp; tenancy</a></li>
     <li><a href="#packs">Config-pack seeding</a></li>
@@ -83,9 +83,9 @@
 <!-- ============================================================ -->
 <h2 id="summary">1. Summary</h2>
 
-<p>Commerce has no concept of customer delivery: no dates, slots, cutoffs, lead times, addresses or
-fees — checkout carries payment fields only, and the kitchen's production "windows" (specs 055/056)
-filter on <em>order-creation</em> time. This spec introduces the smallest honest model that makes a
+<p>Before this specification, Commerce had no customer delivery calendar or address capture, and
+the kitchen's production "windows" (specs 055/056) filtered on <em>order-creation</em> time.
+This spec introduces the smallest model that makes a
 delivery promise possible: a per-tenant <code>FulfilmentCalendar</code> (delivery days, order
 cutoff, preparation lead, blackout dates, timezone) and a deterministic computation of the earliest
 delivery date, served on a public endpoint the storefront shows everywhere the promise appears.</p>
@@ -112,7 +112,7 @@ delivery date, served on a public endpoint the storefront shows everywhere the p
 <h2 id="scope">3. Scope (in / out)</h2>
 
 <table>
-  <tr><th style="width:50%">In (phase 1 — built now)</th><th>Out / deferred</th></tr>
+  <tr><th style="width:50%">Implemented phase 1</th><th>Follow-ups and deferred scope</th></tr>
   <tr>
     <td>
       <ul>
@@ -125,13 +125,11 @@ delivery date, served on a public endpoint the storefront shows everywhere the p
     </td>
     <td>
       <ul>
-        <li><strong>Phase 2 (§7, scoped here, built with the checkout build-out):</strong> delivery
-            address capture, customer-chosen delivery date validated against the calendar, delivery
-            recorded on the order, kitchen planning windowed by delivery date, zone fees</li>
-        <li>Per-day capacity limits — <em>moved to phase 2</em>, deviating from the plan's phase-1
-            sketch: capacity throttling needs bookings-per-delivery-date, and delivery dates only
-            exist on orders in phase 2. A phase-1 capacity column would be dead config pretending
-            to work.</li>
+        <li><strong>Implemented phase-2 follow-ups (§7):</strong> delivery address capture,
+            customer-chosen date validation, order delivery snapshots, delivery-date kitchen
+            planning and per-date capacity holds. Inline alternative dates in rejection responses
+            remain pending.</li>
+        <li>Zone-specific delivery fees remain deferred.</li>
         <li>Slot-of-day selection (am/pm/hour windows) — phase 2+ if the business ever needs it</li>
         <li>Carrier/shipping-rate integration — not a platform concern at this scale</li>
         <li>Delivery display amounts on the box quote (list £10 / charged free) — tenant settings
@@ -254,13 +252,9 @@ public record FulfilmentPromiseDto(DateOnly EarliestDeliveryDate, string Timezon
   <tr><th>Route</th><th>Auth</th><th>Behaviour</th></tr>
   <tr><td><code>GET /commerce/config/delivery</code></td><td>AllowAnonymous</td>
       <td><code>{ "earliestDeliveryDate": "2026-08-06", "timezone": "Europe/London" }</code>;
-      404 when unconfigured. Response is cacheable for minutes — the value only moves at cutoff
-      or midnight, and a short-TTL stale promise on the storefront is acceptable (ISR revalidation
-      handles it). <strong>Caching is tenant-partitioned</strong>: the response is tenant-specific
-      but the path is not, so the cache key must include the resolved tenant — header-routed
-      deployments (<code>Auth:TenantRouting=Header</code>, the configured mode) must emit
-      <code>Vary: X-Tenant-Id</code>; subdomain routing partitions naturally by host. A shared
-      cache serving tenant A's promise to tenant B would contradict A7 outright.</td></tr>
+      404 when unconfigured. Promise and offered-date responses use <code>Cache-Control: no-store</code>
+      and <code>Vary: X-Tenant-Id</code>: capacity can change on every claim or release, not only at
+      cutoff or midnight. This supersedes the original phase-1 short-TTL cache design.</td></tr>
   <tr><td><code>GET /commerce/admin/fulfilment-calendar</code></td><td>AdminUserPolicy</td><td>Current calendar incl. inactive</td></tr>
   <tr><td><code>PUT /commerce/admin/fulfilment-calendar</code></td><td>AdminWritePolicy</td>
       <td>Upsert. Validates: known IANA timezone; day names valid (incl.
@@ -273,10 +267,11 @@ public record FulfilmentPromiseDto(DateOnly EarliestDeliveryDate, string Timezon
 </table>
 
 <!-- ============================================================ -->
-<h2 id="phase2">7. Phase 2 — delivery at checkout (scoped, not built)</h2>
+<h2 id="phase2">7. Phase 2 — delivery at checkout (one response-contract gap)</h2>
 
-<p>Authored now so phase 1 doesn't paint the schema into a corner; implemented with the storefront's
-Steps 3–5 build-out. Requirements at contract level:</p>
+<p>Delivery address/date capture, offered-date validation, order linkage, delivery-date kitchen
+planning and capacity reservations have shipped. The remaining contract difference is that
+invalid-date responses require a separate offered-dates refresh. Requirements at contract level:</p>
 
 <ol>
   <li><strong>Delivery address</strong> on the checkout command and persisted with the order
@@ -292,20 +287,11 @@ Steps 3–5 build-out. Requirements at contract level:</p>
   <li><strong>Kitchen planning by delivery date</strong>: specs 055/056 gain the option to window
       production on delivery date rather than order-creation date — the operationally meaningful
       axis once dates exist.</li>
-  <li><strong>Per-day capacity</strong>: with bookings-per-date now recordable, the calendar gains
-      <code>CapacityPerDeliveryDay?</code>. Capacity is <em>claimed atomically</em> inside the
-      checkout transaction — a per-date claim row guarded by a database uniqueness/counter
-      constraint, never a read-then-write count (two concurrent checkouts observing the same count
-      would both pass and oversell the day). Claims are released on payment failure or
-      cancellation <strong>and expire on a TTL sweep</strong> — a checkout abandoned with a
-      payment intent still pending fires neither event, and without expiry such ghosts would
-      slowly mark days full with no paid orders (the pattern mirrors inventory reservations'
-      Held-with-<code>ExpiresAt</code> + release sweep exactly). Full days drop out of offered
-      dates and, transitively, out of the §5 promise — <strong>which supersedes phase 1's cache
-      policy</strong>: the promise then moves on every claim and release, not just at cutoff and
-      midnight, so promise/offered-date responses require tenant-partitioned invalidation on
-      capacity changes (a capacity version in the cache key, or <code>no-store</code> for the
-      offered-dates read) rather than a bare max-age.</li>
+  <li><strong>Per-day capacity</strong>: capacity is explicitly configured per delivery date.
+      Cart-owned holds use atomic native-version claims and are separate from a full box.
+      Unstarted holds expire; once payment may have started, release requires verified provider
+      closure, not timer expiry alone. Full dates are excluded from offered dates and the promise.
+      Both reads use <code>no-store</code> so capacity changes are not hidden by a time-only cache.</li>
   <li><strong>Zone fees</strong> (if ever needed): delivery zones keyed by postcode prefix with a
       fee feeding the quote's <code>deliveryCharged</code>; explicitly not designed further
       here.</li>
@@ -375,8 +361,8 @@ Steps 3–5 build-out. Requirements at contract level:</p>
   <li>Public endpoint + admin endpoints with validations.</li>
   <li>DI registration; optional pack seed.</li>
   <li>Tests per §11; full-solution run.</li>
-  <li>Phase 2 items tracked as their own issue set when the checkout build-out is scheduled —
-      not silently begun here.</li>
+  <li>Phase 2 delivery capture and capacity landed through #345 and #346. Returning alternatives
+      inside an invalid-date error remains the explicit response-contract gap.</li>
 </ol>
 
 <!-- ============================================================ -->

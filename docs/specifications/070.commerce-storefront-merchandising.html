@@ -15,7 +15,7 @@
     body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
     header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
     .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-implemented { background: #ecf6ee; color: #2c6b46; }
     .meta-tag.size-medium { background: #e7f0fb; color: #2b5b91; }
     h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
     h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
@@ -46,7 +46,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 070</span>
-  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag status-implemented">Status: Implemented</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag">Module: Aonik.Commerce</span>
   <span class="meta-tag">Independent</span>
@@ -58,6 +58,12 @@
   <a href="../abbys-table-storefront-plan.html">Abby's Table storefront capability plan</a>;
   implements plan decision D4 (one primary category + facet tags + collections).</p>
 </header>
+
+<div class="callout ok">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> Collections, typed facets, storefront configuration, public browsing and product/media authoring are implemented through
+  <a href="../../src/Aonik.Commerce/Services/Catalog/CollectionService.cs"><code>CollectionService</code></a> and the existing catalogue services.
+  Product image upload has also shipped. Full-text indexing and AI ranking remain outside this scope; configuration does not deploy a branded storefront app.</p>
+</div>
 
 <h2>Contents</h2>
 <div class="toc">
@@ -128,15 +134,15 @@ never hard-code.</p>
         <li><code>ProductSummaryDto</code> enrichment (hero image, tags, attributes, surcharge)</li>
         <li>Public category-tree endpoint</li>
         <li><code>GET /commerce/config/storefront</code> + the settings keys behind it</li>
-        <li>Admin: product update endpoint (the catalog has create-only today), media
+        <li>Admin: product update endpoint, media
             list/reorder</li>
         <li>Migration (tool-generated, canonical stream)</li>
       </ul>
     </td>
     <td>
       <ul>
-        <li>Media <strong>upload</strong> (blob wiring) — storefront-readiness wiring item; this
-            spec orders/removes existing <code>ProductMedia</code> rows only</li>
+        <li>Media <strong>upload</strong> (blob wiring) — outside this spec's original scope and
+            since implemented separately; this spec authors existing <code>ProductMedia</code> rows</li>
         <li>Option groups / content / box pricing — Specs 066/067/068 (the config document
             <em>references</em> 068's box plan, see §9)</li>
         <li>Earliest delivery — Spec 069's endpoint; deliberately not duplicated into the config
@@ -392,7 +398,7 @@ tunable the frontend must not hard-code:</p>
   <tr><td><code>GET /commerce/admin/facet-groups</code></td><td>List including inactive groups (reactivation needs to see them)</td></tr>
   <tr><td><code>POST /commerce/admin/facet-groups</code> · <code>PUT /commerce/admin/facet-groups/{id:guid}</code></td><td>Author facet definitions (validates §11 A-rules)</td></tr>
   <tr><td><code>GET /commerce/admin/products/{productId:guid}</code> <em>(contract change)</em></td><td>Switches from the shared <code>ProductDto</code> to <code>AdminProductDetailDto</code> (+<code>searchKeywords</code>) — see §7</td></tr>
-  <tr><td><code>PATCH /commerce/admin/products/{productId:guid}</code></td><td><strong>The missing product update</strong>: name, description, status, category, tags, attributes, search keywords (create-only until now). JSON fields validated on write (§11)</td></tr>
+  <tr><td><code>PATCH /commerce/admin/products/{productId:guid}</code></td><td><strong>Product update</strong>: name, description, status, category, tags, attributes and search keywords. JSON fields validated on write (§11)</td></tr>
   <tr><td><code>PUT /commerce/admin/products/{productId:guid}/media</code></td><td>Full-replace ordered media URLs (list/reorder/remove; upload itself is the wiring item)</td></tr>
   <tr><td><code>PUT /commerce/admin/categories/{categoryId:guid}</code></td><td>Update name/parent/sort/<code>IsActive</code> — categories retire, never delete (§11 adds the lifecycle column)</td></tr>
   <tr><td><code>PUT /commerce/admin/storefront-config</code></td><td>Writes the <code>Commerce.Storefront.*</code> settings under <code>AdminWritePolicy</code> — the platform tenant-settings endpoint requires <code>AdminPolicy</code>, which would let Operations edit every product yet not the storefront settings (§9)</td></tr>

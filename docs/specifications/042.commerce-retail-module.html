@@ -49,7 +49,7 @@
       margin-right: 6px;
       text-transform: uppercase;
     }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-implemented { background: #ecf6ee; color: #2c6b46; }
     .meta-tag.size-large { background: #efe6f6; color: #5a2784; }
     .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
     h1 {
@@ -197,7 +197,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 042</span>
-  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag status-implemented">Status: Implemented</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag priority-p2">Priority: P2</span>
   <span class="meta-tag">Domain: Commerce / Ordering / AI</span>
@@ -216,6 +216,8 @@
     Finance: it reaches orders, billing, and payments through <code>SharedKernel</code> contracts.
   </p>
 </header>
+
+<div class="callout ok"><strong>Implementation status · 2026-10-09.</strong> Phases 1–5 (v1) are implemented through the existing catalogue, pricing, inventory, cart, checkout and agent services. Carrier integration and the separate branded storefront remain deferred. Checkout now calls a real payment provider, so its agent tool requires an approved high-risk durable proposal. Staff refunds are available separately; the proposed <code>commerce_refund</code> agent tool remains unimplemented. Historical phase test counts below describe their original landing checks.</div>
 
 <nav class="toc">
   <h2>Contents</h2>
@@ -621,7 +623,7 @@ public interface IPaymentInitiator
     <tr><td><code>commerce_get_bundle_options</code></td><td><span class="tag read">read</span></td><td>Lists a bundle&rsquo;s slots + eligible component variants for a build-your-own-box.</td></tr>
     <tr><td><code>commerce_add_bundle_to_cart</code></td><td><span class="tag low">low</span></td><td>Validates a chosen box selection against the slots, then adds the bundle line.</td></tr>
     <tr><td><code>commerce_create_product</code>, <code>commerce_update_product</code>, <code>commerce_set_price</code>, <code>commerce_adjust_inventory</code></td><td><span class="tag medium">medium</span></td><td>Everyday domain writes; in-session confirmation, args-hash-bound.</td></tr>
-    <tr><td><code>commerce_checkout</code></td><td><span class="tag medium">medium</span></td><td>Creates order + invoice + <em>draft</em> intent; no money moves yet (capture is separate).</td></tr>
+    <tr><td><code>commerce_checkout</code></td><td><span class="tag high">high</span></td><td>Starts a real payment-provider operation through an approved durable proposal; capture and ledger posting remain Finance-owned.</td></tr>
     <tr><td><code>commerce_refund</code> (later)</td><td><span class="tag high">high</span></td><td>Money movement → durable Finance <code>Proposal</code>; never in-band.</td></tr>
   </tbody>
 </table>
@@ -688,8 +690,8 @@ public interface IPaymentInitiator
   <h4>Phase 4 ✅ — Commerce agent (landed)</h4>
   <div class="phase-summary">The agentic payoff.</div>
   <ul>
-    <li><code>CommerceAgentDescriptor</code> (<code>commerce-agent</code>, an <code>IDomainAgentDescriptor</code> composed by the orchestrator) + <code>CommerceAgentTools</code> (search/get/view/check reads; create-cart/add-to-cart/add-bundle low; create-product/set-price/adjust-inventory/checkout medium).</li>
-    <li><code>CommerceToolApprovalManifest</code> (<code>IToolApprovalManifest</code>) classifies every mutating tool; all tools routed through the central <code>IToolApprovalGate.GateAll</code> (Spec 032) — fails closed. Nothing is High (Commerce never captures money; a future <code>commerce_refund</code> would marshal a Finance proposal).</li>
+    <li><code>CommerceAgentDescriptor</code> (<code>commerce-agent</code>, an <code>IDomainAgentDescriptor</code> composed by the orchestrator) + <code>CommerceAgentTools</code> (search/get/view/check reads; create-cart/add-to-cart/add-bundle low; create-product/set-price/adjust-inventory medium; checkout high).</li>
+    <li><code>CommerceToolApprovalManifest</code> (<code>IToolApprovalManifest</code>) classifies every mutating tool; all tools route through the central <code>IToolApprovalGate.GateAll</code> (Spec 032) and fail closed. <code>commerce_checkout</code> runs only through an approved durable proposal because it can start a real payment-provider operation. Commerce does not capture funds or post ledger entries directly; a future refund agent tool would require the same high-risk boundary.</li>
     <li><em>Verified:</em> build green; Commerce 31/31 (incl. manifest tier classification + read-passthrough); Architecture 13/13, Api 242 pass (app boots with the agent + manifest discovered by the gate).</li>
   </ul>
 </div>
@@ -715,7 +717,7 @@ public interface IPaymentInitiator
     <tr><td>R4</td><td>Checkout creates a <code>ProductPurchase</code> order via <code>IOrderService</code> with product line items (Quantity/UnitPrice/ProductId/Sku) and snapshotted prices.</td></tr>
     <tr><td>R5</td><td>Checkout bills via <code>IInvoiceWriter</code> and funds via <code>IPaymentInitiator</code> (both SharedKernel contracts implemented by Finance); capture stays a Finance high-tier action.</td></tr>
     <tr><td>R6</td><td>On <code>PaymentCompletedEvent</code>, inventory commits, the cart closes, and the order transitions to Complete.</td></tr>
-    <tr><td>R7</td><td>Guest checkout works on the existing public payment path, creating a guest <code>Party</code> + shipping address.</td></tr>
+    <tr><td>R7</td><td>Guest checkout works on the public payment path, with a guest <code>Party</code> and immutable delivery address on the order. An anonymous email does not establish a verified customer profile or saved address.</td></tr>
     <tr><td>R8</td><td>A <code>commerce-agent</code> is registered with tools classified low/medium/high; reads are direct, writes are approval-gated, every action records an <code>AiRun</code>.</td></tr>
     <tr><td>R9</td><td>Order/Payment/Ledger separation holds; Commerce posts no ledger entries and captures no money directly.</td></tr>
     <tr><td>R10</td><td>All schema changes are EF-CLI-generated against <code>AonikDbContext</code>; <code>Ank</code> table prefix; no hand-authored migrations.</td></tr>
@@ -814,7 +816,7 @@ public interface IPaymentInitiator
 
 <footer>
   Spec 042 &middot; Aonik.Commerce — a retail commerce module on the unified Order spine &middot;
-  Status: Draft &middot; Aonik platform architecture.
+  Status: Implemented &middot; Phases 1–5 (v1) &middot; Aonik platform architecture.
 </footer>
 
 </body>

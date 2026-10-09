@@ -49,7 +49,7 @@
       margin-right: 6px;
       text-transform: uppercase;
     }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-implemented { background: #ecf6ee; color: #2c6b46; }
     .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
     .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
     .meta-tag.priority-p3 { background:#efe6f6; color:#5a2784; }
@@ -198,7 +198,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 053</span>
-  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag status-implemented">Status: Implemented</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag priority-p3">Priority: P3</span>
   <span class="meta-tag">Domain: Commerce / Sourcing / Ordering</span>
@@ -218,6 +218,13 @@
     — never <code>Aonik.Finance</code>: the PO rides the <em>spine</em>, not Finance.
   </p>
 </header>
+
+<div class="callout ok">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> Supplier authoring/catalogues and purchase-order creation, shortfall seeding, submission, cancellation and listing are implemented in
+  <a href="../../src/Aonik.Commerce/Services/Sourcing/SupplierService.cs"><code>SupplierService</code></a> and
+  <a href="../../src/Aonik.Commerce/Services/Sourcing/PurchaseOrderService.cs"><code>PurchaseOrderService</code></a>.
+  Receiving is implemented separately by Spec 054; supplier payments and three-way matching remain deferred.</p>
+</div>
 
 <nav class="toc">
   <h2>Contents</h2>
@@ -833,7 +840,7 @@ discriminator+extra →  DetailsJson            {"kind":"purchase-order-line","i
 
 <footer>
   Spec 053 &middot; Suppliers, supplier catalog &amp; purchase orders — the reorder moment &middot;
-  Status: Draft &middot; Aonik platform architecture.
+  Status: Implemented &middot; Aonik platform architecture.
 </footer>
 
 </body>

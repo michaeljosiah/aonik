@@ -15,7 +15,7 @@
     body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
     header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
     .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-implemented { background: #ecf6ee; color: #2c6b46; }
     .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
     h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
     h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
@@ -47,7 +47,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 066</span>
-  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag status-implemented">Status: Implemented</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Commerce</span>
   <span class="meta-tag">2026-07-21</span>
@@ -59,6 +59,13 @@
   storefront capability plan</a>, Spec A): Specs B (option-dependent content) and C (box-builder
   carts) both consume the contracts defined here.</p>
 </header>
+
+<div class="callout ok">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> Option authoring, defaults, product narrowing, selection validation and price adjustments are implemented in
+  <a href="../../src/Aonik.Commerce/Services/Catalog/ProductOptionService.cs"><code>ProductOptionService</code></a> and
+  <a href="../../src/Aonik.Commerce/Services/Catalog/OptionSelectionService.cs"><code>OptionSelectionService</code></a>.
+  Spec 068 now persists selections in carts and orders. Variants remain distinct from option choices; BOM consumption deltas remain deferred.</p>
+</div>
 
 <h2>Contents</h2>
 <div class="toc">

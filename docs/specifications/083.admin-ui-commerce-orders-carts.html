@@ -11,7 +11,7 @@
     body { margin:0 auto; padding:40px 24px 80px; font:15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color:var(--fg); max-width:900px; }
     header.spec-meta { border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:28px; }
     .meta-tag { display:inline-block; font:11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing:.06em; padding:3px 8px; border-radius:999px; background:var(--soft); color:var(--muted); margin-right:6px; text-transform:uppercase; }
-    .meta-tag.status-draft { background:#fff5d9; color:#7a5a10; }
+    .meta-tag.status-partial { background:#fff5d9; color:#7a5a10; }
     h1 { font-size:30px; letter-spacing:-.015em; margin:14px 0 6px; line-height:1.15; }
     h2 { font-size:21px; letter-spacing:-.01em; margin:44px 0 12px; padding-bottom:4px; border-bottom:1px solid var(--border); }
     p, ul, ol { margin:8px 0 12px; } ul, ol { padding-left:22px; } li { margin:3px 0; }
@@ -25,12 +25,14 @@
 </head>
 <body>
 <header class="spec-meta">
-  <span class="meta-tag">Spec 083</span><span class="meta-tag status-draft">Draft</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Specs 068/071 + dependency callouts</span>
+  <span class="meta-tag">Spec 083</span><span class="meta-tag status-partial">Partial</span><span class="meta-tag">Admin UI</span><span class="meta-tag">Depends: 073</span><span class="meta-tag">Backend: Specs 068/071 + dependency callouts</span>
   <h1>Commerce orders &amp; carts — the kitchen landing and the honest box states</h1>
   <p><code>/commerce/orders</code> and <code>/commerce/carts</code> · <code>CommerceOrdersPage</code>, <code>CommerceCartsPage</code>. Design of record: the updated orders/carts artboards (PR #268). Two operator questions answered honestly: <em>what exactly was ordered</em> (per-selection personalisation — the kitchen landing — plus ADD-ON retail lines), and <em>which sessions are live, stuck or recoverable</em> (box fullness, drift-blocked, abandoned).</p>
 </header>
+<div class="callout"><strong>Current implementation · 2026-10-09.</strong> Order and cart projections, drawers, immutable charge and delivery facts, buyer identity and staff fulfilment progression are implemented. Staff refund preview, requests, history and reconciliation are available with separate read/write permissions; pending or uncertain responses are not completed refunds. Staff cart recovery and resume controls remain informational, and the specified awaiting-fulfilment KPI is absent. Payment, refund and fulfilment states remain separate.</div>
 
-<h2>1 · API contract + dependency callouts</h2>
+<h2>1 · API contract + original dependency callouts</h2>
+<p><strong>All three dependencies below are now implemented.</strong> The page uses <code>GET /commerce/admin/orders</code>, the storefront-detail read and the admin cart list/detail reads. The callouts preserve the original design rationale and fallback requirements; they no longer describe missing endpoints. Staff fulfilment progression is recorded separately from payment status.</p>
 <table>
   <tr><th>Need</th><th>Source</th></tr>
   <tr><td>Order list (ProductPurchase)</td><td>The spine list (<code>GET /orders?orderType=ProductPurchase</code>) is shipped but its row DTO exposes one generic <code>status</code>, payer identity and totals only — <strong>no payment status, no fulfilment status, no buyer-kind discriminator</strong>.<div class="callout"><strong>Dependency callout 0 — list projection.</strong> The payment/fulfilment pills, paid-revenue and awaiting-fulfilment KPIs and guest-vs-party rendering need a commerce list projection (or spine-list enrichment) carrying <code>paymentStatus</code>, <code>fulfilmentStatus</code>, <code>buyerKind</code>. Degraded mode until it ships: one generic status pill, KPI row reduced to order count, buyer rendered without a kind icon.</div></td></tr>
@@ -41,7 +43,7 @@
 
 <h2>2 · Orders page structure</h2>
 <ol>
-  <li><strong>KPI row</strong> — orders, revenue (paid), average order value, awaiting fulfilment (warn) — computed over the LOADED window, per currency, with the caption naming the window (the Spec 084 rule); the sources are paged and a silent whole-store claim would understate. Server-side aggregates are a welcome later addition to the list projection, not assumed.</li>
+  <li><strong>KPI row</strong> — original target: orders, revenue (paid), average order value and awaiting fulfilment (warn), computed over the LOADED window per currency with a caption naming that window. Current implementation shows awaiting payment instead of awaiting fulfilment; the latter remains a gap. Server-side whole-store aggregates are not assumed.</li>
   <li><strong>List</strong> — payment-status <code>FilterBar</code> + <code>DataTable</code>: <em>order (mono) · buyer (kind icon: party vs guest) · total (mono right) · payment pill · fulfilment pill · date</em>.</li>
   <li><strong>Order drawer</strong> (<code>Sheet size:'md'</code>, route-addressable at <code>/commerce/orders/:orderId</code> exactly like Spec 082's editor — deep links, including Spec 084's recent-orders rows, open it directly) — lifecycle stepper (Created→Invoiced→Funded→Paid→Fulfilled, halted states for cancelled/refunded); <strong>items</strong> where the box aggregate line expands its selections — each with quantity, name, sku (mono) and its <em>personalisation summary</em> as an accent line (this is the kitchen landing: what Spec 068 snapshots so two differently-personalised preparations never collapse); ADD-ON retail lines badge <code>ADD-ON</code> with their own price and the caption "retail — no box space"; the DeliveryFee item renders as the delivery line; <strong>charge summary</strong> (subtotal → discount w/ code chip → tax → total payable, mono); payment + fulfilment cards. Buyer links to <code>/customers/:partyId</code> when party-bound (Spec 081's unified detail).</li>
 </ol>
@@ -58,7 +60,7 @@
   <li><strong>Files:</strong> <code>src/pages/commerce/CommerceOrdersPage.tsx</code>, <code>CommerceCartsPage.tsx</code>; shared <code>components/OrderLineItems.tsx</code> (box-selection nesting + ADD-ON badge + personalisation accent — also reused by 081's Commerce tab if useful), <code>components/LifecycleStepper.tsx</code>. Routes (<code>/commerce/orders</code>, <code>/commerce/orders/:orderId</code> dynamic, <code>/commerce/carts</code>) + breadcrumbs in <code>commerceModule</code>; the nav child <code>cm-orders</code> points at <code>/commerce/orders</code> with a tab-style switch to carts (or two nav children — implementer's choice, breadcrumbs either way).</li>
   <li><strong>Blocked-state derivation is pure and unit-tested</strong> (<code>lib/cartState.ts</code>): <code>cartBlocked(boxMeta) → { blocked, reason }</code> for drift / under-filled; drives column, banner and footer identically.</li>
   <li><strong>DetailsJson handling:</strong> the box envelope and add-on personalisation envelopes are opaque JSON — render the human summaries the DTOs carry; never re-derive from envelopes client-side.</li>
-  <li><strong>Recovery/refund actions</strong> render but no-op with a toast where their backend flows are not yet wired for commerce (refund remains a Finance high-tier action — the button stays disabled with that title, matching the design).</li>
+  <li><strong>Cart recovery/resume actions</strong> remain informational toasts; they do not send a link or resume checkout. <strong>Staff refunds are implemented</strong> through server-calculated preview, version-bound request, history and explicit reconciliation. Reads require <code>Payment.Read</code> and staff read policy; writes require <code>Payment.Refund</code> and staff write policy. A 202 or uncertain response is not completed financial evidence; retries retain the original refund identity. Refunds neither cancel fulfilment nor rewrite original captured amounts.</li>
 </ul>
 
 <h2>5 · Acceptance</h2>

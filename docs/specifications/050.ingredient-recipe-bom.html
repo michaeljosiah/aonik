@@ -49,7 +49,7 @@
       margin-right: 6px;
       text-transform: uppercase;
     }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-partial { background: #fff5d9; color: #7a5a10; }
     .meta-tag.size-medium { background: #e7f0fb; color: #1c5a96; }
     .meta-tag.priority-p2 { background: #e7f0fb; color: #1c5a96; }
     h1 {
@@ -197,7 +197,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 050</span>
-  <span class="meta-tag status-draft">Status: Draft</span>
+  <span class="meta-tag status-partial">Status: Partial</span>
   <span class="meta-tag size-medium">Size: Medium</span>
   <span class="meta-tag priority-p2">Priority: P2</span>
   <span class="meta-tag">Domain: Commerce / Production</span>
@@ -213,6 +213,12 @@
     <code>SharedKernel</code>&nbsp;+&nbsp;<code>Aonik.Ordering</code> — never <code>Aonik.Finance</code>.
   </p>
 </header>
+
+<div class="callout">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> Ingredient authoring, recipe replacement and validation, recipe reads, BOM explosion and agent tools are implemented in
+  <a href="../../src/Aonik.Commerce/Services/Production/RecipeService.cs"><code>RecipeService</code></a> and the sourcing services.
+  The recipe-list read/API specified in &sect;5 and phase 2 remains missing. Multi-level BOMs, wastage and allergen roll-ups remain deferred.</p>
+</div>
 
 <nav class="toc">
   <h2>Contents</h2>
@@ -608,7 +614,7 @@ IRecipeService.ExplodeManyAsync( [ {variantId, portions}, … ] )   // for a who
 
 <footer>
   Spec 050 &middot; Ingredient master &amp; Recipe / Bill-of-Materials — the maker-operations keystone &middot;
-  Status: Draft &middot; Aonik platform architecture.
+  Status: Partial &middot; Aonik platform architecture.
 </footer>
 
 </body>

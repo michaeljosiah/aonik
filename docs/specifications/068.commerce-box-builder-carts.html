@@ -15,7 +15,7 @@
     body { margin: 0 auto; padding: 40px 24px 80px; font: 15.5px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "DM Sans", sans-serif; color: var(--fg); max-width: 900px; }
     header.spec-meta { border-bottom: 1px solid var(--border); padding-bottom: 18px; margin-bottom: 28px; }
     .meta-tag { display: inline-block; font: 11px/1.4 "JetBrains Mono", ui-monospace, monospace; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 999px; background: var(--soft); color: var(--muted); margin-right: 6px; text-transform: uppercase; }
-    .meta-tag.status-draft { background: #fff5d9; color: #7a5a10; }
+    .meta-tag.status-implemented { background: #ecf6ee; color: #2c6b46; }
     .meta-tag.size-large { background: #f3e8fb; color: #6b3fa0; }
     h1 { font-size: 30px; letter-spacing: -0.015em; margin: 14px 0 6px; line-height: 1.15; }
     h2 { font-size: 21px; letter-spacing: -0.01em; margin: 44px 0 12px; padding-bottom: 4px; border-bottom: 1px solid var(--border); }
@@ -46,7 +46,7 @@
 
 <header class="spec-meta">
   <span class="meta-tag">Spec 068</span>
-  <span class="meta-tag status-draft">Draft</span>
+  <span class="meta-tag status-implemented">Status: Implemented</span>
   <span class="meta-tag size-large">Size: Large</span>
   <span class="meta-tag">Module: Aonik.Commerce</span>
   <span class="meta-tag">Depends on: Spec 066</span>
@@ -59,6 +59,13 @@
   <a href="../abbys-table-storefront-plan.html">Abby's Table storefront capability plan</a>;
   implements the server contract of the client's Step&nbsp;2 functional spec.</p>
 </header>
+
+<div class="callout ok">
+  <p><strong>Current implementation &mdash; 2026-10-09.</strong> <a href="../../src/Aonik.Commerce/Services/Checkout/BoxCartService.cs"><code>BoxCartService</code></a>
+  implements size plans, dish-line editing, quotes, drift handling, continue validation and checkout materialisation.
+  Later changes add cart versions, saved checkout drafts, explicit adoption choices and coupon preview.
+  Add-ons are implemented by Spec 071; a full box remains separate from the delivery-capacity reservation required at checkout.</p>
+</div>
 
 <h2>Contents</h2>
 <div class="toc">
@@ -154,15 +161,15 @@ write returns the whole box plus the quote". Decision D1 settled <em>where</em> 
         <li>Option groups, selection validation/pricing — <strong>Spec 066</strong> (consumed)</li>
         <li>Option-dependent content — <strong>Spec 067</strong> (storefront concern; carts never
             resolve content)</li>
-        <li>Delivery date on the quote — display values only here (tenant settings);
-            calendar/computation is <strong>Spec 069</strong>; address/slot capture is 069 phase 2</li>
+        <li>Delivery date on the quote — calendar computation, order address/date capture and
+            capacity reservations are implemented separately by <strong>Spec 069</strong></li>
         <li>Payment, invoicing, stock reserve/commit — existing Spec 042 checkout, unchanged</li>
-        <li>Discounts on box quotes — existing checkout-time discounts still apply at checkout;
-            in-session discount preview is future work</li>
+        <li>Discounts on box quotes — coupon preview and checkout now share the same
+            authoritative discount calculation</li>
         <li><strong>Add-ons</strong> (items bought alongside the box at their own price) — the
             <code>LineKind</code> discriminator that keeps them additive is in scope (§4.1); the
             routes, <code>addOns</code> quote component, retail order lines and add-on price display
-            (a Spec 070 summary-DTO change) are a later spec</li>
+            (a Spec 070 summary-DTO change) are implemented by <strong>Spec 071</strong></li>
         <li>Steps 3–5 storefront flows (extras, review) — only the continue gate is here</li>
       </ul>
     </td>
@@ -464,9 +471,8 @@ byte-for-byte unaffected.</p>
       <code>deliveryCharged &gt; 0</code>, checkout adds a dedicated delivery order item
       (<code>ItemType = "DeliveryFee"</code>, <code>AmountIn</code> = the charged amount) and
       includes it in the payment total (subtotal − discount + tax + delivery) and charge summary.
-      The existing checkout maths has no delivery step, so without this the customer would be
-      charged less than the authoritative quote. Zero at launch (£10 list, free charged) — the
-      path is defined and tested, dormant in production until Spec 069 phase 2 turns fees on.</li>
+      The delivery step is implemented and uses tenant delivery settings; no fee is inferred
+      from the calendar. Actual charges follow the current configuration.</li>
   <li><strong>Invoices for box carts are box-aggregate.</strong> The existing per-<code>CartItem</code>
       invoice path would emit one line per dish from price snapshots that are explicitly not
       pricing inputs here — exposing standalone dish prices and disagreeing with the single
