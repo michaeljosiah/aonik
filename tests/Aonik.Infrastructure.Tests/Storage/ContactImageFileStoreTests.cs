@@ -74,6 +74,28 @@ public sealed class ContactImageFileStoreTests : IDisposable
 
     private BlobStorageOptions Settings() => new() { LocalBasePath = Path.Combine(_root, "App_Data") };
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Upload_Should_RejectPublicRootAliasToPrivateDirectory(bool webRoot)
+    {
+        // The Linux CI lane exercises symlinks without requiring Windows developer-mode privileges.
+        if (OperatingSystem.IsWindows()) return;
+        var settings = Settings();
+        string privatePath = Path.Combine(settings.LocalBasePath, settings.ContactImages.Path);
+        Directory.CreateDirectory(privatePath);
+        string alias = Path.Combine(settings.LocalBasePath, webRoot ? "web-root" : settings.ProfilePhotos.Path);
+        Directory.CreateSymbolicLink(alias, privatePath);
+        try
+        {
+            using var bytes = new MemoryStream([1]);
+            var act = () => Store(settings, webRoot ? alias : null)
+                .UploadAsync(Guid.NewGuid(), Guid.NewGuid(), bytes, "a.jpg", "image/jpeg");
+            await act.Should().ThrowAsync<ContactEnquiryUnavailableException>();
+        }
+        finally { Directory.Delete(alias); }
+    }
+
     private ContactImageFileStore Store(BlobStorageOptions settings, string? webRoot = null)
     {
         var environment = new Mock<IWebHostEnvironment>();

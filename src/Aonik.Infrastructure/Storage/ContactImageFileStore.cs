@@ -59,14 +59,18 @@ public sealed class ContactImageFileStore(
                 string? configuredWebRoot = (environment as IWebHostEnvironment)?.WebRootPath;
                 string webRoot = string.IsNullOrWhiteSpace(configuredWebRoot)
                     ? Path.Combine(environment.ContentRootPath, "wwwroot") : configuredWebRoot;
-                if (Overlaps(contactPath, Path.GetFullPath(webRoot)) || publicStores.Any(store =>
-                        Overlaps(contactPath, Path.GetFullPath(Path.Combine(settings.LocalBasePath, store.Path)))))
+                string[] publicPaths = publicStores.Select(store =>
+                    Path.GetFullPath(Path.Combine(settings.LocalBasePath, store.Path)))
+                    .Append(Path.GetFullPath(webRoot)).ToArray();
+                if (publicPaths.Any(path => Overlaps(contactPath, path)))
                     throw Unavailable();
 
-                // Reject junctions/symlinks which could alias an otherwise separate public directory.
-                for (DirectoryInfo? directory = new(contactPath); directory != null; directory = directory.Parent)
-                    if (directory.Exists && directory.Attributes.HasFlag(FileAttributes.ReparsePoint))
-                        throw Unavailable();
+                // Either side can alias the other: a public root junction can expose an ordinary
+                // private directory just as a private junction can write into a public directory.
+                foreach (var path in publicPaths.Append(contactPath))
+                    for (DirectoryInfo? directory = new(path); directory != null; directory = directory.Parent)
+                        if (directory.Exists && directory.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                            throw Unavailable();
             }
             else if (string.Equals(settings.Provider, "Azure", StringComparison.OrdinalIgnoreCase))
             {
