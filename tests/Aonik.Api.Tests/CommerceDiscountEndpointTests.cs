@@ -189,7 +189,7 @@ public sealed class CommerceDiscountEndpointTests(CustomWebApplicationFactory fa
 
         using var omitted = await admin.PutAsJsonAsync(AdminPath + "/" + discount.Id, replacement);
 
-        omitted.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        omitted.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         Private(omitted);
         var unchanged = (await admin.GetFromJsonAsync<PagedResult<DiscountDto>>(AdminPath + "?search=BOUNDED"))!.Items.Single();
         unchanged.Currency.Should().Be("GBP");
