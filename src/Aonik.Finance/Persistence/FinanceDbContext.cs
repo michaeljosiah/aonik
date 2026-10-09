@@ -37,6 +37,10 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<Entities.Loyalty.LoyaltyOperation> LoyaltyOperations { get; set; } = null!;
     public DbSet<Entities.Loyalty.LoyaltyCheckoutAttempt> LoyaltyCheckoutAttempts { get; set; } = null!;
 
+    public DbSet<Entities.GiftCards.GiftCard> GiftCards { get; set; } = null!;
+    public DbSet<Entities.GiftCards.GiftCardOperation> GiftCardOperations { get; set; } = null!;
+    public DbSet<Entities.GiftCards.GiftCardCheckoutAttempt> GiftCardCheckoutAttempts { get; set; } = null!;
+
     // ── Payments ─────────────────────────────────────────────────────
     public DbSet<PaymentIntent> PaymentIntents { get; set; } = null!;
     public DbSet<Payment> Payments { get; set; } = null!;

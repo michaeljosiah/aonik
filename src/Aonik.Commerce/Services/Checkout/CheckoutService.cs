@@ -9,6 +9,8 @@ using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Fulfilment;
 using Aonik.Commerce.Services.Inventory;
+using Aonik.Commerce.Services.GiftCards;
+using Aonik.SharedKernel.Abstractions.GiftCards;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions;
@@ -43,6 +45,8 @@ internal sealed class CheckoutService : ICheckoutService
     private readonly ITenantSettingStore _settings;
     private readonly DeliveryReservationService _deliveryReservations;
     private readonly CheckoutLoyaltyQuotes? _loyaltyQuotes;
+    private readonly GiftCardPurchasePricing? _giftPricing;
+    private readonly CheckoutGiftCards? _giftCards;
 
     public CheckoutService(
         CommerceDbContext dbContext,
@@ -57,7 +61,8 @@ internal sealed class CheckoutService : ICheckoutService
         GuestOrderAccess guestOrders,
         IFulfilmentPromiseService fulfilment,
         IDeliveryCoverageService coverage, IPartyService parties, IClock clock, ITenantSettingStore settings,
-        CheckoutLoyaltyQuotes? loyaltyQuotes = null)
+        CheckoutLoyaltyQuotes? loyaltyQuotes = null, GiftCardPurchasePricing? giftPricing = null,
+        CheckoutGiftCards? giftCards = null)
     {
         _dbContext = dbContext;
         _inventory = inventory;
@@ -75,6 +80,8 @@ internal sealed class CheckoutService : ICheckoutService
         _clock = clock;
         _settings = settings;
         _loyaltyQuotes = loyaltyQuotes;
+        _giftPricing = giftPricing;
+        _giftCards = giftCards;
         _deliveryReservations = new DeliveryReservationService(dbContext, tenantProvider, clock);
     }
 
@@ -114,7 +121,8 @@ internal sealed class CheckoutService : ICheckoutService
         var gift = draft?.Gift is { GiftIntent: true } selectedGift ? selectedGift : null;
         if (gift is not null && cart.BoxBundleProductId is null)
             throw new StorefrontValidationException("Gift fulfilment requires a food box.");
-        var requestedDelivery = command.Delivery ?? CartDraftData.Delivery(draft);
+        var requestedDelivery = command.Delivery ?? (cart.BoxBundleProductId != null || draft?.Address != null
+            || draft?.DeliveryDate != null ? CartDraftData.Delivery(draft) : null);
         var acceptedTerms = cart.BoxBundleProductId is not null
             ? await SaleTermsPolicy.AcceptAsync(_settings, tenantId, draft?.AcceptedTermsVersion, _clock.UtcNow, cancellationToken)
             : null;
@@ -200,10 +208,13 @@ internal sealed class CheckoutService : ICheckoutService
         var reservationLines = new List<InventoryReservationLine>();
         foreach (var item in cart.Items)
         {
+            if (item.LineKind == CartLineKinds.GiftCardValue) continue;
+            if (_giftPricing != null) await _giftPricing.RejectOrdinaryVariantAsync(item.ProductVariantId, cancellationToken);
             if (item.IsBundle)
             {
                 foreach (var sel in item.Selections)
                 {
+                    if (_giftPricing != null) await _giftPricing.RejectOrdinaryVariantAsync(sel.ProductVariantId, cancellationToken);
                     reservationLines.Add(new InventoryReservationLine(sel.ProductVariantId, sel.Quantity * item.Quantity));
                 }
             }
@@ -222,6 +233,7 @@ internal sealed class CheckoutService : ICheckoutService
             var index = 0;
             foreach (var item in cart.Items)
             {
+                if (item.LineKind == CartLineKinds.GiftCardValue) continue;
                 orderItems.Add(new OrderItemCommand(
                     ItemType: OrderTypeCodes.ProductPurchase,
                     ItemIndex: index,
@@ -295,12 +307,17 @@ internal sealed class CheckoutService : ICheckoutService
             }
         }
 
+        var giftPurchase = _giftPricing == null ? null : await _giftPricing.AppendAsync(cart, orderItems, cancellationToken, delivery?.DeliveryDate);
+        if (giftPurchase == null && cart.GiftCardPurchaseJson != null)
+            throw new StorefrontValidationException("Gift-card purchasing is not available.");
+        subtotal = orderItems.Where(x => x.ItemType != DeliveryFeeItemType).Sum(x => x.AmountIn);
+        var giftValue = giftPurchase?.Checkout.Purchase?.FaceValue ?? 0m;
         var code = command.DiscountCode ?? draft?.DiscountCode;
         var discountLines = string.IsNullOrWhiteSpace(code) ? Array.Empty<DiscountChargeLine>()
             : await CheckoutDiscountLines.FromOrderItemsAsync(_dbContext, tenantId, orderItems, cancellationToken);
         var discount = await _discounts.ComputeAsync(code, discountLines, cart.Currency, cancellationToken);
         var taxable = subtotal - discount.Amount;
-        var taxBeforePoints = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
+        var taxBeforePoints = await _tax.CalculateAsync(taxable - giftValue, cart.Currency, cancellationToken);
         LoyaltyCheckout? loyalty = null;
         if (_loyaltyQuotes is not null)
         {
@@ -314,9 +331,21 @@ internal sealed class CheckoutService : ICheckoutService
             throw new StorefrontValidationException("Loyalty points are not available for this checkout.");
         var pointsValue = loyalty?.PointsAppliedValue ?? 0m;
         var tax = pointsValue > 0m
-            ? await _tax.CalculateAsync(taxable - pointsValue, cart.Currency, cancellationToken)
+            ? await _tax.CalculateAsync(taxable - pointsValue - giftValue, cart.Currency, cancellationToken)
             : taxBeforePoints;
         var total = taxable - pointsValue + tax + (box?.DeliveryCharged ?? 0m);
+        var giftFunding = _giftCards == null ? null : await _giftCards.QuoteAsync(cart, orderItems, discount, loyalty,
+            total, tax, cancellationToken);
+        if (cart.GiftCardTenderJson != null && (giftFunding?.Checkout?.Tender == null || giftFunding.ReasonCode != null))
+            throw new StorefrontValidationException("The gift-card balance changed or is unavailable. Review the payment quote.");
+        var giftCard = giftPurchase?.Checkout ?? giftFunding?.Checkout;
+        var cardAmount = giftFunding?.CardAmount ?? total;
+        if (giftFunding != null && (command.ExpectedTotal == null || command.ExpectedCardAmount != cardAmount))
+            throw new StorefrontValidationException("Accept the current total and exact card remainder before paying.");
+        if (giftPurchase != null && command.ExpectedTotal == null)
+            throw new StorefrontValidationException("Accept the current gift-card total before paying.");
+        if (loyalty != null && giftFunding?.Checkout?.Tender is { } giftTender)
+            loyalty = LoyaltyCheckoutCalculator.ApplyGiftFunding(loyalty, giftTender.Lines);
         if ((command.ExpectedTotal is { } expectedTotal && expectedTotal != total)
             || ((!string.IsNullOrWhiteSpace(code) || gift is { IncludeGreetingCard: true } || pointsValue > 0m) && command.ExpectedTotal is null))
             throw new DiscountException(DiscountException.PriceChanged);
@@ -325,21 +354,17 @@ internal sealed class CheckoutService : ICheckoutService
         if (!string.Equals(command.Provider, "Stripe", StringComparison.OrdinalIgnoreCase)
             || !string.Equals(command.PaymentMethodType, "Card", StringComparison.OrdinalIgnoreCase)
             || !string.Equals(cart.Currency, "GBP", StringComparison.OrdinalIgnoreCase)
-            || total < 0.30m || total > 999999.99m || decimal.Truncate(total * 100m) != total * 100m)
+            || (cardAmount > 0m && cardAmount < 0.30m) || total > 999999.99m || decimal.Truncate(total * 100m) != total * 100m)
             throw new StorefrontValidationException("Checkout supports Stripe card payments in GBP, in whole pennies from 0.30 to 999999.99.");
 
-        if (cart.BuyerPartyId is null && delivery is null)
+        var purchaser = delivery?.Purchaser ?? (draft?.Purchaser is { } contact ? CheckoutContactValidation.ValidateContact(contact) : null);
+        if (cart.BuyerPartyId is null && purchaser is null)
             throw new StorefrontValidationException("Purchaser contact details are required for guest payment.");
         if (cart.CheckoutState == CartCheckoutStates.Retryable && command.CustomerAccountId is not null)
             throw new StorefrontValidationException("Invoice checkout recovery requires staff assistance.");
 
-        var invoiceLines = box is null
-            ? cart.Items.Select(i => new InvoiceLineSpec(i.NameSnapshot, i.Quantity, i.UnitPriceSnapshot)).ToList()
-            : new List<InvoiceLineSpec> { new($"{box.Size}-dish box", 1m, box.GoodsTotal) };
-        if (box is not null)
-            invoiceLines.AddRange(box.AddOnLines.Select(a => new InvoiceLineSpec(a.Line.NameSnapshot, a.Line.Quantity, a.ChargedUnitPrice)));
-        if (box is { DeliveryCharged: > 0 }) invoiceLines.Add(new("Delivery", 1m, box.DeliveryCharged));
-        if (box is { GreetingCardCharged: > 0 }) invoiceLines.Add(new("Greeting card", 1m, box.GreetingCardCharged));
+        var invoiceLines = orderItems.Select(i => new InvoiceLineSpec(i.NameSnapshot ?? i.ItemType,
+            i.Quantity ?? 1m, i.UnitPrice ?? i.AmountIn)).ToList();
         if (discount.Amount > 0) invoiceLines.Add(new($"Discount ({discount.Code})", 1m, -discount.Amount));
         if (pointsValue > 0m) invoiceLines.Add(new("Loyalty points", 1m, -pointsValue));
         if (tax > 0) invoiceLines.Add(new("Tax", 1m, tax));
@@ -368,7 +393,8 @@ internal sealed class CheckoutService : ICheckoutService
             command.Provider, command.PaymentMethodType, command.ReturnUrl, command.CancelUrl, command.CustomerAccountId,
             subtotal, discount.Amount, discount.DiscountId, discount.Code, tax, total, orderItems, invoiceLines,
             reservationLines.Select(line => new CheckoutStockLine(line.Item.Id, line.Quantity)).ToList(), selections, delivery,
-            DiscountAllocations: discount.Allocations, GreetingCardCharged: box?.GreetingCardCharged ?? 0m, Loyalty: loyalty);
+            DiscountAllocations: discount.Allocations, GreetingCardCharged: box?.GreetingCardCharged ?? 0m, Loyalty: loyalty,
+            GiftCard: giftCard, GiftCardDelivery: giftPurchase?.Delivery, Purchaser: purchaser);
         _ = preparation.Serialize();
         try { preparation = await ClaimPreparationAsync(cart.Id, preparation, access, command.RequireFreshCart, cancellationToken); }
         catch (DbUpdateConcurrencyException)
@@ -459,11 +485,11 @@ internal sealed class CheckoutService : ICheckoutService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         if (preparation.GuestPartyId is { } guestId)
         {
-            var delivery = preparation.Delivery ?? throw new InvalidOperationException("Guest purchaser details are missing.");
-            var contact = delivery.Purchaser;
+            var contact = preparation.Purchaser ?? preparation.Delivery?.Purchaser
+                ?? throw new InvalidOperationException("Guest purchaser details are missing.");
             await _parties.EnsureUnverifiedGuestPartyAsync(guestId, cartId,
                 new CreatePartyRequest($"{contact.FirstName} {contact.LastName}", "Person", contact.FirstName,
-                    contact.LastName, contact.Phone, contact.Email, delivery.Address.CountryCode), ct);
+                    contact.LastName, contact.Phone, contact.Email, preparation.Delivery?.Address.CountryCode), ct);
         }
 
         // All local preparation is protected by the cart row. Ordering/Invoice writes are
@@ -513,6 +539,23 @@ internal sealed class CheckoutService : ICheckoutService
                     : preparation.Loyalty with { Lines = preparation.Loyalty.Lines.Select(line => line with
                         { OrderItemId = order.Items.Single(item => item.ItemIndex == line.ItemIndex).Id }).ToList() });
                 summary.DiscountCode = preparation.DiscountCode; summary.TaxTotal = preparation.TaxTotal; summary.Total = preparation.Total;
+                var mappedGift = preparation.GiftCard;
+                if (mappedGift != null)
+                {
+                    mappedGift = mappedGift with
+                    {
+                        Purchase = mappedGift.Purchase is { } purchase ? purchase with
+                            { OrderItemId = order.Items.Single(x => x.ItemIndex == purchase.ItemIndex).Id } : null,
+                        Tender = mappedGift.Tender is { } tender ? tender with
+                            { Lines = tender.Lines.Select(line => line with
+                                { OrderItemId = order.Items.Single(x => x.ItemIndex == line.ItemIndex).Id }).ToList() } : null
+                    };
+                }
+                summary.GiftCardJson = CheckoutGiftCards.Serialize(mappedGift);
+                if (preparation.GiftCardDelivery is { } giftDelivery)
+                    await GiftCardDeliveryData.StageTrackedAsync(_dbContext, tenantId, cartId, order.Id,
+                        preparation.AttemptId, giftDelivery with
+                        { OrderItemId = order.Items.Single(x => x.ItemIndex == giftDelivery.ItemIndex).Id }, token);
                 summary.DiscountAllocationsJson = preparation.DiscountAllocations is null ? null
                     : DiscountAllocationSnapshot.Serialize(preparation.DiscountAllocations.Select(allocation =>
                         new OrderDiscountAllocation(order.Items.Single(item => item.ItemIndex == allocation.ItemIndex).Id,
@@ -563,7 +606,9 @@ internal sealed class CheckoutService : ICheckoutService
         if (claimed.CheckoutState != CartCheckoutStates.AwaitingPayment || claimed.Status == CartStatuses.CheckedOut)
             return await ReplayAsync(claimed, claimed.OrderId ?? throw new InvalidOperationException("Checkout has no order."), ct);
         var orderId = claimed.OrderId!.Value;
-        var paymentLoyalty = CheckoutLoyaltyData.Read((await LoadChargeAsync(tenantId, orderId, ct)).LoyaltyJson);
+        var paymentSummary = await LoadChargeAsync(tenantId, orderId, ct);
+        var paymentLoyalty = CheckoutLoyaltyData.Read(paymentSummary.LoyaltyJson);
+        var paymentGiftCard = CheckoutGiftCards.Read(paymentSummary.GiftCardJson);
         var recordedState = await _payments.GetStateAsync(preparation.AttemptId, ct);
         if (recordedState is not null) ValidatePaymentState(recordedState, orderId, preparation);
         var intent = recordedState is not null && (recordedState.CheckoutUrl is not null || recordedState.CanNoLongerPay
@@ -572,7 +617,7 @@ internal sealed class CheckoutService : ICheckoutService
             : await _payments.CreateGuestIntentForOrderAsync(new CreateGuestPaymentIntentForOrderCommand(orderId,
                 preparation.Total, preparation.Currency, preparation.Provider, preparation.PaymentMethodType,
                 preparation.ReturnUrl, preparation.CancelUrl, preparation.AttemptId, $"commerce:{cartId:N}:{preparation.AttemptId:N}",
-                preparation.ProviderStartDeadlineUtc, Loyalty: paymentLoyalty), ct);
+                preparation.ProviderStartDeadlineUtc, Loyalty: paymentLoyalty, GiftCard: paymentGiftCard), ct);
         if (intent.PaymentIntentId != preparation.AttemptId) throw new InvalidOperationException("Payment returned a different checkout attempt.");
         await _orders.LinkFundingAsync(orderId, intent.PaymentIntentId, ct);
         var state = await _payments.GetStateAsync(preparation.AttemptId, ct);
@@ -705,6 +750,7 @@ internal sealed class CheckoutService : ICheckoutService
             state = await _payments.GetStateAsync(expectedPaymentIntentId, cancellationToken);
             if (state is null && DeadlinePassed(preparation))
             {
+                var paymentSummary = await LoadChargeAsync(cart.TenantId, cart.OrderId!.Value, cancellationToken);
                 // Missing is not cancellation proof. The frozen deadline lets Finance atomically
                 // cancel an unstarted attempt even when a delayed creator is racing this sweep.
                 await _payments.CreateGuestIntentForOrderAsync(new CreateGuestPaymentIntentForOrderCommand(
@@ -712,7 +758,8 @@ internal sealed class CheckoutService : ICheckoutService
                     preparation.PaymentMethodType, preparation.ReturnUrl, preparation.CancelUrl,
                     preparation.AttemptId, $"commerce:{cartId:N}:{preparation.AttemptId:N}",
                     preparation.ProviderStartDeadlineUtc,
-                    Loyalty: CheckoutLoyaltyData.Read((await LoadChargeAsync(cart.TenantId, cart.OrderId.Value, cancellationToken)).LoyaltyJson)), cancellationToken);
+                    Loyalty: CheckoutLoyaltyData.Read(paymentSummary.LoyaltyJson),
+                    GiftCard: CheckoutGiftCards.Read(paymentSummary.GiftCardJson)), cancellationToken);
                 state = await _payments.GetStateAsync(expectedPaymentIntentId, cancellationToken);
             }
             if (state is null) return;
@@ -795,10 +842,12 @@ internal sealed class CheckoutService : ICheckoutService
             .SingleOrDefaultAsync(s => s.TenantId == cart.TenantId && s.OrderId == orderId, ct)
             ?? throw new InvalidOperationException("Checkout snapshot is missing.");
         var expired = cart.CheckoutPreparationJson is not null && DeadlinePassed(CheckoutPreparation.Read(cart));
+        var giftPaid = CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m;
         return new(orderId, summary.InvoiceId, summary.PaymentIntentId, summary.PaymentStatus, summary.Subtotal,
             summary.DiscountTotal, summary.TaxTotal, summary.Total, summary.Currency,
             expired ? null : summary.PaymentClientSecret, expired ? null : summary.PaymentCheckoutUrl, GuestOrderToken(cart),
-            CheckoutLoyaltyData.ForOrder(summary, cart));
+            CheckoutLoyaltyData.ForOrder(summary, cart),
+            giftPaid, summary.Total - giftPaid);
     }
 
     private void DetachCheckout(Guid cartId, CheckoutPreparation? preparation, Guid? orderId = null)
@@ -818,6 +867,7 @@ internal sealed class CheckoutService : ICheckoutService
         foreach (var entry in _dbContext.ChangeTracker.Entries().Where(entry =>
                      entry.Entity is OrderChargeSummary summary && summary.TenantId == tenantId && summary.OrderId == orderId
                      || entry.Entity is OrderDeliveryDetails delivery && delivery.TenantId == tenantId && delivery.OrderId == orderId
+                     || entry.Entity is OrderGiftCardDelivery giftDelivery && giftDelivery.TenantId == tenantId && giftDelivery.CartId == cartId
                      || entry.Entity is OrderBundleSelection selection && selection.TenantId == tenantId && selection.OrderId == orderId
                      || entry.Entity is Entities.Inventory.InventoryReservation reservation && reservation.TenantId == tenantId && reservation.HoldRef == cartId
                      || entry.Entity is Entities.Inventory.InventoryLevel level && level.TenantId == tenantId

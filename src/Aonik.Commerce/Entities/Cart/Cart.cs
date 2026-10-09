@@ -27,6 +27,8 @@ public class Cart : AuditableEntity, ITenantScoped
     public int? BoxSize { get; set; }
 
     public string? CheckoutDraftJson { get; set; }
+    public string? GiftCardPurchaseJson { get; set; }
+    public string? GiftCardTenderJson { get; set; }
     public string? CheckoutState { get; set; }
     public string? CheckoutPreparationJson { get; set; }
     public DateTime? LastActivityAtUtc { get; set; }

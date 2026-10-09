@@ -16,6 +16,7 @@ public sealed class NotificationTemplateSeedServiceTests
     private static readonly string[] TransactionalNames =
     [
         TransactionalEmailTemplateNames.OrderConfirmation,
+        TransactionalEmailTemplateNames.GiftCardDelivery,
         TransactionalEmailTemplateNames.AccountSetupAccess,
         TransactionalEmailTemplateNames.PasswordReset,
         TransactionalEmailTemplateNames.EmailChangeConfirmation,
@@ -35,7 +36,7 @@ public sealed class NotificationTemplateSeedServiceTests
 
         (await context.NotificationTemplates.Select(x => x.Id).ToArrayAsync()).Should().BeEquivalentTo(firstIds);
         var templates = await context.NotificationTemplates.Where(x => TransactionalNames.Contains(x.Name)).ToListAsync();
-        templates.Should().HaveCount(6);
+        templates.Should().HaveCount(7);
         templates.Should().OnlyContain(x => x.TenantId == null && x.IsShared && x.IsActive && x.Channel == "Email");
         templates.Select(x => x.Name).Should().BeEquivalentTo(TransactionalNames);
         templates.Should().OnlyContain(x => x.BodyTemplate.Contains("brand.display_name | escape")
@@ -81,7 +82,7 @@ public sealed class NotificationTemplateSeedServiceTests
         (await context.NotificationTemplateBindings.SingleAsync(x => x.Id == binding.Id))
             .OverrideTemplateId.Should().Be(custom.Id);
         (await context.NotificationTemplates.CountAsync(x => x.TenantId == null
-            && TransactionalNames.Contains(x.Name))).Should().Be(6);
+            && TransactionalNames.Contains(x.Name))).Should().Be(7);
     }
 
     private static PlatformDbContext CreateContext(Guid tenantId)

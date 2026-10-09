@@ -6,6 +6,8 @@ using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Loyalty;
+using Aonik.Finance.Services.GiftCards;
+using Microsoft.AspNetCore.DataProtection;
 using Aonik.Finance.Services.Payments;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ledgers;
@@ -197,6 +199,8 @@ public sealed class CheckoutPaymentReconcilerTests
             services.AddSingleton(Mock.Of<ITenantSettingStore>());
             services.AddScoped<IJournalWriter, JournalWriter>();
             services.AddScoped<LoyaltyService>();
+            services.AddScoped<GiftCardService>();
+            services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
             services.AddScoped<ICheckoutPaymentReconciler, CheckoutPaymentReconciler>();
             var gateway = new Mock<IPaymentProviderGateway>(MockBehavior.Strict);
             services.AddSingleton(gateway.Object);

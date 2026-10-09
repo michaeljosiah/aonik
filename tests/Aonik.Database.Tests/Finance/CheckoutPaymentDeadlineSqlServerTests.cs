@@ -16,6 +16,8 @@ using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Payments;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Loyalty;
+using Aonik.Finance.Services.GiftCards;
+using Microsoft.AspNetCore.DataProtection;
 using Aonik.Infrastructure.Persistence;
 using Aonik.IntegrationTests.Support;
 using Aonik.Platform.Entities.Party;
@@ -183,6 +185,8 @@ public sealed class CheckoutPaymentDeadlineSqlServerTests(SqlLocalDbFixture data
             services.AddScoped(p => new FinanceDbContext(options, p.GetRequiredService<ITenantProvider>(), null, Clock));
             services.AddScoped<IJournalWriter, JournalWriter>();
             services.AddScoped<LoyaltyService>();
+            services.AddScoped<GiftCardService>();
+            services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
             var root = services.BuildServiceProvider();
             _services.Add(root);
             return new(db, new TestTenantProvider(TenantId), _connectors.Object, [Gateway], _reconciler.Object,

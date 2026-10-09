@@ -36,7 +36,7 @@ public class CheckoutEndpoint : Endpoint<CheckoutRequest, CheckoutResult>
                 req.CustomerAccountId,
                 req.DiscountCode,
                 req.Delivery,
-                ExpectedTotal: req.ExpectedTotal),
+                ExpectedTotal: req.ExpectedTotal, ExpectedCardAmount: req.ExpectedCardAmount),
             await CartRequestAccess.FromAsync(HttpContext, ct), ct);
         await Send.OkAsync(result, ct);
     }

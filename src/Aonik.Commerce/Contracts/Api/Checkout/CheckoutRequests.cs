@@ -17,4 +17,4 @@ public record CheckoutRequest(
     Guid? CustomerAccountId,
     string? DiscountCode,
     CheckoutDeliveryDetails? Delivery = null,
-    decimal? ExpectedTotal = null);
+    decimal? ExpectedTotal = null, decimal? ExpectedCardAmount = null);

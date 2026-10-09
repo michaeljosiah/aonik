@@ -5,6 +5,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace Aonik.Platform.Services.Tasks;
 
@@ -81,6 +82,13 @@ internal sealed class WorkItemService : ITaskService, IWorkItemAdminService
         var now = _clock.UtcNow;
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
+        if (request.TaskId.HasValue && (request.TaskId == Guid.Empty || isRecurring
+            || request.RunAtUtc is not { Kind: DateTimeKind.Utc }
+            || (request.StartAtUtc.HasValue && request.StartAtUtc != request.RunAtUtc)))
+        {
+            throw new ArgumentException("A stable task ID requires an explicit UTC one-off time and matching start time.", nameof(request));
+        }
+
         string scheduleType;
         string status = TaskStatuses.Scheduled;
         DateTime? nextRunAtUtc;
@@ -106,6 +114,7 @@ internal sealed class WorkItemService : ITaskService, IWorkItemAdminService
 
         var workItem = new WorkItem
         {
+            Id = request.TaskId ?? Guid.NewGuid(),
             TenantId = tenantId,
             Title = request.Title.Trim(),
             Description = request.Description,
@@ -121,7 +130,7 @@ internal sealed class WorkItemService : ITaskService, IWorkItemAdminService
             NextRunAtUtc = nextRunAtUtc,
             RecurrenceCron = request.RecurrenceCron,
             Timezone = request.Timezone,
-            StartAtUtc = request.StartAtUtc,
+            StartAtUtc = request.TaskId.HasValue ? request.RunAtUtc : request.StartAtUtc,
             EndAtUtc = request.EndAtUtc,
             MaxRuns = request.MaxRuns,
             RunCount = 0,
@@ -132,10 +141,48 @@ internal sealed class WorkItemService : ITaskService, IWorkItemAdminService
             CorrelationId = request.CorrelationId,
         };
 
+        if (request.TaskId.HasValue)
+        {
+            var existing = await _dbContext.WorkItems.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == workItem.Id && x.TenantId == tenantId, ct);
+            if (existing != null) return MatchReplay(existing, workItem);
+        }
+
         _dbContext.WorkItems.Add(workItem);
-        await _dbContext.SaveChangesAsync(ct);
+        try
+        {
+            await _dbContext.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (request.TaskId.HasValue
+            && ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            _dbContext.Entry(workItem).State = EntityState.Detached;
+            var winner = await _dbContext.WorkItems.AsNoTracking()
+                .SingleOrDefaultAsync(x => x.Id == workItem.Id && x.TenantId == tenantId, ct);
+            if (winner == null) throw;
+            return MatchReplay(winner, workItem);
+        }
 
         return Map(workItem);
+    }
+
+    private static TaskResponse MatchReplay(WorkItem existing, WorkItem requested)
+    {
+        // StartAtUtc retains the original due time after the dispatcher clears NextRunAtUtc.
+        if (existing.TenantId != requested.TenantId || existing.Title != requested.Title
+            || existing.Description != requested.Description || existing.Kind != requested.Kind
+            || existing.SubjectType != requested.SubjectType || existing.SubjectId != requested.SubjectId
+            || existing.AssigneeType != requested.AssigneeType || existing.AssigneeId != requested.AssigneeId
+            || existing.AssigneeKey != requested.AssigneeKey || existing.ActionType != requested.ActionType
+            || existing.ActionPayloadJson != requested.ActionPayloadJson || existing.ScheduleType != requested.ScheduleType
+            || existing.RecurrenceCron != requested.RecurrenceCron || existing.Timezone != requested.Timezone
+            || existing.StartAtUtc != requested.StartAtUtc || existing.EndAtUtc != requested.EndAtUtc
+            || existing.MaxRuns != requested.MaxRuns || existing.Priority != requested.Priority
+            || existing.SourceModule != requested.SourceModule || existing.CorrelationId != requested.CorrelationId)
+        {
+            throw new ArgumentException("The task ID is already bound to a different action or schedule.");
+        }
+        return Map(existing);
     }
 
     public async Task<IReadOnlyList<TaskResponse>> ListAsync(string? status, int take, CancellationToken cancellationToken = default)

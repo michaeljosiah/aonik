@@ -138,10 +138,13 @@ internal sealed class MarginReportService : IMarginReportService
             for (var i = 0; i < items.Count; i++)
             {
                 var item = items[i];
+                // Selling stored value creates a liability, not food revenue or production demand.
+                if (item.ItemType == Entities.Cart.CartLineKinds.GiftCardValue) continue;
                 var lineRevenue = item.AmountIn - discountShares[i];
 
                 // A greeting card is a charged good without a catalog variant or standard cost.
-                if (item.ItemType == Checkout.CheckoutService.GreetingCardItemType)
+                if (item.ItemType is Checkout.CheckoutService.GreetingCardItemType
+                    or Checkout.GiftCardPurchasePricing.PostageItemType or Checkout.GiftCardPurchasePricing.GreetingItemType)
                 {
                     nonCatalogRevenue += lineRevenue;
                     continue;

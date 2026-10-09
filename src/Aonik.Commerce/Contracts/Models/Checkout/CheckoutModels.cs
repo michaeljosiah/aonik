@@ -21,7 +21,7 @@ public record CartItemDto(
     string Sku,
     string NameSnapshot,
     decimal LineTotal,
-    IReadOnlyList<CartItemSelectionDto> Selections);
+    IReadOnlyList<CartItemSelectionDto> Selections, string? LineKind = null);
 
 public record CartDto(
     Guid Id,
@@ -37,7 +37,8 @@ public record CartDto(
     Guid? BoxBundleProductId = null,
     string CartVersion = "",
     CartCheckoutDraftDto? CheckoutDraft = null,
-    CartDiscountQuoteDto? Quote = null);
+    CartDiscountQuoteDto? Quote = null,
+    Aonik.Commerce.Contracts.Models.GiftCards.GiftCardPurchaseDto? GiftCardPurchase = null);
 
 public record CreateCartCommand(string Currency, Guid? BuyerPartyId = null, string? AnonymousToken = null);
 
@@ -55,7 +56,7 @@ public record CheckoutCommand(
     string? DiscountCode = null,
     CheckoutDeliveryDetails? Delivery = null,
     bool RequireFreshCart = false,
-    decimal? ExpectedTotal = null);
+    decimal? ExpectedTotal = null, decimal? ExpectedCardAmount = null);
 
 public record CheckoutResult(
     Guid OrderId,
@@ -70,7 +71,7 @@ public record CheckoutResult(
     string? ClientSecret = null,
     string? CheckoutUrl = null,
     string? GuestOrderToken = null,
-    OrderLoyaltyDto? Loyalty = null);
+    OrderLoyaltyDto? Loyalty = null, decimal GiftCardPaid = 0m, decimal? CardAmount = null);
 
 public record OrderLoyaltyDto(long RedeemedPoints, decimal AppliedValue, long? EarnedPoints, string EarningStatus);
 

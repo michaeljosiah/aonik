@@ -51,4 +51,5 @@ public record CreateCommerceGuestPaymentIntentRequest(
     Guid? PaymentIntentId = null,
     string? IdempotencyKey = null,
     DateTime? ProviderStartDeadlineUtc = null,
-    Aonik.SharedKernel.Abstractions.Loyalty.LoyaltyCheckout? Loyalty = null);
+    Aonik.SharedKernel.Abstractions.Loyalty.LoyaltyCheckout? Loyalty = null,
+    Aonik.SharedKernel.Abstractions.GiftCards.GiftCardCheckout? GiftCard = null);

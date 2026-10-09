@@ -23,9 +23,10 @@ internal sealed class CartService : ICartService
     private readonly IClock _clock;
     private readonly DeliveryReservationService _deliveryReservations;
     private readonly CartDiscountQuotes _discountQuotes;
+    private readonly GiftCardPurchasePricing? _giftPricing;
 
     public CartService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IProductPricingService pricing, IClock clock,
-        CartDiscountQuotes discountQuotes)
+        CartDiscountQuotes discountQuotes, GiftCardPurchasePricing? giftPricing = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -33,6 +34,7 @@ internal sealed class CartService : ICartService
         _clock = clock;
         _deliveryReservations = new DeliveryReservationService(dbContext, tenantProvider, clock);
         _discountQuotes = discountQuotes;
+        _giftPricing = giftPricing;
     }
 
     public async Task<CartDto> CreateCartAsync(CreateCartCommand command, CancellationToken cancellationToken = default)
@@ -203,6 +205,8 @@ internal sealed class CartService : ICartService
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var cart = await ValidateOpenCartAsync(command.CartId, tenantId, access, cancellationToken);
 
+        if (_giftPricing != null) await _giftPricing.RejectOrdinaryVariantAsync(command.ProductVariantId, cancellationToken);
+
         var variant = await _dbContext.ProductVariants.AsNoTracking()
             .FirstOrDefaultAsync(v => v.Id == command.ProductVariantId && v.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException($"Variant '{command.ProductVariantId}' was not found.");
@@ -304,6 +308,8 @@ internal sealed class CartService : ICartService
             .FirstOrDefaultAsync(i => i.Id == cartItemId && i.CartId == cartId && i.TenantId == tenantId, cancellationToken);
         if (item is not null)
         {
+            if (item.LineKind == CartLineKinds.GiftCardValue)
+                throw new StorefrontValidationException("Use the gift-card purchase route to remove this selection.");
             _dbContext.CartItems.Remove(item);
             await SaveCartEditAsync(cart, cancellationToken);
         }
@@ -582,10 +588,11 @@ internal sealed class CartService : ICartService
             i.Id, i.ProductVariantId, i.IsBundle, i.BundleProductId, i.Quantity, i.UnitPriceSnapshot, i.Sku, i.NameSnapshot,
             i.Quantity * i.UnitPriceSnapshot,
             i.Selections.Select(s => new CartItemSelectionDto(
-                s.Id, s.BundleSlotId, s.ProductVariantId, s.Quantity, s.UnitPriceSnapshot, s.Sku, s.NameSnapshot)).ToList())).ToList();
+                s.Id, s.BundleSlotId, s.ProductVariantId, s.Quantity, s.UnitPriceSnapshot, s.Sku, s.NameSnapshot)).ToList(), i.LineKind)).ToList();
 
         // R10 — the token is disclosed exactly once, by create; every other read carries null.
         return new CartDto(cart.Id, cart.BuyerPartyId, null, cart.Status, cart.Currency, cart.OrderId,
-            items.Sum(i => i.LineTotal), items, cart.BoxBundleProductId, Convert.ToBase64String(cart.RowVersion), CartDraftData.Read(cart));
+            items.Sum(i => i.LineTotal), items, cart.BoxBundleProductId, Convert.ToBase64String(cart.RowVersion), CartDraftData.Read(cart),
+            GiftCardPurchase: GiftCardPurchasePricing.Read(cart));
     }
 }

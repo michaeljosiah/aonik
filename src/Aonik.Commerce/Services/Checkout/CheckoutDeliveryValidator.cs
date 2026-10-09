@@ -10,21 +10,13 @@ internal sealed class CheckoutDeliveryValidator : AbstractValidator<CheckoutDeli
 {
     public CheckoutDeliveryValidator()
     {
-        RuleFor(x => x.Purchaser.Email).Email();
-        RuleFor(x => x.Purchaser.FirstName).RequiredText(100);
-        RuleFor(x => x.Purchaser.LastName).RequiredText(100);
-        Phone(RuleFor(x => x.Purchaser.Phone));
-        RuleFor(x => x.Address.Line1).RequiredText(200);
-        RuleFor(x => x.Address.Line2).OptionalText(200);
-        RuleFor(x => x.Address.City).RequiredText(100);
-        RuleFor(x => x.Address.Region).OptionalText(100);
-        RuleFor(x => x.Address.Postcode).RequiredText(32);
-        RuleFor(x => x.Address.CountryCode).CountryCode();
+        RuleFor(x => x.Purchaser).SetValidator(CheckoutContactValidation.ContactValidator());
+        RuleFor(x => x.Address).SetValidator(CheckoutContactValidation.AddressValidator());
         RuleFor(x => x.DeliveryDate).NotEqual(default(DateOnly));
         When(x => x.Recipient is not null, () =>
         {
             RuleFor(x => x.Recipient!.Name).RequiredText(201);
-            Phone(RuleFor(x => x.Recipient!.Phone));
+            CheckoutContactValidation.Phone(RuleFor(x => x.Recipient!.Phone));
         });
         RuleFor(x => x.Notes).OptionalText(1000)
             .Must(value => value is null || !value.Any(c => char.IsControl(c) && c is not ('\r' or '\n')))
@@ -59,12 +51,6 @@ internal sealed class CheckoutDeliveryValidator : AbstractValidator<CheckoutDeli
                 .Select(error => $"{error.PropertyName}: {error.ErrorMessage}").Distinct()));
         return normalized;
     }
-
-    private static void Phone(IRuleBuilder<CheckoutDeliveryDetails, string> rule) => rule
-        .RequiredText(32)
-        .Matches(@"^\+?[0-9 ().-]+$")
-        .Must(value => value is not null && value.Count(char.IsAsciiDigit) is >= 6 and <= 17)
-        .WithMessage("Enter a telephone number containing 6 to 17 digits.");
 
     private static string Trim(string? value) => value?.Trim() ?? string.Empty;
     private static string? Optional(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

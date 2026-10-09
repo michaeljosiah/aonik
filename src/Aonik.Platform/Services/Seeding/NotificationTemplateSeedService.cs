@@ -176,6 +176,8 @@ internal class NotificationTemplateSeedService
             Tax: {{ currency | escape }} {{ tax_total | escape }}<br/>
             Delivery: {{ currency | escape }} {{ delivery_total | escape }}<br/>
             <strong>Total paid: {{ currency | escape }} {{ total | escape }}</strong></p>
+            {% if has_gift_card_payment == true %}<p>Gift card: {{ currency | escape }} {{ gift_card_paid | escape }}<br/>
+            Card: {{ currency | escape }} {{ card_amount | escape }}</p>{% endif %}
             {% if delivery %}
             <h2>Delivery details</h2>
             <p>Delivery date: {{ delivery.date | escape }} ({{ delivery.timezone | escape }})</p>
@@ -188,6 +190,21 @@ internal class NotificationTemplateSeedService
             {{ delivery.country_code | escape }}</p>
             {% if delivery.notes != blank %}<p>Delivery notes: {{ delivery.notes | escape }}</p>{% endif %}
             {% endif %}
+            """),
+        TransactionalTemplate(
+            TransactionalEmailTemplateNames.GiftCardDelivery,
+            "Delivers an already issued gift card to its frozen recipient",
+            "Your gift card",
+            """
+            <h1>Your gift card</h1>
+            <p>Hi {{ recipient_name | escape }},</p>
+            {% if sender_name != blank %}<p>A gift from {{ sender_name | escape }}.</p>{% endif %}
+            {% if message != blank %}<p style="white-space: pre-wrap;">{{ message | escape }}</p>{% endif %}
+            <p>Gift value: <strong>{{ currency | escape }} {{ face_value | escape }}</strong></p>
+            <p>Your gift card code: <strong>{{ gift_code | escape }}</strong></p>
+            <p>Keep this code private. Anyone with the code can use its available value at checkout.</p>
+            {% if expires_at != blank %}<p>Expires at {{ expires_at | escape }}.</p>{% else %}<p>This gift card has no expiry date.</p>{% endif %}
+            <p>Gift card terms version: {{ terms_version | escape }}.</p>
             """),
         TransactionalTemplate(
             TransactionalEmailTemplateNames.AccountSetupAccess,

@@ -215,8 +215,11 @@ public class GuestOrderReadTests
         var json = JsonSerializer.SerializeToElement(result, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         json.EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal", "total",
-            "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus", "loyalty" });
+            "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus", "loyalty",
+            "giftCardPaid", "cardAmount" });
         result!.Loyalty.Should().BeNull();
+        result.GiftCardPaid.Should().Be(0m);
+        result.CardAmount.Should().Be(result.Total);
         result!.Delivery!.Address.Should().BeEquivalentTo(BoxTestHarness.ValidDelivery.Address);
         result.Delivery.DeliveryDate.Should().Be(BoxTestHarness.ValidDelivery.DeliveryDate);
         json.GetProperty("items")[0].EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {

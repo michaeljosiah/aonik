@@ -76,7 +76,7 @@ public record StorefrontOrderDetailDto(
     string? OrderNumber = null,
     string? DiscountCode = null,
     string? FulfilmentStatus = null,
-    OrderLoyaltyDto? Loyalty = null);
+    OrderLoyaltyDto? Loyalty = null, decimal GiftCardPaid = 0m, decimal? CardAmount = null);
 
 internal sealed class StorefrontOrderService : IStorefrontOrderService
 {
@@ -231,6 +231,7 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             summary.PaymentStatus,
             delivery is null ? null : OrderDeliveryMapper.Map(delivery), order.OrderNumber, summary.DiscountCode,
             OrderFulfilmentData.Status(delivery?.FulfilmentStatus, summary.PaymentStatus, order.Status),
-            CheckoutLoyaltyData.ForOrder(summary, cart));
+            CheckoutLoyaltyData.ForOrder(summary, cart), CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m,
+            summary.Total - (CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m));
     }
 }

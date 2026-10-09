@@ -135,6 +135,7 @@ internal sealed class ProductionPlanningService : IProductionPlanningService
         {
             foreach (var item in order.Items)
             {
+                if (item.ItemType == Entities.Cart.CartLineKinds.GiftCardValue) continue;
                 if (selectionsByLine.TryGetValue((order.Id, item.ItemIndex), out var selections))
                 {
                     bundleLinesExpanded++;

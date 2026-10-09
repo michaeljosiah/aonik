@@ -2,6 +2,7 @@ using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Loyalty;
+using Aonik.SharedKernel.Abstractions.GiftCards;
 
 namespace Aonik.Commerce.Services.Checkout;
 
@@ -30,7 +31,7 @@ internal static class LoyaltyCheckoutCalculator
             throw new StorefrontValidationException("Gift-funded amounts cannot exceed the amount remaining after points.");
         var eligiblePaid = lines.Select((line, index) => line.EarnEligible
             ? line.OriginalCharged - line.CouponDiscount - monetaryAllocations[index] - line.GiftFundedValue : 0m).ToArray();
-        var earned = checked((long)decimal.Floor(eligiblePaid.Sum() * 2m));
+        var earned = EarnedPoints(eligiblePaid);
         var earnedAllocations = AllocatePoints(earned, eligiblePaid);
         var redeemedAllocations = AllocatePoints(requestedPoints, monetaryAllocations);
         var frozen = new LoyaltyCheckout(cartId, partyId ?? Guid.Empty, partyId is null, policy.Version, policy.Ledger,
@@ -43,6 +44,26 @@ internal static class LoyaltyCheckoutCalculator
     }
 
     private static long ToPoints(decimal amount) => checked((long)decimal.Floor(amount * 100m));
+
+    public static LoyaltyCheckout ApplyGiftFunding(LoyaltyCheckout checkout, IReadOnlyList<GiftCardFundingLine> funding)
+    {
+        var gifts = funding.ToDictionary(x => x.ItemIndex, x => x.GiftFundedValue);
+        var lines = checkout.Lines.Select(line =>
+        {
+            var gift = gifts.GetValueOrDefault(line.ItemIndex);
+            var paid = line.OriginalCharged - line.CouponDiscount - line.PointsAppliedValue - gift;
+            if (gift < 0m || paid < 0m) throw new StorefrontValidationException("Gift funding exceeds the charged line.");
+            return line with { GiftFundedValue = gift, NetPaidValue = paid, EligibleEarnValue = line.EarnEligible ? paid : 0m };
+        }).ToList();
+        var eligible = lines.Select(x => x.EligibleEarnValue).ToArray();
+        var earned = EarnedPoints(eligible);
+        var allocations = AllocatePoints(earned, eligible);
+        return checkout with { EarnedPoints = earned,
+            Lines = lines.Select((line, index) => line with { EarnedPoints = allocations[index] }).ToList() };
+    }
+
+    private static long EarnedPoints(IEnumerable<decimal> eligiblePaid)
+        => checked((long)decimal.Floor(eligiblePaid.Sum() * 2m));
 
     // Allocate the already-rounded order total, with ItemIndex order breaking equal remainders.
     private static long[] AllocatePoints(long total, IReadOnlyList<decimal> weights)

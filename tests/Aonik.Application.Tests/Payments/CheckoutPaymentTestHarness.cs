@@ -14,6 +14,8 @@ using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Payments;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Loyalty;
+using Aonik.Finance.Services.GiftCards;
+using Microsoft.AspNetCore.DataProtection;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ledgers;
 using Aonik.SharedKernel.Abstractions.Loyalty;
@@ -83,7 +85,10 @@ internal sealed class CheckoutPaymentTestHarness : IDisposable
         var options = (DbContextOptions<FinanceDbContext>)Db.GetService<IDbContextOptions>();
         services.AddScoped(p => new FinanceDbContext(options, p.GetRequiredService<ITenantProvider>(), null, Clock.Object));
         services.AddScoped<IJournalWriter, JournalWriter>();
+        services.AddScoped<LedgerPostingService>();
         services.AddScoped<LoyaltyService>();
+        services.AddScoped<GiftCardService>();
+        services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
         _services = services.BuildServiceProvider();
         Service = new CheckoutPaymentService(Db, tenant, Connectors.Object, [Gateway], Reconciler.Object,
             Clock.Object, NullLogger<CheckoutPaymentService>.Instance, ScopeFactory);
@@ -108,6 +113,12 @@ internal sealed class CheckoutPaymentTestHarness : IDisposable
         scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = TenantId;
         return scope;
     }
+
+    public CheckoutPaymentReconciler RealReconciler => new(Db, new TestTenantProvider(TenantId), ScopeFactory,
+        [Gateway], Clock.Object, NullLogger<CheckoutPaymentReconciler>.Instance);
+
+    public CheckoutPaymentService RealService => new(Db, new TestTenantProvider(TenantId), Connectors.Object,
+        [Gateway], RealReconciler, Clock.Object, NullLogger<CheckoutPaymentService>.Instance, ScopeFactory);
 
     public async Task<LoyaltyCheckout> SeedLoyaltyAsync(long redeemedPoints = 100, long balance = 100)
     {

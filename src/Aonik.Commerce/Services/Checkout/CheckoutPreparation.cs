@@ -18,7 +18,10 @@ internal sealed record CheckoutPreparation(
     IReadOnlyList<CheckoutStockLine> Stock, IReadOnlyList<CheckoutSelection> Selections, OrderDeliveryDto? Delivery,
     Guid? DeliveryReservationId = null, DateTime? ProviderStartDeadlineUtc = null, bool CreateAccount = false,
     Guid? DiscountReservationId = null, IReadOnlyList<DiscountAllocation>? DiscountAllocations = null,
-    decimal GreetingCardCharged = 0m, LoyaltyCheckout? Loyalty = null)
+    decimal GreetingCardCharged = 0m, LoyaltyCheckout? Loyalty = null,
+    Aonik.SharedKernel.Abstractions.GiftCards.GiftCardCheckout? GiftCard = null,
+    Aonik.Commerce.Contracts.Models.GiftCards.GiftCardPurchaseSnapshot? GiftCardDelivery = null,
+    CheckoutContactDto? Purchaser = null)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
         { RespectRequiredConstructorParameters = true };

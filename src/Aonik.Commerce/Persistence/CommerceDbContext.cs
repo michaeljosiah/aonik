@@ -39,6 +39,7 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<BundleSizePreset> BundleSizePresets => Set<BundleSizePreset>();
     public DbSet<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar> FulfilmentCalendars => Set<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar>();
     public DbSet<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails> OrderDeliveryDetails => Set<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails>();
+    public DbSet<Aonik.Commerce.Entities.Fulfilment.OrderGiftCardDelivery> OrderGiftCardDeliveries => Set<Aonik.Commerce.Entities.Fulfilment.OrderGiftCardDelivery>();
     public DbSet<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity> DeliveryDateCapacities => Set<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity>();
     public DbSet<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation> CartDeliveryReservations => Set<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation>();
     public DbSet<InventoryLevel> InventoryLevels => Set<InventoryLevel>();
@@ -105,6 +106,7 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<BundleSizePreset>(modelBuilder, "BundleSizePresets");
         MapTable<Aonik.Commerce.Entities.Fulfilment.FulfilmentCalendar>(modelBuilder, "FulfilmentCalendars");
         MapTable<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails>(modelBuilder, "OrderDeliveryDetails");
+        MapTable<Aonik.Commerce.Entities.Fulfilment.OrderGiftCardDelivery>(modelBuilder, "OrderGiftCardDeliveries");
         MapTable<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity>(modelBuilder, "DeliveryDateCapacities");
         MapTable<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation>(modelBuilder, "CartDeliveryReservations");
         MapTable<InventoryLevel>(modelBuilder, "InventoryLevels");

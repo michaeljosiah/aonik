@@ -37,13 +37,16 @@ internal sealed class OrderConfirmationEmailService(
 
         var delivery = await dbContext.OrderDeliveryDetails.AsNoTracking()
             .SingleOrDefaultAsync(row => row.TenantId == tenantId && row.OrderId == orderId, cancellationToken);
-        if (delivery is null && cart.BoxBundleProductId is null)
+        var contact = delivery == null
+            ? cart.CheckoutPreparationJson == null ? null : CheckoutPreparation.Read(cart).Purchaser
+            : new CheckoutContactDto(delivery.PurchaserEmail, delivery.PurchaserFirstName, delivery.PurchaserLastName, delivery.PurchaserPhone);
+        if (contact is null && cart.BoxBundleProductId is null)
         {
             // Legacy/generic checkout permits no delivery contact; never guess from an account email.
             logger.LogInformation("Order {OrderId} has no snapshotted purchaser contact; confirmation email is not applicable.", orderId);
             return;
         }
-        if (delivery is null || string.IsNullOrWhiteSpace(delivery.PurchaserEmail))
+        if (contact is null || string.IsNullOrWhiteSpace(contact.Email))
             throw new InvalidOperationException("The box order is missing its purchaser contact snapshot.");
 
         var selections = await dbContext.OrderBundleSelections.AsNoTracking()
@@ -58,7 +61,7 @@ internal sealed class OrderConfirmationEmailService(
         {
             ["order_id"] = order.Id.ToString("D"),
             ["order_number"] = order.OrderNumber,
-            ["purchaser_name"] = $"{delivery.PurchaserFirstName} {delivery.PurchaserLastName}".Trim(),
+            ["purchaser_name"] = $"{contact.FirstName} {contact.LastName}".Trim(),
             ["currency"] = summary.Currency,
             ["subtotal"] = Amount(summary.Subtotal),
             // Existing customised templates have one discount row; its total must still reconcile.
@@ -69,6 +72,9 @@ internal sealed class OrderConfirmationEmailService(
             ["tax_total"] = Amount(summary.TaxTotal),
             ["delivery_total"] = Amount(order.Items.Where(item => item.ItemType == CheckoutService.DeliveryFeeItemType).Sum(item => item.AmountIn)),
             ["total"] = Amount(summary.Total),
+            ["gift_card_paid"] = Amount(CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m),
+            ["has_gift_card_payment"] = CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount > 0m,
+            ["card_amount"] = Amount(summary.Total - (CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m)),
             ["items"] = order.Items.Where(item => item.ItemType != CheckoutService.DeliveryFeeItemType)
                 .OrderBy(item => item.ItemIndex).Select(item => new Dictionary<string, object?>
                 {
@@ -84,7 +90,7 @@ internal sealed class OrderConfirmationEmailService(
                 ["quantity"] = item.Quantity.ToString("0.############################", CultureInfo.InvariantCulture),
                 ["personalisation"] = item.PersonalisationSummary
             }).ToList(),
-            ["delivery"] = new Dictionary<string, object?>
+            ["delivery"] = delivery == null ? null : new Dictionary<string, object?>
             {
                 ["date"] = delivery.DeliveryDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 ["timezone"] = delivery.Timezone,
@@ -102,7 +108,7 @@ internal sealed class OrderConfirmationEmailService(
         // Exceptions escape to the existing outbox retry. Inbox completion suppresses ordinary
         // redelivery; an external-send/DB-commit crash can still send a duplicate.
         await email.SendAsync(new TemplatedEmailMessage(
-            TransactionalEmailTemplateNames.OrderConfirmation, delivery.PurchaserEmail, model), cancellationToken);
+            TransactionalEmailTemplateNames.OrderConfirmation, contact.Email, model), cancellationToken);
     }
 
     private static string Amount(decimal value) => value.ToString("0.00##########################", CultureInfo.InvariantCulture);

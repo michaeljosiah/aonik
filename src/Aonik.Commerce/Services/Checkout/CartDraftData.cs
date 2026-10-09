@@ -72,7 +72,7 @@ internal static class CartDraftData
             draft.DeliveryDate ?? default, draft.Recipient, draft.Notes);
     }
 
-    private static string? Text(string? value, int maxLength, string field, bool multiline = false)
+    internal static string? Text(string? value, int maxLength, string field, bool multiline = false)
     {
         if (value is null) return null;
         var trimmed = value.Trim();

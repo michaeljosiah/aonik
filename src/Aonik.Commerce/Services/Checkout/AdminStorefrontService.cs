@@ -229,7 +229,9 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             selections,
             new AdminOrderChargeDto(
                 summary.Subtotal, summary.DiscountTotal, summary.DiscountCode,
-                summary.TaxTotal, summary.Total, summary.Currency, summary.PointsAppliedValue),
+                summary.TaxTotal, summary.Total, summary.Currency, summary.PointsAppliedValue,
+                CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m,
+                summary.Total - (CheckoutGiftCards.Read(summary.GiftCardJson)?.Tender?.Amount ?? 0m)),
             cart.BoxSize,
             delivery is null ? null : OrderDeliveryMapper.Map(delivery), order.OrderNumber,
             delivery is not null && summary.PaymentStatus == CheckoutPaymentStatuses.Captured
@@ -565,6 +567,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             // COMPONENT variants' stock (line qty x selection qty); everything
             // else draws its own.
             var demand = lines
+                .Where(i => i.LineKind != CartLineKinds.GiftCardValue)
                 .SelectMany(i => i.IsBundle
                     ? i.Selections.Where(sel => !sel.IsDeleted)
                         .Select(sel => (VariantId: sel.ProductVariantId, Quantity: i.Quantity * sel.Quantity))
@@ -614,6 +617,12 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                     || !variant.IsActive
                     || product is null
                     || product.Status != ProductStatuses.Active;
+
+                if (line.LineKind == CartLineKinds.GiftCardValue)
+                {
+                    flags[line.Id] = new LineFlags(unavailable, false, [], []);
+                    continue;
+                }
 
                 decimal? currentRetail = null;
                 if (line.LineKind == CartLineKinds.AddOn)
@@ -737,6 +746,9 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                     drift = true;
                 }
             }
+
+            if (isEditable && GiftCardPurchasePricing.Read(cart) is { } giftCard)
+                total += (isBox ? giftCard.Selection.FaceValue : 0m) + giftCard.Postage + giftCard.GreetingCardPrice;
 
             var boxMeta = cart.BoxBundleProductId is null || cart.BoxSize is null
                 ? null

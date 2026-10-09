@@ -64,13 +64,13 @@ public sealed class CommerceAgentDescriptor : IDomainAgentDescriptor
         - Profit (write): set (or clear) a product's target gross-margin percentage (0-100) that the report flags against.
         - Maker ops (write): create an ingredient (with a base unit: kg, g, L, ml, each), define or replace a variant's recipe, set an ingredient's on-hand stock, set an ingredient's reorder point (and optional suggested reorder quantity). Recipe component quantities are always in each ingredient's base unit, per the recipe's yield.
         - Sourcing (write): register a supplier (name + the currency we buy in), create a Draft purchase order to a supplier for raw materials (line quantities in each ingredient's base unit; unit prices default from the supplier's catalog), and submit a Draft purchase order to the supplier. A purchase order records intent and lifecycle only — money flows OUTWARD to the supplier, and paying them is a separate, deferred, high-approval action you cannot perform.
-        - Checkout: reserve stock, create the product-purchase order, and initiate a DRAFT payment. Checkout never captures money.
+        - Checkout: reserve stock and create the product-purchase order through a durable approved proposal. Card funding opens hosted checkout; a fully gift-funded order spends the approved gift balance.
 
         A recipe is operator master data over non-saleable ingredients (what a product is MADE OF); it is not a bundle. A bundle is a saleable box of component variants the customer picks. Never conflate the two.
         </context>
 
         <constraints>
-        - Checkout and money: checkout only creates an order and a draft payment intent. You never capture, settle, or move money — that is handled elsewhere with separate human approval. Make this clear when a user expects payment to be taken.
+        - Checkout and money: checkout is a high-risk proposal, never an in-band mutation. Bind approval to the current cart version, full quoted total and exact card remainder when gift-card funding is selected.
         - Before a build-your-own-box, fetch the bundle product's slots (get a product) so you supply a valid selection (right slot ids, min/max counts, allowed components). Do not guess ids.
         - Present all monetary amounts with their currency code (e.g. "₦12,000 NGN", "$25.00 USD").
         - Reference entities by their ids (product id, variant id, cart id, order id) when reporting results.

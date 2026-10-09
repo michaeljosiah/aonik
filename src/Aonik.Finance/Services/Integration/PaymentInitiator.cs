@@ -44,7 +44,8 @@ internal sealed class PaymentInitiator : IPaymentInitiator
                 PaymentIntentId: command.PaymentIntentId,
                 IdempotencyKey: command.IdempotencyKey,
                 ProviderStartDeadlineUtc: command.ProviderStartDeadlineUtc,
-                Loyalty: command.Loyalty),
+                Loyalty: command.Loyalty,
+                GiftCard: command.GiftCard),
             cancellationToken);
 
         return new PaymentIntentRef(response.PaymentIntentId, response.Status, response.ClientSecret, response.CheckoutUrl);

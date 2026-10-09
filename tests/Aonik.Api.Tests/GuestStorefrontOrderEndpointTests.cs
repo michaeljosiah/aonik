@@ -54,8 +54,11 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         [
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal",
             "total", "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus", "loyalty",
+            "giftCardPaid", "cardAmount",
         ]);
         body.GetProperty("loyalty").ValueKind.Should().Be(JsonValueKind.Null);
+        body.GetProperty("giftCardPaid").GetDecimal().Should().Be(0m);
+        body.GetProperty("cardAmount").GetDecimal().Should().Be(95m);
         var delivery = body.GetProperty("delivery");
         delivery.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(new[]
             { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes", "gift", "saleTerms" });
