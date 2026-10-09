@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Aonik.Finance.Contracts.Models.Payments;
@@ -9,6 +10,7 @@ using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Observability;
+using Aonik.Finance.Services.Loyalty;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Payments;
@@ -19,7 +21,7 @@ namespace Aonik.Finance.Services.Payments;
 internal sealed class CheckoutPaymentService(
     FinanceDbContext db, ITenantProvider tenantProvider, IStripeConnectorResolver connectors,
     IEnumerable<IPaymentProviderGateway> gateways, ICheckoutPaymentReconciler reconciler,
-    IClock clock, ILogger<CheckoutPaymentService> logger)
+    IClock clock, ILogger<CheckoutPaymentService> logger, IServiceScopeFactory scopeFactory)
 {
     public async Task<GuestPaymentIntentResponse> CreateAsync(
         CreateCommerceGuestPaymentIntentRequest request, CancellationToken cancellationToken = default)
@@ -33,39 +35,8 @@ internal sealed class CheckoutPaymentService(
         logger.OrderConfirmed(request.OrderId, tenantId, "Starting checkout payment attempt");
         try
         {
-            var order = await db.Orders.SingleOrDefaultAsync(o => o.Id == request.OrderId && o.TenantId == tenantId,
-                cancellationToken) ?? throw new NotFoundException("Order was not found.");
             ValidateRequest(request);
-            var attemptId = request.PaymentIntentId!.Value;
-            var intent = await LoadAsync(attemptId, cancellationToken);
-            if (intent is null)
-            {
-                if (order.OrderType != "ProductPurchase" || order.Status is not ("Draft" or "PendingFunding"))
-                    throw new InvalidStateException("Only an unpaid product-purchase order can start checkout.");
-                if (order.PayerPartyId is not { } payer || payer == Guid.Empty
-                    || !await db.Parties.AnyAsync(p => p.Id == payer && p.TenantId == tenantId, cancellationToken))
-                    throw new InvalidStateException("Checkout requires its actual purchaser party.");
-                intent = new PaymentIntent
-                {
-                    Id = attemptId, TenantId = tenantId, OrderId = order.Id, Amount = request.Amount,
-                    Currency = "GBP", PayerPartyId = payer, PurposeType = "Order", PurposeId = order.Id,
-                    PaymentMethodType = "Card", ProviderCode = "Stripe", IdempotencyKey = request.IdempotencyKey,
-                    ProviderStartDeadlineUtc = request.ProviderStartDeadlineUtc,
-                    Status = nameof(PaymentStatus.Pending)
-                };
-                db.PaymentIntents.Add(intent);
-                if (order.Status == "Draft") order.Status = "PendingFunding";
-                try { await db.SaveChangesAsync(cancellationToken); }
-                catch (DbUpdateException)
-                {
-                    db.Entry(intent).State = EntityState.Detached;
-                    await db.Entry(order).ReloadAsync(cancellationToken);
-                    intent = await LoadAsync(attemptId, cancellationToken);
-                    if (intent is null) throw;
-                }
-                db.Entry(intent).State = EntityState.Detached;
-            }
-            ValidateAttempt(intent, request);
+            var intent = await PrepareAsync(request, cancellationToken);
             var result = await ResumeAsync(intent, request, cancellationToken);
             activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
             logger.PaymentTransmitted(request.OrderId, tenantId, "Stripe", result.ProviderReference);
@@ -126,6 +97,107 @@ internal sealed class CheckoutPaymentService(
         }
     }
 
+    private async Task<PaymentIntent> PrepareAsync(CreateCommerceGuestPaymentIntentRequest request, CancellationToken cancellationToken)
+    {
+        var tenantId = tenantProvider.GetCurrentTenantId();
+        // A fresh scope discards a rolled-back account claim, reservation and intent together.
+        // Native account/intent contention retries locally; no provider call occurs in this loop.
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await db.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+                    var context = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+                    var loyalty = scope.ServiceProvider.GetRequiredService<LoyaltyService>();
+                    await using var transaction = context.Database.IsRelational()
+                        ? await context.Database.BeginTransactionAsync(ct) : null;
+                    var order = await context.Orders.SingleOrDefaultAsync(o => o.Id == request.OrderId && o.TenantId == tenantId, ct)
+                        ?? throw new NotFoundException("Order was not found.");
+                    var intent = await context.PaymentIntents.SingleOrDefaultAsync(p => p.Id == request.PaymentIntentId && p.TenantId == tenantId, ct);
+                    if (intent is not null)
+                    {
+                        ValidateAttempt(intent, request);
+                        await loyalty.ValidateReplayAsync(intent, request.Loyalty, ct);
+                        return intent;
+                    }
+                    if (order.OrderType != "ProductPurchase" || order.Status is not ("Draft" or "PendingFunding"))
+                        throw new InvalidStateException("Only an unpaid product-purchase order can start checkout.");
+                    if (order.PayerPartyId is not { } payer || payer == Guid.Empty
+                        || !await context.Parties.AnyAsync(p => p.Id == payer && p.TenantId == tenantId, ct))
+                        throw new InvalidStateException("Checkout requires its actual purchaser party.");
+                    var expired = request.ProviderStartDeadlineUtc is { } deadline && clock.UtcNow >= deadline;
+                    intent = new PaymentIntent
+                    {
+                        Id = request.PaymentIntentId!.Value, TenantId = tenantId, OrderId = order.Id, Amount = request.Amount,
+                        Currency = "GBP", PayerPartyId = payer, PurposeType = "Order", PurposeId = order.Id,
+                        PaymentMethodType = "Card", ProviderCode = "Stripe", IdempotencyKey = request.IdempotencyKey,
+                        ProviderStartDeadlineUtc = request.ProviderStartDeadlineUtc,
+                        Status = expired ? nameof(PaymentStatus.Cancelled) : nameof(PaymentStatus.Pending)
+                    };
+                    context.PaymentIntents.Add(intent);
+                    // An expired attempt keeps its frozen instruction but needs no current policy.
+                    var rejection = await loyalty.PrepareTrackedAsync(intent, request.Loyalty, ct);
+                    if (rejection is not null)
+                    {
+                        intent.Status = nameof(PaymentStatus.Cancelled);
+                        intent.FailureReason = rejection;
+                    }
+                    if (order.Status == "Draft") order.Status = "PendingFunding";
+                    await context.SaveChangesAsync(ct);
+                    if (transaction is not null) await transaction.CommitAsync(ct);
+                    return intent;
+                }, cancellationToken);
+            }
+            catch (DbUpdateException) when (attempt < 2)
+            {
+                // The next fresh read either verifies the winning immutable attempt or retries
+                // the competing account claim. A persistence failure is never cancellation proof.
+            }
+        }
+    }
+
+    private async Task<PaymentIntent> ClaimProviderStartAsync(PaymentIntent observed,
+        PaymentProviderIntentRequest? request, DateTime startedAt, CancellationToken cancellationToken)
+    {
+        var tenantId = tenantProvider.GetCurrentTenantId();
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await db.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+                    var context = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+                    await using var transaction = context.Database.IsRelational()
+                        ? await context.Database.BeginTransactionAsync(ct) : null;
+                    var current = await context.PaymentIntents.SingleAsync(p => p.Id == observed.Id && p.TenantId == tenantId, ct);
+                    if (current.ProviderRequestStartedAtUtc is not null || current.Status != nameof(PaymentStatus.Pending)) return current;
+                    var expired = current.ProviderStartDeadlineUtc is { } deadline && clock.UtcNow >= deadline;
+                    current.Status = expired ? nameof(PaymentStatus.Cancelled) : nameof(PaymentStatus.Processing);
+                    if (expired)
+                        await scope.ServiceProvider.GetRequiredService<LoyaltyService>().ReleaseTrackedAsync(current, ct);
+                    else
+                    {
+                        if (request is null) throw new InvalidStateException("The provider request is unavailable.");
+                        current.ConnectorId = request.ConnectorId;
+                        current.ProviderAccountId = request.ProviderAccountId;
+                        current.ProviderLiveMode = request.LiveMode;
+                        current.ProviderCreateRequestJson = JsonSerializer.Serialize(request);
+                        current.ProviderRequestStartedAtUtc = startedAt;
+                    }
+                    await context.SaveChangesAsync(ct);
+                    if (transaction is not null) await transaction.CommitAsync(ct);
+                    return current;
+                }, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < 2) { }
+        }
+    }
+
     private async Task<GuestPaymentIntentResponse> ResumeAsync(PaymentIntent intent,
         CreateCommerceGuestPaymentIntentRequest? request, CancellationToken cancellationToken)
     {
@@ -152,31 +224,11 @@ internal sealed class CheckoutPaymentService(
             // A native row-version race with local cancellation must be won BEFORE any HTTP.
             // Missing state is not closure: even an expired first call persists this exact attempt,
             // then claims Cancelled so a delayed creator cannot subsequently start its provider request.
-            db.Attach(intent);
-            intent.Status = deadlineReached ? nameof(PaymentStatus.Cancelled) : nameof(PaymentStatus.Processing);
-            if (providerRequest is not null)
-            {
-                intent.ConnectorId = binding!.ConnectorId;
-                intent.ProviderAccountId = binding.ProviderAccountId;
-                intent.ProviderLiveMode = binding.LiveMode;
-                intent.ProviderCreateRequestJson = JsonSerializer.Serialize(providerRequest);
-                intent.ProviderRequestStartedAtUtc = startedAt;
-            }
-            try { await db.SaveChangesAsync(cancellationToken); }
-            catch (DbUpdateConcurrencyException)
-            {
-                db.Entry(intent).State = EntityState.Detached;
-                var winner = await LoadAsync(intent.Id, cancellationToken)
-                    ?? throw new InvalidStateException("The payment attempt is unavailable.");
-                return await ResumeAsync(winner, request, cancellationToken);
-            }
-            catch
-            {
-                db.Entry(intent).State = EntityState.Detached;
-                throw;
-            }
-            db.Entry(intent).State = EntityState.Detached;
-            if (deadlineReached) return Response(intent);
+            intent = await ClaimProviderStartAsync(intent, providerRequest, startedAt, cancellationToken);
+            if (intent.Status is nameof(PaymentStatus.Cancelled) or nameof(PaymentStatus.Captured)
+                || intent.ProviderReference is not null) return Response(intent);
+            if (intent.ProviderRequestStartedAtUtc is null)
+                throw new InvalidStateException("The payment attempt cannot start a provider request.");
         }
 
         // Stripe may discard idempotency keys after 24 hours. A stale unknown create requires

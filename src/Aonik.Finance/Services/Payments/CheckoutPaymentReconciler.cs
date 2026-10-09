@@ -6,6 +6,7 @@ using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Ledger;
+using Aonik.Finance.Services.Loyalty;
 using Aonik.Finance.Services.Observability;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -57,17 +58,8 @@ internal sealed class CheckoutPaymentReconciler(
             if (expire && intent.Status == nameof(PaymentStatus.Pending) && intent.ProviderRequestStartedAtUtc is null)
             {
                 // Competes with initiation's native-version transition BEFORE its first external call.
-                await using var scope = scopeFactory.CreateAsyncScope();
-                scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
-                var context = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
-                var pending = await context.PaymentIntents.SingleAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, cancellationToken);
-                if (pending.Status == nameof(PaymentStatus.Pending) && pending.ProviderRequestStartedAtUtc is null
-                    && pending.ProviderReference is null)
-                {
-                    pending.Status = nameof(PaymentStatus.Cancelled);
-                    await context.SaveChangesAsync(cancellationToken);
-                    return State(pending);
-                }
+                var closed = await CancelUnstartedAsync(paymentIntentId, cancellationToken);
+                if (closed is not null) return closed;
             }
             throw new InvalidStateException("The payment outcome is unknown; this attempt must remain locked.");
         }
@@ -157,6 +149,11 @@ internal sealed class CheckoutPaymentReconciler(
                         intent.Status = snapshot.CanNoLongerPay ? nameof(PaymentStatus.Cancelled) : snapshot.Status;
                     }
                 }
+                // Uses the same scoped context and outer transaction as cash, receipt and outbox.
+                // Repeated terminal observations converge without consulting today's policy.
+                var loyalty = scope.ServiceProvider.GetRequiredService<LoyaltyService>();
+                if (intent.Status == nameof(PaymentStatus.Captured)) await loyalty.CompleteTrackedAsync(intent, ct);
+                else if (intent.Status == nameof(PaymentStatus.Cancelled)) await loyalty.ReleaseTrackedAsync(intent, ct);
                 if (inbox is not null)
                 {
                     inbox.ProcessingStatus = "Processed";
@@ -178,6 +175,35 @@ internal sealed class CheckoutPaymentReconciler(
             // Provider payloads/secrets never become an error log field.
             logger.WebhookRejected(snapshot.OrderId, tenantId, "Stripe", "Payment reconciliation failed: " + exception.GetType().Name);
             throw;
+        }
+    }
+
+    private async Task<PaymentIntentStateRef?> CancelUnstartedAsync(Guid paymentIntentId, CancellationToken cancellationToken)
+    {
+        var tenantId = tenantProvider.GetCurrentTenantId();
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await db.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+                    var context = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+                    await using var transaction = context.Database.IsRelational()
+                        ? await context.Database.BeginTransactionAsync(ct) : null;
+                    var pending = await context.PaymentIntents.SingleAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, ct);
+                    if (pending.Status is nameof(PaymentStatus.Captured) or nameof(PaymentStatus.Cancelled)) return State(pending);
+                    if (pending.Status != nameof(PaymentStatus.Pending) || pending.ProviderRequestStartedAtUtc is not null
+                        || pending.ProviderReference is not null) return null;
+                    pending.Status = nameof(PaymentStatus.Cancelled);
+                    await scope.ServiceProvider.GetRequiredService<LoyaltyService>().ReleaseTrackedAsync(pending, ct);
+                    await context.SaveChangesAsync(ct);
+                    if (transaction is not null) await transaction.CommitAsync(ct);
+                    return State(pending);
+                }, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < 2) { }
         }
     }
 

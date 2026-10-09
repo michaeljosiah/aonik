@@ -49,7 +49,8 @@ public record AdminOrderChargeDto(
     string? DiscountCode,
     decimal TaxTotal,
     decimal Total,
-    string Currency);
+    string Currency,
+    decimal PointsAppliedValue = 0m);
 
 /// <summary>The ENTIRE storefront order detail (Spec 083 dependency callout 1):
 /// the spine's generic read is bill-payment-shaped, so this projection is the

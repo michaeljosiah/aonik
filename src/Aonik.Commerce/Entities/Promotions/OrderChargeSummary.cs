@@ -16,6 +16,8 @@ public class OrderChargeSummary : AuditableEntity, ITenantScoped
     public decimal Subtotal { get; set; }
     public decimal GreetingCardCharged { get; set; }
     public decimal DiscountTotal { get; set; }
+    public decimal PointsAppliedValue { get; set; }
+    public string? LoyaltyJson { get; set; }
     public string? DiscountCode { get; set; }
     public Guid? DiscountId { get; set; }
     public string? DiscountAllocationsJson { get; set; }

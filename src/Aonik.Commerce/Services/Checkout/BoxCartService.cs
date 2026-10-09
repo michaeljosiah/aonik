@@ -1416,7 +1416,9 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             var frozen = CheckoutPreparation.Read(cart);
             summary = new OrderChargeSummary { Subtotal = frozen.Subtotal, DiscountTotal = frozen.DiscountTotal,
                 DiscountCode = frozen.DiscountCode, TaxTotal = frozen.TaxTotal, Total = frozen.Total,
-                GreetingCardCharged = frozen.GreetingCardCharged };
+                GreetingCardCharged = frozen.GreetingCardCharged,
+                PointsAppliedValue = frozen.Loyalty?.PointsAppliedValue ?? 0m,
+                LoyaltyJson = CheckoutLoyaltyData.Serialize(frozen.Loyalty) };
         }
         else if (!CartWriteGuard.IsEditable(cart) && cart.OrderId is { } orderId)
         {
@@ -1474,7 +1476,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             ? summary.Subtotal - personalisation - surcharges - frozenAddOns - greetingCard
             : BoxPricing.BoxPrice(plan, size);
         var deliveryCharged = summary is not null
-            ? summary.Total - (summary.Subtotal - summary.DiscountTotal + summary.TaxTotal)
+            ? summary.Total - (summary.Subtotal - summary.DiscountTotal - summary.PointsAppliedValue + summary.TaxTotal)
             : deliveryApplies
                 ? await ReadAmountAsync(CommerceSettingNames.StorefrontDeliveryChargedAmount, tenantId, ct)
                 : 0m;
@@ -1518,6 +1520,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             live = await _discountQuotes.CalculateAsync(cart, pricedItems, deliveryCharged, CartDraftData.Read(cart)?.DiscountCode, ct);
         }
         var discount = summary?.DiscountTotal ?? live!.DiscountTotal;
+        var points = summary?.PointsAppliedValue ?? live!.PointsAppliedValue;
         var tax = summary?.TaxTotal ?? live!.TaxTotal;
         if (discount != 0)
         {
@@ -1527,6 +1530,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         {
             components.Add(new QuoteComponentDto("tax", tax));
         }
+        if (points != 0)
+            components.Add(new QuoteComponentDto("points", -points));
 
         var units = TotalUnits(boxLines);
         return new BoxQuoteDto(
@@ -1540,7 +1545,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             units == size,
             summary is not null
                 ? summary.DiscountCode is null ? null : new DiscountCodeStatusDto(summary.DiscountCode, discount)
-                : live!.Discount);
+                : live!.Discount,
+            summary is not null ? CheckoutLoyaltyQuotes.Frozen(CheckoutLoyaltyData.Read(summary.LoyaltyJson)) : live!.Loyalty);
     }
 
     private static JsonElement? ParseSelection(string? canonicalJson)

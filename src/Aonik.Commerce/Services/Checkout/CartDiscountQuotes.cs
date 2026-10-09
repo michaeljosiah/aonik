@@ -6,6 +6,7 @@ using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Loyalty;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Settings;
@@ -17,14 +18,14 @@ namespace Aonik.Commerce.Services.Checkout;
 /// <summary>Read-only coupon/tax quoting over the cart's existing priced goods.</summary>
 internal sealed class CartDiscountQuotes(CommerceDbContext db, ITenantProvider tenantProvider,
     IDiscountService discounts, ITaxCalculator tax, ITenantSettingStore settingStore,
-    ISettingProvider settings, ITenantCurrencyProvider tenantCurrency)
+    ISettingProvider settings, ITenantCurrencyProvider tenantCurrency, CheckoutLoyaltyQuotes? loyaltyQuotes = null)
 {
     public async Task<CartDiscountQuoteDto> CalculateAsync(Cart cart, IReadOnlyList<OrderItemCommand> items,
         decimal delivery, string? code, CancellationToken ct = default)
     {
         var subtotal = items.Sum(x => x.AmountIn);
         DiscountCodeStatusDto? status = null;
-        var amount = 0m;
+        var computation = new DiscountComputation(null, null, 0m, []);
         if (!string.IsNullOrWhiteSpace(code))
         {
             var normalized = code.Trim().ToUpperInvariant();
@@ -32,17 +33,35 @@ internal sealed class CartDiscountQuotes(CommerceDbContext db, ITenantProvider t
             {
                 var lines = await CheckoutDiscountLines.FromOrderItemsAsync(db, tenantProvider.GetCurrentTenantId(), items, ct);
                 var result = await discounts.ComputeAsync(normalized, lines, cart.Currency, ct);
-                amount = result.Amount;
-                status = new DiscountCodeStatusDto(result.Code ?? normalized, amount);
+                computation = result;
+                status = new DiscountCodeStatusDto(result.Code ?? normalized, result.Amount);
             }
             catch (DiscountException error)
             {
                 status = new DiscountCodeStatusDto(normalized, 0m, error.Code, error.Message);
             }
         }
+        var amount = computation.Amount;
         var taxTotal = await tax.CalculateAsync(subtotal - amount, cart.Currency, ct);
+        CheckoutLoyaltyQuote? loyalty = null;
+        var requested = CartDraftData.Read(cart)?.RequestedPoints ?? 0;
+        if (loyaltyQuotes is not null)
+        {
+            var chargedItems = items.ToList();
+            if (delivery > 0m)
+                chargedItems.Add(new OrderItemCommand(CheckoutService.DeliveryFeeItemType,
+                    chargedItems.Count == 0 ? 0 : chargedItems.Max(x => x.ItemIndex) + 1, delivery, cart.Currency));
+            loyalty = await loyaltyQuotes.CalculateAsync(cart, chargedItems, computation,
+                subtotal - amount + taxTotal + delivery, ct);
+        }
+        else if (requested > 0)
+            loyalty = new(null, new(requested, 0, 0, 0m, 0, ReasonCode: LoyaltyQuoteReasons.Disabled,
+                Message: "Loyalty redemption is not currently available."));
+        var points = loyalty?.PointsAppliedValue ?? 0m;
+        if (points != 0m) taxTotal = await tax.CalculateAsync(subtotal - amount - points, cart.Currency, ct);
         return new CartDiscountQuoteDto(cart.Id, Convert.ToBase64String(cart.RowVersion), cart.Currency,
-            subtotal, amount, taxTotal, delivery, subtotal - amount + taxTotal + delivery, status);
+            subtotal, amount, taxTotal, delivery, subtotal - amount - points + taxTotal + delivery, status,
+            points, loyalty?.Quote);
     }
 
     public async Task<CartDiscountQuoteDto> SnapshotAsync(Cart cart, string? code, CancellationToken ct = default)
@@ -52,14 +71,16 @@ internal sealed class CartDiscountQuotes(CommerceDbContext db, ITenantProvider t
             if (cart.CheckoutPreparationJson is not null)
             {
                 var frozen = CheckoutPreparation.Read(cart);
-                return Frozen(cart, frozen.Subtotal, frozen.DiscountTotal, frozen.TaxTotal, frozen.Total, frozen.DiscountCode);
+                return Frozen(cart, frozen.Subtotal, frozen.DiscountTotal, frozen.TaxTotal, frozen.Total,
+                    frozen.DiscountCode, frozen.Loyalty?.PointsAppliedValue ?? 0m, frozen.Loyalty);
             }
             if (cart.OrderId is { } orderId)
             {
                 var summary = await db.OrderChargeSummaries.AsNoTracking()
                     .SingleOrDefaultAsync(x => x.TenantId == cart.TenantId && x.OrderId == orderId, ct);
                 if (summary is not null)
-                    return Frozen(cart, summary.Subtotal, summary.DiscountTotal, summary.TaxTotal, summary.Total, summary.DiscountCode);
+                    return Frozen(cart, summary.Subtotal, summary.DiscountTotal, summary.TaxTotal, summary.Total,
+                        summary.DiscountCode, summary.PointsAppliedValue, CheckoutLoyaltyData.Read(summary.LoyaltyJson));
             }
         }
 
@@ -102,7 +123,9 @@ internal sealed class CartDiscountQuotes(CommerceDbContext db, ITenantProvider t
         return await CalculateAsync(cart, items, delivery, code, ct);
     }
 
-    private static CartDiscountQuoteDto Frozen(Cart cart, decimal subtotal, decimal discount, decimal tax, decimal total, string? code)
+    private static CartDiscountQuoteDto Frozen(Cart cart, decimal subtotal, decimal discount, decimal tax, decimal total,
+        string? code, decimal points, LoyaltyCheckout? loyalty)
         => new(cart.Id, Convert.ToBase64String(cart.RowVersion), cart.Currency, subtotal, discount, tax,
-            total - (subtotal - discount + tax), total, code is null ? null : new DiscountCodeStatusDto(code, discount));
+            total - (subtotal - discount - points + tax), total, code is null ? null : new DiscountCodeStatusDto(code, discount),
+            points, CheckoutLoyaltyQuotes.Frozen(loyalty));
 }

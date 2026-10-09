@@ -13,6 +13,7 @@ using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Loyalty;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Payments;
 using Aonik.SharedKernel.Abstractions.Settings;
@@ -41,6 +42,7 @@ internal sealed class CheckoutService : ICheckoutService
     private readonly IClock _clock;
     private readonly ITenantSettingStore _settings;
     private readonly DeliveryReservationService _deliveryReservations;
+    private readonly CheckoutLoyaltyQuotes? _loyaltyQuotes;
 
     public CheckoutService(
         CommerceDbContext dbContext,
@@ -54,7 +56,8 @@ internal sealed class CheckoutService : ICheckoutService
         IBoxCheckoutSupport boxCheckout,
         GuestOrderAccess guestOrders,
         IFulfilmentPromiseService fulfilment,
-        IDeliveryCoverageService coverage, IPartyService parties, IClock clock, ITenantSettingStore settings)
+        IDeliveryCoverageService coverage, IPartyService parties, IClock clock, ITenantSettingStore settings,
+        CheckoutLoyaltyQuotes? loyaltyQuotes = null)
     {
         _dbContext = dbContext;
         _inventory = inventory;
@@ -71,6 +74,7 @@ internal sealed class CheckoutService : ICheckoutService
         _parties = parties;
         _clock = clock;
         _settings = settings;
+        _loyaltyQuotes = loyaltyQuotes;
         _deliveryReservations = new DeliveryReservationService(dbContext, tenantProvider, clock);
     }
 
@@ -296,10 +300,25 @@ internal sealed class CheckoutService : ICheckoutService
             : await CheckoutDiscountLines.FromOrderItemsAsync(_dbContext, tenantId, orderItems, cancellationToken);
         var discount = await _discounts.ComputeAsync(code, discountLines, cart.Currency, cancellationToken);
         var taxable = subtotal - discount.Amount;
-        var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
-        var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
+        var taxBeforePoints = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
+        LoyaltyCheckout? loyalty = null;
+        if (_loyaltyQuotes is not null)
+        {
+            var quote = await _loyaltyQuotes.CalculateAsync(cart, orderItems, discount,
+                taxable + taxBeforePoints + (box?.DeliveryCharged ?? 0m), cancellationToken);
+            if (quote.Quote?.ReasonCode is not null)
+                throw new StorefrontValidationException(quote.Quote.Message ?? "The selected points cannot be applied. Reload the quote.");
+            loyalty = quote.Checkout;
+        }
+        else if (draft?.RequestedPoints > 0)
+            throw new StorefrontValidationException("Loyalty points are not available for this checkout.");
+        var pointsValue = loyalty?.PointsAppliedValue ?? 0m;
+        var tax = pointsValue > 0m
+            ? await _tax.CalculateAsync(taxable - pointsValue, cart.Currency, cancellationToken)
+            : taxBeforePoints;
+        var total = taxable - pointsValue + tax + (box?.DeliveryCharged ?? 0m);
         if ((command.ExpectedTotal is { } expectedTotal && expectedTotal != total)
-            || ((!string.IsNullOrWhiteSpace(code) || gift is { IncludeGreetingCard: true }) && command.ExpectedTotal is null))
+            || ((!string.IsNullOrWhiteSpace(code) || gift is { IncludeGreetingCard: true } || pointsValue > 0m) && command.ExpectedTotal is null))
             throw new DiscountException(DiscountException.PriceChanged);
         if (total <= 0)
             throw new StorefrontValidationException("The payable total for this cart is zero or below; it cannot be checked out.");
@@ -322,6 +341,7 @@ internal sealed class CheckoutService : ICheckoutService
         if (box is { DeliveryCharged: > 0 }) invoiceLines.Add(new("Delivery", 1m, box.DeliveryCharged));
         if (box is { GreetingCardCharged: > 0 }) invoiceLines.Add(new("Greeting card", 1m, box.GreetingCardCharged));
         if (discount.Amount > 0) invoiceLines.Add(new($"Discount ({discount.Code})", 1m, -discount.Amount));
+        if (pointsValue > 0m) invoiceLines.Add(new("Loyalty points", 1m, -pointsValue));
         if (tax > 0) invoiceLines.Add(new("Tax", 1m, tax));
         var selections = new List<CheckoutSelection>();
         var signatureFlags = await CheckoutDisplayFacts.ReadSignaturesAsync(_dbContext, _settings, tenantId,
@@ -341,11 +361,14 @@ internal sealed class CheckoutService : ICheckoutService
         Guid? guestPartyId = cart.BuyerPartyId is null
             ? Guid.NewGuid()
             : null;
+        if (loyalty is not null)
+            loyalty = loyalty with { PartyId = cart.BuyerPartyId ?? guestPartyId!.Value,
+                IsGuest = cart.BuyerPartyId is null, PayableTotal = total };
         var preparation = new CheckoutPreparation(Guid.NewGuid(), guestPartyId, cart.Currency,
             command.Provider, command.PaymentMethodType, command.ReturnUrl, command.CancelUrl, command.CustomerAccountId,
             subtotal, discount.Amount, discount.DiscountId, discount.Code, tax, total, orderItems, invoiceLines,
             reservationLines.Select(line => new CheckoutStockLine(line.Item.Id, line.Quantity)).ToList(), selections, delivery,
-            DiscountAllocations: discount.Allocations, GreetingCardCharged: box?.GreetingCardCharged ?? 0m);
+            DiscountAllocations: discount.Allocations, GreetingCardCharged: box?.GreetingCardCharged ?? 0m, Loyalty: loyalty);
         _ = preparation.Serialize();
         try { preparation = await ClaimPreparationAsync(cart.Id, preparation, access, command.RequireFreshCart, cancellationToken); }
         catch (DbUpdateConcurrencyException)
@@ -485,6 +508,10 @@ internal sealed class CheckoutService : ICheckoutService
                 summary.Currency = preparation.Currency; summary.Subtotal = preparation.Subtotal;
                 summary.GreetingCardCharged = preparation.GreetingCardCharged;
                 summary.DiscountTotal = preparation.DiscountTotal; summary.DiscountId = preparation.DiscountId;
+                summary.PointsAppliedValue = preparation.Loyalty?.PointsAppliedValue ?? 0m;
+                summary.LoyaltyJson = CheckoutLoyaltyData.Serialize(preparation.Loyalty is null ? null
+                    : preparation.Loyalty with { Lines = preparation.Loyalty.Lines.Select(line => line with
+                        { OrderItemId = order.Items.Single(item => item.ItemIndex == line.ItemIndex).Id }).ToList() });
                 summary.DiscountCode = preparation.DiscountCode; summary.TaxTotal = preparation.TaxTotal; summary.Total = preparation.Total;
                 summary.DiscountAllocationsJson = preparation.DiscountAllocations is null ? null
                     : DiscountAllocationSnapshot.Serialize(preparation.DiscountAllocations.Select(allocation =>
@@ -536,6 +563,7 @@ internal sealed class CheckoutService : ICheckoutService
         if (claimed.CheckoutState != CartCheckoutStates.AwaitingPayment || claimed.Status == CartStatuses.CheckedOut)
             return await ReplayAsync(claimed, claimed.OrderId ?? throw new InvalidOperationException("Checkout has no order."), ct);
         var orderId = claimed.OrderId!.Value;
+        var paymentLoyalty = CheckoutLoyaltyData.Read((await LoadChargeAsync(tenantId, orderId, ct)).LoyaltyJson);
         var recordedState = await _payments.GetStateAsync(preparation.AttemptId, ct);
         if (recordedState is not null) ValidatePaymentState(recordedState, orderId, preparation);
         var intent = recordedState is not null && (recordedState.CheckoutUrl is not null || recordedState.CanNoLongerPay
@@ -544,7 +572,7 @@ internal sealed class CheckoutService : ICheckoutService
             : await _payments.CreateGuestIntentForOrderAsync(new CreateGuestPaymentIntentForOrderCommand(orderId,
                 preparation.Total, preparation.Currency, preparation.Provider, preparation.PaymentMethodType,
                 preparation.ReturnUrl, preparation.CancelUrl, preparation.AttemptId, $"commerce:{cartId:N}:{preparation.AttemptId:N}",
-                preparation.ProviderStartDeadlineUtc), ct);
+                preparation.ProviderStartDeadlineUtc, Loyalty: paymentLoyalty), ct);
         if (intent.PaymentIntentId != preparation.AttemptId) throw new InvalidOperationException("Payment returned a different checkout attempt.");
         await _orders.LinkFundingAsync(orderId, intent.PaymentIntentId, ct);
         var state = await _payments.GetStateAsync(preparation.AttemptId, ct);
@@ -683,7 +711,8 @@ internal sealed class CheckoutService : ICheckoutService
                     cart.OrderId!.Value, preparation.Total, preparation.Currency, preparation.Provider,
                     preparation.PaymentMethodType, preparation.ReturnUrl, preparation.CancelUrl,
                     preparation.AttemptId, $"commerce:{cartId:N}:{preparation.AttemptId:N}",
-                    preparation.ProviderStartDeadlineUtc), cancellationToken);
+                    preparation.ProviderStartDeadlineUtc,
+                    Loyalty: CheckoutLoyaltyData.Read((await LoadChargeAsync(cart.TenantId, cart.OrderId.Value, cancellationToken)).LoyaltyJson)), cancellationToken);
                 state = await _payments.GetStateAsync(expectedPaymentIntentId, cancellationToken);
             }
             if (state is null) return;
@@ -768,7 +797,8 @@ internal sealed class CheckoutService : ICheckoutService
         var expired = cart.CheckoutPreparationJson is not null && DeadlinePassed(CheckoutPreparation.Read(cart));
         return new(orderId, summary.InvoiceId, summary.PaymentIntentId, summary.PaymentStatus, summary.Subtotal,
             summary.DiscountTotal, summary.TaxTotal, summary.Total, summary.Currency,
-            expired ? null : summary.PaymentClientSecret, expired ? null : summary.PaymentCheckoutUrl, GuestOrderToken(cart));
+            expired ? null : summary.PaymentClientSecret, expired ? null : summary.PaymentCheckoutUrl, GuestOrderToken(cart),
+            CheckoutLoyaltyData.ForOrder(summary, cart));
     }
 
     private void DetachCheckout(Guid cartId, CheckoutPreparation? preparation, Guid? orderId = null)

@@ -59,7 +59,7 @@ public class ClamAvScannerTests
     [Fact]
     public async Task Scan_Should_TimeOut_UnresponsiveScanner()
     {
-        await using var server = new ScriptedClamAvServer(holdResponse: true);
+        await using var server = new ScriptedClamAvServer(holdResponse: true, timeoutSeconds: 1);
 
         var action = () => server.Scanner.ScanAsync(new byte[] { 1 });
 

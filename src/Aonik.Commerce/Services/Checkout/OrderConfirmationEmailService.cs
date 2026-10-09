@@ -61,7 +61,11 @@ internal sealed class OrderConfirmationEmailService(
             ["purchaser_name"] = $"{delivery.PurchaserFirstName} {delivery.PurchaserLastName}".Trim(),
             ["currency"] = summary.Currency,
             ["subtotal"] = Amount(summary.Subtotal),
-            ["discount_total"] = Amount(summary.DiscountTotal),
+            // Existing customised templates have one discount row; its total must still reconcile.
+            ["discount_total"] = Amount(summary.DiscountTotal + summary.PointsAppliedValue),
+            ["coupon_discount_total"] = Amount(summary.DiscountTotal),
+            ["points_applied_value"] = Amount(summary.PointsAppliedValue),
+            ["has_points_redemption"] = summary.PointsAppliedValue > 0m,
             ["tax_total"] = Amount(summary.TaxTotal),
             ["delivery_total"] = Amount(order.Items.Where(item => item.ItemType == CheckoutService.DeliveryFeeItemType).Sum(item => item.AmountIn)),
             ["total"] = Amount(summary.Total),

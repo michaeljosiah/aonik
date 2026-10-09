@@ -21,6 +21,7 @@ using Aonik.Ordering.Services;
 using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Payments;
+using Aonik.SharedKernel.Abstractions.Loyalty;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -460,6 +461,36 @@ public class MarginReportServiceTests
         report.Aggregate.KnownCogsRevenue.Should().Be(0m);
         report.Aggregate.MarginPct.Should().BeNull();
         report.Aggregate.UnknownCogsRevenue.Should().Be(2_900m);
+    }
+
+    [Fact]
+    public async Task GetMarginReport_Should_SubtractSavedPointsOnlyFromTheirAllocatedGoods()
+    {
+        var h = new Harness();
+        var (product, eligible) = await h.SeedSimpleAsync("Reward eligible", 20m);
+        var (_, excluded) = await h.SeedSimpleAsync("No rewards", 20m);
+        await h.Discounts().CreateAsync(new CreateDiscountCommand("COUPON", DiscountKinds.FixedAmount,
+            10m, "GBP", EligibleProductIds: [product]));
+        var checkout = await h.CheckoutAsync(FromUtc.AddDays(1), true, discountCode: "COUPON",
+            lines: [(eligible, 1m), (excluded, 1m)]);
+        var order = (await h.Orders().GetAsync(checkout.OrderId))!;
+        var item = order.Items.Single(line => line.ProductId == eligible);
+        await using (var context = h.Commerce())
+        {
+            var summary = await context.OrderChargeSummaries.SingleAsync();
+            summary.PointsAppliedValue = 4m;
+            summary.Total -= 4m;
+            summary.LoyaltyJson = CheckoutLoyaltyData.Serialize(new LoyaltyCheckout(Guid.NewGuid(), Guid.NewGuid(), false,
+                "saved", new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()), 400, 12, 4, 30,
+                [new(item.ItemIndex, item.Id, item.ItemType, product, 20, 10, 4, 0, 6, 6, 12, 400, true, true)], 26));
+            await context.SaveChangesAsync();
+        }
+
+        var report = await h.ReportAsync();
+
+        report.Rows.Single(row => row.ProductVariantId == eligible).Revenue.Should().Be(6m);
+        report.Rows.Single(row => row.ProductVariantId == excluded).Revenue.Should().Be(20m);
+        report.Aggregate.Revenue.Should().Be(26m);
     }
 
     // ── §8 — the revenue-inclusion rule: only payment-completed orders count ─────────────────────

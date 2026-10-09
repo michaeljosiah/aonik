@@ -645,6 +645,7 @@ export interface AdminOrderPackingDto {
 export interface AdminOrderChargeDto {
   subtotal: number;
   discountTotal: number;
+  pointsAppliedValue?: number;
   discountCode: string | null;
   taxTotal: number;
   total: number;

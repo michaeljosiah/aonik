@@ -35,7 +35,8 @@ public record StorefrontOrderSummaryDto(
     decimal DiscountTotal = 0m,
     IReadOnlyList<StorefrontOrderSelectionDto>? Selections = null,
     string? FulfilmentStatus = null,
-    string? HistoryGroup = null);
+    string? HistoryGroup = null,
+    decimal PointsAppliedValue = 0m);
 
 public record StorefrontOrderItemDto(
     string ItemType,
@@ -74,7 +75,8 @@ public record StorefrontOrderDetailDto(
     OrderDeliveryDto? Delivery = null,
     string? OrderNumber = null,
     string? DiscountCode = null,
-    string? FulfilmentStatus = null);
+    string? FulfilmentStatus = null,
+    OrderLoyaltyDto? Loyalty = null);
 
 internal sealed class StorefrontOrderService : IStorefrontOrderService
 {
@@ -110,7 +112,7 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
                 c => c.OrderId!.Value,
                 s => s.OrderId,
                 (c, s) => new { s.OrderId, c.BoxSize, s.Currency, s.Total, s.CreatedAt,
-                    s.PaymentStatus, s.DiscountCode, s.DiscountTotal });
+                    s.PaymentStatus, s.DiscountCode, s.DiscountTotal, s.PointsAppliedValue });
 
         var totalCount = await joined.CountAsync(cancellationToken);
         var rows = await joined
@@ -157,7 +159,8 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
                 order.OrderNumber, row.PaymentStatus, row.DiscountCode, row.DiscountTotal,
                 selectionsByOrder.GetValueOrDefault(row.OrderId) ?? [],
                 OrderFulfilmentData.Status(deliveryDates.GetValueOrDefault(row.OrderId)?.FulfilmentStatus, row.PaymentStatus, order.Status),
-                OrderFulfilmentData.HistoryGroup(deliveryDates.GetValueOrDefault(row.OrderId)?.FulfilmentStatus, row.PaymentStatus, order.Status)));
+                OrderFulfilmentData.HistoryGroup(deliveryDates.GetValueOrDefault(row.OrderId)?.FulfilmentStatus, row.PaymentStatus, order.Status),
+                row.PointsAppliedValue));
         }
 
         return new Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>(results, totalCount, page, pageSize);
@@ -173,7 +176,7 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             .FirstOrDefaultAsync(
                 c => c.TenantId == tenantId && c.BuyerPartyId == partyId && c.OrderId == orderId,
                 cancellationToken);
-        return cart is null ? null : await GetDetailAsync(tenantId, orderId, cart.BoxSize, cancellationToken);
+        return cart is null ? null : await GetDetailAsync(tenantId, orderId, cart, cancellationToken);
     }
 
     public async Task<StorefrontOrderDetailDto?> GetGuestOrderAsync(Guid orderId, string? token, CancellationToken cancellationToken = default)
@@ -183,11 +186,11 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
 
         var cart = await _dbContext.Carts.AsNoTracking()
             .FirstOrDefaultAsync(c => c.TenantId == tenantId && c.OrderId == orderId, cancellationToken);
-        return cart is null ? null : await GetDetailAsync(tenantId, orderId, cart.BoxSize, cancellationToken);
+        return cart is null ? null : await GetDetailAsync(tenantId, orderId, cart, cancellationToken);
     }
 
     // Both callers authorize first; this projection contains no payment secrets or raw order metadata.
-    private async Task<StorefrontOrderDetailDto?> GetDetailAsync(Guid tenantId, Guid orderId, int? boxSize, CancellationToken cancellationToken)
+    private async Task<StorefrontOrderDetailDto?> GetDetailAsync(Guid tenantId, Guid orderId, Entities.Cart.Cart cart, CancellationToken cancellationToken)
     {
         var order = await _orders.GetAsync(orderId, cancellationToken);
         var summary = await _dbContext.OrderChargeSummaries
@@ -219,7 +222,7 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             summary.DiscountTotal,
             summary.TaxTotal,
             summary.Total,
-            boxSize,
+            cart.BoxSize,
             order.Items
                 .OrderBy(i => i.ItemIndex)
                 .Select(i => new StorefrontOrderItemDto(i.ItemType, i.Quantity, i.UnitPrice, i.AmountIn, i.Sku, i.NameSnapshot, i.ItemIndex))
@@ -227,6 +230,7 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             selections,
             summary.PaymentStatus,
             delivery is null ? null : OrderDeliveryMapper.Map(delivery), order.OrderNumber, summary.DiscountCode,
-            OrderFulfilmentData.Status(delivery?.FulfilmentStatus, summary.PaymentStatus, order.Status));
+            OrderFulfilmentData.Status(delivery?.FulfilmentStatus, summary.PaymentStatus, order.Status),
+            CheckoutLoyaltyData.ForOrder(summary, cart));
     }
 }

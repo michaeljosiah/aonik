@@ -12,4 +12,5 @@ public record SaveCheckoutDraftRequest(
     CartGiftDraftDto? Gift = null,
     bool CreateAccount = false,
     string? DiscountCode = null,
-    string? AcceptedTermsVersion = null);
+    string? AcceptedTermsVersion = null,
+    long RequestedPoints = 0);

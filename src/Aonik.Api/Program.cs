@@ -186,7 +186,9 @@ app.Use(async (context, next) =>
         || context.Request.Path.StartsWithSegments("/identity/email-change")
         || context.Request.Path.StartsWithSegments("/identity/password/forgot")
         || context.Request.Path.StartsWithSegments("/profiles/customers/me/email")
-        || context.Request.Path.StartsWithSegments("/profiles/customers/me/addresses"))
+        || context.Request.Path.StartsWithSegments("/profiles/customers/me/addresses")
+        || context.Request.Path.StartsWithSegments("/commerce/storefront/loyalty")
+        || context.Request.Path.StartsWithSegments("/commerce/admin/loyalty"))
     {
         context.Response.OnStarting(() =>
         {

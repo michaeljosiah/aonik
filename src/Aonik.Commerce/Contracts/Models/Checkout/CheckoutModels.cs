@@ -69,7 +69,10 @@ public record CheckoutResult(
     string Currency,
     string? ClientSecret = null,
     string? CheckoutUrl = null,
-    string? GuestOrderToken = null);
+    string? GuestOrderToken = null,
+    OrderLoyaltyDto? Loyalty = null);
+
+public record OrderLoyaltyDto(long RedeemedPoints, decimal AppliedValue, long? EarnedPoints, string EarningStatus);
 
 public record CartPaymentStateDto(Guid? OrderId, Guid? PaymentIntentId, string Status, bool CanEdit,
     string CartVersion, string? CheckoutUrl = null);

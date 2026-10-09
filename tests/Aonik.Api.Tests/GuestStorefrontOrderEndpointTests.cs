@@ -53,8 +53,9 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         body.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(
         [
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal",
-            "total", "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus",
+            "total", "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus", "loyalty",
         ]);
+        body.GetProperty("loyalty").ValueKind.Should().Be(JsonValueKind.Null);
         var delivery = body.GetProperty("delivery");
         delivery.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(new[]
             { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes", "gift", "saleTerms" });

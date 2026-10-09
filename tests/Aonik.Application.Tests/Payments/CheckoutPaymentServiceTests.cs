@@ -360,7 +360,7 @@ public class CheckoutPaymentServiceTests
         using var test = new CheckoutPaymentTestHarness();
         await test.SeedOrderAsync();
         var other = new CheckoutPaymentService(test.Db, new TestTenantProvider(Guid.NewGuid()), test.Connectors.Object,
-            [test.Gateway], test.Reconciler.Object, test.Clock.Object, NullLogger<CheckoutPaymentService>.Instance);
+            [test.Gateway], test.Reconciler.Object, test.Clock.Object, NullLogger<CheckoutPaymentService>.Instance, test.ScopeFactory);
 
         await other.Invoking(s => s.CreateAsync(test.Request)).Should().ThrowAsync<NotFoundException>();
         (await other.GetStateAsync(test.AttemptId)).Should().BeNull();

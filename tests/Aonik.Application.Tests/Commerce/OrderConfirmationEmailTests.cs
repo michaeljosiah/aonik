@@ -79,6 +79,24 @@ public class OrderConfirmationEmailTests
             .And.NotContain("personalisation-private-json");
     }
 
+    [Fact]
+    public async Task SendAsync_Should_ReconcileLegacyDiscountRows_AndExposeSeparateLoyaltyFields()
+    {
+        using var fixture = new Fixture();
+        await fixture.SeedAsync();
+        fixture.Summary.DiscountTotal = 4m;
+        fixture.Summary.PointsAppliedValue = 5m;
+        await fixture.Context.SaveChangesAsync();
+
+        await fixture.Service().SendAsync(fixture.OrderId, fixture.PaymentId);
+
+        var model = fixture.Sent.Should().ContainSingle().Subject.Model;
+        model["discount_total"].Should().Be("9.00");
+        model["coupon_discount_total"].Should().Be("4.00");
+        model["points_applied_value"].Should().Be("5.00");
+        model["has_points_redemption"].Should().Be(true);
+    }
+
     [Theory]
     [InlineData("Pending", CartStatuses.CheckedOut, OrderStatusCodes.Complete, true)]
     [InlineData("Refunded", CartStatuses.CheckedOut, OrderStatusCodes.Complete, true)]
