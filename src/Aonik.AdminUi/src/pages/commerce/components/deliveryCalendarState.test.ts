@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { availabilityLabel, blankDeliveryCalendar, calendarDraft, calendarGrid, capacityRequest, initialCalendarMonth, isCalendarDate, isCalendarDirty, monthDates } from './deliveryCalendarState';
 
 describe('delivery calendar drafts', () => {
+  it('selects, shades and removes the lowercase weekday names returned by the API', () => {
+    const saved = { ...blankDeliveryCalendar(), deliveryDays: ['thursday'], cutoffDayOfWeek: 'monday' };
+    const draft = calendarDraft(saved);
+    expect(draft.deliveryDays).toEqual(['Thursday']);
+    expect(draft.cutoffDayOfWeek).toBe('Monday');
+    expect(isCalendarDirty(draft, saved)).toBe(false);
+    expect(calendarGrid('2026-10', draft, null, false).days[0].kind).toBe('delivery');
+    const removed = { ...draft, deliveryDays: draft.deliveryDays.filter((day) => day !== 'Thursday') };
+    expect(removed.deliveryDays).toEqual([]);
+    expect(isCalendarDirty(removed, saved)).toBe(true);
+    expect(calendarGrid('2026-10', removed, null, true).days[0].kind).toBe('plain');
+    expect(calendarDraft({ ...saved, deliveryDays: ['thursday', 'Thursday'] }).deliveryDays).toEqual(['Thursday']);
+  });
+
   it('treats reordered dates and weekdays, daily null and minute/second time forms as unchanged', () => {
     const saved = { ...blankDeliveryCalendar(), deliveryDays: ['Thursday', 'Monday'], blackoutDates: ['2026-12-25', '2026-12-24'], cutoffLocalTime: '12:30:00' };
     const edited = { ...saved, deliveryDays: ['Monday', 'Thursday'], blackoutDates: ['2026-12-24', '2026-12-25'], cutoffDayOfWeek: '', cutoffLocalTime: '12:30' };

@@ -4,15 +4,20 @@ import type { MonthGridDay } from './monthGridMath';
 
 export const deliveryWeekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+function weekdayName(value: string): string {
+  const day = value.trim();
+  return deliveryWeekdays.find((name) => name.toLowerCase() === day.toLowerCase()) ?? day;
+}
+
 export const blankDeliveryCalendar = (): UpsertFulfilmentCalendarRequest => ({
   timezone: '', deliveryDays: [], cutoffLocalTime: '12:00:00', cutoffDayOfWeek: null,
   leadDays: 0, blackoutDates: [], isActive: false,
 });
 
 export function calendarDraft(value: UpsertFulfilmentCalendarRequest): UpsertFulfilmentCalendarRequest {
-  return { timezone: value.timezone.trim(), deliveryDays: [...new Set(value.deliveryDays)].sort(),
+  return { timezone: value.timezone.trim(), deliveryDays: [...new Set(value.deliveryDays.map(weekdayName))].sort(),
     cutoffLocalTime: value.cutoffLocalTime.length === 5 ? `${value.cutoffLocalTime}:00` : value.cutoffLocalTime,
-    cutoffDayOfWeek: value.cutoffDayOfWeek || null, leadDays: value.leadDays,
+    cutoffDayOfWeek: value.cutoffDayOfWeek?.trim() ? weekdayName(value.cutoffDayOfWeek) : null, leadDays: value.leadDays,
     blackoutDates: [...new Set(value.blackoutDates)].sort(), isActive: value.isActive };
 }
 

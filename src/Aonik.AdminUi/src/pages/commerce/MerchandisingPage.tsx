@@ -93,7 +93,8 @@ function MerchandisingWorkspace({ tenantId, controller }: { tenantId: string; co
   }, [revision, requestConfig, isCurrent]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    // A mutation response already supplies this detail; a later read could replace a fresh draft.
+    if (!selectedId || detail?.id === selectedId) return;
     let cancelled = false;
     void commerceStorefrontService.getCollection(selectedId, requestConfig).then((value) => {
       if (!cancelled && isCurrent()) { setDetail(value); setDetailError(null); setEditorRevision((current) => current + 1); }
@@ -101,7 +102,7 @@ function MerchandisingWorkspace({ tenantId, controller }: { tenantId: string; co
       if (!cancelled && isCurrent()) setDetailError(merchandisingError(err, 'The collection could not be loaded.'));
     });
     return () => { cancelled = true; };
-  }, [selectedId, detailRevision, requestConfig, isCurrent]);
+  }, [selectedId, detail?.id, detailRevision, requestConfig, isCurrent]);
 
   const selected = detail?.id === selectedId ? detail : null;
   const isExtras = configReady ? !!selected && selected.slug.toLowerCase() === extrasSlug?.toLowerCase() : null;
