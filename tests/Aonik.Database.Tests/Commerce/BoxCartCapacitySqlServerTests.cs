@@ -84,7 +84,8 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
             settings,
             settings,
             new GbpCurrency(),
-            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock());
+            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock(),
+            DiscountQuoteTestFactory.Create(context, tenantId, new WallClock()));
     }
 
     [SkippableFact]
@@ -175,7 +176,8 @@ public class BoxCartCapacitySqlServerTests : IClassFixture<SqlLocalDbFixture>
         var unchanged = await boxes.GetAsync(created.Box.CartId, CartAccessContext.ForGuest(created.CartToken));
         unchanged.CartVersion.Should().Be(repaired.CartVersion, "an unchanged GET does not write or renew the draft");
         var tenant = new TestTenantProvider(tenantId);
-        var stale = () => new CartService(context, tenant, new ProductPricingService(context, tenant, new WallClock()), new WallClock())
+        var stale = () => new CartService(context, tenant, new ProductPricingService(context, tenant, new WallClock()), new WallClock(),
+                DiscountQuoteTestFactory.Create(context, tenantId, new WallClock()))
             .SaveCheckoutDraftAsync(created.Box.CartId, new CartCheckoutDraftDto(Notes: "Stale before repair"),
                 CartAccessContext.ForGuest(created.CartToken, populated.CartVersion));
         await stale.Should().ThrowAsync<CartWriteConflictException>();

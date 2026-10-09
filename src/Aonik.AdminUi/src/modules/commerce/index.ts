@@ -6,6 +6,7 @@ import {
   CommerceOrdersPage,
   CommerceOverviewPage,
   CommerceProductsPage,
+  CommerceDiscountsPage,
   DeliveryCalendarPage,
   MerchandisingPage,
   PersonalisationPage,
@@ -43,6 +44,7 @@ const navigation: NavigationSection[] = [
 const routes: ModuleRouteConfig[] = [
   { screen: { id: 'commerce.overview', label: 'Commerce', permissions: { authenticatedAdmin: true } }, path: '/commerce', element: CommerceOverviewPage },
   { screen: { id: 'commerce.products', label: 'Products', permissions: { authenticatedAdmin: true } }, path: '/commerce/products', element: CommerceProductsPage },
+  { screen: { id: 'commerce.discounts', label: 'Discount codes', permissions: { authenticatedAdmin: true } }, path: '/commerce/discounts', element: CommerceDiscountsPage },
   { screen: { id: 'commerce.product-detail', label: 'Product', permissions: { authenticatedAdmin: true } }, path: '/commerce/products/:productId', element: CommerceProductsPage, isDynamic: true },
   { screen: { id: 'commerce.personalisation', label: 'Personalisation', permissions: { authenticatedAdmin: true } }, path: '/commerce/personalisation', element: PersonalisationPage },
   { screen: { id: 'commerce.content', label: 'Product content', permissions: { authenticatedAdmin: true } }, path: '/commerce/content', element: ProductContentPage },
@@ -62,6 +64,7 @@ const routes: ModuleRouteConfig[] = [
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
   { pathPrefix: '/commerce/products', trail: [{ label: 'Commerce', href: '/commerce' }, 'Products'] },
+  { pathPrefix: '/commerce/discounts', trail: [{ label: 'Commerce', href: '/commerce' }, 'Discount codes'] },
   { pathPrefix: '/commerce/personalisation', trail: [{ label: 'Commerce', href: '/commerce' }, 'Personalisation'] },
   { pathPrefix: '/commerce/content', trail: [{ label: 'Commerce', href: '/commerce' }, 'Product content'] },
   { pathPrefix: '/commerce/box-plans', trail: [{ label: 'Commerce', href: '/commerce' }, 'Box plans'] },

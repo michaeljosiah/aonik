@@ -179,22 +179,6 @@ internal sealed class CheckoutService : ICheckoutService
             throw new StorefrontValidationException(
                 "The goods total for this box is zero or below; it cannot be checked out.");
         }
-        var discount = await _discounts.ComputeAsync(command.DiscountCode ?? draft?.DiscountCode, subtotal, cart.Currency, cancellationToken);
-        var taxable = subtotal - discount.Amount;
-        var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
-        var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
-        if (total <= 0)
-        {
-            throw new StorefrontValidationException(
-                "The payable total for this cart is zero or below; it cannot be checked out.");
-        }
-
-        if (!string.Equals(command.Provider, "Stripe", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(command.PaymentMethodType, "Card", StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(cart.Currency, "GBP", StringComparison.OrdinalIgnoreCase)
-            || total < 0.30m || total > 999999.99m || decimal.Truncate(total * 100m) != total * 100m)
-            throw new StorefrontValidationException("Checkout supports Stripe card payments in GBP, in whole pennies from 0.30 to 999999.99.");
-
         // Freeze the authoritative stock and order inputs before claiming checkout.
         var reservationLines = new List<InventoryReservationLine>();
         foreach (var item in cart.Items)
@@ -287,6 +271,23 @@ internal sealed class CheckoutService : ICheckoutService
             }
         }
 
+        var code = command.DiscountCode ?? draft?.DiscountCode;
+        var discountLines = string.IsNullOrWhiteSpace(code) ? Array.Empty<DiscountChargeLine>()
+            : await CheckoutDiscountLines.FromOrderItemsAsync(_dbContext, tenantId, orderItems, cancellationToken);
+        var discount = await _discounts.ComputeAsync(code, discountLines, cart.Currency, cancellationToken);
+        var taxable = subtotal - discount.Amount;
+        var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
+        var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
+        if (!string.IsNullOrWhiteSpace(code) && command.ExpectedTotal != total)
+            throw new DiscountException(DiscountException.PriceChanged);
+        if (total <= 0)
+            throw new StorefrontValidationException("The payable total for this cart is zero or below; it cannot be checked out.");
+        if (!string.Equals(command.Provider, "Stripe", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(command.PaymentMethodType, "Card", StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(cart.Currency, "GBP", StringComparison.OrdinalIgnoreCase)
+            || total < 0.30m || total > 999999.99m || decimal.Truncate(total * 100m) != total * 100m)
+            throw new StorefrontValidationException("Checkout supports Stripe card payments in GBP, in whole pennies from 0.30 to 999999.99.");
+
         if (cart.BuyerPartyId is null && delivery is null)
             throw new StorefrontValidationException("Purchaser contact details are required for guest payment.");
         if (cart.CheckoutState == CartCheckoutStates.Retryable && command.CustomerAccountId is not null)
@@ -315,7 +316,8 @@ internal sealed class CheckoutService : ICheckoutService
         var preparation = new CheckoutPreparation(Guid.NewGuid(), guestPartyId, cart.Currency,
             command.Provider, command.PaymentMethodType, command.ReturnUrl, command.CancelUrl, command.CustomerAccountId,
             subtotal, discount.Amount, discount.DiscountId, discount.Code, tax, total, orderItems, invoiceLines,
-            reservationLines.Select(line => new CheckoutStockLine(line.Item.Id, line.Quantity)).ToList(), selections, delivery);
+            reservationLines.Select(line => new CheckoutStockLine(line.Item.Id, line.Quantity)).ToList(), selections, delivery,
+            DiscountAllocations: discount.Allocations);
         _ = preparation.Serialize();
         try { preparation = await ClaimPreparationAsync(cart.Id, preparation, access, command.RequireFreshCart, cancellationToken); }
         catch (DbUpdateConcurrencyException)
@@ -362,6 +364,16 @@ internal sealed class CheckoutService : ICheckoutService
                     {
                         CreateAccount = current.BuyerPartyId is null && CartDraftData.Read(current)?.CreateAccount == true
                     };
+                    if (preparation.DiscountId is not null)
+                    {
+                        var lines = await CheckoutDiscountLines.FromOrderItemsAsync(_dbContext, current.TenantId,
+                            preparation.Items, ct);
+                        var reservationId = await _discounts.ReserveTrackedAsync(cartId, preparation.AttemptId,
+                            preparation.DiscountCode, lines, preparation.Currency,
+                            new DiscountComputation(preparation.DiscountId, preparation.DiscountCode,
+                                preparation.DiscountTotal, preparation.DiscountAllocations ?? []), ct);
+                        claimed = claimed with { DiscountReservationId = reservationId };
+                    }
                     if (current.BoxBundleProductId is not null)
                     {
                         var hold = await _deliveryReservations.BeginPaymentTrackedAsync(current,
@@ -425,7 +437,7 @@ internal sealed class CheckoutService : ICheckoutService
                 var order = await _orders.CreateAsync(new CreateOrderCommand(OrderTypeCodes.ProductPurchase,
                     cart.BuyerPartyId ?? preparation.GuestPartyId, preparation.Currency, preparation.Items,
                     IdempotencyKey: $"cart:{cart.Id:N}", ProvenanceJson: revision), token);
-                await _orders.RefreshPendingItemsAsync(order.Id, preparation.AttemptId, cart.BuyerPartyId ?? preparation.GuestPartyId, preparation.Currency, preparation.Items, token);
+                order = await _orders.RefreshPendingItemsAsync(order.Id, preparation.AttemptId, cart.BuyerPartyId ?? preparation.GuestPartyId, preparation.Currency, preparation.Items, token);
                 cart.OrderId = order.Id;
                 if (preparation.DeliveryReservationId is { } reservationId)
                     await _deliveryReservations.BindOrderTrackedAsync(cart, reservationId, preparation.AttemptId,
@@ -445,6 +457,10 @@ internal sealed class CheckoutService : ICheckoutService
                 summary.Currency = preparation.Currency; summary.Subtotal = preparation.Subtotal;
                 summary.DiscountTotal = preparation.DiscountTotal; summary.DiscountId = preparation.DiscountId;
                 summary.DiscountCode = preparation.DiscountCode; summary.TaxTotal = preparation.TaxTotal; summary.Total = preparation.Total;
+                summary.DiscountAllocationsJson = preparation.DiscountAllocations is null ? null
+                    : DiscountAllocationSnapshot.Serialize(preparation.DiscountAllocations.Select(allocation =>
+                        new OrderDiscountAllocation(order.Items.Single(item => item.ItemIndex == allocation.ItemIndex).Id,
+                            allocation.Amount)).ToList());
                 summary.InvoiceId = invoiceId; summary.PaymentIntentId = preparation.AttemptId;
                 summary.PaymentStatus = "Pending"; summary.PaymentClientSecret = null; summary.PaymentCheckoutUrl = null;
                 var oldSelections = await _dbContext.OrderBundleSelections.Where(s => s.TenantId == tenantId && s.OrderId == order.Id).ToListAsync(token);
@@ -673,6 +689,8 @@ internal sealed class CheckoutService : ICheckoutService
                 await _inventory.ReleaseAsync(cartId, ct);
                 if (preparation.DeliveryReservationId is not null)
                     await _deliveryReservations.ReleaseTrackedAsync(current, expectedPaymentIntentId, ct);
+                if (preparation.DiscountReservationId is { } discountReservationId)
+                    await _discounts.ReleaseTrackedAsync(cartId, discountReservationId, expectedPaymentIntentId, ct);
                 if (current.OrderId is { } orderId)
                 {
                     var summary = await LoadChargeAsync(current.TenantId, orderId, ct);
@@ -736,6 +754,7 @@ internal sealed class CheckoutService : ICheckoutService
         var ingredientIds = reservations.Where(row => row.IngredientId != null).Select(row => row.IngredientId!.Value).ToHashSet();
         var discountId = preparation?.DiscountId ?? _dbContext.ChangeTracker.Entries<OrderChargeSummary>()
             .FirstOrDefault(e => e.Entity.TenantId == tenantId && e.Entity.OrderId == orderId)?.Entity.DiscountId;
+        _discounts.Detach(cartId, discountId);
         foreach (var entry in _dbContext.ChangeTracker.Entries().Where(entry =>
                      entry.Entity is OrderChargeSummary summary && summary.TenantId == tenantId && summary.OrderId == orderId
                      || entry.Entity is OrderDeliveryDetails delivery && delivery.TenantId == tenantId && delivery.OrderId == orderId
@@ -743,8 +762,7 @@ internal sealed class CheckoutService : ICheckoutService
                      || entry.Entity is Entities.Inventory.InventoryReservation reservation && reservation.TenantId == tenantId && reservation.HoldRef == cartId
                      || entry.Entity is Entities.Inventory.InventoryLevel level && level.TenantId == tenantId
                         && (level.ProductVariantId is { } variantId && variantIds.Contains(variantId)
-                            || level.IngredientId is { } ingredientId && ingredientIds.Contains(ingredientId))
-                     || entry.Entity is Discount discount && discount.TenantId == tenantId && discount.Id == discountId).ToList())
+                            || level.IngredientId is { } ingredientId && ingredientIds.Contains(ingredientId))).ToList())
             entry.State = EntityState.Detached;
         CartTracking.Detach(_dbContext, tenantId, cartId);
     }
@@ -801,10 +819,14 @@ internal sealed class CheckoutService : ICheckoutService
                     if (preparation?.DeliveryReservationId is { } reservationId)
                         await _deliveryReservations.CommitTrackedAsync(cart, reservationId, completedPaymentIntentId,
                             orderId, preparation.Delivery!.DeliveryDate, ct);
+                    if (preparation?.DiscountReservationId is { } discountReservationId)
+                        await _discounts.CommitTrackedAsync(cart.Id, discountReservationId, completedPaymentIntentId,
+                            summary.DiscountId ?? throw new InvalidOperationException("The reserved discount is missing."), ct);
                     CartActivity.ServerEdit(_dbContext, cart, _clock);
                     await _dbContext.SaveChangesAsync(ct);
                     await _inventory.CommitAsync(cart.Id, ct);
-                    await _discounts.MarkRedeemedAsync(summary.DiscountId, ct);
+                    if (preparation?.DiscountReservationId is null)
+                        await _discounts.MarkRedeemedAsync(summary.DiscountId, ct);
                 }
                 if (transaction is not null) await transaction.CommitAsync(ct);
                 return true;

@@ -6,6 +6,24 @@
 
 import type { PagedResult } from '@/types';
 
+export type DiscountKind = 'Percentage' | 'FixedAmount';
+
+export interface DiscountDto {
+  id: string;
+  code: string;
+  kind: DiscountKind;
+  value: number;
+  currency: string | null;
+  isActive: boolean;
+  maxRedemptions: number | null;
+  timesRedeemed: number;
+  expiresAt: string | null;
+  /** Null applies to all eligible goods; a nonempty list restricts catalog products. */
+  eligibleProductIds: string[] | null;
+  reservedCount: number;
+  version: string;
+}
+
 // ─── Pagination ─────────────────────────────────────────────────────────────
 
 /**

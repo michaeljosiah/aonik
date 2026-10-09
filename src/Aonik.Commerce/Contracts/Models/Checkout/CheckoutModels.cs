@@ -36,7 +36,8 @@ public record CartDto(
     /// Spec 068 — set when this cart is a box session; GET then serves the §7 box payload.
     Guid? BoxBundleProductId = null,
     string CartVersion = "",
-    CartCheckoutDraftDto? CheckoutDraft = null);
+    CartCheckoutDraftDto? CheckoutDraft = null,
+    CartDiscountQuoteDto? Quote = null);
 
 public record CreateCartCommand(string Currency, Guid? BuyerPartyId = null, string? AnonymousToken = null);
 
@@ -53,7 +54,8 @@ public record CheckoutCommand(
     Guid? CustomerAccountId = null,
     string? DiscountCode = null,
     CheckoutDeliveryDetails? Delivery = null,
-    bool RequireFreshCart = false);
+    bool RequireFreshCart = false,
+    decimal? ExpectedTotal = null);
 
 public record CheckoutResult(
     Guid OrderId,

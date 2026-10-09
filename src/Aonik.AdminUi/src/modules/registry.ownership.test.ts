@@ -89,6 +89,15 @@ describe('registry route ownership', () => {
     registry = getModules();
   }, 60_000);
 
+  it.each(['base', 'food-commerce'])('exposes discount management through the %s profile and Commerce module', (businessType) => {
+    const manifest = { ...manifestWithout(), businessType };
+    const profile = resolveCurrentAdminProfile(registry, manifest);
+    expect(isProfilePathVisible(registry, profile, '/commerce/discounts')).toBe(true);
+    expect(JSON.stringify(profile?.navigation)).toContain('/commerce/discounts');
+    expect(pathRequiresBackendModule(registry, 'commerce', '/commerce/discounts')).toBe(true);
+    expect(resolveDisabledModuleForPath(registry, manifestWithout('commerce'), '/commerce/discounts')).toMatchObject({ backendModuleId: 'commerce' });
+  });
+
   it('validates the food-commerce JSON against actual classified screens', () => {
     const profile = parseAdminProfile(JSON.parse(readFileSync(
       new URL('../config/admin-profiles/food-commerce.json', import.meta.url), 'utf8',

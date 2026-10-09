@@ -255,8 +255,9 @@ internal sealed class CommerceAgentTools
         [Description("The payment method type: Card")] string paymentMethodType,
         [Description("The guest cart token from the create response")] string? cartToken = null,
         [Description("The CartVersion returned by the most recent cart read or edit")] string? expectedCartVersion = null,
+        [Description("The approved full total from the current cart quote; required when a discount code is selected")] decimal? expectedTotal = null,
         CancellationToken cancellationToken = default)
-        => _checkout.CheckoutAsync(new CheckoutCommand(cartId, provider, paymentMethodType), CartAccessContext.ForGuest(cartToken, expectedCartVersion), cancellationToken);
+        => _checkout.CheckoutAsync(new CheckoutCommand(cartId, provider, paymentMethodType, ExpectedTotal: expectedTotal), CartAccessContext.ForGuest(cartToken, expectedCartVersion), cancellationToken);
 
     [Description("Creates an ingredient (raw material) in the tenant's master. The base unit (kg, g, L, ml, or each) is the single unit all recipe quantities for this ingredient use.")]
     public Task<IngredientDto> CreateIngredient(

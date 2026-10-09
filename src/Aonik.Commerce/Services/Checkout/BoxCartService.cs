@@ -11,6 +11,7 @@ using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Inventory;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Settings;
 
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     private readonly ITenantCurrencyProvider _tenantCurrency;
     private readonly IProductPricingService _pricing;
     private readonly IClock _clock;
+    private readonly CartDiscountQuotes _discountQuotes;
 
     public BoxCartService(
         CommerceDbContext dbContext,
@@ -45,7 +47,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         ISettingProvider settings,
         ITenantCurrencyProvider tenantCurrency,
         IProductPricingService pricing,
-        IClock clock)
+        IClock clock,
+        CartDiscountQuotes discountQuotes)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -56,6 +59,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         _tenantCurrency = tenantCurrency;
         _pricing = pricing;
         _clock = clock;
+        _discountQuotes = discountQuotes;
     }
 
     /// <summary>The storefront delivery settings are denominated in the tenant's canonical
@@ -1364,6 +1368,12 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.TenantId == tenantId && x.OrderId == orderId, ct);
         }
+        if (summary is null && !CartWriteGuard.IsEditable(cart) && cart.CheckoutPreparationJson is not null)
+        {
+            var frozen = CheckoutPreparation.Read(cart);
+            summary = new OrderChargeSummary { Subtotal = frozen.Subtotal, DiscountTotal = frozen.DiscountTotal,
+                DiscountCode = frozen.DiscountCode, TaxTotal = frozen.TaxTotal, Total = frozen.Total };
+        }
 
         var quote = await BuildQuoteAsync(tenantId, cart, plan, boxLines, addOnLines, summary, ct);
 
@@ -1426,13 +1436,29 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         // K3 — a frozen view must total exactly what was charged: the recorded discount and tax
         // join as components (zero-amount components may be omitted per §7, and clients iterate
         // rather than reconstruct, so these are additive).
-        if (summary is not null && summary.DiscountTotal != 0)
+        CartDiscountQuoteDto? live = null;
+        if (summary is null)
         {
-            components.Add(new QuoteComponentDto("discount", -summary.DiscountTotal));
+            var pricedItems = new List<OrderItemCommand>
+            {
+                new(OrderTypeCodes.ProductPurchase, 0, boxPrice + personalisation + surcharges, cart.Currency,
+                    ProductId: cart.BoxBundleProductId)
+            };
+            foreach (var line in addOnLines.Where(x => !x.IsDeleted))
+                pricedItems.Add(new OrderItemCommand(OrderTypeCodes.ProductPurchase, pricedItems.Count,
+                    (line.UnitPriceSnapshot + (line.PersonalisationAdjustment ?? 0m) + (line.UnitSurcharge ?? 0m)) * line.Quantity,
+                    cart.Currency, ProductId: line.ProductVariantId));
+            live = await _discountQuotes.CalculateAsync(cart, pricedItems, deliveryCharged, CartDraftData.Read(cart)?.DiscountCode, ct);
         }
-        if (summary is not null && summary.TaxTotal != 0)
+        var discount = summary?.DiscountTotal ?? live!.DiscountTotal;
+        var tax = summary?.TaxTotal ?? live!.TaxTotal;
+        if (discount != 0)
         {
-            components.Add(new QuoteComponentDto("tax", summary.TaxTotal));
+            components.Add(new QuoteComponentDto("discount", -discount));
+        }
+        if (tax != 0)
+        {
+            components.Add(new QuoteComponentDto("tax", tax));
         }
 
         var units = TotalUnits(boxLines);
@@ -1444,7 +1470,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             units,
             size,
             Math.Max(0, size - units),
-            units == size);
+            units == size,
+            summary is not null
+                ? summary.DiscountCode is null ? null : new DiscountCodeStatusDto(summary.DiscountCode, discount)
+                : live!.Discount);
     }
 
     private static JsonElement? ParseSelection(string? canonicalJson)

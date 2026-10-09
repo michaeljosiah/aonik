@@ -226,7 +226,8 @@ public class CartDraftConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
     }
 
     private static CartService Carts(CommerceDbContext context, Guid tenantId)
-        => new(context, new TestTenantProvider(tenantId), new ProductPricingService(context, new TestTenantProvider(tenantId), Clock), Clock);
+        => new(context, new TestTenantProvider(tenantId), new ProductPricingService(context, new TestTenantProvider(tenantId), Clock), Clock,
+            DiscountQuoteTestFactory.Create(context, tenantId, Clock));
 
     private async Task<(Guid CartId, string Token, string Version, Guid VariantId)> SeedAsync(
         Guid tenantId, bool box = false, DateTime? lastActivity = null)

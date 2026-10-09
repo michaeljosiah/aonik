@@ -6,6 +6,7 @@ using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Fulfilment;
+using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
@@ -21,14 +22,17 @@ internal sealed class CartService : ICartService
     private readonly IProductPricingService _pricing;
     private readonly IClock _clock;
     private readonly DeliveryReservationService _deliveryReservations;
+    private readonly CartDiscountQuotes _discountQuotes;
 
-    public CartService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IProductPricingService pricing, IClock clock)
+    public CartService(CommerceDbContext dbContext, ITenantProvider tenantProvider, IProductPricingService pricing, IClock clock,
+        CartDiscountQuotes discountQuotes)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _pricing = pricing;
         _clock = clock;
         _deliveryReservations = new DeliveryReservationService(dbContext, tenantProvider, clock);
+        _discountQuotes = discountQuotes;
     }
 
     public async Task<CartDto> CreateCartAsync(CreateCartCommand command, CancellationToken cancellationToken = default)
@@ -48,7 +52,7 @@ internal sealed class CartService : ICartService
         };
         _dbContext.Carts.Add(cart);
         await _dbContext.SaveChangesAsync(cancellationToken);
-        return Map(cart) with { AnonymousToken = cart.AnonymousToken };
+        return Map(cart) with { AnonymousToken = cart.AnonymousToken, Quote = await _discountQuotes.SnapshotAsync(cart, null, cancellationToken) };
     }
 
     public async Task<CartDto?> GetCartAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default)
@@ -59,13 +63,76 @@ internal sealed class CartService : ICartService
             .FirstOrDefaultAsync(c => c.Id == cartId && c.TenantId == tenantId, cancellationToken);
 
         // R10 — unknown and unauthorized are the same null (→ 404); no oracle.
-        return cart is null || !CartAccess.IsAuthorized(cart, access) ? null : Map(cart);
+        if (cart is null || !CartAccess.IsAuthorized(cart, access)) return null;
+        return Map(cart) with
+        {
+            Quote = cart.BoxBundleProductId is null
+                ? await _discountQuotes.SnapshotAsync(cart, CartDraftData.Read(cart)?.DiscountCode, cancellationToken) : null
+        };
     }
 
     private async Task<CartDto> LoadDtoAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken)
         // Adoption may revoke guest access between the committed edit and this fresh read.
         => await GetCartAsync(cartId, access, cancellationToken)
             ?? throw new NotFoundException($"Cart '{cartId}' was not found.");
+
+    public async Task<CartDiscountQuoteDto> PreviewDiscountAsync(Guid cartId, string code, CartAccessContext access,
+        CancellationToken cancellationToken = default)
+    {
+        var cart = await ReadDiscountCartAsync(cartId, access, cancellationToken);
+        RequireDiscountEditable(cart);
+        return await _discountQuotes.SnapshotAsync(cart, NormalizeDiscount(code), cancellationToken);
+    }
+
+    public Task<CartDiscountQuoteDto> ApplyDiscountAsync(Guid cartId, string code, CartAccessContext access,
+        CancellationToken cancellationToken = default)
+        => ChangeDiscountAsync(cartId, code ?? "", access, cancellationToken);
+
+    public Task<CartDiscountQuoteDto> RemoveDiscountAsync(Guid cartId, CartAccessContext access,
+        CancellationToken cancellationToken = default)
+        => ChangeDiscountAsync(cartId, null, access, cancellationToken);
+
+    private async Task<CartDiscountQuoteDto> ChangeDiscountAsync(Guid cartId, string? code, CartAccessContext access, CancellationToken ct)
+    {
+        var snapshot = await ReadDiscountCartAsync(cartId, access, ct);
+        CartWriteGuard.RequireCurrent(snapshot, access);
+        if (code is not null)
+        {
+            code = NormalizeDiscount(code);
+            var candidate = await _discountQuotes.SnapshotAsync(snapshot, code, ct);
+            if (candidate.Discount?.ReasonCode is { } reason) throw new DiscountException(reason);
+        }
+        var cart = await LoadAuthorizedAsync(cartId, snapshot.TenantId, access, ct);
+        CartWriteGuard.RequireCurrent(cart, access);
+        var draft = CartDraftData.Read(cart) ?? new CartCheckoutDraftDto();
+        var json = CartDraftData.Serialize(draft with { DiscountCode = code });
+        if (cart.CheckoutDraftJson != json)
+        {
+            cart.CheckoutDraftJson = json;
+            await SaveCartEditAsync(cart, ct);
+        }
+        // The guest token can be revoked by adoption between a committed write and this read.
+        var current = await ReadDiscountCartAsync(cartId, access, ct);
+        return await _discountQuotes.SnapshotAsync(current, CartDraftData.Read(current)?.DiscountCode, ct);
+    }
+
+    private async Task<Entities.Cart.Cart> ReadDiscountCartAsync(Guid cartId, CartAccessContext access, CancellationToken ct)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var cart = await _dbContext.Carts.AsNoTracking().Include(x => x.Items)
+            .SingleOrDefaultAsync(x => x.Id == cartId && x.TenantId == tenantId, ct);
+        if (cart is null || !CartAccess.IsAuthorized(cart, access)) throw new NotFoundException("Cart was not found.");
+        return cart;
+    }
+
+    private static void RequireDiscountEditable(Entities.Cart.Cart cart)
+    {
+        if (!CartWriteGuard.IsEditable(cart))
+            throw new CartWriteConflictException(cart, "commerce.cart_locked", "This cart is no longer editable. Reload its current state.");
+    }
+
+    private static string NormalizeDiscount(string? code)
+        => DiscountService.NormalizeCode(code) ?? throw new DiscountException(DiscountException.Invalid);
 
     public async Task<CartCheckoutDraftResponse> SaveCheckoutDraftAsync(Guid cartId, CartCheckoutDraftDto draft,
         CartAccessContext access, CancellationToken cancellationToken = default)

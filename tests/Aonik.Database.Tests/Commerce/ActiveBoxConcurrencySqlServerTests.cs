@@ -256,7 +256,8 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
     }
 
     private static CartService NewCarts(CommerceDbContext context, Guid tenantId) => new(context,
-        new TestTenantProvider(tenantId), new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock());
+        new TestTenantProvider(tenantId), new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock(),
+        DiscountQuoteTestFactory.Create(context, tenantId, new WallClock()));
 
     private static BoxCartService NewBoxes(CommerceDbContext context, Guid tenantId)
     {
@@ -269,7 +270,7 @@ public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IC
             new OptionSelectionService(context, CommerceSqlServerHarness.CreateOptionService(context, tenantId), tenant),
             new InventoryService(context, tenant, new TenantContext { TenantId = tenantId }, clock),
             Mock.Of<ITenantSettingStore>(), Mock.Of<ISettingProvider>(), currency.Object,
-            new ProductPricingService(context, tenant, clock), clock);
+            new ProductPricingService(context, tenant, clock), clock, DiscountQuoteTestFactory.Create(context, tenantId, clock));
     }
 
     private async Task<BoxCartDto> CreateBoxAsync(Guid tenantId, Guid bundleId, Guid? partyId = null)

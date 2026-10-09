@@ -182,6 +182,15 @@ app.Use(async (context, next) =>
         });
     }
 
+    if (context.Request.Path.StartsWithSegments("/commerce/admin/discounts"))
+    {
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            return Task.CompletedTask;
+        });
+    }
+
     if (context.Request.Path.StartsWithSegments("/commerce/carts")
         || context.Request.Path.StartsWithSegments("/commerce/delivery")
         || context.Request.Path.StartsWithSegments("/commerce/admin/delivery-coverage")

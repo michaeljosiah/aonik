@@ -15,6 +15,12 @@ public interface ICartService
     Task<CartDto?> GetCartAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default);
     Task<CartCheckoutDraftResponse> SaveCheckoutDraftAsync(Guid cartId, CartCheckoutDraftDto draft,
         CartAccessContext access, CancellationToken cancellationToken = default);
+    Task<CartDiscountQuoteDto> PreviewDiscountAsync(Guid cartId, string code, CartAccessContext access,
+        CancellationToken cancellationToken = default);
+    Task<CartDiscountQuoteDto> ApplyDiscountAsync(Guid cartId, string code, CartAccessContext access,
+        CancellationToken cancellationToken = default);
+    Task<CartDiscountQuoteDto> RemoveDiscountAsync(Guid cartId, CartAccessContext access,
+        CancellationToken cancellationToken = default);
     Task<CartDto> AddItemAsync(AddCartItemCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 
     /// <summary>Adds a validated build-your-own-box selection as a single bundle line (§12).</summary>

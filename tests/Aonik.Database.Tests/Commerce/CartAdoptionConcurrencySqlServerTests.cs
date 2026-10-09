@@ -33,7 +33,8 @@ public class CartAdoptionConcurrencySqlServerTests : IClassFixture<SqlLocalDbFix
 
     private CartService NewCarts(Aonik.Commerce.Persistence.CommerceDbContext context, Guid tenantId)
         => new(context, new TestTenantProvider(tenantId),
-            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock());
+            new ProductPricingService(context, new TestTenantProvider(tenantId), new WallClock()), new WallClock(),
+            DiscountQuoteTestFactory.Create(context, tenantId, new WallClock()));
 
     [SkippableFact]
     public async Task SamePartyDoubleSubmit_Should_StayIdempotent_AcrossTheRace()

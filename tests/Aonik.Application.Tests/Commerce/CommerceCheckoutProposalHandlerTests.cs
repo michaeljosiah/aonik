@@ -33,18 +33,20 @@ public class CommerceCheckoutProposalHandlerTests
         harness.Payments.Calls.Should().Be(1);
     }
 
-    [Fact]
-    public async Task HandleAsync_Should_ExecutePreciselyApprovedCartVersion()
+    [Theory]
+    [InlineData(null)]
+    [InlineData(18)]
+    public async Task HandleAsync_Should_ExecutePreciselyApprovedCartVersionAndTotal(decimal? expectedTotal)
     {
         var cartId = Guid.NewGuid();
         var orderId = Guid.NewGuid();
         var checkout = new Mock<ICheckoutService>(MockBehavior.Strict);
-        var approvedCommand = new CheckoutCommand(cartId, "Stripe", "Card", RequireFreshCart: true);
+        var approvedCommand = new CheckoutCommand(cartId, "Stripe", "Card", RequireFreshCart: true, ExpectedTotal: expectedTotal);
         checkout.Setup(c => c.CheckoutAsync(approvedCommand,
                 CartAccessContext.ForGuest("guest-token", "approved-version"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new CheckoutResult(orderId, null, Guid.NewGuid(), "Pending", 20, 0, 0, 20, "GBP"));
         var payload = JsonSerializer.Serialize(new { cartId, provider = "Stripe", paymentMethodType = "Card",
-            cartToken = "guest-token", expectedCartVersion = "approved-version" });
+            cartToken = "guest-token", expectedCartVersion = "approved-version", expectedTotal });
 
         var result = await new CommerceCheckoutProposalHandler(checkout.Object).HandleAsync(Proposal(payload), default);
 

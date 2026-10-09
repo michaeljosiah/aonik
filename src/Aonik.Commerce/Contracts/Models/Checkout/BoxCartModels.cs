@@ -65,7 +65,8 @@ public record BoxQuoteDto(
     int UnitsSelected,
     int BoxSize,
     int SpacesLeft,
-    bool IsFull);
+    bool IsFull,
+    DiscountCodeStatusDto? Discount = null);
 
 /// <summary>A customer-visible catalogue-drift notice (§8) — remaps, drops, merges, unavailable
 /// flags. The storefront tells the customer what changed and why.</summary>

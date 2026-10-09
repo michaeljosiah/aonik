@@ -35,7 +35,8 @@ public class CheckoutEndpoint : Endpoint<CheckoutRequest, CheckoutResult>
                 req.CancelUrl,
                 req.CustomerAccountId,
                 req.DiscountCode,
-                req.Delivery),
+                req.Delivery,
+                ExpectedTotal: req.ExpectedTotal),
             await CartRequestAccess.FromAsync(HttpContext, ct), ct);
         await Send.OkAsync(result, ct);
     }

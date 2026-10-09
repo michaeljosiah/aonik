@@ -24,6 +24,7 @@ public class Discount : AuditableEntity, ITenantScoped
     public int? MaxRedemptions { get; set; }
     public int TimesRedeemed { get; set; }
     public DateTime? ExpiresAt { get; set; }
+    public string? EligibleProductIdsJson { get; set; }
 }
 
 /// <summary>Known values for <see cref="Discount.Kind"/>.</summary>
