@@ -24,9 +24,13 @@ public record StorefrontConfigDto(
     /// "no box plan to render".
     StorefrontBoxPlanDto? Box,
     /// A configured greeting-card offer; null means unavailable. Its currency is explicit.
-    GreetingCardPriceDto? GreetingCard = null);
+    GreetingCardPriceDto? GreetingCard = null,
+    SaleTermsDto? SaleTerms = null,
+    string? SignatureTag = null);
 
 public record GreetingCardPriceDto(decimal Amount, string Currency);
+
+public record SaleTermsDto(string Version, string Url);
 
 /// <summary>Delivery DISPLAY amounts. ListAmount is what the storefront shows (e.g. struck
 /// through); ChargedAmount is what checkout actually charges (0 renders as free delivery).</summary>

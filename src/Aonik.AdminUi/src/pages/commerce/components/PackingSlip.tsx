@@ -10,7 +10,7 @@ export function PackingSlip({ packing }: { packing: AdminOrderPackingDto }) {
     <article className="space-y-5 break-words" aria-label="Packing slip">
       <header>
         <h1 className="text-xl font-semibold">{packing.gift ? 'Gift box packing slip' : 'Packing slip'}</h1>
-        <p className="text-sm">Order {packing.orderId}</p>
+        <p className="text-sm">Order {packing.orderNumber ?? packing.orderId}</p>
         {packing.boxSize != null && <p>Box of {packing.boxSize}</p>}
       </header>
       {packing.recipient && <section><h2 className="font-semibold">Recipient</h2><p>{packing.recipient.name}</p><p>{packing.recipient.phone}</p></section>}
@@ -26,11 +26,12 @@ export function PackingSlip({ packing }: { packing: AdminOrderPackingDto }) {
           {packing.items.filter(item => item.itemType !== 'DeliveryFee').map(item => {
             const price = packing.prices?.items.find(line => line.itemIndex === item.itemIndex);
             return <li key={item.itemIndex} className="break-inside-avoid">
-              <p>{item.quantity != null && `${item.quantity} × `}{item.name}{item.sku && ` (${item.sku})`}
+              <p>{item.quantity != null && `${item.quantity} × `}{item.name ?? item.sku ?? item.itemType}{item.name && item.sku && ` (${item.sku})`}
                 {price && charge && ` — ${formatCurrency(price.amount, charge.currency)}`}</p>
               {packing.selections.filter(selection => selection.orderItemIndex === item.itemIndex).map((selection, index) => (
                 <p key={`${selection.sku}-${index}`} className="pl-4 text-sm whitespace-pre-line">
                   {selection.quantity} × {selection.name ?? selection.sku}
+                  {selection.isSignature === true && ' · Signature'}
                   {selection.personalisationSummary && ` — ${selection.personalisationSummary}`}
                 </p>
               ))}
@@ -41,6 +42,7 @@ export function PackingSlip({ packing }: { packing: AdminOrderPackingDto }) {
           <h3 className="font-semibold">Unmatched preparations — check before packing</h3>
           {orphaned.map((selection, index) => <p key={`${selection.sku}-${index}`} className="whitespace-pre-line">
             {selection.quantity} × {selection.name ?? selection.sku}
+            {selection.isSignature === true && ' · Signature'}
             {selection.personalisationSummary && ` — ${selection.personalisationSummary}`}
           </p>)}
         </div>}

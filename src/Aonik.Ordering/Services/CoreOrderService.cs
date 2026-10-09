@@ -29,17 +29,20 @@ internal sealed class CoreOrderService : IOrderService
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
     private readonly ICurrentUserProvider _currentUserProvider;
+    private readonly IOrderNumberGenerator _orderNumbers;
 
     public CoreOrderService(
         OrderingDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
-        ICurrentUserProvider currentUserProvider)
+        ICurrentUserProvider currentUserProvider,
+        IOrderNumberGenerator orderNumbers)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _currentUserProvider = currentUserProvider;
+        _orderNumbers = orderNumbers;
     }
 
     public async Task<OrderDto> CreateAsync(CreateOrderCommand command, CancellationToken cancellationToken = default)
@@ -86,6 +89,8 @@ internal sealed class CoreOrderService : IOrderService
             ProvenanceJson = command.ProvenanceJson ?? string.Empty
         };
 
+        ValidateNames(command.Items);
+
         foreach (var item in command.Items)
         {
             order.Items.Add(new OrderItem
@@ -104,7 +109,8 @@ internal sealed class CoreOrderService : IOrderService
                 Quantity = item.Quantity,
                 UnitPrice = item.UnitPrice,
                 ProductId = item.ProductId,
-                Sku = item.Sku
+                Sku = item.Sku,
+                NameSnapshot = item.NameSnapshot
             });
 
             if (item.ReceiverPartyId is { } receiverPartyId)
@@ -169,6 +175,8 @@ internal sealed class CoreOrderService : IOrderService
 
         order.HistoryEvents.Add(BuildHistoryEvent(tenantId, orderId, "Created", string.Empty));
 
+        order.OrderNumber = await _orderNumbers.GenerateAsync(cancellationToken);
+
         _dbContext.Orders.Add(order);
 
         // Capture the outbox row we enqueue so it can be detached on a race loss — IIntegrationEvent
@@ -212,6 +220,7 @@ internal sealed class CoreOrderService : IOrderService
         IReadOnlyList<OrderItemCommand> items, CancellationToken cancellationToken = default)
     {
         if (revisionId == Guid.Empty || items.Count == 0) throw new ArgumentException("A checkout revision and items are required.");
+        ValidateNames(items);
         var tenantId = _tenantProvider.GetCurrentTenantId();
         foreach (var entry in _dbContext.ChangeTracker.Entries().Where(entry =>
                        entry.Entity is Order order && order.Id == orderId && order.TenantId == tenantId
@@ -237,7 +246,8 @@ internal sealed class CoreOrderService : IOrderService
             ItemType = item.ItemType, ItemIndex = item.ItemIndex, Status = "Valid",
             DetailsJson = item.DetailsJson ?? "{}", ReceiverPartyId = item.ReceiverPartyId,
             AmountIn = item.AmountIn, CurrencyIn = item.CurrencyIn, CurrencyOut = item.CurrencyIn,
-            Quantity = item.Quantity, UnitPrice = item.UnitPrice, ProductId = item.ProductId, Sku = item.Sku
+            Quantity = item.Quantity, UnitPrice = item.UnitPrice, ProductId = item.ProductId, Sku = item.Sku,
+            NameSnapshot = item.NameSnapshot
         }).ToList();
         _dbContext.OrderItems.AddRange(current.Items);
         foreach (var role in current.PartyRoles.Where(role => role.Role == OrderPartyRoles.Payer).ToList())
@@ -279,17 +289,17 @@ internal sealed class CoreOrderService : IOrderService
         // The whole graph was cascade-tracked as Added by _dbContext.Orders.Add. After a failed
         // insert we detach every node so the rejected order can't be replayed by a later
         // SaveChanges on this scoped context.
-        foreach (var historyEvent in order.HistoryEvents)
+        foreach (var historyEvent in order.HistoryEvents.ToArray())
         {
             _dbContext.Entry(historyEvent).State = EntityState.Detached;
         }
 
-        foreach (var partyRole in order.PartyRoles)
+        foreach (var partyRole in order.PartyRoles.ToArray())
         {
             _dbContext.Entry(partyRole).State = EntityState.Detached;
         }
 
-        foreach (var item in order.Items)
+        foreach (var item in order.Items.ToArray())
         {
             _dbContext.Entry(item).State = EntityState.Detached;
         }
@@ -396,7 +406,7 @@ internal sealed class CoreOrderService : IOrderService
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .Select(o => new OrderSummary(
-                o.Id, o.OrderType, o.Status, o.AmountIn, o.CurrencyIn, o.CreatedAt, o.Items.Count))
+                o.Id, o.OrderType, o.Status, o.AmountIn, o.CurrencyIn, o.CreatedAt, o.Items.Count, o.OrderNumber))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<OrderSummary>(items, totalCount, pageNumber, pageSize);
@@ -624,6 +634,12 @@ internal sealed class CoreOrderService : IOrderService
                 .OrderBy(i => i.ItemIndex)
                 .Select(i => new OrderItemDto(
                     i.Id, i.ItemType, i.ItemIndex, i.Status, i.AmountIn, i.CurrencyIn,
-                    i.ReceiverPartyId, i.Quantity, i.UnitPrice, i.ProductId, i.Sku, i.DetailsJson))
-                .ToList());
+                    i.ReceiverPartyId, i.Quantity, i.UnitPrice, i.ProductId, i.Sku, i.DetailsJson, i.NameSnapshot))
+                .ToList(), order.OrderNumber);
+
+    private static void ValidateNames(IReadOnlyList<OrderItemCommand> items)
+    {
+        if (items.Any(item => item.NameSnapshot?.Length > 256))
+            throw new InvalidStateException("Purchased item names cannot exceed 256 characters.");
+    }
 }

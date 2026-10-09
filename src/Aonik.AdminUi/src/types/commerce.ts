@@ -526,6 +526,8 @@ export interface StorefrontConfigDto {
   extrasCollectionSlug: string | null;
   box: StorefrontBoxPlanDto | null;
   greetingCard?: { amount: number; currency: string } | null;
+  saleTerms?: { version: string; url: string } | null;
+  signatureTag?: string | null;
 }
 
 export interface UpdateStorefrontConfigRequest {
@@ -581,6 +583,7 @@ export interface AdminStorefrontOrderRowDto {
   boxSize: number | null;
   deliveryDate: string | null;
   isGift?: boolean;
+  orderNumber?: string | null;
 }
 
 export interface OrderGiftDto {
@@ -605,11 +608,12 @@ export interface OrderDeliveryDto {
   recipient: { name: string; phone: string };
   notes: string | null;
   gift?: OrderGiftDto | null;
+  saleTerms?: { version: string; url: string; acceptedAtUtc: string } | null;
 }
 
 export interface AdminOrderStorefrontItemDto {
   itemType: string;
-  name: string;
+  name: string | null;
   sku: string | null;
   quantity: number | null;
   unitPrice: number | null;
@@ -622,6 +626,7 @@ export interface AdminOrderStorefrontItemDto {
 /** Recipient-only packing payload. Hidden prices are absent from the server response. */
 export interface AdminOrderPackingDto {
   orderId: string;
+  orderNumber?: string | null;
   boxSize: number | null;
   deliveryDate: string | null;
   timezone: string | null;
@@ -629,7 +634,7 @@ export interface AdminOrderPackingDto {
   address: OrderDeliveryDto['address'] | null;
   notes: string | null;
   gift: OrderGiftDto | null;
-  items: { itemIndex: number; itemType: string; name: string; sku: string | null; quantity: number | null }[];
+  items: { itemIndex: number; itemType: string; name: string | null; sku: string | null; quantity: number | null }[];
   selections: StorefrontOrderSelectionDto[];
   prices?: {
     charge: AdminOrderChargeDto;
@@ -654,12 +659,14 @@ export interface StorefrontOrderSelectionDto {
   personalisationSummary: string | null;
   /** Which order ITEM this selection nests under — an order may hold several bundle aggregates. */
   orderItemIndex: number;
-  /** Resolved variant display name; null when the variant no longer exists (SKU is the durable id). */
+  /** Purchased name; unknown legacy snapshots stay null (SKU is the durable id). */
   name: string | null;
+  isSignature?: boolean | null;
 }
 
 export interface AdminOrderStorefrontDto {
   orderId: string;
+  orderNumber?: string | null;
   buyerKind: string;
   buyerPartyId: string | null;
   placedAtUtc: string;
@@ -671,6 +678,13 @@ export interface AdminOrderStorefrontDto {
   charge: AdminOrderChargeDto;
   boxSize: number | null;
   delivery: OrderDeliveryDto | null;
+  fulfilment?: OrderFulfilmentDto | null;
+}
+
+export interface OrderFulfilmentDto {
+  status: string;
+  version: string;
+  history: { fromStatus: string; toStatus: string; actorId: string; occurredAtUtc: string }[];
 }
 
 export interface AdminCartBoxMetaDto {
@@ -757,6 +771,13 @@ export interface StorefrontOrderSummaryDto {
   boxSize: number | null;
   deliveryDate: string | null;
   isGift?: boolean;
+  orderNumber?: string | null;
+  paymentStatus?: string | null;
+  discountCode?: string | null;
+  discountTotal?: number;
+  selections?: StorefrontOrderSelectionDto[] | null;
+  fulfilmentStatus?: string | null;
+  historyGroup?: string | null;
 }
 
 export interface AdminPartyActiveCartDto {

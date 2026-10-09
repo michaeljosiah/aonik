@@ -523,6 +523,7 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         services.AddSingleton<Aonik.SharedKernel.Abstractions.Multitenancy.ITenantProvider>(new TestTenantProvider(tenantId));
         services.AddSingleton<ICurrentUserProvider>(new TestCurrentUserProvider());
         services.AddSingleton<IClock>(Clock);
+        services.AddSingleton<IOrderNumberGenerator, Aonik.TestSupport.Ordering.TestOrderNumberGenerator>();
         services.AddOrderingModule(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:DefaultConnection"] = database.ConnectionString,
@@ -545,7 +546,8 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
             payments, Mock.Of<IInvoiceWriter>(MockBehavior.Strict), new DiscountService(context, tenant, Clock),
             new ZeroRateTaxCalculator(), tenant, new UnexpectedBoxCheckout(),
             new GuestOrderAccess(new EphemeralDataProtectionProvider()), new FulfilmentPromiseService(context, tenant, Clock),
-            Mock.Of<IDeliveryCoverageService>(MockBehavior.Strict), parties.Object, Clock);
+            Mock.Of<IDeliveryCoverageService>(MockBehavior.Strict), parties.Object, Clock,
+            Mock.Of<Aonik.SharedKernel.Abstractions.Settings.ITenantSettingStore>());
     }
 
     private async Task<(Guid CartId, string Token, Guid VariantId, string Version)> SeedCartAsync(Guid tenantId)

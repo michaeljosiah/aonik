@@ -26,4 +26,9 @@ public class OrderDeliveryDetails : AuditableEntity, ITenantScoped
     public bool HidePrices { get; set; }
     public bool IncludeGreetingCard { get; set; }
     public string? GreetingCardMessage { get; set; }
+    public string? AcceptedTermsVersion { get; set; }
+    public string? AcceptedTermsUrl { get; set; }
+    public DateTime? TermsAcceptedAtUtc { get; set; }
+    public string? FulfilmentStatus { get; set; }
+    public string? FulfilmentHistoryJson { get; set; }
 }

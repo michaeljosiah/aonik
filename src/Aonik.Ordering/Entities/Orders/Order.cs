@@ -5,6 +5,7 @@ namespace Aonik.Finance.Entities.Orders;
 public class Order : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
+    public string? OrderNumber { get; set; }
     public string OrderType { get; set; } = string.Empty;
     public string? IdempotencyKey { get; set; }
     public Guid? PayerPartyId { get; set; }

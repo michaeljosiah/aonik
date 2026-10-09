@@ -64,7 +64,7 @@ public class GoodsReceiptServiceTests
         public OrderingDbContext Ordering() => new(
             new DbContextOptionsBuilder<OrderingDbContext>().UseInMemoryDatabase(_orderingDb).Options, _tenant, _user);
 
-        public CoreOrderService Orders() => new(Ordering(), _tenant, Clock, _user);
+        public CoreOrderService Orders() => new(Ordering(), _tenant, Clock, _user, new Aonik.TestSupport.Ordering.TestOrderNumberGenerator());
 
         public SupplierService Suppliers() => new(_sharedCommerce, _tenant);
 

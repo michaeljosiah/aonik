@@ -195,7 +195,8 @@ app.Use(async (context, next) =>
         });
     }
 
-    if (context.Request.Path.StartsWithSegments("/commerce/admin/orders"))
+    if (context.Request.Path.StartsWithSegments("/commerce/admin/orders")
+        || context.Request.Path.StartsWithSegments("/commerce/storefront/orders"))
     {
         context.Response.OnStarting(() =>
         {

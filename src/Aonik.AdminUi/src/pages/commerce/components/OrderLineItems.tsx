@@ -75,7 +75,7 @@ function ItemRow({
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[13px] text-foreground">{item.name}</span>
+            <span className="text-[13px] text-foreground">{item.name ?? item.sku ?? item.itemType}</span>
             {item.isAddOn && (
               <Pill tone="info">
                 ADD-ON
@@ -135,6 +135,7 @@ function SelectionList({ selections }: { selections: StorefrontOrderSelectionDto
               {/* SKU is the durable identifier — a variant deleted since checkout has no name,
                   and showing the SKU alone is better than an invented placeholder. */}
               {selection.name ?? selection.sku}
+              {selection.isSignature === true && <Pill tone="info">Signature</Pill>}
             </span>
             <span className="font-[family-name:var(--font-mono)] text-[10.5px] text-muted-foreground">
               {selection.sku}

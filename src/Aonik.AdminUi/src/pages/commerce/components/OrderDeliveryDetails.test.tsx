@@ -12,6 +12,16 @@ const delivery: OrderDeliveryDto = {
 };
 
 describe('order delivery snapshot', () => {
+  it('links the accepted terms version and leaves legacy terms absent', () => {
+    const html = renderToStaticMarkup(<OrderDeliveryDetails delivery={{ ...delivery,
+      saleTerms: { version: '2026-10', url: 'https://example.test/terms/2026-10', acceptedAtUtc: '2026-10-09T12:00:00Z' },
+    }} />);
+    expect(html).toContain('href="https://example.test/terms/2026-10"');
+    expect(html).toContain('Version 2026-10');
+    expect(html).toContain('rel="noreferrer"');
+    expect(renderToStaticMarkup(<OrderDeliveryDetails delivery={delivery} />)).not.toContain('Accepted sale terms');
+  });
+
   it('shows the recorded gift instructions without removing purchaser details from the finance view', () => {
     const html = renderToStaticMarkup(<OrderDeliveryDetails delivery={{ ...delivery,
       gift: { hidePrices: true, includeGreetingCard: true, greetingCardMessage: 'Happy birthday!\n<em>Love</em>' },

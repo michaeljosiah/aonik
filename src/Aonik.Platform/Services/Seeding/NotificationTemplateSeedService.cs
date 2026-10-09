@@ -155,7 +155,7 @@ internal class NotificationTemplateSeedService
             """
             <h1>Your order is confirmed</h1>
             <p>Hi {{ purchaser_name | escape }},</p>
-            <p>We have received your payment for order <strong>{{ order_id | escape }}</strong>.</p>
+            <p>We have received your payment for order <strong>{% if order_number != blank %}{{ order_number | escape }}{% else %}{{ order_id | escape }}{% endif %}</strong>.</p>
             <h2>Your order</h2>
             <table>
               <thead><tr><th>Item</th><th>Quantity</th><th>Unit price</th><th>Total</th></tr></thead>
@@ -167,7 +167,7 @@ internal class NotificationTemplateSeedService
             </table>
             {% if selections != empty %}
             <h3>Box selections</h3>
-            <ul>{% for selection in selections %}<li>{{ selection.description | escape }} &times; {{ selection.quantity | escape }}{% if selection.personalisation != blank %} ({{ selection.personalisation | escape }}){% endif %}</li>{% endfor %}</ul>
+            <ul>{% for selection in selections %}<li>{{ selection.description | escape }} &times; {{ selection.quantity | escape }}{% if selection.is_signature == true %} &middot; Signature{% endif %}{% if selection.personalisation != blank %} ({{ selection.personalisation | escape }}){% endif %}</li>{% endfor %}</ul>
             {% endif %}
             <p>Subtotal: {{ currency | escape }} {{ subtotal | escape }}<br/>
             Discount: {{ currency | escape }} {{ discount_total | escape }}<br/>

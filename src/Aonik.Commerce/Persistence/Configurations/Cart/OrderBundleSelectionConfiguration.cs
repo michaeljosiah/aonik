@@ -12,6 +12,7 @@ public class OrderBundleSelectionConfiguration : IEntityTypeConfiguration<OrderB
 
         builder.Property(x => x.Quantity).IsRequired().HasPrecision(19, 4);
         builder.Property(x => x.Sku).HasMaxLength(64);
+        builder.Property(x => x.NameSnapshot).HasMaxLength(256);
 
         // Spec 068 §9 — kitchen-facing personalisation landing. Json columns stay nvarchar(max)
         // (unbounded canonical selections / envelope); scalars mirror the CartItem shapes.

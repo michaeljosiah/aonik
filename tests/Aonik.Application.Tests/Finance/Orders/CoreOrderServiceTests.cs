@@ -8,6 +8,7 @@ using Aonik.TestSupport.Multitenancy;
 
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace Aonik.Application.Tests.Finance.Orders;
 
@@ -40,7 +41,8 @@ public class CoreOrderServiceTests
             Guid.NewGuid());
 
     private static CoreOrderService CreateService(OrderingDbContext context, Guid tenantId)
-        => new(context, new TestTenantProvider(tenantId), new TestClock(), new TestCurrentUserProvider());
+        => new(context, new TestTenantProvider(tenantId), new TestClock(), new TestCurrentUserProvider(),
+            new Aonik.TestSupport.Ordering.TestOrderNumberGenerator());
 
     private static CreateOrderCommand ProductPurchaseCommand(Guid? payerPartyId = null)
         => new(
@@ -54,6 +56,77 @@ public class CoreOrderServiceTests
                 new OrderItemCommand(OrderTypeCodes.ProductPurchase, 1, 1_000m, "NGN",
                     Quantity: 1m, UnitPrice: 1_000m, ProductId: Guid.NewGuid(), Sku: "WELL-TEA-20CT")
             });
+
+    [Fact]
+    public async Task Create_Should_AllocateOnceAfterIdempotencyLookup_AndReturnPurchasedNamesAndReferenceOnAllReads()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var numbers = new Mock<IOrderNumberGenerator>(MockBehavior.Strict);
+        numbers.Setup(x => x.GenerateAsync(It.IsAny<CancellationToken>())).ReturnsAsync("SHOP-0100");
+        var service = new CoreOrderService(context, new TestTenantProvider(tenantId), new TestClock(),
+            new TestCurrentUserProvider(), numbers.Object);
+        var command = ProductPurchaseCommand() with
+        {
+            IdempotencyKey = "same-purchase",
+            Items = [new(OrderTypeCodes.ProductPurchase, 0, 25m, "GBP", NameSnapshot: "Purchased recipe", DetailsJson: "{\"options\":true}")]
+        };
+
+        var created = await service.CreateAsync(command);
+        var replay = await service.CreateAsync(command with { Items = [command.Items[0] with { NameSnapshot = "Renamed later" }] });
+
+        replay.Id.Should().Be(created.Id);
+        replay.OrderNumber.Should().Be("SHOP-0100");
+        replay.Items.Single().NameSnapshot.Should().Be("Purchased recipe");
+        replay.Items.Single().DetailsJson.Should().Be("{\"options\":true}");
+        numbers.Verify(x => x.GenerateAsync(It.IsAny<CancellationToken>()), Times.Once);
+        await using var readContext = CreateDbContext(options, tenantId);
+        var read = CreateService(readContext, tenantId);
+        (await read.GetAsync(created.Id))!.OrderNumber.Should().Be(created.OrderNumber);
+        (await read.GetAsync(created.Id))!.Items.Single().NameSnapshot.Should().Be("Purchased recipe");
+        (await read.ListAsync(new())).Items.Single().OrderNumber.Should().Be(created.OrderNumber);
+        (await read.ListWithItemsAsync(new())).Items.Single().OrderNumber.Should().Be(created.OrderNumber);
+    }
+
+    [Fact]
+    public async Task RefreshPendingItems_Should_ReplacePurchasedNamesWithoutReplacingOrderNumberOrDetails()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+        var created = await service.CreateAsync(ProductPurchaseCommand());
+        var revisionId = Guid.NewGuid();
+        OrderItemCommand[] replacement = [new(OrderTypeCodes.ProductPurchase, 0, 20m, "GBP",
+            DetailsJson: "{\"choices\":[]}", NameSnapshot: "Replacement recipe")];
+
+        var revised = await service.RefreshPendingItemsAsync(created.Id, revisionId, created.PayerPartyId, "GBP", replacement);
+        var replay = await service.RefreshPendingItemsAsync(created.Id, revisionId, created.PayerPartyId, "GBP", replacement);
+
+        revised.OrderNumber.Should().Be(created.OrderNumber);
+        replay.Items.Single().Id.Should().Be(revised.Items.Single().Id);
+        revised.Items.Single().NameSnapshot.Should().Be("Replacement recipe");
+        revised.Items.Single().DetailsJson.Should().Be("{\"choices\":[]}");
+        await service.TransitionAsync(created.Id, OrderStatusCodes.Complete);
+        var afterPayment = () => service.RefreshPendingItemsAsync(created.Id, Guid.NewGuid(), created.PayerPartyId, "GBP", replacement);
+        await afterPayment.Should().ThrowAsync<InvalidStateException>();
+    }
+
+    [Fact]
+    public async Task Read_Should_LeaveLegacyReferenceAndPurchasedNamesUnknown()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var order = new Order { TenantId = tenantId, OrderType = OrderTypeCodes.ProductPurchase,
+            Status = OrderStatusCodes.Complete, CurrencyIn = "GBP", Items = [new OrderItem
+            { TenantId = tenantId, ItemType = OrderTypeCodes.ProductPurchase, CurrencyIn = "GBP", CurrencyOut = "GBP" }] };
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+
+        var read = await CreateService(context, tenantId).GetAsync(order.Id);
+
+        read!.OrderNumber.Should().BeNull();
+        read.Items.Single().NameSnapshot.Should().BeNull();
+    }
 
     [Fact]
     public async Task CreateAsync_Should_PersistProductPurchaseOrder_WithRetailLines_AndDefaultTotal()

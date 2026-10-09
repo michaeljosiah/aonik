@@ -19,7 +19,8 @@ public sealed record OrderItemCommand(
     decimal? UnitPrice = null,
     Guid? ProductId = null,
     string? Sku = null,
-    string? DetailsJson = null);
+    string? DetailsJson = null,
+    string? NameSnapshot = null);
 
 /// <summary>An explicit party role to persist on the order (Spec 053 §10/§11) — e.g. the
 /// <c>Supplier</c> counterparty on a purchase order. <see cref="Role"/> uses the
@@ -53,7 +54,8 @@ public sealed record OrderItemDto(
     decimal? UnitPrice,
     Guid? ProductId,
     string? Sku,
-    string DetailsJson);
+    string DetailsJson,
+    string? NameSnapshot = null);
 
 public sealed record OrderDto(
     Guid Id,
@@ -64,7 +66,8 @@ public sealed record OrderDto(
     decimal AmountIn,
     string CurrencyIn,
     DateTime CreatedAt,
-    IReadOnlyList<OrderItemDto> Items);
+    IReadOnlyList<OrderItemDto> Items,
+    string? OrderNumber = null);
 
 public sealed record OrderSummary(
     Guid Id,
@@ -73,7 +76,8 @@ public sealed record OrderSummary(
     decimal AmountIn,
     string CurrencyIn,
     DateTime CreatedAt,
-    int ItemCount);
+    int ItemCount,
+    string? OrderNumber = null);
 
 /// <summary>List filter. The created-range bounds (Spec 055 §9 — additive, like the Spec 053/054
 /// contract extensions) are half-open over the order's <c>CreatedAt</c> UTC instant:

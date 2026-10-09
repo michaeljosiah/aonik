@@ -55,7 +55,8 @@ internal static class CartDraftData
             Recipient = recipient,
             Notes = Text(draft.Notes, 1000, "Notes", multiline: true),
             Gift = gift,
-            DiscountCode = Text(draft.DiscountCode, 64, "DiscountCode")
+            DiscountCode = Text(draft.DiscountCode, 64, "DiscountCode"),
+            AcceptedTermsVersion = Text(draft.AcceptedTermsVersion, 128, "AcceptedTermsVersion")
         };
     }
 

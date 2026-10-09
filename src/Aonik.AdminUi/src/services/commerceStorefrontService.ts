@@ -12,6 +12,7 @@ import type {
   AdminCollectionSummaryDto,
   AdminOrderStorefrontDto,
   AdminOrderPackingDto,
+  OrderFulfilmentDto,
   AdminPartyStorefrontDto,
   AdminStorefrontOrderRowDto,
   BoxPlanDto,
@@ -182,6 +183,9 @@ export const commerceStorefrontService = {
   },
   getStorefrontOrder: async (orderId: string): Promise<AdminOrderStorefrontDto> =>
     api.get<AdminOrderStorefrontDto>(`/commerce/admin/orders/${orderId}/storefront`),
+
+  updateOrderFulfilment: async (orderId: string, status: string, expectedVersion: string): Promise<OrderFulfilmentDto> =>
+    api.put<OrderFulfilmentDto>(`/commerce/admin/orders/${orderId}/fulfilment`, { status, expectedVersion }),
   getOrderPacking: async (orderId: string, signal?: AbortSignal): Promise<AdminOrderPackingDto> =>
     api.get<AdminOrderPackingDto>(`/commerce/admin/orders/${orderId}/packing`, { signal }),
   listCarts: async (params: ListAdminCartsParams = {}): Promise<PagedResult<AdminCartRowDto>> => {

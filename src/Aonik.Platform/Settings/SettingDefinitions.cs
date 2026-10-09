@@ -138,6 +138,8 @@ public static class SettingDefinitions
                 DefaultValue: "0",
                 IsVisibleToClients: true),
             [CommerceSettingNames.StorefrontGreetingCard] = new SettingDefinition(CommerceSettingNames.StorefrontGreetingCard),
+            [CommerceSettingNames.StorefrontSaleTerms] = new SettingDefinition(CommerceSettingNames.StorefrontSaleTerms),
+            [CommerceSettingNames.StorefrontSignatureTag] = new SettingDefinition(CommerceSettingNames.StorefrontSignatureTag),
             [CommerceSettingNames.StorefrontDeliveryChargedAmount] = new SettingDefinition(
                 CommerceSettingNames.StorefrontDeliveryChargedAmount,
                 DefaultValue: "0",

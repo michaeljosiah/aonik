@@ -237,7 +237,7 @@ public class BoxCheckoutTests
         var planning = new ProductionPlanningService(h.Commerce(),
             new Aonik.Ordering.Services.CoreOrderService(h.Ordering(), tenant,
                 new CommerceTestHarness.TestClock(),
-                new Aonik.TestSupport.Identity.TestCurrentUserProvider()),
+                new Aonik.TestSupport.Identity.TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()),
             new RecipeService(h.Commerce(), tenant),
             h.Inventory(),
             tenant);

@@ -76,6 +76,7 @@ public sealed class CommerceModule : IModule
         services.AddScoped<IExtrasCatalogService, ExtrasCatalogService>();
         services.AddSingleton<GuestOrderAccess>();
         services.AddScoped<IStorefrontOrderService, StorefrontOrderService>();
+        services.AddScoped<IOrderReorderService, OrderReorderService>();
         // Spec 073 dependency endpoints — the admin storefront projections (083/081).
         services.AddScoped<IAdminStorefrontService, AdminStorefrontService>();
         services.AddScoped<BoxCartService>();
@@ -85,6 +86,7 @@ public sealed class CommerceModule : IModule
         services.AddScoped<Services.Fulfilment.IFulfilmentPromiseService, Services.Fulfilment.FulfilmentPromiseService>();
         services.AddScoped<Services.Fulfilment.IDeliveryReservationService, Services.Fulfilment.DeliveryReservationService>();
         services.AddScoped<Services.Fulfilment.IDeliveryCoverageService, Services.Fulfilment.DeliveryCoverageService>();
+        services.AddScoped<Services.Fulfilment.IOrderFulfilmentService, Services.Fulfilment.OrderFulfilmentService>();
         services.AddScoped<ICheckoutService, CheckoutService>();
         services.AddKeyedScoped<IProposalHandler, CommerceCheckoutProposalHandler>(CommerceCheckoutProposalHandler.ProposalTypeKey);
         services.AddScoped<IOrderConfirmationEmailService, OrderConfirmationEmailService>();

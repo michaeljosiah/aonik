@@ -9,12 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetBody, SheetContent, SheetFooter, SheetHeader } from '@/components/ui/sheet';
 import { commerceStorefrontService } from '@/services/commerceStorefrontService';
 import { formatCurrency, formatDate } from '@/lib/format';
+import { useModules } from '@/modules/useModules';
 import type { AdminOrderStorefrontDto } from '@/types/commerce';
 
 import { BuyerLabel } from './BuyerLabel';
 import { LifecycleStepper } from './LifecycleStepper';
 import { OrderLineItems } from './OrderLineItems';
 import { OrderDeliveryDetails } from './OrderDeliveryDetails';
+import { OrderFulfilmentDetails, fulfilmentLabel } from './OrderFulfilmentDetails';
 import { orderLifecycle } from '../lib/orderLifecycle';
 import { paymentTone, fulfilmentTone } from '../lib/statusTone';
 
@@ -24,6 +26,7 @@ interface OrderDrawerProps {
 }
 
 export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
+  const { allowsPolicy } = useModules();
   const [order, setOrder] = useState<AdminOrderStorefrontDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +60,7 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
       <SheetContent size="md">
         <SheetHeader
           title="Storefront order"
-          subtitle={order ? order.orderId : orderId}
+          subtitle={order ? order.orderNumber ?? order.orderId : orderId}
         />
 
         <SheetBody>
@@ -84,7 +87,7 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
                 </AonikCard>
                 <AonikCard title="Fulfilment" padding={12}>
                   <Pill tone={fulfilmentTone(order.fulfilmentStatus)}>
-                    {order.fulfilmentStatus}
+                    {fulfilmentLabel(order.fulfilmentStatus)}
                   </Pill>
                 </AonikCard>
               </div>
@@ -99,6 +102,8 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
               </AonikCard>
 
               <OrderDeliveryDetails delivery={order.delivery} />
+              {order.fulfilment && <OrderFulfilmentDetails orderId={order.orderId} fulfilment={order.fulfilment}
+                canWrite={allowsPolicy('AdminWritePolicy')} onUpdated={load} />}
 
               <AonikCard
                 title="Items"

@@ -1,5 +1,7 @@
 ﻿using Aonik.Commerce.Services.Checkout;
 
+using Aonik.Commerce.Contracts.Models.Fulfilment;
+
 namespace Aonik.Commerce.Contracts.Models.Checkout;
 
 // ─── Admin storefront projections (Specs 073/081/083 dependency endpoints) ──
@@ -20,17 +22,18 @@ public record AdminStorefrontOrderRowDto(
     string OrderStatus,
     /// From the durable OrderChargeSummary (checkout's funding record).
     string PaymentStatus,
-    /// Derived from the spine status: Fulfilled / Cancelled / Unfulfilled.
+    /// The recorded delivery stage, or Unconfirmed while payment is pending.
     string FulfilmentStatus,
     string Currency,
     decimal Total,
     int? BoxSize,
     DateOnly? DeliveryDate = null,
-    bool IsGift = false);
+    bool IsGift = false,
+    string? OrderNumber = null);
 
 public record AdminOrderStorefrontItemDto(
     string ItemType,
-    string Name,
+    string? Name,
     string? Sku,
     decimal? Quantity,
     decimal? UnitPrice,
@@ -65,7 +68,9 @@ public record AdminOrderStorefrontDto(
     IReadOnlyList<StorefrontOrderSelectionDto> Selections,
     AdminOrderChargeDto Charge,
     int? BoxSize,
-    OrderDeliveryDto? Delivery = null);
+    OrderDeliveryDto? Delivery = null,
+    string? OrderNumber = null,
+    OrderFulfilmentDto? Fulfilment = null);
 
 /// <summary>Box state on a cart row (Spec 083 list contract). <see cref="Drift"/>
 /// is the computed, never-persisted "checkout blocked" signal for OPEN box

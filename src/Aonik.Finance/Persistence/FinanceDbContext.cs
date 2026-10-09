@@ -9,6 +9,7 @@ using Aonik.Finance.Entities.Pricing;
 using Aonik.Finance.Entities.ReferenceData;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -278,7 +279,7 @@ internal class FinanceDbContext : AonikDbContextBase
                 var orderNumber = entry.Property("OrderNumber").CurrentValue as string;
                 if (string.IsNullOrWhiteSpace(orderNumber))
                 {
-                    entry.Property("OrderNumber").CurrentValue = GenerateOrderNumber();
+                    entry.Entity.OrderNumber = OrderNumberFormatting.CreateFallback(DateTime.UtcNow);
                 }
             }
 
@@ -313,10 +314,4 @@ internal class FinanceDbContext : AonikDbContextBase
         }
     }
 
-    private static string GenerateOrderNumber()
-    {
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmssfff");
-        var token = Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
-        return $"ORD-{timestamp}-{token}";
-    }
 }

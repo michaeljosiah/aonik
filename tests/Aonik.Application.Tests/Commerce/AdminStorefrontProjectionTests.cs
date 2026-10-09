@@ -21,7 +21,7 @@ public class AdminStorefrontProjectionTests
     private static AdminStorefrontService AdminSvc(BoxTestHarness h)
     {
         var tenant = new TestTenantProvider(h.TenantId);
-        var spine = new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider());
+        var spine = new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator());
         var ctx = h.Commerce();
         return new AdminStorefrontService(
             ctx, tenant, spine,
@@ -61,7 +61,7 @@ public class AdminStorefrontProjectionTests
         row.BuyerPartyId.Should().Be(party);
         row.BoxSize.Should().Be(6);
         row.PaymentStatus.Should().NotBe(CheckoutPaymentStatuses.Captured, "nothing has completed yet");
-        row.FulfilmentStatus.Should().Be("Unfulfilled");
+        row.FulfilmentStatus.Should().Be("Unconfirmed");
         row.Total.Should().Be(95m + 9m, "the box goods total plus two £4.50 add-ons");
 
         // A PENDING-PAYMENT cart (Open but claimed by an order) is frozen, not a
@@ -103,7 +103,7 @@ public class AdminStorefrontProjectionTests
         await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId, checkout.Total, checkout.Currency);
         var confirmed = (await admin.ListOrdersAsync()).Items.Single();
         confirmed.PaymentStatus.Should().Be(CheckoutPaymentStatuses.Captured);
-        confirmed.FulfilmentStatus.Should().Be("Unfulfilled");
+        confirmed.FulfilmentStatus.Should().Be("Confirmed");
         (await admin.ListOrdersAsync(paymentStatus: CheckoutPaymentStatuses.Captured))
             .TotalCount.Should().Be(1, "the payment-status filter matches the converged value");
 
@@ -125,7 +125,7 @@ public class AdminStorefrontProjectionTests
             "each selection must say which order ITEM it nests under");
         detail.Charge.Total.Should().Be(row.Total);
         detail.PaymentStatus.Should().Be(confirmed.PaymentStatus, "detail and list read the same durable record");
-        detail.FulfilmentStatus.Should().Be("Unfulfilled");
+        detail.FulfilmentStatus.Should().Be("Confirmed");
         detail.Delivery!.Address.Should().BeEquivalentTo(BoxTestHarness.ValidDelivery.Address);
         row.DeliveryDate.Should().Be(BoxTestHarness.ValidDelivery.DeliveryDate);
     }

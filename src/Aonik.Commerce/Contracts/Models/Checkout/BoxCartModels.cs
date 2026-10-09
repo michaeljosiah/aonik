@@ -77,7 +77,9 @@ public record BoxChangeDto(
     string? To,
     string Reason,
     decimal? PriceDelta = null,
-    Guid? MergedIntoLineId = null);
+    Guid? MergedIntoLineId = null,
+    Guid? SourceVariantId = null,
+    string? SourceName = null);
 
 /// <summary>Known <see cref="BoxChangeDto.Reason"/> values beyond the Spec 066 drift reasons.</summary>
 public static class BoxChangeReasons
@@ -91,6 +93,9 @@ public static class BoxChangeReasons
     /// <summary>Spec 071 — an add-on's retail price changed since it was added; the customer
     /// must explicitly accept the new amount before checkout (the A18 stop).</summary>
     public const string PriceChanged = "price-changed";
+
+    public const string ReorderOffMenu = "reorder-off-menu";
+    public const string ReorderInsufficientStock = "reorder-insufficient-stock";
 }
 
 /// <summary>Every read and write returns the whole box + the authoritative quote, so concurrent

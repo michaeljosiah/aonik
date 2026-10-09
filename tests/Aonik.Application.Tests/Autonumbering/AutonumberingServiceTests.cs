@@ -90,7 +90,7 @@ public class AutonumberingServiceTests
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             EntityType = "Order",
-            PrefixTemplate = "ORD-{MM}-",
+            PrefixTemplate = "ORD-{YYYY}-{MM}-",
             SuffixTemplate = string.Empty,
             Strategy = AutonumberStrategy.Sequential,
             ResetPolicy = AutonumberResetPolicy.Monthly,
@@ -110,6 +110,6 @@ public class AutonumberingServiceTests
 
         // Assert
         result.SequenceValue.Should().Be(100);
-        result.Reference.Should().Be("ORD-02-100");
+        result.Reference.Should().Be("ORD-2026-02-100");
     }
 }

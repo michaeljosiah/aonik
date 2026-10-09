@@ -48,6 +48,9 @@ public class OrderItemConfiguration : IEntityTypeConfiguration<OrderItem>
         builder.Property(x => x.Sku)
             .HasMaxLength(100);
 
+        builder.Property(x => x.NameSnapshot)
+            .HasMaxLength(256);
+
         builder.HasIndex(x => x.OrderId);
         builder.HasIndex(x => x.ReceiverPartyId);
         builder.HasIndex(x => x.PricingQuoteId);

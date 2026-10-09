@@ -49,7 +49,7 @@ internal sealed class OrderConfirmationEmailService(
         var selections = await dbContext.OrderBundleSelections.AsNoTracking()
             .Where(row => row.TenantId == tenantId && row.OrderId == orderId)
             .OrderBy(row => row.OrderItemIndex).ThenBy(row => row.Id)
-            .Select(row => new { row.Sku, row.Quantity, row.PersonalisationSummary })
+            .Select(row => new { row.Sku, row.Quantity, row.PersonalisationSummary, row.NameSnapshot, row.IsSignatureSnapshot })
             .ToListAsync(cancellationToken);
 
         // Explicit dictionaries are Fluid's existing contract. No payment handles, raw metadata,
@@ -57,6 +57,7 @@ internal sealed class OrderConfirmationEmailService(
         var model = new Dictionary<string, object?>
         {
             ["order_id"] = order.Id.ToString("D"),
+            ["order_number"] = order.OrderNumber,
             ["purchaser_name"] = $"{delivery.PurchaserFirstName} {delivery.PurchaserLastName}".Trim(),
             ["currency"] = summary.Currency,
             ["subtotal"] = Amount(summary.Subtotal),
@@ -67,14 +68,15 @@ internal sealed class OrderConfirmationEmailService(
             ["items"] = order.Items.Where(item => item.ItemType != CheckoutService.DeliveryFeeItemType)
                 .OrderBy(item => item.ItemIndex).Select(item => new Dictionary<string, object?>
                 {
-                    ["description"] = string.IsNullOrWhiteSpace(item.Sku) ? item.ItemType : item.Sku,
+                    ["description"] = item.NameSnapshot ?? (string.IsNullOrWhiteSpace(item.Sku) ? item.ItemType : item.Sku),
                     ["quantity"] = item.Quantity?.ToString("0.############################", CultureInfo.InvariantCulture),
                     ["unit_price"] = item.UnitPrice is { } price ? Amount(price) : null,
                     ["total"] = Amount(item.AmountIn)
                 }).ToList(),
             ["selections"] = selections.Select(item => new Dictionary<string, object?>
             {
-                ["description"] = item.Sku,
+                ["description"] = item.NameSnapshot ?? item.Sku,
+                ["is_signature"] = item.IsSignatureSnapshot,
                 ["quantity"] = item.Quantity.ToString("0.############################", CultureInfo.InvariantCulture),
                 ["personalisation"] = item.PersonalisationSummary
             }).ToList(),

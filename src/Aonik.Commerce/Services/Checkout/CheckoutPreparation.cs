@@ -38,4 +38,5 @@ internal sealed record CheckoutPreparation(
 internal sealed record CheckoutStockLine(Guid ProductVariantId, decimal Quantity);
 internal sealed record CheckoutSelection(int OrderItemIndex, Guid BundleSlotId, Guid ProductVariantId,
     decimal Quantity, string Sku, string? PersonalisationJson = null, string? PersonalisationSummary = null,
-    decimal? PersonalisationAdjustment = null, decimal UnitSurcharge = 0m, string? PersonalisationEnvelopeJson = null);
+    decimal? PersonalisationAdjustment = null, decimal UnitSurcharge = 0m, string? PersonalisationEnvelopeJson = null,
+    string? NameSnapshot = null, bool? IsSignatureSnapshot = null);

@@ -8,10 +8,7 @@
 //   * Invoiced and Funded — the DTO carries no invoice or funding marker distinct from the
 //     order existing and the payment status. Two always-complete pills would be decoration
 //     that reads as verified fact.
-//   * Fulfilled — `DeriveFulfilment` (AdminStorefrontService.cs:731) returns only
-//     "Unfulfilled" or "Cancelled"; there is no Fulfilled value to reach. Rendering it as a
-//     pending step would tell the operator delivery is being tracked and is merely
-//     outstanding. It is not tracked at all — Spec 069 phase 2 is where that lands.
+// Delivery progress is an explicit staff record, separate from payment and order completion.
 
 export type LifecycleStepState = 'done' | 'current' | 'pending' | 'untracked';
 
@@ -42,6 +39,7 @@ const COMPLETE = 'Complete';
 export function orderLifecycle(input: {
   orderStatus: string;
   paymentStatus: string;
+  fulfilmentStatus?: string;
 }): OrderLifecycle {
   const haltReason = HALTED[input.orderStatus];
   const paid = input.paymentStatus === CAPTURED;
@@ -71,8 +69,9 @@ export function orderLifecycle(input: {
       {
         key: 'fulfilled',
         label: 'Fulfilled',
-        state: 'untracked',
-        note: 'Fulfilment is not tracked yet',
+        state: input.fulfilmentStatus === 'Delivered' ? 'done'
+          : ['Confirmed', 'Cooking', 'OutForDelivery'].includes(input.fulfilmentStatus ?? '') ? 'current' : 'untracked',
+        note: input.fulfilmentStatus ? undefined : 'Fulfilment is not tracked yet',
       },
     ],
     halted: null,

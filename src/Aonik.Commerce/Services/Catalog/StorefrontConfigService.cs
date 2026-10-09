@@ -89,7 +89,9 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
         }
 
         var greetingCard = await GreetingCardPricing.ReadAsync(_settingStore, tenantId, cancellationToken);
-        return new StorefrontConfigDto(currency, label, pageSize, trigger, delivery, boxSlug, extrasSlug, box, greetingCard);
+        return new StorefrontConfigDto(currency, label, pageSize, trigger, delivery, boxSlug, extrasSlug, box, greetingCard,
+            await SaleTermsPolicy.ReadAsync(_settingStore, tenantId, cancellationToken),
+            await CheckoutDisplayFacts.ReadSignatureTagAsync(_settingStore, tenantId, cancellationToken));
     }
 
     public async Task<StorefrontConfigDto> UpdateAsync(

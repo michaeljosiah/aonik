@@ -15,6 +15,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Payments;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Persistence;
 
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,7 @@ internal sealed class CheckoutService : ICheckoutService
     private readonly IDeliveryCoverageService _coverage;
     private readonly IPartyService _parties;
     private readonly IClock _clock;
+    private readonly ITenantSettingStore _settings;
     private readonly DeliveryReservationService _deliveryReservations;
 
     public CheckoutService(
@@ -52,7 +54,7 @@ internal sealed class CheckoutService : ICheckoutService
         IBoxCheckoutSupport boxCheckout,
         GuestOrderAccess guestOrders,
         IFulfilmentPromiseService fulfilment,
-        IDeliveryCoverageService coverage, IPartyService parties, IClock clock)
+        IDeliveryCoverageService coverage, IPartyService parties, IClock clock, ITenantSettingStore settings)
     {
         _dbContext = dbContext;
         _inventory = inventory;
@@ -68,6 +70,7 @@ internal sealed class CheckoutService : ICheckoutService
         _coverage = coverage;
         _parties = parties;
         _clock = clock;
+        _settings = settings;
         _deliveryReservations = new DeliveryReservationService(dbContext, tenantProvider, clock);
     }
 
@@ -108,6 +111,9 @@ internal sealed class CheckoutService : ICheckoutService
         if (gift is not null && cart.BoxBundleProductId is null)
             throw new StorefrontValidationException("Gift fulfilment requires a food box.");
         var requestedDelivery = command.Delivery ?? CartDraftData.Delivery(draft);
+        var acceptedTerms = cart.BoxBundleProductId is not null
+            ? await SaleTermsPolicy.AcceptAsync(_settings, tenantId, draft?.AcceptedTermsVersion, _clock.UtcNow, cancellationToken)
+            : null;
 
         if (cart.Items.Count == 0)
         {
@@ -156,7 +162,7 @@ internal sealed class CheckoutService : ICheckoutService
                 selected.Timezone, details.Recipient ?? new DeliveryRecipientDto(
                     $"{details.Purchaser.FirstName} {details.Purchaser.LastName}", details.Purchaser.Phone), details.Notes,
                 gift is null ? null : new OrderGiftDto(gift.HidePrices, gift.IncludeGreetingCard,
-                    gift.IncludeGreetingCard ? gift.GreetingCardMessage : null));
+                    gift.IncludeGreetingCard ? gift.GreetingCardMessage : null), acceptedTerms);
         }
 
         // Spec 068 §9 — a box cart re-validates everything BEFORE reservation: drift stops the
@@ -220,7 +226,8 @@ internal sealed class CheckoutService : ICheckoutService
                     Quantity: item.Quantity,
                     UnitPrice: item.UnitPriceSnapshot,
                     ProductId: item.IsBundle ? item.BundleProductId : item.ProductVariantId,
-                    Sku: item.Sku));
+                    Sku: item.Sku,
+                    NameSnapshot: item.NameSnapshot));
                 if (item.IsBundle)
                 {
                     bundleLineIndices.Add((index, item));
@@ -243,7 +250,8 @@ internal sealed class CheckoutService : ICheckoutService
                 UnitPrice: box.GoodsTotal,
                 ProductId: cart.BoxBundleProductId,
                 Sku: box.BundleSku,
-                DetailsJson: box.EnvelopeJson));
+                DetailsJson: box.EnvelopeJson,
+                NameSnapshot: $"{box.Size}-dish box"));
             // Spec 071 X7 — one ordinary retail item per AddOn line, the spine's existing
             // shape; the §12 envelope rides DetailsJson when personalised.
             var nextIndex = 1;
@@ -258,7 +266,8 @@ internal sealed class CheckoutService : ICheckoutService
                     UnitPrice: chargedUnit,
                     ProductId: line.ProductVariantId,
                     Sku: line.Sku,
-                    DetailsJson: priced is null ? null : JsonSerializer.Serialize(priced, EnvelopeSerializerOptions)));
+                    DetailsJson: priced is null ? null : JsonSerializer.Serialize(priced, EnvelopeSerializerOptions),
+                    NameSnapshot: line.NameSnapshot));
             }
 
             if (box.GreetingCardCharged > 0)
@@ -277,7 +286,8 @@ internal sealed class CheckoutService : ICheckoutService
                     UnitPrice: box.DeliveryCharged,
                     ProductId: null,
                     Sku: "delivery",
-                    DetailsJson: null));
+                    DetailsJson: null,
+                    NameSnapshot: "Delivery"));
             }
         }
 
@@ -314,14 +324,20 @@ internal sealed class CheckoutService : ICheckoutService
         if (discount.Amount > 0) invoiceLines.Add(new($"Discount ({discount.Code})", 1m, -discount.Amount));
         if (tax > 0) invoiceLines.Add(new("Tax", 1m, tax));
         var selections = new List<CheckoutSelection>();
+        var signatureFlags = await CheckoutDisplayFacts.ReadSignaturesAsync(_dbContext, _settings, tenantId,
+            cart.Items.SelectMany(item => item.IsBundle
+                ? item.Selections.Select(selection => selection.ProductVariantId)
+                : new[] { item.ProductVariantId }).Distinct().ToList(), cancellationToken);
         foreach (var (lineIndex, item) in bundleLineIndices)
             selections.AddRange(item.Selections.Select(s => new CheckoutSelection(lineIndex, s.BundleSlotId,
-                s.ProductVariantId, s.Quantity * item.Quantity, s.Sku)));
+                s.ProductVariantId, s.Quantity * item.Quantity, s.Sku,
+                NameSnapshot: s.NameSnapshot, IsSignatureSnapshot: signatureFlags.GetValueOrDefault(s.ProductVariantId))));
         if (box is not null)
             selections.AddRange(box.Lines.Select(pair => new CheckoutSelection(0, pair.Line.BoxBundleSlotId!.Value,
                 pair.Line.ProductVariantId, pair.Line.Quantity, pair.Line.Sku, pair.Priced.CanonicalSelectionJson,
                 BoxCartService.TruncateSummary(pair.Priced.Summary), pair.Priced.Adjustment,
-                pair.Priced.UnitSurcharge ?? 0m, JsonSerializer.Serialize(pair.Priced, EnvelopeSerializerOptions))));
+                pair.Priced.UnitSurcharge ?? 0m, JsonSerializer.Serialize(pair.Priced, EnvelopeSerializerOptions),
+                pair.Line.NameSnapshot, signatureFlags.GetValueOrDefault(pair.Line.ProductVariantId))));
         Guid? guestPartyId = cart.BuyerPartyId is null
             ? Guid.NewGuid()
             : null;
@@ -485,7 +501,8 @@ internal sealed class CheckoutService : ICheckoutService
                         BundleSlotId = selection.BundleSlotId, ProductVariantId = selection.ProductVariantId,
                         Quantity = selection.Quantity, Sku = selection.Sku, PersonalisationJson = selection.PersonalisationJson,
                         PersonalisationSummary = selection.PersonalisationSummary, PersonalisationAdjustment = selection.PersonalisationAdjustment,
-                        UnitSurcharge = selection.UnitSurcharge, PersonalisationEnvelopeJson = selection.PersonalisationEnvelopeJson
+                        UnitSurcharge = selection.UnitSurcharge, PersonalisationEnvelopeJson = selection.PersonalisationEnvelopeJson,
+                        NameSnapshot = selection.NameSnapshot, IsSignatureSnapshot = selection.IsSignatureSnapshot
                     });
                 // Reuse the tenant/order unique row when an unpaid replacement adds or removes
                 // optional shipping. Previously omitted snapshots may have been soft deleted.

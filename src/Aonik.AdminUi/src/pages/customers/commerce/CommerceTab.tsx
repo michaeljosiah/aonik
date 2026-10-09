@@ -85,13 +85,14 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
   }
 
   const orders = data?.orders ?? [];
+  const paidOrders = orders.filter(order => order.paymentStatus === 'Captured');
   const activeCart = data?.activeCart ?? null;
 
   // Storefront value is summed from the SAME rows the box history renders, so the figure and
   // the table can never disagree. Mixed currencies are listed separately — adding them would
   // invent an exchange rate.
   const valueByCurrency = new Map<string, number>();
-  for (const order of orders) {
+  for (const order of paidOrders) {
     valueByCurrency.set(order.currency, (valueByCurrency.get(order.currency) ?? 0) + order.total);
   }
   const totals = [...valueByCurrency.entries()].sort((a, b) => b[1] - a[1]);
@@ -102,16 +103,16 @@ export function CommerceTab({ partyId }: CommerceTabProps) {
         <div className="flex flex-wrap items-start gap-x-10 gap-y-4">
           <div>
             <div className="text-xs font-medium text-muted-foreground">
-              Boxes ordered
+              Paid boxes
             </div>
             <div className="mt-1 font-mono text-lg font-semibold tabular-nums text-foreground">
-              {orders.length.toLocaleString()}
+              {paidOrders.filter(order => order.boxSize != null).length.toLocaleString()}
             </div>
           </div>
 
           <div>
             <div className="text-xs font-medium text-muted-foreground">
-              Storefront value
+              Paid storefront value
             </div>
             <div className="mt-1 flex flex-col gap-0.5">
               {totals.length === 0 ? (

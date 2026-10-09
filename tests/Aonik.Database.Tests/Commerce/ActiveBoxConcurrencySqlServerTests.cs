@@ -24,7 +24,7 @@ using Moq;
 
 namespace Aonik.Database.Tests.Commerce;
 
-public class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
+public partial class ActiveBoxConcurrencySqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
 {
     [SkippableFact]
     public async Task ConcurrentAdoptionsOfDifferentGuests_Should_LeaveOneActiveBoxForTheParty()

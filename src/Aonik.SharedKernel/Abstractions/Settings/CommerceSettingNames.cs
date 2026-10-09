@@ -40,6 +40,8 @@ public static class CommerceSettingNames
 
     /// <summary>Explicit tenant greeting-card offer: enabled, amount and currency in one JSON value.</summary>
     public const string StorefrontGreetingCard = "Commerce.Storefront.GreetingCard";
+    public const string StorefrontSaleTerms = "Commerce.Storefront.SaleTerms";
+    public const string StorefrontSignatureTag = "Commerce.Storefront.SignatureTag";
 
     /// <summary>Spec 070 §9 — slug of the bundle product the storefront treats as "the box". The
     /// config document embeds that bundle's Spec 068 size plan when one exists.</summary>
