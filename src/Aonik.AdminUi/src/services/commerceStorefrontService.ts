@@ -131,44 +131,44 @@ export const commerceStorefrontService = {
     api.put<BoxPlanDto>(`/commerce/admin/products/${productId}/size-plan`, data),
 
   // ── Fulfilment calendar (Specs 069/077) ───────────────────────────────────
-  getFulfilmentCalendar: async (): Promise<FulfilmentCalendarDto> =>
-    api.get<FulfilmentCalendarDto>('/commerce/admin/fulfilment-calendar'),
-  upsertFulfilmentCalendar: async (data: UpsertFulfilmentCalendarRequest): Promise<FulfilmentCalendarDto> =>
-    api.put<FulfilmentCalendarDto>('/commerce/admin/fulfilment-calendar', data),
+  getFulfilmentCalendar: async (config?: object): Promise<FulfilmentCalendarDto> =>
+    api.get<FulfilmentCalendarDto>('/commerce/admin/fulfilment-calendar', config),
+  upsertFulfilmentCalendar: async (data: UpsertFulfilmentCalendarRequest, config?: object): Promise<FulfilmentCalendarDto> =>
+    api.put<FulfilmentCalendarDto>('/commerce/admin/fulfilment-calendar', data, config),
 
   // ── Merchandising (Specs 070/078) ─────────────────────────────────────────
-  listCollections: async (): Promise<AdminCollectionSummaryDto[]> =>
-    api.get<AdminCollectionSummaryDto[]>('/commerce/admin/collections'),
+  listCollections: async (config?: object): Promise<AdminCollectionSummaryDto[]> =>
+    api.get<AdminCollectionSummaryDto[]>('/commerce/admin/collections', config),
   /** Extras-collection rows arrive pricing-enriched (isPriceable) — Spec 078 dependency. */
-  getCollection: async (collectionId: string): Promise<AdminCollectionDto> =>
-    api.get<AdminCollectionDto>(`/commerce/admin/collections/${collectionId}`),
-  createCollection: async (data: CreateCollectionRequest): Promise<AdminCollectionDto> =>
-    api.post<AdminCollectionDto>('/commerce/admin/collections', data),
-  updateCollection: async (collectionId: string, data: UpdateCollectionRequest): Promise<AdminCollectionDto> =>
-    api.put<AdminCollectionDto>(`/commerce/admin/collections/${collectionId}`, data),
-  replaceCollectionItems: async (collectionId: string, items: CollectionItemLine[]): Promise<AdminCollectionDto> =>
-    api.put<AdminCollectionDto>(`/commerce/admin/collections/${collectionId}/items`, { items }),
-  listFacetGroups: async (): Promise<FacetGroupDto[]> =>
-    api.get<FacetGroupDto[]>('/commerce/admin/facet-groups'),
-  createFacetGroup: async (data: CreateFacetGroupRequest): Promise<FacetGroupDto> =>
-    api.post<FacetGroupDto>('/commerce/admin/facet-groups', data),
-  updateFacetGroup: async (facetGroupId: string, data: UpdateFacetGroupRequest): Promise<FacetGroupDto> =>
-    api.put<FacetGroupDto>(`/commerce/admin/facet-groups/${facetGroupId}`, data),
+  getCollection: async (collectionId: string, config?: object): Promise<AdminCollectionDto> =>
+    api.get<AdminCollectionDto>(`/commerce/admin/collections/${collectionId}`, config),
+  createCollection: async (data: CreateCollectionRequest, config?: object): Promise<AdminCollectionDto> =>
+    api.post<AdminCollectionDto>('/commerce/admin/collections', data, config),
+  updateCollection: async (collectionId: string, data: UpdateCollectionRequest, config?: object): Promise<AdminCollectionDto> =>
+    api.put<AdminCollectionDto>(`/commerce/admin/collections/${collectionId}`, data, config),
+  replaceCollectionItems: async (collectionId: string, items: CollectionItemLine[], config?: object): Promise<AdminCollectionDto> =>
+    api.put<AdminCollectionDto>(`/commerce/admin/collections/${collectionId}/items`, { items }, config),
+  listFacetGroups: async (config?: object): Promise<FacetGroupDto[]> =>
+    api.get<FacetGroupDto[]>('/commerce/admin/facet-groups', config),
+  createFacetGroup: async (data: CreateFacetGroupRequest, config?: object): Promise<FacetGroupDto> =>
+    api.post<FacetGroupDto>('/commerce/admin/facet-groups', data, config),
+  updateFacetGroup: async (facetGroupId: string, data: UpdateFacetGroupRequest, config?: object): Promise<FacetGroupDto> =>
+    api.put<FacetGroupDto>(`/commerce/admin/facet-groups/${facetGroupId}`, data, config),
 
   // ── Storefront config (Specs 070/079) ─────────────────────────────────────
-  updateStorefrontConfig: async (data: UpdateStorefrontConfigRequest): Promise<StorefrontConfigDto> =>
-    api.put<StorefrontConfigDto>('/commerce/admin/storefront-config', data),
+  updateStorefrontConfig: async (data: UpdateStorefrontConfigRequest, config?: object): Promise<StorefrontConfigDto> =>
+    api.put<StorefrontConfigDto>('/commerce/admin/storefront-config', data, config),
 
   // ── Public reads used for previews ────────────────────────────────────────
-  getPublicStorefrontConfig: async (): Promise<StorefrontConfigDto> =>
-    api.get<StorefrontConfigDto>('/commerce/config/storefront'),
+  getPublicStorefrontConfig: async (config?: object): Promise<StorefrontConfigDto> =>
+    api.get<StorefrontConfigDto>('/commerce/config/storefront', config),
   /** The public delivery config is the fulfilment PROMISE (earliest date +
    * timezone), not the display amounts — those live on the storefront config. */
-  getPublicDelivery: async (): Promise<FulfilmentPromiseDto> =>
-    api.get<FulfilmentPromiseDto>('/commerce/config/delivery'),
+  getPublicDelivery: async (config?: object): Promise<FulfilmentPromiseDto> =>
+    api.get<FulfilmentPromiseDto>('/commerce/config/delivery', config),
   /** What the public extras rail serves right now, plus how many members it skipped. */
-  getPublicExtras: async (): Promise<ExtrasListDto> =>
-    api.get<ExtrasListDto>('/commerce/catalog/extras'),
+  getPublicExtras: async (config?: object): Promise<ExtrasListDto> =>
+    api.get<ExtrasListDto>('/commerce/catalog/extras', config),
   getPublicCategoryTree: async (): Promise<CategoryTreeNodeDto[]> =>
     api.get<CategoryTreeNodeDto[]>('/commerce/catalog/categories'),
 
