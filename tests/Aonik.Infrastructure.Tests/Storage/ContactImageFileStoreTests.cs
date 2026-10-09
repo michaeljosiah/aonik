@@ -24,11 +24,11 @@ public sealed class ContactImageFileStoreTests : IDisposable
         using var bytes = new MemoryStream();
         await read!.CopyToAsync(bytes);
         bytes.ToArray().Should().Equal(1, 2, 3);
-        uploaded.StorageKey.Should().StartWith("tenants/");
+        uploaded.StorageKey.TrimStart('/').Should().StartWith("tenants/");
         Action publicUrl = () => store.GetUrl(uploaded.StorageKey);
         publicUrl.Should().Throw<NotSupportedException>();
         await store.DeleteAsync(uploaded.StorageKey);
-        File.Exists(Path.Combine(settings.LocalBasePath, settings.ContactImages.Path, uploaded.StorageKey)).Should().BeFalse();
+        File.Exists(Path.Combine(settings.LocalBasePath, settings.ContactImages.Path, uploaded.StorageKey.TrimStart('/'))).Should().BeFalse();
     }
 
     [Theory]

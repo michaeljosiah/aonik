@@ -116,7 +116,7 @@ internal sealed class ContactEnquiryService(
         {
             // A response failure can follow a successful commit. Detach only this attempt, then
             // prove what persisted before deciding whether its private objects may be removed.
-            foreach (var attachment in enquiry.Images) db.Entry(attachment).State = EntityState.Detached;
+            foreach (var attachment in enquiry.Images.ToArray()) db.Entry(attachment).State = EntityState.Detached;
             db.Entry(enquiry).State = EntityState.Detached;
             foreach (var message in addedOutbox) db.Entry(message).State = EntityState.Detached;
             ContactEnquiry? winner;
