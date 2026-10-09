@@ -3,6 +3,7 @@ using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Inventory;
+using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Checkout;
@@ -98,19 +99,31 @@ public class CheckoutServiceTests
         }
         public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);
         public InventoryService Inventory() => new(Commerce(), _tenant, new Aonik.Infrastructure.Multitenancy.TenantContext { TenantId = _tenantId }, _clock);
-        public CartService Carts() => new(Commerce(), _tenant, Pricing(), _clock);
+        public CartService Carts()
+        {
+            var context = Commerce();
+            return new(context, _tenant, new ProductPricingService(context, _tenant, _clock), _clock,
+                CommerceTestHarness.NewDiscountQuotes(context, _tenantId, _clock));
+        }
         public DiscountService Discounts() => new(Commerce(), _tenant, _clock);
         public BoxCartService BoxCarts()
         {
             var ctx = Commerce();
             return new(ctx, _tenant, CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, _clock), _clock);
+                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, _clock), _clock,
+                CommerceTestHarness.NewDiscountQuotes(ctx, _tenantId, _clock));
         }
 
-        public CheckoutService Checkout() => new(
-            Commerce(), Inventory(), new CoreOrderService(Ordering(), _tenant, _clock, _user),
-            Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant, BoxCarts(), _guestOrderAccess,
-            new FulfilmentPromiseService(Commerce(), _tenant, _clock), new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock);
+        public CheckoutService Checkout()
+        {
+            var context = Commerce();
+            var inventory = new InventoryService(context, _tenant,
+                new Aonik.Infrastructure.Multitenancy.TenantContext { TenantId = _tenantId }, _clock);
+            return new(context, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
+                Payments, Invoices, new DiscountService(context, _tenant, _clock), new ZeroRateTaxCalculator(), _tenant,
+                BoxCarts(), _guestOrderAccess, new FulfilmentPromiseService(context, _tenant, _clock),
+                new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock);
+        }
     }
 
     [Fact]
@@ -263,7 +276,8 @@ public class CheckoutServiceTests
         var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart)); // subtotal 5000
 
-        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: "SAVE10"), Owner(cart));
+        var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card",
+            DiscountCode: "SAVE10", ExpectedTotal: 4_500m), Owner(cart));
 
         result.Subtotal.Should().Be(5_000m);
         result.DiscountTotal.Should().Be(500m);
@@ -276,6 +290,43 @@ public class CheckoutServiceTests
         var charge = await commerce.OrderChargeSummaries.FirstAsync(c => c.OrderId == result.OrderId);
         charge.Total.Should().Be(4_500m);
         charge.DiscountCode.Should().Be("SAVE10");
+    }
+
+    [Theory]
+    [InlineData(null, "SAVE10", false)]
+    [InlineData(19, "SAVE10", false)]
+    [InlineData(18, "", true)]
+    [InlineData(18, null, false)]
+    public async Task DiscountedCheckout_Should_RequireTheCurrentTotalBeforeAnyPaymentOrReservation(
+        int? expectedTotalValue, string? commandCode, bool savedCode)
+    {
+        decimal? expectedTotal = expectedTotalValue;
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Variant, Variants: [new CreateVariantLine("TEA", "Tea")]));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 20m));
+        await h.Inventory().SetOnHandAsync(variantId, 2m);
+        await h.Discounts().CreateAsync(new("SAVE10", DiscountKinds.Percentage, 10m));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m), Owner(cart));
+
+        if (savedCode)
+        {
+            await using var draft = h.Commerce();
+            (await draft.Carts.SingleAsync()).CheckoutDraftJson = "{\"discountCode\":\"SAVE10\"}";
+            await draft.SaveChangesAsync();
+        }
+
+        var checkout = () => h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card",
+            DiscountCode: commandCode, ExpectedTotal: expectedTotal), Owner(cart));
+
+        (await checkout.Should().ThrowAsync<DiscountException>()).Which.Code.Should().Be(DiscountException.PriceChanged);
+        h.Payments.LastOrderId.Should().BeEmpty();
+        await using var verify = h.Commerce();
+        (await verify.DiscountReservations.CountAsync()).Should().Be(0);
+        (await verify.InventoryReservations.CountAsync()).Should().Be(0);
+        (await verify.OrderChargeSummaries.CountAsync()).Should().Be(0);
     }
 
     [Theory]

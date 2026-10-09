@@ -69,7 +69,14 @@ internal sealed class BoxTestHarness
 
     public ProductPricingService Pricing() => new(Commerce(), _tenant, _clock);
     public InventoryService Inventory() => new(Commerce(), _tenant, new TenantContext { TenantId = _tenantId }, _clock);
-    public CartService Carts() => new(Commerce(), _tenant, Pricing(), _clock);
+    public CartService Carts()
+    {
+        var context = Commerce();
+        return new(context, _tenant, Pricing(), _clock, DiscountQuotes(context));
+    }
+
+    public CartDiscountQuotes DiscountQuotes(CommerceDbContext context)
+        => CommerceTestHarness.NewDiscountQuotes(context, _tenantId, _clock, new DictionaryTenantSettingStore(Settings));
     public async Task<CartAccessContext> HoldDeliveryAsync(Guid cartId, CartAccessContext access)
     {
         await using var context = Commerce();
@@ -91,7 +98,7 @@ internal sealed class BoxTestHarness
     {
         var ctx = context ?? Commerce();
         return new(ctx, _tenant, CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing(), _clock);
+            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing(), _clock, DiscountQuotes(ctx));
     }
 
     /// <summary>CheckoutService and its IBoxCheckoutSupport share ONE context, exactly as the
@@ -103,7 +110,7 @@ internal sealed class BoxTestHarness
         var inventory = new InventoryService(ctx, _tenant, new TenantContext { TenantId = _tenantId }, _clock);
         var boxCarts = new BoxCartService(ctx, _tenant,
             CommerceTestHarness.NewSelectionService(ctx, _tenantId), inventory,
-            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing(), _clock);
+            new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing(), _clock, DiscountQuotes(ctx));
         return new CheckoutService(
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),

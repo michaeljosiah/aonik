@@ -181,6 +181,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<CartItemSelection> CartItemSelections { get; set; } = null!;
     public virtual DbSet<OrderBundleSelection> OrderBundleSelections { get; set; } = null!;
     public virtual DbSet<Discount> Discounts { get; set; } = null!;
+    public virtual DbSet<DiscountReservation> DiscountReservations { get; set; } = null!;
     public virtual DbSet<OrderChargeSummary> OrderChargeSummaries { get; set; } = null!;
 
     // Commerce maker-ops (Spec 050) — ingredient + recipe/bill-of-materials master data.
@@ -527,6 +528,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapCommerceTable<CartItemSelection>(modelBuilder, "CartItemSelections");
         MapCommerceTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
         MapCommerceTable<Discount>(modelBuilder, "Discounts");
+        MapCommerceTable<DiscountReservation>(modelBuilder, "DiscountReservations");
         MapCommerceTable<OrderChargeSummary>(modelBuilder, "OrderChargeSummaries");
 
         // Commerce maker-ops (Spec 050)

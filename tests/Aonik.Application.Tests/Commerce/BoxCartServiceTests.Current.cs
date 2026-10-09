@@ -130,7 +130,8 @@ public partial class BoxCartServiceTests
         await using var context = h.Commerce();
         var service = new BoxCartService(context, new TestTenantProvider(h.TenantId),
             CommerceTestHarness.NewSelectionService(context, h.TenantId), h.Inventory(),
-            new DictionaryTenantSettingStore(h.Settings), new NullSettingProvider(), currencies.Object, h.Pricing(), h.Clock);
+            new DictionaryTenantSettingStore(h.Settings), new NullSettingProvider(), currencies.Object, h.Pricing(), h.Clock,
+            h.DiscountQuotes(context));
 
         var current = await service.GetCurrentAsync(partyId);
 

@@ -16,4 +16,5 @@ public record CheckoutRequest(
     string? CancelUrl,
     Guid? CustomerAccountId,
     string? DiscountCode,
-    CheckoutDeliveryDetails? Delivery = null);
+    CheckoutDeliveryDetails? Delivery = null,
+    decimal? ExpectedTotal = null);

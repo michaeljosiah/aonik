@@ -1,6 +1,7 @@
 ﻿using Aonik.Commerce.Services.Checkout;
 using System.Diagnostics;
 using Aonik.Commerce.Services.Fulfilment;
+using Aonik.Commerce.Services.Promotions;
 using System.Text;
 using System.Text.Json;
 using Aonik.Commerce.Services.Catalog;
@@ -374,6 +375,13 @@ public static class ExceptionHandlerConfiguration
                         code = coverage.Code,
                         fieldName = coverage.FieldName
                     });
+                return;
+
+            case DiscountException discount:
+                await WriteJsonAsync(context,
+                    discount.Code is DiscountException.PriceChanged or DiscountException.Conflict
+                        ? StatusCodes.Status409Conflict : StatusCodes.Status400BadRequest,
+                    new { error = discount.Message, code = discount.Code });
                 return;
 
             case StorefrontValidationException:

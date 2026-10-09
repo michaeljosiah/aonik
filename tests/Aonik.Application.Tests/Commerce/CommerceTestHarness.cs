@@ -3,6 +3,9 @@ using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Fulfilment;
+using Aonik.Commerce.Services.Checkout;
+using Aonik.Commerce.Services.Promotions;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
@@ -16,6 +19,11 @@ namespace Aonik.Application.Tests.Commerce;
 /// <summary>Shared scaffolding for the Commerce catalog/pricing tests (Spec 042).</summary>
 internal static class CommerceTestHarness
 {
+    public static CartDiscountQuotes NewDiscountQuotes(CommerceDbContext context, Guid tenantId, IClock? clock = null,
+        ITenantSettingStore? settings = null, ITaxCalculator? tax = null)
+        => new(context, new TestTenantProvider(tenantId), new DiscountService(context, new TestTenantProvider(tenantId), clock ?? new TestClock()),
+            tax ?? new ZeroRateTaxCalculator(), settings ?? new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider());
+
     public static IPartyService Parties()
     {
         var parties = new Moq.Mock<IPartyService>(Moq.MockBehavior.Strict);

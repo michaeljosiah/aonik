@@ -5,6 +5,7 @@ using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
 using Aonik.Commerce.Services.Production;
+using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
 
@@ -103,6 +104,17 @@ internal sealed class MarginReportService : IMarginReportService
                 .OrderBy(i => i.ItemIndex)
                 .ToList();
             var discountShares = AllocateProportionally(discountTotal, items.Select(i => i.AmountIn).ToList());
+            if (summary?.DiscountAllocationsJson is { } allocationJson)
+            {
+                var allocations = DiscountAllocationSnapshot.Read(allocationJson);
+                var amounts = items.ToDictionary(item => item.Id, item => item.AmountIn);
+                if (allocations.Select(row => row.OrderItemId).Distinct().Count() != allocations.Count
+                    || allocations.Any(row => row.Amount < 0 || !amounts.TryGetValue(row.OrderItemId, out var amount) || row.Amount > amount)
+                    || allocations.Sum(row => row.Amount) != discountTotal)
+                    throw new InvalidOperationException("Order discount allocations do not match the recorded charge.");
+                var byItem = allocations.ToDictionary(row => row.OrderItemId, row => row.Amount);
+                discountShares = items.Select(item => byItem.GetValueOrDefault(item.Id)).ToArray();
+            }
 
             for (var i = 0; i < items.Count; i++)
             {
@@ -367,35 +379,7 @@ internal sealed class MarginReportService : IMarginReportService
     /// writes zero-amount lines).
     /// </summary>
     private static decimal[] AllocateProportionally(decimal total, IReadOnlyList<decimal> weights)
-    {
-        var shares = new decimal[weights.Count];
-        if (weights.Count == 0 || total == 0m)
-        {
-            return shares;
-        }
-
-        var effective = weights;
-        var weightSum = weights.Sum();
-        if (weightSum <= 0m)
-        {
-            effective = Enumerable.Repeat(1m, weights.Count).ToList();
-            weightSum = weights.Count;
-        }
-
-        var allocated = 0m;
-        var largestIndex = 0;
-        for (var i = 0; i < effective.Count; i++)
-        {
-            shares[i] = Round4(total * effective[i] / weightSum);
-            allocated += shares[i];
-            if (effective[i] > effective[largestIndex])
-            {
-                largestIndex = i;
-            }
-        }
-        shares[largestIndex] += total - allocated;
-        return shares;
-    }
+        => DiscountAllocationMath.Allocate(total, weights, capAtWeights: false);
 
     // ── identity + target resolution (LEFT-join semantics, Spec 055 §9) ─────────────────────────
 

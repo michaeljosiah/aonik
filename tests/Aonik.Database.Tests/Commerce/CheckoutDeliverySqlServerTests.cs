@@ -117,7 +117,8 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
             await using (var edit = Commerce(tenantId))
             {
                 var tenant = new TestTenantProvider(tenantId);
-                var carts = new CartService(edit, tenant, new ProductPricingService(edit, tenant, Clock), Clock);
+                var carts = new CartService(edit, tenant, new ProductPricingService(edit, tenant, Clock), Clock,
+                    DiscountQuoteTestFactory.Create(edit, tenantId, Clock));
                 if (adopt) await carts.AdoptAsync(seeded.CartId, Guid.NewGuid(), access);
                 else await carts.SaveCheckoutDraftAsync(seeded.CartId, new CartCheckoutDraftDto(Notes: "Newer draft"), access);
             }
@@ -149,7 +150,8 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         await using (var writer = Commerce(tenantId))
         {
             var tenant = new TestTenantProvider(tenantId);
-            await new CartService(writer, tenant, new ProductPricingService(writer, tenant, Clock), Clock)
+            await new CartService(writer, tenant, new ProductPricingService(writer, tenant, Clock), Clock,
+                    DiscountQuoteTestFactory.Create(writer, tenantId, Clock))
                 .SaveCheckoutDraftAsync(seeded.CartId, new CartCheckoutDraftDto(Notes: "Newer draft"),
                     CartAccessContext.ForGuest(seeded.Token, seeded.Version));
         }
@@ -276,9 +278,11 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
     }
 
     [SkippableTheory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task LegacyConfirmationRollback_Should_NotReflushInventoryOrDiscount_OnTheSameContext(bool failDuringDiscount)
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    public async Task ConfirmationRollback_Should_NotReflushInventoryOrDiscount_OnTheSameContext(bool failDuringDiscount, bool legacyCheckout)
     {
         RequireSqlServer();
         var tenantId = Guid.NewGuid();
@@ -293,13 +297,16 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         var failure = new FailConfirmationSave(failDuringDiscount);
         await using var context = Commerce(tenantId, failure);
         var checkout = Checkout(context, scope.ServiceProvider, tenantId, new RecordingPayment());
-        var pending = await checkout.CheckoutAsync(Command(seeded.CartId, "Original address", FirstDate) with { DiscountCode = "SAVE10" },
+        var pending = await checkout.CheckoutAsync(Command(seeded.CartId, "Original address", FirstDate)
+            with { DiscountCode = "SAVE10", ExpectedTotal = 18m },
             CartAccessContext.ForGuest(seeded.Token, seeded.Version));
-        await using (var legacy = Commerce(tenantId))
+        if (legacyCheckout)
         {
+            await using var legacy = Commerce(tenantId);
             var cart = await legacy.Carts.SingleAsync();
             cart.CheckoutPreparationJson = null;
             cart.CheckoutState = null;
+            legacy.DiscountReservations.RemoveRange(await legacy.DiscountReservations.ToListAsync());
             await legacy.SaveChangesAsync();
         }
         failure.Armed = true;
@@ -317,6 +324,8 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
             (await verify.OrderChargeSummaries.SingleAsync()).PaymentStatus.Should().Be("Pending");
             (await verify.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Held);
             (await verify.Discounts.SingleAsync()).TimesRedeemed.Should().Be(0);
+            if (!legacyCheckout)
+                (await verify.DiscountReservations.SingleAsync()).Status.Should().Be(DiscountReservationStatuses.Reserved);
             var stock = await verify.InventoryLevels.SingleAsync();
             stock.OnHand.Should().Be(25m);
             stock.Reserved.Should().Be(1m);
@@ -324,9 +333,140 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         (await checkout.ConfirmPaymentAsync(pending.OrderId, pending.PaymentIntentId, pending.Total, pending.Currency)).Should().BeTrue();
         await using var completed = Commerce(tenantId);
         (await completed.Discounts.SingleAsync()).TimesRedeemed.Should().Be(1);
+        if (!legacyCheckout)
+            (await completed.DiscountReservations.SingleAsync()).Status.Should().Be(DiscountReservationStatuses.Redeemed);
         (await completed.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Committed);
         (await completed.InventoryLevels.SingleAsync()).OnHand.Should().Be(24m);
         (await completed.InventoryLevels.SingleAsync()).Reserved.Should().Be(0m);
+    }
+
+    [SkippableFact]
+    public async Task LastDiscountUse_Should_AllowOnlyOneProviderAttempt_AndConsumeItsFrozenAmountOnce()
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid();
+        var firstCart = await SeedCartAsync(tenantId);
+        var secondCart = await CopyCartAsync(tenantId, firstCart.CartId);
+        await using (var setup = Commerce(tenantId))
+        {
+            setup.Discounts.Add(new Discount { TenantId = tenantId, Code = "LAST", Value = 10m, MaxRedemptions = 1 });
+            await setup.SaveChangesAsync();
+        }
+        await using var provider = OrderingProvider(tenantId);
+        await using var scopeA = provider.CreateAsyncScope();
+        await using var scopeB = provider.CreateAsyncScope();
+        var gateA = new BeforeCheckoutSave();
+        var gateB = new BeforeCheckoutSave();
+        await using var contextA = Commerce(tenantId, gateA);
+        await using var contextB = Commerce(tenantId, gateB);
+        var payments = new RecordingPayment();
+        var checkoutA = Checkout(contextA, scopeA.ServiceProvider, tenantId, payments);
+        var first = checkoutA.CheckoutAsync(Command(firstCart.CartId, "First address", FirstDate)
+            with { DiscountCode = "LAST", ExpectedTotal = 18m }, CartAccessContext.ForGuest(firstCart.Token, firstCart.Version));
+        try
+        {
+            await gateA.WaitUntilReachedAsync(first);
+            var second = Checkout(contextB, scopeB.ServiceProvider, tenantId, payments).CheckoutAsync(
+                Command(secondCart.CartId, "Second address", FirstDate) with { DiscountCode = "LAST", ExpectedTotal = 18m },
+                CartAccessContext.ForGuest(secondCart.Token, secondCart.Version));
+            await gateB.WaitUntilReachedAsync(second);
+            payments.Calls.Should().Be(0);
+            gateA.Release.TrySetResult();
+            var winner = await first.WaitAsync(TimeSpan.FromSeconds(30));
+            gateB.Release.TrySetResult();
+            var losingCheckout = async () => await second.WaitAsync(TimeSpan.FromSeconds(30));
+            (await losingCheckout.Should().ThrowAsync<DiscountException>()).Which.Code.Should().Be(DiscountException.AlreadyUsed);
+            payments.Calls.Should().Be(1);
+            await Inventory(contextB, tenantId).SetOnHandAsync(firstCart.VariantId, 25m);
+            await using (var edit = Commerce(tenantId))
+            {
+                (await edit.DiscountReservations.CountAsync()).Should().Be(1);
+                var campaign = await edit.Discounts.SingleAsync();
+                campaign.TimesRedeemed.Should().Be(0);
+                campaign.IsActive = false;
+                campaign.Value = 50m;
+                await edit.SaveChangesAsync();
+            }
+            (await checkoutA.ConfirmPaymentAsync(winner.OrderId, winner.PaymentIntentId, 18m, "GBP")).Should().BeTrue();
+            (await checkoutA.ConfirmPaymentAsync(winner.OrderId, winner.PaymentIntentId, 18m, "GBP")).Should().BeTrue();
+            await using var verify = Commerce(tenantId);
+            (await verify.Discounts.SingleAsync()).TimesRedeemed.Should().Be(1);
+            var claim = await verify.DiscountReservations.SingleAsync();
+            claim.Status.Should().Be(DiscountReservationStatuses.Redeemed);
+            claim.RowVersion.Should().HaveCount(8);
+            (await verify.OrderChargeSummaries.SingleAsync()).DiscountTotal.Should().Be(2m);
+            (await verify.Carts.SingleAsync(c => c.Id == secondCart.CartId)).CheckoutPreparationJson.Should().BeNull();
+        }
+        finally { gateA.Release.TrySetResult(); gateB.Release.TrySetResult(); }
+    }
+
+    [SkippableFact]
+    public async Task DiscountReservation_Should_SurviveUnknownPayment_AndReleaseOnlyForConfirmedClosure()
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid();
+        var seeded = await SeedCartAsync(tenantId);
+        await using (var setup = Commerce(tenantId))
+        {
+            setup.Discounts.Add(new Discount { TenantId = tenantId, Code = "ONCE", Value = 10m, MaxRedemptions = 1 });
+            await setup.SaveChangesAsync();
+        }
+        await using var provider = OrderingProvider(tenantId);
+        await using var scope = provider.CreateAsyncScope();
+        await using var context = Commerce(tenantId);
+        var payments = new RecordingPayment { KeepPendingOnExpire = true };
+        var checkout = Checkout(context, scope.ServiceProvider, tenantId, payments);
+        var command = Command(seeded.CartId, "Original address", FirstDate)
+            with { DiscountCode = "ONCE", ExpectedTotal = 18m };
+        var pending = await checkout.CheckoutAsync(command, CartAccessContext.ForGuest(seeded.Token, seeded.Version));
+        await using var read = Commerce(tenantId);
+        var current = await read.Carts.AsNoTracking().SingleAsync();
+        var access = CartAccessContext.ForGuest(seeded.Token, Convert.ToBase64String(current.RowVersion));
+        await checkout.RecoverAsync(seeded.CartId, pending.PaymentIntentId, access);
+        (await read.DiscountReservations.AsNoTracking().SingleAsync()).Status.Should().Be(DiscountReservationStatuses.Reserved);
+        (await read.Discounts.AsNoTracking().SingleAsync()).TimesRedeemed.Should().Be(0);
+        (await read.InventoryLevels.AsNoTracking().SingleAsync()).Reserved.Should().Be(1m);
+        payments.KeepPendingOnExpire = false;
+        await checkout.RecoverAsync(seeded.CartId, pending.PaymentIntentId, access);
+        var released = await read.DiscountReservations.AsNoTracking().SingleAsync();
+        released.Status.Should().Be(DiscountReservationStatuses.Released);
+        (await read.InventoryLevels.AsNoTracking().SingleAsync()).Reserved.Should().Be(0m);
+        current = await read.Carts.AsNoTracking().SingleAsync();
+        var retry = await checkout.CheckoutAsync(command,
+            CartAccessContext.ForGuest(seeded.Token, Convert.ToBase64String(current.RowVersion)));
+        retry.OrderId.Should().Be(pending.OrderId);
+        retry.PaymentIntentId.Should().NotBe(pending.PaymentIntentId);
+        var reserved = await read.DiscountReservations.AsNoTracking().SingleAsync();
+        reserved.Id.Should().Be(released.Id);
+        reserved.AttemptId.Should().Be(retry.PaymentIntentId);
+        reserved.Status.Should().Be(DiscountReservationStatuses.Reserved);
+    }
+
+    private async Task<(Guid CartId, string Token, string Version)> CopyCartAsync(Guid tenantId, Guid cartId)
+    {
+        await using var context = Commerce(tenantId);
+        var source = await context.Carts.AsNoTracking().Include(c => c.Items).ThenInclude(i => i.Selections)
+            .SingleAsync(c => c.Id == cartId);
+        var token = CartAccess.MintToken();
+        var copy = new Cart
+        {
+            TenantId = tenantId, Currency = source.Currency, AnonymousToken = token,
+            Items = source.Items.Select(item => new CartItem
+            {
+                TenantId = tenantId, ProductVariantId = item.ProductVariantId, IsBundle = item.IsBundle,
+                BundleProductId = item.BundleProductId, Quantity = item.Quantity, UnitPriceSnapshot = item.UnitPriceSnapshot,
+                Sku = item.Sku, NameSnapshot = item.NameSnapshot,
+                Selections = item.Selections.Select(selection => new CartItemSelection
+                {
+                    TenantId = tenantId, BundleSlotId = selection.BundleSlotId, ProductVariantId = selection.ProductVariantId,
+                    Quantity = selection.Quantity, UnitPriceSnapshot = selection.UnitPriceSnapshot,
+                    Sku = selection.Sku, NameSnapshot = selection.NameSnapshot
+                }).ToList()
+            }).ToList()
+        };
+        context.Carts.Add(copy);
+        await context.SaveChangesAsync();
+        return (copy.Id, token, Convert.ToBase64String(copy.RowVersion));
     }
 
     private void RequireSqlServer() => Skip.IfNot(database.IsAvailable, database.SkipReason ?? "SQL Server LocalDB unavailable.");
@@ -432,6 +572,7 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         public Guid IntentId { get; private set; }
         public int Calls { get; private set; }
         public bool Fail { get; set; }
+        public bool KeepPendingOnExpire { get; set; }
         public Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken cancellationToken = default)
         {
             Calls++;
@@ -444,6 +585,7 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
             => Task.FromResult(_states.GetValueOrDefault(paymentIntentId));
         public Task<PaymentIntentStateRef> ExpireAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
         {
+            if (KeepPendingOnExpire) return Task.FromResult(_states[paymentIntentId]);
             var state = _states[paymentIntentId] with { Status = "Cancelled", CanNoLongerPay = true, CheckoutUrl = null };
             _states[paymentIntentId] = state;
             return Task.FromResult(state);

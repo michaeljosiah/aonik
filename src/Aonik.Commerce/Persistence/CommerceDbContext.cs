@@ -48,6 +48,7 @@ internal sealed class CommerceDbContext : AonikDbContextBase
     public DbSet<CartItemSelection> CartItemSelections => Set<CartItemSelection>();
     public DbSet<OrderBundleSelection> OrderBundleSelections => Set<OrderBundleSelection>();
     public DbSet<Discount> Discounts => Set<Discount>();
+    public DbSet<DiscountReservation> DiscountReservations => Set<DiscountReservation>();
     public DbSet<OrderChargeSummary> OrderChargeSummaries => Set<OrderChargeSummary>();
     public DbSet<Ingredient> Ingredients => Set<Ingredient>();
     public DbSet<IngredientCost> IngredientCosts => Set<IngredientCost>();
@@ -106,8 +107,6 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<Aonik.Commerce.Entities.Fulfilment.OrderDeliveryDetails>(modelBuilder, "OrderDeliveryDetails");
         MapTable<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity>(modelBuilder, "DeliveryDateCapacities");
         MapTable<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation>(modelBuilder, "CartDeliveryReservations");
-        MapTable<Aonik.Commerce.Entities.Fulfilment.DeliveryDateCapacity>(modelBuilder, "DeliveryDateCapacities");
-        MapTable<Aonik.Commerce.Entities.Fulfilment.CartDeliveryReservation>(modelBuilder, "CartDeliveryReservations");
         MapTable<InventoryLevel>(modelBuilder, "InventoryLevels");
         MapTable<InventoryReservation>(modelBuilder, "InventoryReservations");
         MapTable<Entities.Cart.Cart>(modelBuilder, "Carts");
@@ -115,6 +114,7 @@ internal sealed class CommerceDbContext : AonikDbContextBase
         MapTable<CartItemSelection>(modelBuilder, "CartItemSelections");
         MapTable<OrderBundleSelection>(modelBuilder, "OrderBundleSelections");
         MapTable<Discount>(modelBuilder, "Discounts");
+        MapTable<DiscountReservation>(modelBuilder, "DiscountReservations");
         MapTable<OrderChargeSummary>(modelBuilder, "OrderChargeSummaries");
         MapTable<Ingredient>(modelBuilder, "Ingredients");
         MapTable<IngredientCost>(modelBuilder, "IngredientCosts");

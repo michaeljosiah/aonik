@@ -71,6 +71,7 @@ public sealed class CommerceModule : IModule
         services.AddScoped<IProductContentReviewFlagger, ProductContentReviewFlagger>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<ICartService, CartService>();
+        services.AddScoped<CartDiscountQuotes>();
         services.AddScoped<IBundleSizePlanService, BundleSizePlanService>();
         services.AddScoped<IExtrasCatalogService, ExtrasCatalogService>();
         services.AddSingleton<GuestOrderAccess>();

@@ -17,6 +17,7 @@
     "commerce.box-plans": {},
     "commerce.delivery": {},
     "commerce.merchandising": {},
+    "commerce.discounts": {},
     "commerce.storefront-config": {},
     "commerce.orders": {},
     "commerce.order-detail": {},
@@ -200,6 +201,9 @@
             },
             {
               "screen": "commerce.merchandising"
+            },
+            {
+              "screen": "commerce.discounts"
             },
             {
               "screen": "commerce.storefront-config"

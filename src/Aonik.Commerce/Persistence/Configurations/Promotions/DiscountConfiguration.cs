@@ -14,6 +14,7 @@ public class DiscountConfiguration : IEntityTypeConfiguration<Discount>
         builder.Property(x => x.Kind).IsRequired().HasMaxLength(16);
         builder.Property(x => x.Value).IsRequired().HasPrecision(19, 4);
         builder.Property(x => x.Currency).HasMaxLength(3);
+        builder.Property(x => x.EligibleProductIdsJson).HasMaxLength(8000);
 
         builder.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
     }

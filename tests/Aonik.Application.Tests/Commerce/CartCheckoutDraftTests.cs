@@ -109,7 +109,7 @@ public class CartCheckoutDraftTests
         var cart = await h.Carts().CreateCartAsync(new("GBP"));
         await using var context = h.Commerce();
         await context.Carts.SingleAsync();
-        var service = new CartService(context, new TestTenantProvider(h.TenantId), h.Pricing(), h.Clock);
+        var service = new CartService(context, new TestTenantProvider(h.TenantId), h.Pricing(), h.Clock, h.DiscountQuotes(context));
         await using (var other = h.Commerce())
         {
             var row = await other.Carts.SingleAsync();
@@ -155,7 +155,7 @@ public class CartCheckoutDraftTests
         var cart = await h.Carts().CreateCartAsync(new("GBP"));
         await using var context = h.Commerce(new RejectDraftSave());
         var tenant = new TestTenantProvider(h.TenantId);
-        var service = new CartService(context, tenant, h.Pricing(), h.Clock);
+        var service = new CartService(context, tenant, h.Pricing(), h.Clock, h.DiscountQuotes(context));
         var attempt = () => service.SaveCheckoutDraftAsync(cart.Id, new(Notes: "rejected"),
             CartAccessContext.ForGuest(cart.AnonymousToken, cart.CartVersion));
         await attempt.Should().ThrowAsync<DbUpdateConcurrencyException>();

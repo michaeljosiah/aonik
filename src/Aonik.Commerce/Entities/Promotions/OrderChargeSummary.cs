@@ -17,6 +17,7 @@ public class OrderChargeSummary : AuditableEntity, ITenantScoped
     public decimal DiscountTotal { get; set; }
     public string? DiscountCode { get; set; }
     public Guid? DiscountId { get; set; }
+    public string? DiscountAllocationsJson { get; set; }
     public decimal TaxTotal { get; set; }
     public decimal Total { get; set; }
 

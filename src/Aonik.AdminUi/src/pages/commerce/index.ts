@@ -1,5 +1,6 @@
 export { CommerceOverviewPage } from './CommerceOverviewPage';
 export { CommerceProductsPage } from './CommerceProductsPage';
+export { CommerceDiscountsPage } from './CommerceDiscountsPage';
 export { PersonalisationPage } from './PersonalisationPage';
 export { ProductContentPage } from './ProductContentPage';
 export { BoxPlansPage } from './BoxPlansPage';

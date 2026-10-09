@@ -102,7 +102,11 @@ public class MarginReportServiceTests
         }
         public ProductPricingService Pricing() => new(Commerce(), _tenant, Clock);
         public InventoryService Inventory() => new(Commerce(), _tenant, new TenantContext { TenantId = _tenantId }, Clock);
-        public CartService Carts() => new(Commerce(), _tenant, Pricing(), Clock);
+        public CartService Carts()
+        {
+            var ctx = Commerce();
+            return new(ctx, _tenant, Pricing(), Clock, CommerceTestHarness.NewDiscountQuotes(ctx, _tenantId, Clock));
+        }
         public DiscountService Discounts() => new(Commerce(), _tenant, Clock);
         public RecipeService Recipes() => new(Commerce(), _tenant);
         public IngredientCostService Costs() => new(Commerce(), _tenant, Clock);
@@ -113,10 +117,11 @@ public class MarginReportServiceTests
             var ctx = Commerce();
             var boxCarts = new BoxCartService(ctx, _tenant,
                 CommerceTestHarness.NewSelectionService(ctx, _tenantId), Inventory(),
-                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, Clock), Clock);
+                new NullTenantSettingStore(), new NullSettingProvider(), new GbpTenantCurrencyProvider(), new ProductPricingService(ctx, _tenant, Clock), Clock,
+                CommerceTestHarness.NewDiscountQuotes(ctx, _tenantId, Clock));
             return new CheckoutService(
-                Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
-                Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts, _guestOrderAccess,
+                ctx, Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
+                new DiscountService(ctx, _tenant, Clock), new ZeroRateTaxCalculator(), _tenant, boxCarts, _guestOrderAccess,
                 new FulfilmentPromiseService(ctx, _tenant, Clock), new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), Clock);
         }
 
@@ -198,7 +203,10 @@ public class MarginReportServiceTests
             {
                 await Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, quantity), Owner(cart));
             }
-            var result = await Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: discountCode), Owner(cart));
+            var expectedTotal = discountCode is null ? (decimal?)null
+                : (await Carts().PreviewDiscountAsync(cart.Id, discountCode, Owner(cart))).Total;
+            var result = await Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card",
+                DiscountCode: discountCode, ExpectedTotal: expectedTotal), Owner(cart));
             if (confirmPayment)
             {
                 await Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
@@ -455,6 +463,39 @@ public class MarginReportServiceTests
     }
 
     // ── §8 — the revenue-inclusion rule: only payment-completed orders count ─────────────────────
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task GetMarginReport_Should_UseFrozenEligibleItemAllocation_WithLegacyFallback(bool legacy)
+    {
+        var h = new Harness();
+        var (eligibleProduct, eligible) = await h.SeedSimpleAsync("Eligible dish", 20m);
+        var (_, excluded) = await h.SeedSimpleAsync("Excluded dish", 20m);
+        var discount = await h.Discounts().CreateAsync(new CreateDiscountCommand("SELECTED", DiscountKinds.FixedAmount,
+            10m, "GBP", EligibleProductIds: [eligibleProduct]));
+        var checkout = await h.CheckoutAsync(FromUtc.AddDays(1), true, discountCode: "SELECTED",
+            lines: [(excluded, 1m), (eligible, 1m)]);
+        await h.Discounts().UpdateAsync(discount.Id, new UpdateDiscountCommand("Percentage", 90m, false,
+            null, null, null, null, discount.Version));
+        await using (var context = h.Commerce())
+        {
+            var summary = await context.OrderChargeSummaries.SingleAsync(row => row.OrderId == checkout.OrderId);
+            var allocation = DiscountAllocationSnapshot.Read(summary.DiscountAllocationsJson!).Should().ContainSingle().Subject;
+            var order = (await h.Orders().GetAsync(checkout.OrderId))!;
+            allocation.OrderItemId.Should().Be(order.Items.Single(item => item.ProductId == eligible).Id);
+            allocation.Amount.Should().Be(10m);
+            if (legacy)
+            {
+                summary.DiscountAllocationsJson = null;
+                await context.SaveChangesAsync();
+            }
+        }
+        var report = await h.ReportAsync();
+        report.Rows.Single(row => row.ProductVariantId == eligible).Revenue.Should().Be(legacy ? 15m : 10m);
+        report.Rows.Single(row => row.ProductVariantId == excluded).Revenue.Should().Be(legacy ? 15m : 20m);
+        report.Aggregate.Revenue.Should().Be(30m);
+    }
 
     [Fact]
     public async Task GetMarginReport_Should_CountOnlyPaymentCompletedOrders_InWindowAndCurrency()

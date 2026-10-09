@@ -4,7 +4,8 @@ using FastEndpoints;
 
 namespace Aonik.Commerce.Endpoints.Admin.Promotions;
 
-public record CreateDiscountRequest(string Code, string Kind, decimal Value, string? Currency, int? MaxRedemptions, DateTime? ExpiresAt);
+public record CreateDiscountRequest(string Code, string Kind, decimal Value, string? Currency, int? MaxRedemptions,
+    DateTime? ExpiresAt, IReadOnlyList<Guid>? EligibleProductIds = null);
 
 public class CreateDiscountEndpoint : Endpoint<CreateDiscountRequest, DiscountDto>
 {
@@ -22,7 +23,7 @@ public class CreateDiscountEndpoint : Endpoint<CreateDiscountRequest, DiscountDt
     public override async Task HandleAsync(CreateDiscountRequest req, CancellationToken ct)
     {
         var result = await _discounts.CreateAsync(
-            new CreateDiscountCommand(req.Code, req.Kind, req.Value, req.Currency, req.MaxRedemptions, req.ExpiresAt), ct);
+            new CreateDiscountCommand(req.Code, req.Kind, req.Value, req.Currency, req.MaxRedemptions, req.ExpiresAt, req.EligibleProductIds), ct);
         await Send.OkAsync(result, ct);
     }
 }

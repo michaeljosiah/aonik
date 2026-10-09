@@ -31,7 +31,8 @@ internal sealed class CommerceCheckoutProposalHandler(ICheckoutService checkout)
         try
         {
             // Execute precisely the approved version. Never refresh it behind the approver's back.
-            var result = await checkout.CheckoutAsync(new CheckoutCommand(payload.CartId, payload.Provider, payload.PaymentMethodType, RequireFreshCart: true),
+            var result = await checkout.CheckoutAsync(new CheckoutCommand(payload.CartId, payload.Provider, payload.PaymentMethodType,
+                RequireFreshCart: true, ExpectedTotal: payload.ExpectedTotal),
                 CartAccessContext.ForGuest(payload.CartToken, payload.ExpectedCartVersion), cancellationToken);
             return new(true, "Order", result.OrderId);
         }
@@ -43,5 +44,5 @@ internal sealed class CommerceCheckoutProposalHandler(ICheckoutService checkout)
     }
 
     private sealed record CheckoutPayload(Guid CartId, string? Provider, string? PaymentMethodType,
-        string? CartToken, string? ExpectedCartVersion);
+        string? CartToken, string? ExpectedCartVersion, decimal? ExpectedTotal = null);
 }

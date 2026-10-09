@@ -210,7 +210,10 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
         client.DefaultRequestHeaders.Remove("X-Cart-Version");
         client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", draft.CartVersion).Should().BeTrue();
 
-        using var response = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(null));
+        using var preview = await client.PostAsJsonAsync($"/commerce/carts/{seeded.CartId}/discount/validate", new { code = "SAVE10" });
+        preview.StatusCode.Should().Be(HttpStatusCode.OK);
+        var quote = (await preview.Content.ReadFromJsonAsync<CartDiscountQuoteDto>())!;
+        using var response = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(null) with { ExpectedTotal = quote.Total });
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResult>())!;
