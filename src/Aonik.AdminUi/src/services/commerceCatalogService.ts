@@ -152,9 +152,10 @@ function buildQuery(params: Record<string, string | number | undefined>): string
 
 export const commerceCatalogService = {
   // ── Products ──────────────────────────────────────────────────────────────
-  listProducts: async (params: ListCommerceProductsParams = {}): Promise<PagedResult<ProductSummaryDto>> => {
+  listProducts: async (params: ListCommerceProductsParams = {}, config?: object): Promise<PagedResult<ProductSummaryDto>> => {
     const raw = await api.get<CommercePagedResult<ProductSummaryDto>>(
       `/commerce/admin/products${buildQuery({ ...params })}`,
+      config,
     );
     return normalizeCommercePage(raw);
   },
