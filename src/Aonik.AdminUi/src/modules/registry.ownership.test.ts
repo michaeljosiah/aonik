@@ -205,6 +205,15 @@ describe('registry route ownership', () => {
     }
   });
 
+  it('makes packing reachable only through the staff policy in both commerce profiles', () => {
+    for (const businessType of ['base', 'food-commerce']) {
+      const manifest = { ...manifestWithout('finance'), businessType, allowedPolicies: ['AdminUserPolicy', 'AdminReadPolicy'] };
+      expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, manifest), '/commerce/orders/example/packing')).toBe(true);
+      expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...manifest, allowedPolicies: ['AdminUserPolicy'] }), '/commerce/orders/example/packing')).toBe(false);
+      expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...manifest, enabledModules: manifest.enabledModules.filter(id => id !== 'commerce') }), '/commerce/orders/example/packing')).toBe(false);
+    }
+  });
+
   it('never marks the home route or Customers as finance-owned for the 403 redirect rule', () => {
     expect(pathRequiresBackendModule(registry, 'finance', '/')).toBe(false);
     expect(pathRequiresBackendModule(registry, 'finance', '/customers')).toBe(false);

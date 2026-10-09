@@ -4,6 +4,7 @@ import {
   BoxPlansPage,
   CommerceCartsPage,
   CommerceOrdersPage,
+  CommerceOrderPackingPage,
   CommerceOverviewPage,
   CommerceProductsPage,
   CommerceDiscountsPage,
@@ -56,6 +57,7 @@ const routes: ModuleRouteConfig[] = [
   // Route-addressable order drawer (Spec 083 §2) — deep links, including Spec 084's
   // recent-orders rows, open it directly.
   { screen: { id: 'commerce.order-detail', label: 'Order', permissions: { authenticatedAdmin: true } }, path: '/commerce/orders/:orderId', element: CommerceOrdersPage, isDynamic: true },
+  { screen: { id: 'commerce.order-packing', label: 'Packing slip', permissions: { authenticatedAdmin: true }, policy: 'AdminReadPolicy' }, path: '/commerce/orders/:orderId/packing', element: CommerceOrderPackingPage, isDynamic: true },
   { screen: { id: 'commerce.carts', label: 'Carts', permissions: { authenticatedAdmin: true } }, path: '/commerce/carts', element: CommerceCartsPage },
 ];
 

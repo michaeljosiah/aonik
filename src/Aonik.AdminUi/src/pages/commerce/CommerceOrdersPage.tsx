@@ -117,6 +117,7 @@ export function CommerceOrdersPage() {
               Box of {row.boxSize}
             </span>
           )}
+          {row.isGift && <Pill tone="info">Gift</Pill>}
         </span>
       ),
       className: 'pl-4 w-[150px]',

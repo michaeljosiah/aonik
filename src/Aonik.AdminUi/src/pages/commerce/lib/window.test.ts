@@ -100,6 +100,14 @@ describe('summariseCartWindow', () => {
     boxMeta,
   });
 
+  it('does not silently count an unavailable card price as zero in the open total', () => {
+    const summary = summariseCartWindow([open(40), { ...open(0, { size: 6, filled: 6, drift: true }), total: null }]);
+    expect(summary.openValue).toBe('Price unavailable');
+    expect(summary.moneyCaption).toContain('1 cart price unavailable');
+    expect(summary.blocked).toBe(1);
+    expect(summariseCartWindow([open(40), { ...open(0), status: 'Abandoned', total: null }]).openValue).toContain('40');
+  });
+
   it('values OPEN carts only — checked-out value is already an order', () => {
     const summary = summariseCartWindow([
       open(40),

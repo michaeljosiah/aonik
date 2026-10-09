@@ -38,7 +38,9 @@ internal sealed record BoxCheckoutShape(
     /// unit price (retail + adjustment + surcharge).
     IReadOnlyList<(CartItem Line, OptionSelectionResult? Priced, decimal ChargedUnitPrice)> AddOnLines,
     /// Σ charged unit price × qty over AddOn lines — joins the goods subtotal (X7).
-    decimal AddOnGoodsTotal);
+    decimal AddOnGoodsTotal,
+    /// The separate gift greeting-card item; never part of the box aggregate's GoodsTotal.
+    decimal GreetingCardCharged = 0m);
 
 /// <summary>
 /// A18 — checkout found catalogue drift (or an unavailable line): the customer must explicitly

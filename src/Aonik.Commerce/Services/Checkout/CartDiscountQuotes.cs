@@ -81,6 +81,9 @@ internal sealed class CartDiscountQuotes(CommerceDbContext db, ITenantProvider t
                 items.Add(new OrderItemCommand(OrderTypeCodes.ProductPurchase, items.Count,
                     (line.UnitPriceSnapshot + (line.PersonalisationAdjustment ?? 0m) + (line.UnitSurcharge ?? 0m)) * line.Quantity,
                     cart.Currency, ProductId: line.ProductVariantId));
+            var greetingCard = await GreetingCardPricing.ResolveAsync(settingStore, cart.TenantId, cart.Currency,
+                CartDraftData.Read(cart)?.Gift, ct);
+            if (greetingCard > 0m) items.Add(GreetingCardPricing.Item(items.Count, greetingCard, cart.Currency));
             var currency = await tenantCurrency.GetTenantDefaultCurrencyAsync(cart.TenantId, ct) ?? "GBP";
             if (string.Equals(currency, cart.Currency, StringComparison.OrdinalIgnoreCase))
             {

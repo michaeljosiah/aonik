@@ -56,7 +56,8 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         ]);
         var delivery = body.GetProperty("delivery");
         delivery.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(new[]
-            { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes" });
+            { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes", "gift" });
+        delivery.GetProperty("gift").ValueKind.Should().Be(JsonValueKind.Null);
         delivery.GetProperty("deliveryDate").GetString().Should().Be("2026-10-25");
         delivery.GetProperty("timezone").GetString().Should().Be("Europe/London");
         delivery.GetProperty("purchaser").GetProperty("email").GetString().Should().Be("purchaser@example.com");
@@ -342,6 +343,102 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
 
     private static string GuestPath(Guid orderId) => $"/commerce/storefront/guest-orders/{orderId}";
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Packing_Should_UseGiftSnapshot_AndOmitHiddenMoneyWithoutChangingFinancialReads(bool hidePrices)
+    {
+        var tenantId = Guid.NewGuid();
+        using var staff = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId).WithRoles("Operations"));
+        var seeded = await SeedGuestCheckoutAsync(tenantId, gift: true, hidePrices: hidePrices, paymentStatus: CheckoutPaymentStatuses.Captured);
+
+        using var response = await staff.GetAsync($"/commerce/admin/orders/{seeded.OrderId}/packing");
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertPrivateHeaders(response);
+        var packing = await response.Content.ReadFromJsonAsync<JsonElement>();
+        packing.GetProperty("gift").GetProperty("hidePrices").GetBoolean().Should().Be(hidePrices);
+        packing.GetProperty("gift").GetProperty("greetingCardMessage").GetString().Should().Be("Happy birthday!\n<script>literal text</script>");
+        packing.GetProperty("recipient").GetProperty("name").GetString().Should().Be("Sam Recipient");
+        packing.GetProperty("items")[1].GetProperty("name").GetString().Should().Be("Greeting card");
+        var json = packing.GetRawText();
+        json.Should().NotContain("purchaser@example.com").And.NotContain("1111 1111")
+            .And.NotContain("private-checkout").And.NotContain("paymentIntentId").And.NotContain("buyerPartyId");
+        packing.TryGetProperty("prices", out var prices).Should().Be(!hidePrices);
+        if (hidePrices)
+        {
+            foreach (var property in new[] { "currency", "unitPrice", "amount", "total", "subtotal", "discountTotal", "taxTotal" })
+                json.Should().NotContain($"\"{property}\":");
+        }
+        else
+        {
+            prices.GetProperty("charge").GetProperty("total").GetDecimal().Should().Be(98m);
+            prices.GetProperty("items")[1].GetProperty("amount").GetDecimal().Should().Be(3m);
+        }
+
+        using var financeResponse = await staff.GetAsync($"/commerce/admin/orders/{seeded.OrderId}/storefront");
+        var finance = await financeResponse.Content.ReadFromJsonAsync<AdminOrderStorefrontDto>();
+        finance!.Charge.Total.Should().Be(98m);
+        finance.Items.Single(item => item.ItemType == CheckoutService.GreetingCardItemType).IsAddOn.Should().BeFalse();
+        using var guest = Client(tenantId);
+        guest.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+        using var purchaserResponse = await guest.GetAsync(GuestPath(seeded.OrderId));
+        var purchaser = await purchaserResponse.Content.ReadFromJsonAsync<StorefrontOrderDetailDto>();
+        purchaser!.Total.Should().Be(98m);
+        purchaser.Delivery!.Gift!.HidePrices.Should().Be(hidePrices);
+    }
+
+    [Theory]
+    [InlineData("RequiresAction")]
+    [InlineData("Processing")]
+    [InlineData("Cancelled")]
+    public async Task Packing_Should_RejectUnconfirmedPayment(string paymentStatus)
+    {
+        var tenantId = Guid.NewGuid();
+        using var staff = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId).WithRoles("Operations"));
+        var seeded = await SeedGuestCheckoutAsync(tenantId, gift: true, paymentStatus: paymentStatus);
+        using var response = await staff.GetAsync($"/commerce/admin/orders/{seeded.OrderId}/packing");
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        AssertPrivateHeaders(response);
+        (await response.Content.ReadAsStringAsync()).Should().NotContain("Kitchen Road").And.NotContain("purchaser@example.com");
+    }
+
+    [Theory]
+    [InlineData("PlatformAdmin")]
+    [InlineData("TenantAdmin")]
+    [InlineData("Operations")]
+    [InlineData("ReadOnly")]
+    public async Task Packing_Should_AllowStaff_AndIsolateOtherTenants(string role)
+    {
+        var tenantId = Guid.NewGuid();
+        using var staff = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId).WithRoles(role));
+        var seeded = await SeedGuestCheckoutAsync(tenantId, paymentStatus: CheckoutPaymentStatuses.Captured);
+        var path = $"/commerce/admin/orders/{seeded.OrderId}/packing";
+        using var response = await staff.GetAsync(path);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertPrivateHeaders(response);
+        using var other = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(Guid.NewGuid()).WithRoles(role));
+        using var hidden = await other.GetAsync(path);
+        hidden.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        AssertPrivateHeaders(hidden);
+    }
+
+    [Fact]
+    public async Task Packing_Should_RejectAnonymousAndCustomerAccess_EvenWithGuestCapability()
+    {
+        var tenantId = Guid.NewGuid();
+        var seeded = await SeedGuestCheckoutAsync(tenantId, gift: true, paymentStatus: CheckoutPaymentStatuses.Captured);
+        var path = $"/commerce/admin/orders/{seeded.OrderId}/packing";
+        using var anonymous = Client(tenantId);
+        anonymous.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+        using var denied = await anonymous.GetAsync(path);
+        denied.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        AssertPrivateHeaders(denied);
+        using var customer = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId).WithRoles("PersonalUser"));
+        using var forbidden = await customer.GetAsync(path);
+        forbidden.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        AssertPrivateHeaders(forbidden);
+    }
+
     private static void AssertPrivateHeaders(HttpResponseMessage response)
     {
         response.Headers.CacheControl.Should().NotBeNull();
@@ -364,7 +461,8 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
             .Should().Be(seeded.PaymentIntentId);
     }
 
-    private async Task<GuestCheckout> SeedGuestCheckoutAsync(Guid tenantId)
+    private async Task<GuestCheckout> SeedGuestCheckoutAsync(Guid tenantId, bool gift = false, bool hidePrices = true,
+        string paymentStatus = "RequiresAction")
     {
         await using var scope = _factory.Services.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
@@ -382,10 +480,12 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         var cartId = Guid.NewGuid();
         var paymentIntentId = Guid.NewGuid();
         var cartToken = CartAccess.MintToken();
+        Guid? bundleProductId = gift ? Guid.NewGuid() : null;
+        var total = gift ? 98m : 95m;
         db.Set<Order>().Add(new Order
         {
             Id = orderId, TenantId = tenantId, OrderType = "ProductPurchase",
-            PayerPartyId = Guid.NewGuid(), AmountIn = 95m, CurrencyIn = "GBP",
+            PayerPartyId = Guid.NewGuid(), AmountIn = total, CurrencyIn = "GBP",
             Status = OrderStatuses.Pending, ProvenanceJson = "{}",
             Items =
             [
@@ -393,21 +493,28 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
                 {
                     Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId, ItemType = "ProductPurchase",
                     Quantity = 1m, UnitPrice = 95m, AmountIn = 95m, CurrencyIn = "GBP", Sku = "MEAL-BOX",
-                    Status = OrderStatuses.Pending,
+                    Status = OrderStatuses.Pending, ProductId = bundleProductId,
                     DetailsJson = """{"privateNote":"private-order-note","email":"private@example.com"}""",
                 },
             ],
         });
+        if (gift)
+            db.Set<OrderItem>().Add(new OrderItem
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId, ItemIndex = 1,
+                ItemType = CheckoutService.GreetingCardItemType, Quantity = 1, UnitPrice = 3m,
+                AmountIn = 3m, CurrencyIn = "GBP", Sku = "GREETING-CARD", Status = OrderStatuses.Pending,
+            });
         db.Carts.Add(new Cart
         {
             Id = cartId, TenantId = tenantId, AnonymousToken = cartToken, OrderId = orderId,
-            Currency = "GBP", Status = CartStatuses.Open, BoxSize = 6,
+            Currency = "GBP", Status = CartStatuses.Open, BoxSize = 6, BoxBundleProductId = bundleProductId,
         });
         db.OrderChargeSummaries.Add(new OrderChargeSummary
         {
             Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId, Currency = "GBP",
-            Subtotal = 95m, Total = 95m, PaymentIntentId = paymentIntentId,
-            PaymentStatus = "RequiresAction", PaymentClientSecret = "private-checkout-secret",
+            Subtotal = total, Total = total, PaymentIntentId = paymentIntentId,
+            PaymentStatus = paymentStatus, PaymentClientSecret = "private-checkout-secret", GreetingCardCharged = gift ? 3m : 0m,
             PaymentCheckoutUrl = "https://example.com/private-checkout-url",
         });
         db.OrderBundleSelections.Add(new OrderBundleSelection
@@ -421,6 +528,8 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
             PurchaserEmail = "purchaser@example.com", PurchaserFirstName = "Ada", PurchaserLastName = "Cook", PurchaserPhone = "+44 20 1111 1111",
             RecipientName = "Sam Recipient", RecipientPhone = "+44 20 2222 2222",
             AddressLine1 = "10 Kitchen Road", City = "London", Postcode = "SW1A 1AA", CountryCode = "GB", Notes = "Ring the bell",
+            IsGift = gift, HidePrices = hidePrices, IncludeGreetingCard = gift,
+            GreetingCardMessage = gift ? "Happy birthday!\n<script>literal text</script>" : null,
         });
         await db.SaveChangesAsync();
 

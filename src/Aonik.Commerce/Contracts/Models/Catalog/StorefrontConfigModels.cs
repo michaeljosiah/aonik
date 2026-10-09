@@ -22,7 +22,11 @@ public record StorefrontConfigDto(
     /// The default box bundle's embedded Spec 068 size plan. Null when unset — or until 068 is
     /// live; the two states are indistinguishable by design, and the frontend treats both as
     /// "no box plan to render".
-    StorefrontBoxPlanDto? Box);
+    StorefrontBoxPlanDto? Box,
+    /// A configured greeting-card offer; null means unavailable. Its currency is explicit.
+    GreetingCardPriceDto? GreetingCard = null);
+
+public record GreetingCardPriceDto(decimal Amount, string Currency);
 
 /// <summary>Delivery DISPLAY amounts. ListAmount is what the storefront shows (e.g. struck
 /// through); ChargedAmount is what checkout actually charges (0 renders as free delivery).</summary>

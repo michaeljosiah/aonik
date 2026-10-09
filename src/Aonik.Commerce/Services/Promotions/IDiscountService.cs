@@ -44,7 +44,7 @@ public record DiscountDto(Guid Id, string Code, string Kind, decimal Value, stri
     int? MaxRedemptions, int TimesRedeemed, DateTime? ExpiresAt, IReadOnlyList<Guid>? EligibleProductIds = null,
     int ReservedCount = 0, string Version = "");
 
-public record DiscountChargeLine(int Index, Guid ProductId, decimal Amount, string Kind = "Goods");
+public record DiscountChargeLine(int Index, Guid? ProductId, decimal Amount, string Kind = "Goods");
 public record DiscountAllocation(int ItemIndex, decimal Amount);
 public record OrderDiscountAllocation(Guid OrderItemId, decimal Amount);
 

@@ -82,12 +82,13 @@ internal sealed class MarginReportService : IMarginReportService
 
         // ── attribute revenue + quantity per variant (§8) ────────────────────────────────────────
         var byVariant = new Dictionary<Guid, VariantAccumulator>();
+        var nonCatalogRevenue = 0m;
 
         foreach (var order in orders)
         {
             // Revenue basis: the DISCOUNTED goods total. Line amounts are the goods (subtotal);
-            // the order-level DiscountTotal from the durable charge summary is apportioned to the
-            // lines pro-rata by line amount, so per-variant revenue sums exactly to
+            // the order-level DiscountTotal uses the durable frozen allocation when present,
+            // otherwise legacy pro-rata by line amount, so catalog + non-catalog revenue sums to
             // Subtotal − DiscountTotal. Tax is excluded (pass-through, § 8). An order without a
             // charge summary (created outside Commerce checkout) contributes its line amounts
             // undiscounted — there is no discount record to apportion.
@@ -120,6 +121,13 @@ internal sealed class MarginReportService : IMarginReportService
             {
                 var item = items[i];
                 var lineRevenue = item.AmountIn - discountShares[i];
+
+                // A greeting card is a charged good without a catalog variant or standard cost.
+                if (item.ItemType == Checkout.CheckoutService.GreetingCardItemType)
+                {
+                    nonCatalogRevenue += lineRevenue;
+                    continue;
+                }
 
                 // A line WITH OrderBundleSelection rows is a build-your-own-box (Spec 042 §12
                 // Option A — OrderItem.ProductId is the BUNDLE PRODUCT id): expand it, attributing
@@ -208,7 +216,7 @@ internal sealed class MarginReportService : IMarginReportService
             window,
             reportCurrency,
             rows,
-            Aggregate(rows),
+            Aggregate(rows, nonCatalogRevenue),
             variantsWithoutRecipe,
             variantsWithUnknownCost,
             ordersExcludedByCurrency);
@@ -456,9 +464,9 @@ internal sealed class MarginReportService : IMarginReportService
 
     /// <summary>COGS-known rows only for the margin figures; unknown-COGS revenue surfaced,
     /// never folded in as zero cost (the aggregate would otherwise overstate profit — R5).</summary>
-    private static MarginAggregateDto Aggregate(IReadOnlyList<MarginReportRowDto> rows)
+    private static MarginAggregateDto Aggregate(IReadOnlyList<MarginReportRowDto> rows, decimal nonCatalogRevenue)
     {
-        var revenue = rows.Sum(r => r.Revenue);
+        var revenue = rows.Sum(r => r.Revenue) + nonCatalogRevenue;
         var knownRows = rows.Where(r => r.CogsKnown).ToList();
         var knownCogsRevenue = knownRows.Sum(r => r.Revenue);
         var cogs = knownRows.Sum(r => r.Cogs ?? 0m);
@@ -473,7 +481,8 @@ internal sealed class MarginReportService : IMarginReportService
             cogs,
             grossMargin,
             marginPct,
-            UnknownCogsRevenue: revenue - knownCogsRevenue);
+            UnknownCogsRevenue: revenue - knownCogsRevenue,
+            NonCatalogRevenue: nonCatalogRevenue);
     }
 
     // ── window guard (mirrors Spec 055 §12) ─────────────────────────────────────────────────────

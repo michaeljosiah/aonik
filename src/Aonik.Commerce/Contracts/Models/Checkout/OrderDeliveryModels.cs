@@ -7,6 +7,9 @@ public record DeliveryAddressDto(
 
 public record DeliveryRecipientDto(string Name, string Phone);
 
+/// <summary>Gift food-box choices frozen with delivery; absence means an ordinary order.</summary>
+public record OrderGiftDto(bool HidePrices, bool IncludeGreetingCard, string? GreetingCardMessage);
+
 /// <summary>Submitted delivery facts. A missing recipient means delivery to the submitted purchaser.</summary>
 public record CheckoutDeliveryDetails(
     CheckoutContactDto Purchaser,
@@ -23,4 +26,5 @@ public record OrderDeliveryDto(
     DateOnly DeliveryDate,
     string Timezone,
     DeliveryRecipientDto Recipient,
-    string? Notes = null);
+    string? Notes = null,
+    OrderGiftDto? Gift = null);

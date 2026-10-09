@@ -110,7 +110,7 @@ export function CartDrawer({ cartId, onClose }: { cartId: string; onClose: () =>
                   <span>
                     Total{' '}
                     <span className="font-[family-name:var(--font-mono)] text-foreground">
-                      {formatCurrency(cart.total, cart.currency)}
+                      {cart.total == null ? 'Price unavailable' : formatCurrency(cart.total, cart.currency)}
                     </span>
                   </span>
                 </div>

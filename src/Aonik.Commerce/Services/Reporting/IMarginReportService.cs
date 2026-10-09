@@ -22,6 +22,8 @@ public interface IMarginReportService
     /// payment completion applies); COGS values quantity sold at the live Spec 051 standard cost.
     /// Rows whose COGS cannot be computed are surfaced with <c>CogsKnown = false</c> and excluded
     /// from the aggregate margin — never counted as zero cost.
+    /// Greeting-card charges use the same frozen discount allocations (legacy orders fall back
+    /// to pro-rata); their net revenue is aggregate-only <c>NonCatalogRevenue</c> and unknown COGS.
     /// </summary>
     Task<MarginReportDto> GetMarginReportAsync(ProductionWindow window, string currency, CancellationToken cancellationToken = default);
 

@@ -11,8 +11,8 @@ namespace Aonik.Commerce.Contracts.Models.Reporting;
 /// <summary>
 /// One margin-report row: what one product variant sold for versus what it cost to make
 /// (Spec 057 §7/§9). All money values are in the report currency. <see cref="Revenue"/> is the
-/// DISCOUNTED goods revenue attributed to the variant (order-level discount apportioned pro-rata
-/// by line amount; tax excluded). <see cref="Cogs"/>/<see cref="GrossMargin"/>/<see cref="MarginPct"/>
+/// DISCOUNTED goods revenue attributed to the variant (frozen line allocations, with pro-rata
+/// allocation for legacy orders; tax excluded). <see cref="Cogs"/>/<see cref="GrossMargin"/>/<see cref="MarginPct"/>
 /// are null when <see cref="CogsKnown"/> is false — no active recipe, or a component without an
 /// effective cost in the report currency (the Spec 050/051 diagnostic) — never a phantom zero cost;
 /// such a row is excluded from the aggregate margin and its revenue reported under
@@ -38,11 +38,13 @@ public record MarginReportRowDto(
     bool? BelowTarget);
 
 /// <summary>
-/// The window aggregate (Spec 057 §9). <see cref="Revenue"/> sums ALL rows;
+/// The window aggregate (Spec 057 §9). <see cref="Revenue"/> sums all catalog rows plus
+/// <see cref="NonCatalogRevenue"/> (discounted greeting-card charges, without a catalog variant);
 /// <see cref="KnownCogsRevenue"/>, <see cref="Cogs"/>, <see cref="GrossMargin"/> and
 /// <see cref="MarginPct"/> cover COGS-known rows ONLY — a row with unknown COGS is never folded in
 /// as zero cost (which would inflate reported profit); its revenue is surfaced under
 /// <see cref="UnknownCogsRevenue"/> (= Revenue − KnownCogsRevenue) so coverage gaps stay visible.
+/// Non-catalog revenue has no recorded standard cost and is included in unknown-COGS revenue.
 /// <see cref="MarginPct"/> is on the 0–100 scale (2 dp); null when no COGS-known revenue exists.
 /// </summary>
 public record MarginAggregateDto(
@@ -51,7 +53,8 @@ public record MarginAggregateDto(
     decimal Cogs,
     decimal GrossMargin,
     decimal? MarginPct,
-    decimal UnknownCogsRevenue);
+    decimal UnknownCogsRevenue,
+    decimal NonCatalogRevenue = 0m);
 
 /// <summary>
 /// The margin &amp; profit report for a window in one currency (Spec 057 §11). Rows are per

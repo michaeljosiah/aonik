@@ -21,6 +21,7 @@
     "commerce.storefront-config": {},
     "commerce.orders": {},
     "commerce.order-detail": {},
+    "commerce.order-packing": {},
     "commerce.carts": {},
     "home": {},
     "workspace": {},

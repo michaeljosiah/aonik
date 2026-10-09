@@ -14,6 +14,7 @@ public class OrderChargeSummary : AuditableEntity, ITenantScoped
     public Guid OrderId { get; set; }
     public string Currency { get; set; } = string.Empty;
     public decimal Subtotal { get; set; }
+    public decimal GreetingCardCharged { get; set; }
     public decimal DiscountTotal { get; set; }
     public string? DiscountCode { get; set; }
     public Guid? DiscountId { get; set; }

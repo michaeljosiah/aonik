@@ -22,4 +22,8 @@ public class OrderDeliveryDetails : AuditableEntity, ITenantScoped
     public string RecipientName { get; set; } = string.Empty;
     public string RecipientPhone { get; set; } = string.Empty;
     public string? Notes { get; set; }
+    public bool IsGift { get; set; }
+    public bool HidePrices { get; set; }
+    public bool IncludeGreetingCard { get; set; }
+    public string? GreetingCardMessage { get; set; }
 }

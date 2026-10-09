@@ -29,7 +29,8 @@ public class AdminStorefrontProjectionTests
             CommerceTestHarness.NewOptionService(ctx, h.TenantId),
             CommerceTestHarness.NewSelectionService(ctx, h.TenantId),
             h.Pricing(),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<AdminStorefrontService>.Instance);
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AdminStorefrontService>.Instance,
+            new DictionaryTenantSettingStore(h.Settings));
     }
 
     [Fact]
@@ -196,6 +197,76 @@ public class AdminStorefrontProjectionTests
         await using var verify = h.Commerce();
         (await verify.CartItems.SingleAsync(i => i.CartId == box.Box.CartId && i.Sku.Contains("chin-chin")))
             .UnitPriceSnapshot.Should().Be(2.00m);
+    }
+
+    [Fact]
+    public async Task CartTotals_Should_IncludeCurrentCardFeeReadOnly_AndPreferANewFrozenPreparation()
+    {
+        var h = new BoxTestHarness();
+        h.Settings["Commerce.Storefront.GreetingCard"] = """{"isEnabled":true,"currency":"GBP","amount":3}""";
+        var f = await h.BuildAsync("jollof");
+        var box = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
+        await using (var db = h.Commerce())
+        {
+            var cart = await db.Carts.SingleAsync(c => c.Id == box.Box.CartId);
+            cart.CheckoutDraftJson = CartDraftData.Serialize(new CartCheckoutDraftDto(Gift: new CartGiftDraftDto(IncludeGreetingCard: true, GiftIntent: true)));
+            await db.SaveChangesAsync();
+        }
+        var admin = AdminSvc(h);
+        (await admin.GetCartAsync(box.Box.CartId))!.Total.Should().Be(98m);
+        (await admin.ListCartsAsync()).Items.Single().Total.Should().Be(98m);
+        await using (var db = h.Commerce())
+        {
+            var cart = await db.Carts.SingleAsync(c => c.Id == box.Box.CartId);
+            cart.Status.Should().Be(Aonik.Commerce.Entities.Cart.CartStatuses.Open);
+            CartDraftData.Read(cart)!.Gift!.IncludeGreetingCard.Should().BeTrue();
+            cart.CheckoutState = Aonik.Commerce.Entities.Cart.CartCheckoutStates.Preparing;
+            cart.OrderId = Guid.NewGuid();
+            db.OrderChargeSummaries.Add(new Aonik.Commerce.Entities.Promotions.OrderChargeSummary
+            {
+                TenantId = h.TenantId, OrderId = cart.OrderId.Value, Currency = "GBP", Total = 95m,
+                PaymentStatus = "Cancelled", PaymentIntentId = Guid.NewGuid(),
+            });
+            cart.CheckoutPreparationJson = new CheckoutPreparation(Guid.NewGuid(), null, "GBP", "Stripe", "card", null, null, null,
+                98m, 0m, null, null, 0m, 98m, [], [], [], [], null, GreetingCardCharged: 3m).Serialize();
+            await db.SaveChangesAsync();
+        }
+        h.Settings["Commerce.Storefront.GreetingCard"] = """{"isEnabled":true,"currency":"GBP","amount":8}""";
+        (await admin.GetCartAsync(box.Box.CartId))!.Total.Should().Be(98m, "the current prepared attempt wins the cancelled order and current fee");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("invalid json")]
+    [InlineData("{\"isEnabled\":false,\"currency\":\"GBP\",\"amount\":3}")]
+    [InlineData("{\"isEnabled\":true,\"currency\":\"USD\",\"amount\":3}")]
+    public async Task CartReads_Should_KeepTheListAvailable_WhenASelectedBoxCardHasNoPrice(string? configuration)
+    {
+        var h = new BoxTestHarness();
+        if (configuration is not null) h.Settings["Commerce.Storefront.GreetingCard"] = configuration;
+        var f = await h.BuildAsync("jollof");
+        var giftBox = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
+        var ordinaryBox = await h.BoxCarts().CreateAsync(new CreateBoxCartCommand(f.BundleProductId, 6));
+        var gift = new CartCheckoutDraftDto(Gift: new CartGiftDraftDto(GiftIntent: true, IncludeGreetingCard: true));
+        await h.Carts().SaveCheckoutDraftAsync(giftBox.Box.CartId, gift,
+            CartAccessContext.ForGuest(giftBox.CartToken, giftBox.CartVersion));
+        var generic = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP"));
+        await h.Carts().SaveCheckoutDraftAsync(generic.Id, gift,
+            CartAccessContext.ForGuest(generic.AnonymousToken, generic.CartVersion));
+
+        var admin = AdminSvc(h);
+        var list = await admin.ListCartsAsync();
+        list.TotalCount.Should().Be(3);
+        var unavailable = list.Items.Single(row => row.CartId == giftBox.Box.CartId);
+        unavailable.Total.Should().BeNull("an unavailable selected card is not a free card");
+        unavailable.BoxMeta!.Drift.Should().BeTrue();
+        list.Items.Single(row => row.CartId == ordinaryBox.Box.CartId).Total.Should().Be(95m);
+        list.Items.Single(row => row.CartId == generic.Id).Total.Should().Be(0m, "a generic cart cannot purchase a food-box greeting card");
+        (await admin.GetCartAsync(giftBox.Box.CartId))!.Total.Should().BeNull();
+        (await admin.GetCartAsync(generic.Id))!.Total.Should().Be(0m);
+        await using var verify = h.Commerce();
+        var stored = await verify.Carts.SingleAsync(cart => cart.Id == giftBox.Box.CartId);
+        CartDraftData.Read(stored)!.Gift!.IncludeGreetingCard.Should().BeTrue("the read must not remove the selected card");
     }
 
     [Fact]

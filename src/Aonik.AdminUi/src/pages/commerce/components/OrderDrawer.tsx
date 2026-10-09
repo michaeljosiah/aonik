@@ -2,6 +2,7 @@
 // deep links (including Spec 084's recent-orders rows) open it directly.
 
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { Card as AonikCard, Pill } from '@/components/layout/aonik';
 import { Button } from '@/components/ui/button';
@@ -146,6 +147,11 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
         </SheetBody>
 
         <SheetFooter>
+          {order?.paymentStatus === 'Captured' && order.fulfilmentStatus !== 'Cancelled' && (
+            <Button variant="outline" asChild>
+              <Link to={`/commerce/orders/${order.orderId}/packing`}>Packing slip</Link>
+            </Button>
+          )}
           {/* Refund is a Finance HIGH-tier action (money movement) and is not wired for
               commerce — it stays visibly disabled with the reason rather than absent, so the
               operator learns where the capability lives instead of wondering. */}

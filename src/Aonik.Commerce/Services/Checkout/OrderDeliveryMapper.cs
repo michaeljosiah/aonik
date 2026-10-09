@@ -11,7 +11,9 @@ internal static class OrderDeliveryMapper
         new DeliveryAddressDto(delivery.AddressLine1, delivery.AddressLine2, delivery.City,
             delivery.Region, delivery.Postcode, delivery.CountryCode),
         delivery.DeliveryDate, delivery.Timezone,
-        new DeliveryRecipientDto(delivery.RecipientName, delivery.RecipientPhone), delivery.Notes);
+        new DeliveryRecipientDto(delivery.RecipientName, delivery.RecipientPhone), delivery.Notes,
+        delivery.IsGift ? new OrderGiftDto(delivery.HidePrices, delivery.IncludeGreetingCard,
+            delivery.IncludeGreetingCard ? delivery.GreetingCardMessage : null) : null);
 
     public static OrderDeliveryDetails Create(Guid tenantId, Guid orderId, OrderDeliveryDto delivery) => new()
     {
@@ -31,6 +33,10 @@ internal static class OrderDeliveryMapper
         Timezone = delivery.Timezone,
         RecipientName = delivery.Recipient.Name,
         RecipientPhone = delivery.Recipient.Phone,
-        Notes = delivery.Notes
+        Notes = delivery.Notes,
+        IsGift = delivery.Gift is not null,
+        HidePrices = delivery.Gift?.HidePrices ?? false,
+        IncludeGreetingCard = delivery.Gift?.IncludeGreetingCard ?? false,
+        GreetingCardMessage = delivery.Gift is { IncludeGreetingCard: true } gift ? gift.GreetingCardMessage : null
     };
 }

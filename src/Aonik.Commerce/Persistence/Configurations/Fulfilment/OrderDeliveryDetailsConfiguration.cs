@@ -25,6 +25,7 @@ public class OrderDeliveryDetailsConfiguration : IEntityTypeConfiguration<OrderD
         builder.Property(x => x.RecipientName).IsRequired().HasMaxLength(201);
         builder.Property(x => x.RecipientPhone).IsRequired().HasMaxLength(32);
         builder.Property(x => x.Notes).HasMaxLength(1000);
+        builder.Property(x => x.GreetingCardMessage).HasMaxLength(1000);
         // A deleted historical snapshot must never allow checkout to rewrite the same order.
         builder.HasIndex(x => new { x.TenantId, x.OrderId }).IsUnique();
         builder.HasIndex(x => new { x.TenantId, x.DeliveryDate, x.OrderId });

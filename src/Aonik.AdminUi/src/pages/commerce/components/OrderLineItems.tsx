@@ -34,7 +34,7 @@ export function OrderLineItems({ items, selections, currency }: OrderLineItemsPr
   // Selections whose index matches no item would otherwise vanish silently; they are shown
   // as unattached rather than dropped, because a kitchen line that exists must be visible.
   const attached = new Set<number>();
-  items.forEach((_, index) => attached.add(index));
+  items.forEach((item, index) => attached.add(item.itemIndex ?? index));
   const orphaned = selections.filter((s) => !attached.has(s.orderItemIndex));
 
   return (
@@ -44,7 +44,7 @@ export function OrderLineItems({ items, selections, currency }: OrderLineItemsPr
           key={`${item.itemType}-${index}`}
           item={item}
           currency={currency}
-          selections={selections.filter((s) => s.orderItemIndex === index)}
+          selections={selections.filter((s) => s.orderItemIndex === (item.itemIndex ?? index))}
         />
       ))}
 

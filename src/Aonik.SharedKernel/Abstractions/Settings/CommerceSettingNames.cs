@@ -38,6 +38,9 @@ public static class CommerceSettingNames
     /// <summary>Spec 070 §9 — the delivery amount actually charged. "0" renders as free delivery.</summary>
     public const string StorefrontDeliveryChargedAmount = "Commerce.Storefront.DeliveryChargedAmount";
 
+    /// <summary>Explicit tenant greeting-card offer: enabled, amount and currency in one JSON value.</summary>
+    public const string StorefrontGreetingCard = "Commerce.Storefront.GreetingCard";
+
     /// <summary>Spec 070 §9 — slug of the bundle product the storefront treats as "the box". The
     /// config document embeds that bundle's Spec 068 size plan when one exists.</summary>
     public const string StorefrontDefaultBoxProductSlug = "Commerce.Storefront.DefaultBoxProductSlug";

@@ -11,6 +11,7 @@
     "commerce.order-detail": {
       "label": "Food Order"
     },
+    "commerce.order-packing": {},
     "commerce.products": {
       "label": "Menu"
     },

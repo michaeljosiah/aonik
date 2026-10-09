@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Services.Checkout;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Settings;
@@ -87,7 +88,8 @@ internal sealed partial class StorefrontConfigService : IStorefrontConfigService
             }
         }
 
-        return new StorefrontConfigDto(currency, label, pageSize, trigger, delivery, boxSlug, extrasSlug, box);
+        var greetingCard = await GreetingCardPricing.ReadAsync(_settingStore, tenantId, cancellationToken);
+        return new StorefrontConfigDto(currency, label, pageSize, trigger, delivery, boxSlug, extrasSlug, box, greetingCard);
     }
 
     public async Task<StorefrontConfigDto> UpdateAsync(

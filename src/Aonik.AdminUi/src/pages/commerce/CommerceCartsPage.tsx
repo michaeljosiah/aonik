@@ -195,7 +195,7 @@ export function CommerceCartsPage() {
       accessorFn: (row) => row.total,
       cell: (row) => (
         <span className="block text-right font-[family-name:var(--font-mono)] text-[12.5px] tabular-nums text-foreground">
-          {formatCurrency(row.total, row.currency)}
+          {row.total == null ? 'Price unavailable' : formatCurrency(row.total, row.currency)}
         </span>
       ),
       className: 'w-[130px] text-right',

@@ -25,7 +25,8 @@ public record AdminStorefrontOrderRowDto(
     string Currency,
     decimal Total,
     int? BoxSize,
-    DateOnly? DeliveryDate = null);
+    DateOnly? DeliveryDate = null,
+    bool IsGift = false);
 
 public record AdminOrderStorefrontItemDto(
     string ItemType,
@@ -36,7 +37,8 @@ public record AdminOrderStorefrontItemDto(
     decimal Amount,
     /// Spec 071 — an ordinary retail line sold alongside the box.
     bool IsAddOn,
-    bool IsDeliveryFee);
+    bool IsDeliveryFee,
+    int ItemIndex = 0);
 
 public record AdminOrderChargeDto(
     decimal Subtotal,
@@ -76,7 +78,8 @@ public record AdminCartBoxMetaDto(int Size, int Filled, bool Drift);
 /// <summary>Carts admin list row (Spec 083 dependency callout 2).
 /// <see cref="Total"/> is the recorded charge total once checked out; for open
 /// carts it is the box GOODS value — box price + personalisation + surcharges +
-/// add-on snapshots — delivery/discount/tax are checkout-time facts.</summary>
+/// add-on snapshots and a selected greeting card — delivery/discount/tax are checkout-time facts.
+/// Null means a selected greeting card has no available price.</summary>
 public record AdminCartRowDto(
     Guid CartId,
     string BuyerKind,
@@ -84,7 +87,7 @@ public record AdminCartRowDto(
     string Status,
     string Currency,
     decimal ItemCount,
-    decimal Total,
+    decimal? Total,
     AdminCartBoxMetaDto? BoxMeta,
     Guid? OrderId,
     DateTime UpdatedAtUtc);
@@ -146,8 +149,9 @@ public record AdminCartDetailDto(
     /// line carries only its price snapshot, while the charge adds the personalisation
     /// adjustment and unit surcharge, and a BoxDish snapshot is 0 because the box is priced
     /// as a container. A caller summing the lines would understate every personalised cart.
+    /// Null means a selected greeting card has no available price.
     /// </summary>
-    decimal Total,
+    decimal? Total,
     IReadOnlyList<AdminCartLineDto> Lines);
 
 public record AdminPartyActiveCartDto(Guid CartId, int Size, int Filled);

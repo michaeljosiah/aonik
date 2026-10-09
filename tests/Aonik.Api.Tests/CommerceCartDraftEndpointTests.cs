@@ -7,6 +7,7 @@ using Aonik.Commerce.Entities.Cart;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Infrastructure.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
@@ -21,6 +22,13 @@ public partial class CommerceBoxCartEndpointTests
     {
         var tenantId = Guid.NewGuid();
         var (bundleId, variantId) = await SeedBoxWorldAsync(tenantId);
+        await using (var scope = _factory.Services.CreateAsyncScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+            await scope.ServiceProvider.GetRequiredService<ITenantSettingStore>().SetTenantValueAsync(
+                CommerceSettingNames.StorefrontGreetingCard,
+                """{"isEnabled":true,"currency":"GBP","amount":3}""", tenantId);
+        }
         using var client = Client(tenantId);
         var box = await CreateBoxAsync(client, bundleId, variantId, 2);
         client.DefaultRequestHeaders.Add("X-Cart-Token", box.CartToken);
@@ -62,10 +70,82 @@ public partial class CommerceBoxCartEndpointTests
         var restored = (await resumed.Content.ReadFromJsonAsync<BoxCartDto>())!;
         restored.CheckoutDraft.Should().Be(result.Draft);
         restored.Box.Lines.Should().ContainSingle().Which.Quantity.Should().Be(2);
-        restored.Quote.Total.Should().Be(box.Quote.Total, "saving gift intent does not invent a priced greeting-card service");
+        restored.Quote.Total.Should().Be(box.Quote.Total + 3m, "the selected greeting card uses the configured tenant price");
         restored.CartToken.Should().BeNull();
         (await resumed.Content.ReadAsStringAsync()).Should().NotContain("never-store-this")
             .And.NotContain("reservationId").And.NotContain("password");
+    }
+
+    [Fact]
+    public async Task CurrentBox_Should_AllowPrivateDraftRecovery_WhenSelectedGreetingCardBecomesUnavailable()
+    {
+        var tenantId = Guid.NewGuid();
+        var (bundleId, variantId) = await SeedBoxWorldAsync(tenantId);
+        var customer = await CustomerAsync(tenantId);
+        using var client = customer.Client;
+        var box = await CreateBoxAsync(client, bundleId, variantId, 2);
+        UseCartVersion(client, box.CartVersion);
+        await SetOfferAsync(true);
+        var draft = new CartCheckoutDraftDto(
+            Purchaser: new("buyer@example.test", "Pat", "Customer", "07"),
+            Notes: "Keep these delivery instructions",
+            Gift: new(true, IncludeGreetingCard: true, GreetingCardMessage: "Enjoy!"));
+        using var saved = await client.PutAsJsonAsync(DraftPath(box.Box.CartId), draft);
+        saved.StatusCode.Should().Be(HttpStatusCode.OK);
+        var savedDraft = (await saved.Content.ReadFromJsonAsync<CartCheckoutDraftResponse>())!;
+        await SetOfferAsync(false);
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
+
+        using var current = await client.GetAsync(CurrentBoxRoute);
+
+        current.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        AssertNoStore(current);
+        var conflict = await current.Content.ReadFromJsonAsync<JsonElement>();
+        conflict.GetProperty("code").GetString().Should().Be("commerce.greeting_card_unavailable");
+        var recoveredId = conflict.GetProperty("cartId").GetGuid();
+        recoveredId.Should().Be(box.Box.CartId);
+        conflict.GetProperty("cartVersion").GetString().Should().Be(savedDraft.CartVersion);
+        using var recovered = await client.GetAsync(DraftPath(recoveredId));
+        recovered.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertNoStore(recovered);
+        var recoverable = (await recovered.Content.ReadFromJsonAsync<CartCheckoutDraftResponse>())!;
+        recoverable.Draft.Should().Be(savedDraft.Draft);
+        recoverable.CartVersion.Should().Be(savedDraft.CartVersion);
+
+        var otherCustomer = await CustomerAsync(tenantId);
+        using var otherClient = otherCustomer.Client;
+        using var anonymous = Client(tenantId);
+        foreach (var unauthorized in new[] { anonymous, otherClient })
+        {
+            using var denied = await unauthorized.GetAsync(DraftPath(recoveredId));
+            denied.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            AssertNoStore(denied);
+            (await denied.Content.ReadAsStringAsync()).Should().NotContain("buyer@example.test")
+                .And.NotContain("Keep these delivery instructions");
+        }
+
+        UseCartVersion(client, recoverable.CartVersion);
+        using var removed = await client.PutAsJsonAsync(DraftPath(recoveredId),
+            recoverable.Draft! with { Gift = recoverable.Draft.Gift! with { IncludeGreetingCard = false } });
+        removed.StatusCode.Should().Be(HttpStatusCode.OK);
+        var restored = (await client.GetFromJsonAsync<BoxCartDto>(CurrentBoxRoute))!;
+        restored.Box.Lines.Should().BeEquivalentTo(box.Box.Lines, options => options
+            .Using<JsonElement>(context => JsonElement.DeepEquals(context.Subject, context.Expectation).Should().BeTrue())
+            .WhenTypeIs<JsonElement>());
+        restored.CheckoutDraft!.Purchaser.Should().Be(draft.Purchaser);
+        restored.CheckoutDraft.Notes.Should().Be(draft.Notes);
+        restored.CheckoutDraft.Gift!.GiftIntent.Should().BeTrue();
+        restored.CheckoutDraft.Gift.IncludeGreetingCard.Should().BeFalse();
+        restored.Quote.Total.Should().Be(box.Quote.Total);
+
+        async Task SetOfferAsync(bool enabled)
+        {
+            await using var scope = _factory.Services.CreateAsyncScope();
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+            await scope.ServiceProvider.GetRequiredService<ITenantSettingStore>().SetTenantValueAsync(
+                CommerceSettingNames.StorefrontGreetingCard,
+                JsonSerializer.Serialize(new { isEnabled = enabled, currency = "GBP", amount = 3m }), tenantId);
+        }
     }
 
     [Fact]

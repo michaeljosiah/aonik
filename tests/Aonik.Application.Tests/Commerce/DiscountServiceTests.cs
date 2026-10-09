@@ -18,6 +18,24 @@ public class DiscountServiceTests
     private static DiscountChargeLine[] Lines(decimal amount) => [new(0, Goods, amount)];
 
     [Fact]
+    public async Task NonCatalogGreetingGoods_Should_ReceiveOnlyUnrestrictedDiscounts_WithExactAllocations()
+    {
+        using var test = new Harness();
+        var product = await test.ProductAsync("Box");
+        await test.Service.CreateAsync(new("ALL", DiscountKinds.Percentage, 10));
+        await test.Service.CreateAsync(new("BOX", DiscountKinds.Percentage, 10, EligibleProductIds: [product]));
+        DiscountChargeLine[] lines = [new(0, product, 90), new(1, null, 3), new(2, null, 50, "GiftCardValue"), new(3, Guid.Empty, 40)];
+
+        var all = await test.Service.ComputeAsync("ALL", lines, "GBP");
+        var selected = await test.Service.ComputeAsync("BOX", lines, "GBP");
+
+        all.Amount.Should().Be(9.30m);
+        all.Allocations.Should().Equal(new DiscountAllocation(0, 9m), new DiscountAllocation(1, 0.30m));
+        selected.Amount.Should().Be(9m);
+        selected.Allocations.Should().Equal(new DiscountAllocation(0, 9m));
+    }
+
+    [Fact]
     public async Task Percentage_Should_NormalizeCodeAndAllocateWithoutChangingQuotedGoods()
     {
         using var test = new Harness();
