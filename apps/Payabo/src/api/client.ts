@@ -59,7 +59,8 @@ const apiRequest = async <T>(path: string, init: RequestInit, contentType?: "jso
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  const body = await response.text();
+  return (body.trim() ? JSON.parse(body) : undefined) as T;
 };
 
 export const apiGet = async <T>(path: string, init?: RequestInit): Promise<T> => {

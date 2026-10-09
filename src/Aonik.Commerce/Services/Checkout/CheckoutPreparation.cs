@@ -14,7 +14,7 @@ internal sealed record CheckoutPreparation(
     decimal Subtotal, decimal DiscountTotal, Guid? DiscountId, string? DiscountCode, decimal TaxTotal, decimal Total,
     IReadOnlyList<OrderItemCommand> Items, IReadOnlyList<InvoiceLineSpec> InvoiceLines,
     IReadOnlyList<CheckoutStockLine> Stock, IReadOnlyList<CheckoutSelection> Selections, OrderDeliveryDto? Delivery,
-    Guid? DeliveryReservationId = null, DateTime? ProviderStartDeadlineUtc = null)
+    Guid? DeliveryReservationId = null, DateTime? ProviderStartDeadlineUtc = null, bool CreateAccount = false)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
         { RespectRequiredConstructorParameters = true };

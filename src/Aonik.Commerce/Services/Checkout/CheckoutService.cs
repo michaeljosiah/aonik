@@ -358,12 +358,15 @@ internal sealed class CheckoutService : ICheckoutService
                             || current.Status == CartStatuses.CheckedOut))
                         return CheckoutPreparation.Read(current);
                     CartWriteGuard.RequireCurrent(current, access);
-                    var claimed = preparation;
+                    var claimed = preparation with
+                    {
+                        CreateAccount = current.BuyerPartyId is null && CartDraftData.Read(current)?.CreateAccount == true
+                    };
                     if (current.BoxBundleProductId is not null)
                     {
                         var hold = await _deliveryReservations.BeginPaymentTrackedAsync(current,
                             preparation.Delivery!.DeliveryDate, preparation.AttemptId, ct);
-                        claimed = preparation with
+                        claimed = claimed with
                         {
                             DeliveryReservationId = hold.Id, ProviderStartDeadlineUtc = hold.PaymentDeadlineUtc
                         };

@@ -48,6 +48,7 @@ builder.Services.AddDocumentsModule(builder.Configuration);
 builder.Services.AddAonikCors(builder.Configuration);
 builder.Services.AddAonikAuthenticationAndAuthorization(builder.Configuration);
 builder.Services.AddDeliveryCoverageRateLimit(builder.Configuration);
+builder.Services.AddAccountAccessRateLimit(builder.Configuration);
 
 // FastEndpoints — explicitly enumerate the module assemblies so endpoints
 // AND validators (Validator<TRequest>) defined in each module are
@@ -165,9 +166,22 @@ app.UseForwardedHeaders(forwardedHeadersOptions);
 // callback runs even on error responses, so headers will still attach.
 app.UseAonikExceptionHandler(app.Environment);
 
-// Cart state and delivery checks must not be cached, including early redirects and auth errors.
+// Sensitive routes remain private even when auth, tenant resolution or binding rejects them early.
 app.Use(async (context, next) =>
 {
+    if (context.Request.Path.StartsWithSegments("/identity/account-access")
+        || context.Request.Path.StartsWithSegments("/identity/email-change")
+        || context.Request.Path.StartsWithSegments("/identity/password/forgot")
+        || context.Request.Path.StartsWithSegments("/profiles/customers/me/email"))
+    {
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            return Task.CompletedTask;
+        });
+    }
+
     if (context.Request.Path.StartsWithSegments("/commerce/carts")
         || context.Request.Path.StartsWithSegments("/commerce/delivery")
         || context.Request.Path.StartsWithSegments("/commerce/admin/delivery-coverage")

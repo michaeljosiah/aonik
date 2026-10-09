@@ -13,6 +13,7 @@ using Aonik.Platform.Contracts.Services.Identity;
 using Aonik.Platform.Services.Settings;
 using Aonik.Platform.Entities.Identity;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.PersonalFinance;
 using Aonik.SharedKernel.Abstractions.Settings;
 
@@ -30,6 +31,7 @@ internal class IdentityService : IIdentityService
     private readonly IUserProvisioningService _userProvisioningService;
     private readonly IPermissionService _permissionService;
     private readonly IPersonalProfileProvisioner _personalProfileProvisioner;
+    private readonly ITenantProvider _tenantProvider;
 
     public IdentityService(
         ISettingProvider settingProvider,
@@ -41,7 +43,8 @@ internal class IdentityService : IIdentityService
         PlatformDbContext dbContext,
         IUserProvisioningService userProvisioningService,
         IPermissionService permissionService,
-        IPersonalProfileProvisioner personalProfileProvisioner)
+        IPersonalProfileProvisioner personalProfileProvisioner,
+        ITenantProvider tenantProvider)
     {
         _settingProvider = settingProvider;
         _authTokenServiceFactory = authTokenServiceFactory;
@@ -53,6 +56,7 @@ internal class IdentityService : IIdentityService
         _userProvisioningService = userProvisioningService;
         _permissionService = permissionService;
         _personalProfileProvisioner = personalProfileProvisioner;
+        _tenantProvider = tenantProvider;
     }
 
     public async Task<TokenResponse> TokenAsync(TokenRequest request, CancellationToken cancellationToken = default)
@@ -159,9 +163,22 @@ internal class IdentityService : IIdentityService
         ForgotPasswordRequest request,
         CancellationToken cancellationToken = default)
     {
-        var provider = await _settingProvider.GetAsync(AuthSettingNames.Provider, cancellationToken) ?? "AzureAd";
-        var resetService = _passwordResetServiceFactory.GetService(provider);
-        await resetService.TriggerResetAsync(request.Email, request.TenantId, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!_tenantProvider.TryGetCurrentTenantId(out var tenantId) || tenantId == Guid.Empty || request.TenantId != tenantId)
+            return new ForgotPasswordResponse("ok");
+        string? failure = null;
+        try
+        {
+            var provider = await _settingProvider.GetAsync(AuthSettingNames.Provider, cancellationToken) ?? "AzureAd";
+            var resetService = _passwordResetServiceFactory.GetService(provider);
+            await resetService.TriggerResetAsync(request.Email, request.TenantId, cancellationToken);
+        }
+        catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
+        {
+            // The public response must not disclose provider account existence or provider payloads.
+            // Operators retain a masked audit outcome; hosted provider pages own password entry.
+            failure = exception.GetType().Name;
+        }
 
         var actorId = _currentUserContext.UserId;
         await _auditLogWriter.LogAsync(
@@ -173,8 +190,10 @@ internal class IdentityService : IIdentityService
             _correlationContext.CorrelationId,
             JsonSerializer.Serialize(new
             {
-                Email = request.Email,
-                request.TenantId
+                Email = AuditLogMasking.MaskEmail(request.Email),
+                request.TenantId,
+                Outcome = failure is null ? "Submitted" : "Unavailable",
+                ErrorType = failure
             }),
             cancellationToken);
 

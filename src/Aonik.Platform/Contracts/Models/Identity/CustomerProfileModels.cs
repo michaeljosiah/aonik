@@ -19,11 +19,6 @@ public record UpdateCustomerProfileRequest(
     string? Phone,
     string? CountryCode);
 
-public record UpdateCustomerEmailRequest(
-    string CurrentEmail,
-    string NewEmail,
-    string Password);
-
 public record UpdateCustomerPasswordRequest(
     string CurrentPassword,
     string NewPassword);

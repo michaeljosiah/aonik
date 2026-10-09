@@ -65,10 +65,8 @@ abstract class ProfileRepository {
 
   Future<UserProfile> updateProfile(UserProfile profile);
 
-  Future<UserProfile> updateEmail({
-    required String currentEmail,
+  Future<void> requestEmailChange({
     required String newEmail,
-    required String password,
   });
 
   Future<void> updatePassword({

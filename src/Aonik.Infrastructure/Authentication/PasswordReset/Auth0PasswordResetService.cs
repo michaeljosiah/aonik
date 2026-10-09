@@ -4,6 +4,7 @@ using Aonik.Platform.Contracts.Services.Authentication;
 using Aonik.Platform.Contracts.Services.Settings;
 using Aonik.Platform.Services.Settings;
 using Aonik.SharedKernel.Abstractions.Settings;
+using OpenTelemetry;
 
 namespace Aonik.Infrastructure.Authentication.PasswordReset;
 
@@ -20,6 +21,8 @@ public class Auth0PasswordResetService : IIdpPasswordResetService
 
     public async Task TriggerResetAsync(string email, Guid tenantId, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        using var suppression = SuppressInstrumentationScope.Begin();
         var domain = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0Domain, cancellationToken);
         var clientId = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0ClientId, cancellationToken);
         var connection = await _settingProvider.GetRequiredAsync(AuthSettingNames.Auth0Connection, cancellationToken);
@@ -39,8 +42,7 @@ public class Auth0PasswordResetService : IIdpPasswordResetService
 
         if (!response.IsSuccessStatusCode)
         {
-            var error = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException($"Auth0 password reset failed: {response.StatusCode} {error}");
+            throw new InvalidOperationException("Password reset could not be submitted to the identity provider.");
         }
 
     }

@@ -46,24 +46,17 @@ class LiveProfileRepository implements ProfileRepository {
   }
 
   @override
-  Future<UserProfile> updateEmail({
-    required String currentEmail,
+  Future<void> requestEmailChange({
     required String newEmail,
-    required String password,
   }) async {
     try {
-      final response = await _apiClient.put<Map<String, dynamic>>(
+      await _apiClient.put<void>(
         '/profiles/customers/me/email',
         data: <String, dynamic>{
-          'currentEmail': currentEmail.trim(),
           'newEmail': newEmail.trim(),
-          'password': password,
         },
       );
-
-      return _mapProfile(response.data ?? const <String, dynamic>{});
     } on DioException catch (exception) {
-      _logDioFailure('updateEmail', exception);
       throw mapDioException(exception);
     }
   }

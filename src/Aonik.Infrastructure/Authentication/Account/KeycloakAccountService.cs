@@ -25,6 +25,9 @@ namespace Aonik.Infrastructure.Authentication.Account;
 /// </summary>
 public class KeycloakAccountService : IIdpAccountService
 {
+    public Task ConfirmVerifiedEmailAsync(User user, string expectedCurrentEmail, string newEmail, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Confirmed email change is unavailable for this identity provider.");
+
     private readonly HttpClient _httpClient;
     private readonly ISettingProvider _settingProvider;
 

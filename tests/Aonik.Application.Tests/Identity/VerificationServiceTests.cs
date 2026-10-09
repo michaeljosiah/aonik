@@ -143,8 +143,10 @@ public class VerificationServiceTests
         public Task DeleteBindingAsync(Guid id, CancellationToken cancellationToken = default) => throw new NotImplementedException();
     }
 
-    [Fact]
-    public async Task StartEmailVerificationAsync_ShouldCreateChallenge_AndConfirmSuccessfully()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ConfirmEmailVerificationAsync_Should_OnlyConfirmCurrentEmail_AndNeverUndoAChange(bool emailChanged)
     {
         // Arrange
         var tenantId = Guid.NewGuid();
@@ -159,6 +161,7 @@ public class VerificationServiceTests
         {
             Id = userId,
             TenantId = tenantId,
+            Email = "jane@example.com",
             Status = "Active"
         });
         await context.SaveChangesAsync();
@@ -195,16 +198,22 @@ public class VerificationServiceTests
         var code = emailSender.LastCode;
         code.Should().NotBeNullOrWhiteSpace();
 
+        if (emailChanged)
+        {
+            var changedUser = await context.Users.SingleAsync();
+            changedUser.Email = "confirmed-new@example.com";
+            await context.SaveChangesAsync();
+        }
         var confirmed = await service.ConfirmEmailVerificationAsync(userId, "jane@example.com", code!, CancellationToken.None);
 
         // Assert
-        confirmed.Should().BeTrue();
+        confirmed.Should().Be(!emailChanged);
         var challenge = await context.VerificationChallenges.FirstAsync();
-        challenge.Status.Should().Be(VerificationStatus.Verified);
+        challenge.Status.Should().Be(emailChanged ? VerificationStatus.Pending : VerificationStatus.Verified);
         challenge.AttemptCount.Should().Be(0);
 
         var user = await context.Users.FirstAsync();
-        user.Email.Should().Be("jane@example.com");
+        user.Email.Should().Be(emailChanged ? "confirmed-new@example.com" : "jane@example.com");
     }
 
     [Fact]

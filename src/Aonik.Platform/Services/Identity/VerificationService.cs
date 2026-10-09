@@ -271,16 +271,12 @@ internal class VerificationService : IVerificationService
             return false;
         }
 
+        // Email OTP confirms an already recorded address; changing it requires the account action flow.
+        if (channel == VerificationChannel.Email && !string.Equals(user.Email, target, StringComparison.OrdinalIgnoreCase))
+            return false;
         challenge.Status = VerificationStatus.Verified;
 
-        if (channel == VerificationChannel.Email)
-        {
-            if (!string.Equals(user.Email, target, StringComparison.OrdinalIgnoreCase))
-            {
-                user.Email = target;
-            }
-        }
-        else
+        if (channel != VerificationChannel.Email)
         {
             if (!string.Equals(user.Phone, target, StringComparison.Ordinal))
             {

@@ -263,10 +263,22 @@ public static class DependencyInjection
         services.AddHttpClient<AzureAdManagementClient>();
         services.AddHttpClient<Auth0AuthTokenService>();
         services.AddHttpClient<AzureAdAuthTokenService>();
-        services.AddHttpClient<Auth0PasswordResetService>();
+#pragma warning disable EXTEXP0001 // Identity delivery and confirmed changes make one bounded attempt; durable actions own retries.
+        services.AddHttpClient<Auth0PasswordResetService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.MaxResponseContentBufferSize = 64 * 1024;
+        }).RemoveAllLoggers().RemoveAllResilienceHandlers()
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddHttpClient<AzureAdB2cPasswordResetService>();
-        services.AddHttpClient<Auth0AccountService>();
+        services.AddHttpClient<Auth0AccountService>(client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.MaxResponseContentBufferSize = 64 * 1024;
+        }).RemoveAllLoggers().RemoveAllResilienceHandlers()
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.AddHttpClient<AzureAdAccountService>();
+#pragma warning restore EXTEXP0001
         // Spec 029 — Keycloak occupies the same shape as Auth0/AzureAd. Five
         // typed HttpClients backing the five capability surfaces, registered
         // here so the factories above can be constructed with all three

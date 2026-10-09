@@ -217,6 +217,7 @@ public class IntegrationEventDispatcherModuleGateTests
         var services = new ServiceCollection();
         services.AddSingleton<IEventHandler<PaymentCompletedEvent>>(
             new CommercePaymentCompletedHandler(checkout, email ?? Mock.Of<IOrderConfirmationEmailService>(),
+                Mock.Of<IPaidCheckoutAccountAccessService>(),
                 NullLogger<CommercePaymentCompletedHandler>.Instance));
         services.AddSingleton<IEventHandler<PaymentCompletedEvent>>(recording);
         if (reader is not null)

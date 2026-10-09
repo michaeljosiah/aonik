@@ -1,11 +1,11 @@
 import { useState } from "react";
 
 import { updateCustomerEmail } from "../../api/profile";
+import { useAuth } from "../../app/auth/AuthContext";
 
 export const LoginDetailsEmail = () => {
-  const [currentEmail, setCurrentEmail] = useState("");
+  const { login, user } = useAuth();
   const [newEmail, setNewEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -16,43 +16,46 @@ export const LoginDetailsEmail = () => {
     setErrorMessage(null);
 
     try {
-      await updateCustomerEmail({ currentEmail, newEmail, password });
-      setMessage("Email updated.");
-      setCurrentEmail(newEmail);
+      await updateCustomerEmail({ newEmail });
+      setMessage("If the request is eligible, check your new email for a confirmation link. Your current email stays unchanged until you confirm. If no email arrives, sign in again and retry.");
       setNewEmail("");
-      setPassword("");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to update email.");
+      const status = (error as { status?: number } | null)?.status;
+      setErrorMessage(status === 401 || status === 403
+        ? "Please sign in again before requesting an email change."
+        : error instanceof Error ? error.message : "Unable to request an email change.");
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const signInAgain = async () => {
+    try {
+      await login({ prompt: "login", loginHint: user?.email, returnTo: "/profile/login-details/email" });
+    } catch {
+      setErrorMessage("Unable to start secure sign in. Please try again.");
     }
   };
 
   return (
     <main className="main-wrapper overflow-hidden">
       <div className="container py-4">
-        <h3 className="alt mb-3">Update email</h3>
+        <h3 className="alt mb-3">Change email</h3>
+        <p>Sign in again before requesting a change. We will ask you to confirm your new email address.</p>
+        <button type="button" className="btn btn-link mb-3" onClick={signInAgain} disabled={isSaving}>Sign in again</button>
         {message && <div className="alert alert-success">{message}</div>}
         {errorMessage && <div className="alert alert-warning">{errorMessage}</div>}
 
         <div className="card card-tbox">
-          <div className="card-body">
+          <form className="card-body" onSubmit={(event) => { event.preventDefault(); void submit(); }}>
             <div className="mb-3">
-              <label className="form-label">Current email</label>
-              <input className="form-control" type="email" value={currentEmail} onChange={(event) => setCurrentEmail(event.target.value)} />
+              <label className="form-label" htmlFor="new-email">New email</label>
+              <input id="new-email" className="form-control" type="email" autoComplete="email" required value={newEmail} onChange={(event) => setNewEmail(event.target.value)} />
             </div>
-            <div className="mb-3">
-              <label className="form-label">New email</label>
-              <input className="form-control" type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} />
-            </div>
-            <div className="mb-3">
-              <label className="form-label">Password confirmation</label>
-              <input className="form-control" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            </div>
-            <button type="button" className="btn btn-primary" onClick={submit} disabled={isSaving}>
-              {isSaving ? "Updating..." : "Update email"}
+            <button type="submit" className="btn btn-primary" disabled={isSaving || !newEmail.trim()}>
+              {isSaving ? "Requesting..." : "Send confirmation link"}
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </main>

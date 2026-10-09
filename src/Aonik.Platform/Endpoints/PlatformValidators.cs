@@ -264,9 +264,7 @@ public sealed class UpdateCustomerEmailRequestValidator : Validator<UpdateCustom
 {
     public UpdateCustomerEmailRequestValidator()
     {
-        RuleFor(x => x.CurrentEmail).Email();
         RuleFor(x => x.NewEmail).Email();
-        RuleFor(x => x.Password).RequiredText(256);
     }
 }
 

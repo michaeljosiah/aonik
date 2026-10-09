@@ -251,7 +251,7 @@ public class UserIdentityServiceTests
             new TestCorrelationContext("corr-2"));
 
         // Act — second login from the same identity should reuse
-        // the row and update email if it changed in the IdP.
+        // the row without letting stale claims undo confirmed email state.
         var secondUser = await service.ResolveOrCreateUserAsync(
             externalIssuer: "test-issuer",
             externalSubject: "test-subject",
@@ -263,7 +263,7 @@ public class UserIdentityServiceTests
         // Assert
         secondUser.Id.Should().Be(existingUser.Id);
         context.Users.Should().HaveCount(1);
-        secondUser.Email.Should().Be("second@login.test");
+        secondUser.Email.Should().Be("first@login.test");
     }
 
     [Fact]

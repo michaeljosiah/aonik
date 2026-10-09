@@ -9,6 +9,7 @@ public class AuthOptions
     public AzureAdOptions AzureAd { get; set; } = new();
     public Auth0Options Auth0 { get; set; } = new();
     public KeycloakOptions Keycloak { get; set; } = new();
+    public AccountAccessProofOptions AccountAccess { get; set; } = new();
 }
 
 public class AzureAdOptions

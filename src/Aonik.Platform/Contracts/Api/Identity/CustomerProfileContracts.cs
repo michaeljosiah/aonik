@@ -8,9 +8,7 @@ public record UpdateCustomerProfileRequest(
     string? CountryCode);
 
 public record UpdateCustomerEmailRequest(
-    string CurrentEmail,
-    string NewEmail,
-    string Password);
+    string NewEmail);
 
 public record UpdateCustomerPasswordRequest(
     string CurrentPassword,

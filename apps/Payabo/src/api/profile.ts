@@ -34,11 +34,9 @@ export const updateCustomerProfile = async (request: {
 };
 
 export const updateCustomerEmail = async (request: {
-  currentEmail: string;
   newEmail: string;
-  password: string;
-}): Promise<CustomerProfile> => {
-  return await apiPut<CustomerProfile>("/profiles/customers/me/email", request);
+}): Promise<void> => {
+  await apiPut<void>("/profiles/customers/me/email", { newEmail: request.newEmail.trim() });
 };
 
 export const updateCustomerPassword = async (request: {

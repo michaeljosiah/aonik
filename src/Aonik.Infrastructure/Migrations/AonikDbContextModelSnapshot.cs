@@ -22087,6 +22087,121 @@ namespace Aonik.Infrastructure.Migrations
                     b.ToTable("AnkTenantFeatures", "dbo");
                 });
 
+            modelBuilder.Entity("Aonik.Platform.Entities.Identity.AccountAccessAction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CartId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ConsumedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ConsumedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeliveryStartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<DateTime>("ExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ExternalIssuer")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ExternalSubject")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("Generation")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("GuestPartyId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("IdentityRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("OriginalEmail")
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<Guid?>("PaymentIntentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("SendCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SendWindowStartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Email", "SendWindowStartedAtUtc");
+
+                    b.HasIndex("TenantId", "Purpose", "PaymentIntentId")
+                        .IsUnique()
+                        .HasFilter("[PaymentIntentId] IS NOT NULL");
+
+                    b.HasIndex("TenantId", "UserId", "Purpose", "Status");
+
+                    b.ToTable("AnkAccountAccessActions", "dbo");
+                });
+
             modelBuilder.Entity("Aonik.Platform.Entities.Identity.Permission", b =>
                 {
                     b.Property<Guid>("Id")
@@ -22591,6 +22706,9 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<string>("ExternalTenantId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("IdentityRevision")
+                        .HasColumnType("bigint");
 
                     b.Property<DateTime?>("InviteAcceptedUtc")
                         .HasColumnType("datetime2");
