@@ -185,7 +185,8 @@ app.Use(async (context, next) =>
     if (context.Request.Path.StartsWithSegments("/identity/account-access")
         || context.Request.Path.StartsWithSegments("/identity/email-change")
         || context.Request.Path.StartsWithSegments("/identity/password/forgot")
-        || context.Request.Path.StartsWithSegments("/profiles/customers/me/email"))
+        || context.Request.Path.StartsWithSegments("/profiles/customers/me/email")
+        || context.Request.Path.StartsWithSegments("/profiles/customers/me/addresses"))
     {
         context.Response.OnStarting(() =>
         {

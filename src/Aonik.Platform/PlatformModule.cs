@@ -129,6 +129,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<IUserProvisioningService, UserProvisioningService>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.ICurrentPartyResolver, Services.Identity.CurrentPartyResolver>();
         services.AddScoped<IUserProfileService, UserProfileService>();
+        services.AddScoped<ICustomerAddressService, CustomerAddressService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
         services.AddScoped<IPermissionService, PermissionService>();
         services.AddScoped<IVerificationService, VerificationService>();

@@ -9,6 +9,7 @@ public class Party : AuditableEntity, ITenantScoped
     public string DisplayName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string? CustomerTierCode { get; set; }
+    public Guid? DefaultShippingAddressId { get; set; }
 
     // ── Age (Spec 095 §6, §11.1) ─────────────────────────────────────────────
     // The attested date of birth is used to compute the fields below and is NOT stored.

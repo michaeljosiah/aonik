@@ -63,8 +63,6 @@ internal class CustomerDataService : AdminServiceBase, ICustomerDataService
         var data = new Dictionary<string, List<JsonElement>>();
 
         // 2. Export Platform entities
-        data["Party"] = Serialize(new[] { party });
-
         var personProfiles = await _dbContext.PersonProfiles
             .AsNoTracking()
             .Where(p => p.PartyId == partyId)
@@ -81,10 +79,13 @@ internal class CustomerDataService : AdminServiceBase, ICustomerDataService
 
         var addresses = await _dbContext.PartyAddresses
             .AsNoTracking()
-            .Where(a => a.PartyId == partyId)
+            .Where(a => a.PartyId == partyId && !a.IsDeleted)
             .ToListAsync(cancellationToken);
         if (addresses.Count > 0)
             data["PartyAddress"] = Serialize(addresses);
+        if (party.DefaultShippingAddressId is { } defaultAddressId && !addresses.Any(address => address.Id == defaultAddressId))
+            party.DefaultShippingAddressId = null;
+        data["Party"] = Serialize(new[] { party });
 
         var contacts = await _dbContext.PartyContacts
             .AsNoTracking()
@@ -230,6 +231,7 @@ internal class CustomerDataService : AdminServiceBase, ICustomerDataService
                 if (party == null) continue;
 
                 var oldId = party.Id;
+                party.DefaultShippingAddressId = RemapDefaultShippingAddress(party, bundle.Data, idMap, warnings);
                 party.Id = idMap.GetValueOrDefault(oldId, Guid.NewGuid());
                 party.TenantId = tenantId;
                 newPartyId = party.Id;
@@ -287,6 +289,20 @@ internal class CustomerDataService : AdminServiceBase, ICustomerDataService
     }
 
     // ─── Helpers ───────────────────────────────────────────────────
+
+    private Guid? RemapDefaultShippingAddress(PartyEntity party, Dictionary<string, List<JsonElement>> data,
+        Dictionary<Guid, Guid> idMap, List<string> warnings)
+    {
+        if (party.DefaultShippingAddressId is not { } addressId) return null;
+        if (data.TryGetValue("PartyAddress", out var addresses)
+            && addresses.Select(Deserialize<Entities.Party.PartyAddress>)
+                .Any(address => address is not null && address.Id == addressId && address.PartyId == party.Id && !address.IsDeleted)
+            && idMap.TryGetValue(addressId, out var remappedId))
+            return remappedId;
+
+        warnings.Add("The default shipping address was cleared because it was not an included live address belonging to the customer.");
+        return null;
+    }
 
     private static List<JsonElement> Serialize<T>(IEnumerable<T> entities)
     {
