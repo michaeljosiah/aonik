@@ -16,6 +16,14 @@ public interface IPaymentProviderGateway
     Task<PaymentProviderSetupIntentResult> CreateSetupIntentAsync(
         PaymentProviderSetupIntentRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<PaymentProviderCheckoutSnapshot> GetCheckoutAsync(
+        PaymentProviderCheckoutReference reference, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This provider does not support checkout reconciliation.");
+
+    Task<PaymentProviderCheckoutSnapshot> ExpireCheckoutAsync(
+        PaymentProviderCheckoutReference reference, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("This provider does not support checkout expiration.");
 }
 
 public record PaymentProviderIntentRequest(
@@ -25,14 +33,20 @@ public record PaymentProviderIntentRequest(
     string PaymentMethodType,
     string? ReturnUrl,
     string? CancelUrl,
-    string Reference);
+    string Reference,
+    Guid PaymentIntentId = default,
+    Guid? ConnectorId = null,
+    string? ProviderAccountId = null,
+    bool? LiveMode = null,
+    string? IdempotencyKey = null);
 
 public record PaymentProviderIntentResult(
     string Provider,
     string ProviderReference,
     string Status,
     string? ClientSecret,
-    string? CheckoutUrl);
+    string? CheckoutUrl,
+    PaymentProviderCheckoutSnapshot? Checkout = null);
 
 public record PaymentProviderSetupIntentRequest(
     Guid CustomerPartyId,

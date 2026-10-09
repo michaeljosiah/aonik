@@ -20,6 +20,6 @@ public class OrderChargeSummaryConfiguration : IEntityTypeConfiguration<OrderCha
         builder.Property(x => x.PaymentClientSecret).HasMaxLength(512);
         builder.Property(x => x.PaymentCheckoutUrl).HasMaxLength(2048);
 
-        builder.HasIndex(x => new { x.TenantId, x.OrderId });
+        builder.HasIndex(x => new { x.TenantId, x.OrderId }).IsUnique();
     }
 }

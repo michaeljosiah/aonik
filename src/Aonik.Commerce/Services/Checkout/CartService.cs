@@ -415,7 +415,7 @@ internal sealed class CartService : ICartService
     /// fixed with its order, reservation and payment amount.</summary>
     private static void EnsureAdoptable(Entities.Cart.Cart cart)
     {
-        if (cart.Status != CartStatuses.Open || cart.OrderId is not null)
+        if (!CartWriteGuard.IsEditable(cart) || cart.OrderId is not null)
         {
             throw new StorefrontValidationException("Z4: this cart has been checked out; its buyer cannot change.");
         }

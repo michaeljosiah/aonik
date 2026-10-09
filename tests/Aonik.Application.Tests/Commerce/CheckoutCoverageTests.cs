@@ -130,8 +130,8 @@ public class CheckoutCoverageTests
         var catalog = await h.BuildAsync("dish");
         var variant = catalog.DishVariants["dish"];
         await h.Pricing().SetPriceAsync(new(variant, "GBP", 10m));
-        var cart = await h.Carts().CreateCartAsync(new("GBP"));
-        var access = CartAccessContext.ForGuest(cart.AnonymousToken, cart.CartVersion);
+        var cart = await h.Carts().CreateCartAsync(new("GBP", BuyerPartyId: Guid.NewGuid()));
+        var access = CartAccessContext.ForParty(cart.BuyerPartyId!.Value, cart.CartVersion);
         await h.Carts().AddItemAsync(new(cart.Id, variant), access);
         var coverage = new Mock<IDeliveryCoverageService>(MockBehavior.Strict);
         var delivery = BoxTestHarness.ValidDelivery;

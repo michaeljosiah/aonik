@@ -127,6 +127,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
 
     // Register before shared rowversion/filter configuration, rather than only during table mapping.
     public virtual DbSet<OrderFundingRef> OrderFundingRefs { get; set; } = null!;
+    public virtual DbSet<Payment> Payments { get; set; } = null!;
 
     // Commerce (Spec 042) — catalog + bundle entities; canonical migration stream stays here.
     public virtual DbSet<Product> Products { get; set; } = null!;

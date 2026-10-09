@@ -27,6 +27,8 @@ public class Cart : AuditableEntity, ITenantScoped
     public int? BoxSize { get; set; }
 
     public string? CheckoutDraftJson { get; set; }
+    public string? CheckoutState { get; set; }
+    public string? CheckoutPreparationJson { get; set; }
     public DateTime? LastActivityAtUtc { get; set; }
 
     public List<CartItem> Items { get; set; } = new();
@@ -38,4 +40,11 @@ public static class CartStatuses
     public const string Open = "Open";
     public const string CheckedOut = "CheckedOut";
     public const string Abandoned = "Abandoned";
+}
+
+public static class CartCheckoutStates
+{
+    public const string Preparing = "Preparing";
+    public const string AwaitingPayment = "AwaitingPayment";
+    public const string Retryable = "Retryable";
 }

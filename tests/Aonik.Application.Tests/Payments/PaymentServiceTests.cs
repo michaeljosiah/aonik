@@ -18,6 +18,33 @@ namespace Aonik.Application.Tests.Payments;
 
 public class PaymentServiceTests
 {
+    [Theory]
+    [InlineData("authorize", "Pending")]
+    [InlineData("capture", "Authorized")]
+    [InlineData("cancel", "Pending")]
+    public async Task LocalTransition_Should_RejectProviderBoundIntent_EvenWithPermission(string action, string status)
+    {
+        var tenantId = Guid.NewGuid();
+        await using var context = CreateDbContext(tenantId);
+        var intent = new PaymentIntent { TenantId = tenantId, OrderId = Guid.NewGuid(), PayerPartyId = Guid.NewGuid(),
+            Amount = 10m, Currency = "GBP", Status = status, PaymentMethodType = "Card", ProviderCode = "Stripe", ConnectorId = Guid.NewGuid() };
+        context.PaymentIntents.Add(intent);
+        await context.SaveChangesAsync();
+        var service = CreateService(context, tenantId);
+
+        var transition = () => action switch
+        {
+            "authorize" => service.AuthorizePaymentAsync(intent.Id),
+            "capture" => service.CapturePaymentAsync(intent.Id),
+            _ => service.CancelPaymentAsync(intent.Id)
+        };
+
+        await transition.Should().ThrowAsync<InvalidStateException>().WithMessage("*verified provider reconciliation*");
+        intent.Status.Should().Be(status);
+        context.JournalEntries.Should().BeEmpty();
+        context.Payments.Should().BeEmpty();
+    }
+
     private class TestTenantProvider : ITenantProvider
     {
         private readonly Guid _tenantId;

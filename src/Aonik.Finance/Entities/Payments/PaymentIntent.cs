@@ -45,6 +45,14 @@ public class PaymentIntent : AuditableEntity, ITenantScoped
     public string Status { get; set; } = string.Empty;
     public string? FailureReason { get; set; }
 
+    // Hosted checkout binding is frozen before the first external create request.
+    public string? ProviderCode { get; set; }
+    public string? ProviderAccountId { get; set; }
+    public bool? ProviderLiveMode { get; set; }
+    public string? ProviderPaymentIntentReference { get; set; }
+    public string? ProviderCreateRequestJson { get; set; }
+    public DateTime? ProviderRequestStartedAtUtc { get; set; }
+
     // ── Partner-collection linkage (spec 031) ───────────────────────────────
     public Guid? ConnectorId { get; set; }
 

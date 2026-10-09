@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Services.Catalog;
@@ -9,12 +9,23 @@ using Aonik.TestSupport.Multitenancy;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace Aonik.Application.Tests.Commerce;
 
 /// <summary>Shared scaffolding for the Commerce catalog/pricing tests (Spec 042).</summary>
 internal static class CommerceTestHarness
 {
+    public static IPartyService Parties()
+    {
+        var parties = new Moq.Mock<IPartyService>(Moq.MockBehavior.Strict);
+        parties.Setup(service => service.EnsureUnverifiedGuestPartyAsync(Moq.It.IsAny<Guid>(), Moq.It.IsAny<Guid>(),
+                Moq.It.IsAny<CreatePartyRequest>(), Moq.It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, Guid _, CreatePartyRequest request, CancellationToken _) =>
+                new PartyResponse(id, request.DisplayName, request.PartyType, "Unverified"));
+        return parties.Object;
+    }
+
     public sealed class TestClock : IClock
     {
         public DateTime UtcNow { get; set; } = new(2026, 6, 18, 12, 0, 0, DateTimeKind.Utc);

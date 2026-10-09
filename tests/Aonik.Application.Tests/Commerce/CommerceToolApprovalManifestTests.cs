@@ -10,12 +10,12 @@ namespace Aonik.Application.Tests.Commerce;
 /// Spec 051 §11 / Spec 052 §11 / Spec 053 §14 / Spec 054 §11 / Spec 055 §13 / Spec 056 §12 /
 /// Spec 057 §12). Read tools — including the Spec 055 planning reads (production sheet, prep
 /// list), the Spec 056 kitchen sheet, and the Spec 057 margin report — pass through unclassified;
-/// cart writes are Low; catalog/price/inventory/checkout, maker-ops master-data + costing +
+/// cart writes are Low; catalog/price/inventory, maker-ops master-data + costing +
 /// raw-material stock, sourcing (supplier / purchase-order placement / goods receipt),
 /// production-run (create / release — release consumes ingredient stock), and target-margin
-/// writes are Medium; nothing is High (Commerce never captures or pays out money — receiving and
+/// writes are Medium; checkout is High because it calls a payment provider. Receiving and
 /// releasing move stock, not money, and paying a purchase-order supplier is the deferred
-/// Spec 053 high-tier follow-up, deliberately not registered).
+/// Spec 053 high-tier follow-up, deliberately not registered.
 /// </summary>
 public class CommerceToolApprovalManifestTests
 {
@@ -40,7 +40,6 @@ public class CommerceToolApprovalManifestTests
     [InlineData("commerce_create_product")]
     [InlineData("commerce_set_price")]
     [InlineData("commerce_adjust_inventory")]
-    [InlineData("commerce_checkout")]
     [InlineData("commerce_create_ingredient")]
     [InlineData("commerce_set_recipe")]
     [InlineData("commerce_update_ingredient_cost")]
@@ -80,22 +79,10 @@ public class CommerceToolApprovalManifestTests
         => _manifest.Classify(tool).Should().BeNull();
 
     [Fact]
-    public void NoTool_Should_BeHigh_BecauseCommerceNeverCapturesMoney()
+    public void Checkout_Should_RequireDurableHighApproval_BecauseItCallsStripe()
     {
-        string[] all =
-        [
-            "commerce_create_cart", "commerce_add_to_cart", "commerce_add_bundle_to_cart",
-            "commerce_create_product", "commerce_set_price", "commerce_adjust_inventory", "commerce_checkout",
-            "commerce_create_ingredient", "commerce_set_recipe", "commerce_update_ingredient_cost",
-            "commerce_set_ingredient_stock", "commerce_set_reorder_point",
-            "commerce_create_supplier", "commerce_create_purchase_order", "commerce_submit_purchase_order",
-            "commerce_receive_goods",
-            "commerce_create_production_order", "commerce_release_production_order",
-            "commerce_set_target_margin",
-        ];
-        foreach (var tool in all)
-        {
-            _manifest.Classify(tool)!.Options!.Tier.Should().NotBe(ToolApprovalTier.High);
-        }
+        var classification = _manifest.Classify("commerce_checkout");
+        classification!.Options!.Tier.Should().Be(ToolApprovalTier.High);
+        classification.Options.ProposalType.Should().Be(CommerceCheckoutProposalHandler.ProposalTypeKey);
     }
 }

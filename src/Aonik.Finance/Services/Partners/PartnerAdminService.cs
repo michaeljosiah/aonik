@@ -705,6 +705,10 @@ internal class PartnerAdminService : FinanceServiceBase, IPartnerAdminService
             .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.PartnerId == partnerId && item.Id == connectorId, cancellationToken)
             ?? throw new InvalidOperationException($"Connector {connectorId} not found.");
 
+        ConnectorConfigJson.ValidateUpdate(connector.ConnectorType, connector.ConfigJson,
+            string.IsNullOrWhiteSpace(request.ConnectorType) ? connector.ConnectorType : request.ConnectorType.Trim(),
+            request.ConfigJson is null ? connector.ConfigJson : request.ConfigJson.Trim());
+
         if (!string.IsNullOrWhiteSpace(request.ConnectorType))
         {
             connector.ConnectorType = request.ConnectorType.Trim();

@@ -40,7 +40,7 @@ public class ModuleAwareEventDispatchTests
 
         // Assert
         checkout.Verify(
-            c => c.ConfirmPaymentAsync(orderId, paymentId, It.IsAny<CancellationToken>()),
+            c => c.ConfirmPaymentAsync(orderId, paymentId, 10m, "GBP", It.IsAny<CancellationToken>()),
             Times.Once,
             "committed work must be reconciled even while the module is switched off");
         recording.Received.Should().ContainSingle().Which.Should().BeSameAs(@event);
@@ -62,7 +62,7 @@ public class ModuleAwareEventDispatchTests
         await bus.PublishAsync(@event);
 
         // Assert
-        checkout.Verify(c => c.ConfirmPaymentAsync(orderId, paymentId, It.IsAny<CancellationToken>()), Times.Once);
+        checkout.Verify(c => c.ConfirmPaymentAsync(orderId, paymentId, 10m, "GBP", It.IsAny<CancellationToken>()), Times.Once);
         recording.Received.Should().ContainSingle();
     }
 
@@ -80,7 +80,7 @@ public class ModuleAwareEventDispatchTests
         await bus.PublishAsync(@event);
 
         // Assert
-        checkout.Verify(c => c.ConfirmPaymentAsync(orderId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once);
+        checkout.Verify(c => c.ConfirmPaymentAsync(orderId, It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         recording.Received.Should().ContainSingle();
     }
 

@@ -207,6 +207,17 @@ public static class DependencyInjection
         services.AddScoped<ISettingProvider, SettingService>();
         services.AddScoped<ISettingManager, SettingService>();
         services.AddScoped<ITenantSettingStore, SettingService>();
+        services.AddScoped<Aonik.Finance.Contracts.Services.Payments.IStripeWebhookVerifier, ExternalServices.Stripe.StripeWebhookVerifier>();
+#pragma warning disable EXTEXP0001 // Durable payment retries are explicit; a provider call makes one bounded attempt.
+        services.AddHttpClient<Aonik.Finance.Contracts.Services.Payments.IPaymentProviderGateway, ExternalServices.Stripe.StripeCheckoutGateway>(client =>
+        {
+            client.Timeout = ExternalServices.Stripe.StripeCheckoutGateway.RequestTimeout;
+            client.MaxResponseContentBufferSize = ExternalServices.Stripe.StripeCheckoutGateway.MaxResponseBytes;
+        })
+        .RemoveAllResilienceHandlers()
+        .RemoveAllLoggers()
+        .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
+#pragma warning restore EXTEXP0001
         services.AddScoped<IReferenceDataService, ReferenceDataService>();
         services.Configure<PostcodesIoOptions>(configuration.GetSection(PostcodesIoOptions.SectionName));
 #pragma warning disable EXTEXP0001 // This lookup makes one attempt within HttpClient's timeout, without inherited retries.

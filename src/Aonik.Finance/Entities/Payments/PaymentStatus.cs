@@ -6,5 +6,7 @@ public enum PaymentStatus
     Authorized,
     Captured,
     Failed,
-    Cancelled
+    Cancelled,
+    Processing,
+    RequiresAction
 }

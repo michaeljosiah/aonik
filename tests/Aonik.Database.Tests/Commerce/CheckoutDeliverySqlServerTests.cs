@@ -18,6 +18,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Payments;
+using Aonik.SharedKernel.Persistence;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -39,10 +40,8 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
     private static readonly DateOnly FirstDate = new(2026, 10, 16);
     private static readonly FixedClock Clock = new();
 
-    [SkippableTheory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task CompetingCheckouts_Should_ReplayTheWinner_AndKeepItsOriginalDeliveryChoiceAndHold(bool winnerHasDelivery)
+    [SkippableFact]
+    public async Task CompetingCheckouts_Should_ClaimOneAttemptBeforeMoney_AndReplayItsOriginalSnapshot()
     {
         RequireSqlServer();
         var tenantId = Guid.NewGuid();
@@ -54,95 +53,52 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         var gateB = new BeforeCheckoutSave();
         await using var contextA = Commerce(tenantId, gateA);
         await using var contextB = Commerce(tenantId, gateB);
-        var paymentA = new RecordingPayment();
-        var paymentB = new RecordingPayment();
-        var checkoutA = Checkout(contextA, scopeA.ServiceProvider, tenantId, paymentA);
-        var checkoutB = Checkout(contextB, scopeB.ServiceProvider, tenantId, paymentB);
+        var payments = new RecordingPayment();
         var access = CartAccessContext.ForGuest(seeded.Token, seeded.Version);
-
-        // Let both requests validate the original cart and stage their final writes. Sequence
-        // the earlier inventory work so this tests the cart claim, not stock-row contention.
-        var firstCommand = Command(seeded.CartId, "1 Original Road", FirstDate);
-        if (!winnerHasDelivery) firstCommand = firstCommand with { Delivery = null };
-        var first = checkoutA.CheckoutAsync(firstCommand, access);
+        var first = Checkout(contextA, scopeA.ServiceProvider, tenantId, payments)
+            .CheckoutAsync(Command(seeded.CartId, "1 Original Road", FirstDate), access);
         try
         {
             await gateA.WaitUntilReachedAsync(first);
-            var second = checkoutB.CheckoutAsync(Command(seeded.CartId, "2 Losing Road", FirstDate.AddDays(1)), access);
-            try
-            {
-                await gateB.WaitUntilReachedAsync(second);
-                gateA.OrderId.Should().Be(gateB.OrderId, "the real order spine deduplicates by cart id");
-                gateA.Release.TrySetResult();
-                var winner = await first;
-                gateB.Release.TrySetResult();
-                var replay = await second;
-
-                gateB.Failure.Should().BeAssignableTo<DbUpdateException>("the losing request must exercise SQL conflict recovery");
-                replay.OrderId.Should().Be(winner.OrderId);
-                replay.PaymentIntentId.Should().Be(winner.PaymentIntentId).And.Be(paymentA.IntentId);
-                replay.ClientSecret.Should().Be(winner.ClientSecret);
-                replay.Total.Should().Be(winner.Total);
-                paymentA.Calls.Should().Be(1);
-                paymentB.Calls.Should().Be(1);
-                paymentB.IntentId.Should().NotBe(winner.PaymentIntentId);
-
-                // A later SaveChanges on the losing scope must not retry its rejected inserts.
-                await contextB.SaveChangesAsync();
-                await using var verification = Commerce(tenantId);
-                var delivery = await verification.OrderDeliveryDetails.AsNoTracking().SingleOrDefaultAsync();
-                if (winnerHasDelivery)
-                {
-                    delivery.Should().NotBeNull();
-                    delivery!.OrderId.Should().Be(winner.OrderId);
-                    delivery.AddressLine1.Should().Be("1 Original Road");
-                    delivery.DeliveryDate.Should().Be(FirstDate);
-                    delivery.Timezone.Should().Be("Europe/London");
-                    delivery.RowVersion.Should().HaveCount(8);
-                }
-                else
-                {
-                    delivery.Should().BeNull("a generic winner can omit delivery; the loser must not add its snapshot");
-                }
-                (await verification.OrderChargeSummaries.SingleAsync()).PaymentIntentId.Should().Be(winner.PaymentIntentId);
-                (await verification.OrderBundleSelections.CountAsync()).Should().Be(1);
-                (await verification.Carts.SingleAsync()).OrderId.Should().Be(winner.OrderId);
-                var held = await verification.InventoryReservations.Where(row => row.Status == InventoryReservationStatuses.Held).ToListAsync();
-                held.Should().ContainSingle().Which.HoldRef.Should().Be(seeded.CartId);
-                (await verification.InventoryLevels.SingleAsync()).Reserved.Should().Be(1m);
-                await using var readScope = provider.CreateAsyncScope();
-                (await readScope.ServiceProvider.GetRequiredService<IOrderService>().GetAsync(winner.OrderId))!
-                    .Status.Should().Be(OrderStatusCodes.Draft, "the loser must not cancel the winner's unpaid order");
-                // The schema fixture built an unscoped model. Use a separate provider for these
-                // runtime reads so its cached model cannot suppress tenant filters.
-                await using var canonicalServices = new ServiceCollection().AddEntityFrameworkSqlServer().BuildServiceProvider();
-                var canonicalOptions = new DbContextOptionsBuilder<AonikDbContext>(database.CreateOptions<AonikDbContext>())
-                    .UseInternalServiceProvider(canonicalServices).Options;
-                await using var fundingRead = new AonikDbContext(canonicalOptions,
-                    new TestTenantProvider(tenantId), new TestCurrentUserProvider(), Clock);
-                var fundingRefs = await fundingRead.OrderFundingRefs.AsNoTracking()
-                    .Where(row => row.OrderId == winner.OrderId).ToListAsync();
-                fundingRefs.Should().ContainSingle(row => row.PaymentIntentId == winner.PaymentIntentId);
-                fundingRefs.Should().OnlyContain(row => row.TenantId == tenantId && row.RowVersion.Length == 8,
-                    "the canonical and runtime models must both use SQL-generated funding-reference rowversions");
-                await using var foreignFundingRead = new AonikDbContext(canonicalOptions,
-                    new TestTenantProvider(Guid.NewGuid()), new TestCurrentUserProvider(), Clock);
-                (await foreignFundingRead.OrderFundingRefs.AnyAsync(row => row.OrderId == winner.OrderId))
-                    .Should().BeFalse("funding references must remain tenant filtered in the canonical context");
-            }
-            finally
-            {
-                gateB.Release.TrySetResult();
-            }
-        }
-        finally
-        {
+            var second = Checkout(contextB, scopeB.ServiceProvider, tenantId, payments)
+                .CheckoutAsync(Command(seeded.CartId, "2 Losing Road", FirstDate.AddDays(1)), access);
+            await gateB.WaitUntilReachedAsync(second);
+            payments.Calls.Should().Be(0);
             gateA.Release.TrySetResult();
+            var winner = await first.WaitAsync(TimeSpan.FromSeconds(30));
+            gateB.Release.TrySetResult();
+            var replay = await second.WaitAsync(TimeSpan.FromSeconds(30));
+            gateB.Failure.Should().BeOfType<DbUpdateConcurrencyException>();
+            (replay with { GuestOrderToken = null }).Should().Be(winner with { GuestOrderToken = null });
+            payments.Calls.Should().Be(1);
+            await contextB.SaveChangesAsync();
+            await using var verify = Commerce(tenantId);
+            var delivery = await verify.OrderDeliveryDetails.SingleAsync();
+            delivery.AddressLine1.Should().Be("1 Original Road");
+            delivery.DeliveryDate.Should().Be(FirstDate);
+            delivery.RowVersion.Should().HaveCount(8);
+            (await verify.Carts.SingleAsync()).RowVersion.Should().HaveCount(8);
+            (await verify.OrderChargeSummaries.SingleAsync()).PaymentIntentId.Should().Be(winner.PaymentIntentId);
+            (await verify.OrderBundleSelections.CountAsync()).Should().Be(1);
+            (await verify.InventoryReservations.CountAsync(r => r.Status == InventoryReservationStatuses.Held)).Should().Be(1);
+            (await verify.InventoryLevels.SingleAsync()).Reserved.Should().Be(1m);
+            await using var canonicalServices = new ServiceCollection().AddEntityFrameworkSqlServer().BuildServiceProvider();
+            var options = new DbContextOptionsBuilder<AonikDbContext>(database.CreateOptions<AonikDbContext>())
+                .UseInternalServiceProvider(canonicalServices).Options;
+            await using var funding = new AonikDbContext(options, new TestTenantProvider(tenantId), new TestCurrentUserProvider(), Clock);
+            var reference = await funding.OrderFundingRefs.SingleAsync(r => r.OrderId == winner.OrderId);
+            reference.PaymentIntentId.Should().Be(winner.PaymentIntentId);
+            reference.RowVersion.Should().HaveCount(8);
+            await using var foreign = new AonikDbContext(options, new TestTenantProvider(Guid.NewGuid()), new TestCurrentUserProvider(), Clock);
+            (await foreign.OrderFundingRefs.AnyAsync(r => r.OrderId == winner.OrderId)).Should().BeFalse();
         }
+        finally { gateA.Release.TrySetResult(); gateB.Release.TrySetResult(); }
     }
 
-    [SkippableFact]
-    public async Task CartEdit_Should_RollBackSnapshots_AndReleaseInventoryWithoutReflushingFailedWrites()
+    [SkippableTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NewerCartWriteBeforeClaim_Should_WinWithoutLeakingOrCreatingPayment(bool adopt)
     {
         RequireSqlServer();
         var tenantId = Guid.NewGuid();
@@ -151,141 +107,33 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         await using var scope = provider.CreateAsyncScope();
         var gate = new BeforeCheckoutSave();
         await using var context = Commerce(tenantId, gate);
-        var checkout = Checkout(context, scope.ServiceProvider, tenantId, new RecordingPayment());
-        var pending = checkout.CheckoutAsync(Command(seeded.CartId, "1 Original Road", FirstDate), CartAccessContext.ForGuest(seeded.Token, seeded.Version));
+        var payment = new RecordingPayment();
+        var access = CartAccessContext.ForGuest(seeded.Token, seeded.Version);
+        var pending = Checkout(context, scope.ServiceProvider, tenantId, payment)
+            .CheckoutAsync(Command(seeded.CartId, "Original address", FirstDate), access);
         try
         {
             await gate.WaitUntilReachedAsync(pending);
             await using (var edit = Commerce(tenantId))
             {
-                var cart = await edit.Carts.Include(row => row.Items).SingleAsync();
-                var before = cart.RowVersion.ToArray();
-                cart.Items.Single().Quantity = 2m;
-                cart.UpdatedAt = Clock.UtcNow; // real cart mutations also touch the cart claim row
-                await edit.SaveChangesAsync();
-                cart.RowVersion.Should().HaveCount(8).And.NotEqual(before);
+                var tenant = new TestTenantProvider(tenantId);
+                var carts = new CartService(edit, tenant, new ProductPricingService(edit, tenant, Clock), Clock);
+                if (adopt) await carts.AdoptAsync(seeded.CartId, Guid.NewGuid(), access);
+                else await carts.SaveCheckoutDraftAsync(seeded.CartId, new CartCheckoutDraftDto(Notes: "Newer draft"), access);
             }
             gate.Release.TrySetResult();
-            Func<Task> act = async () => await pending;
-            await act.Should().ThrowAsync<DbUpdateConcurrencyException>();
-
-            context.ChangeTracker.Entries().Should().NotContain(entry => entry.State == EntityState.Added
-                && (entry.Entity is OrderDeliveryDetails || entry.Entity is OrderChargeSummary || entry.Entity is OrderBundleSelection));
-            // A real inventory mutation flushes this SAME context again, after cleanup did so.
+            var act = async () => await pending;
+            if (adopt) await act.Should().ThrowAsync<NotFoundException>();
+            else await act.Should().ThrowAsync<DbUpdateConcurrencyException>();
             await Inventory(context, tenantId).SetOnHandAsync(seeded.VariantId, 25m);
-            await using var verification = Commerce(tenantId);
-            (await verification.OrderDeliveryDetails.CountAsync()).Should().Be(0);
-            (await verification.OrderChargeSummaries.CountAsync()).Should().Be(0);
-            (await verification.OrderBundleSelections.CountAsync()).Should().Be(0);
-            var savedCart = await verification.Carts.Include(row => row.Items).SingleAsync();
-            savedCart.OrderId.Should().BeNull();
-            savedCart.Items.Single().Quantity.Should().Be(2m);
-            (await verification.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Released);
-            var level = await verification.InventoryLevels.SingleAsync();
-            level.Reserved.Should().Be(0m);
-            level.OnHand.Should().Be(25m);
-            await using var readScope = provider.CreateAsyncScope();
-            (await readScope.ServiceProvider.GetRequiredService<IOrderService>().GetAsync(gate.OrderId))!
-                .Status.Should().Be(OrderStatusCodes.Cancelled);
-        }
-        finally
-        {
-            gate.Release.TrySetResult();
-        }
-    }
-
-    [SkippableFact]
-    public async Task DuplicateSnapshotWithoutACompleteWinner_Should_RethrowDatabaseFailure_AndPreserveOriginalData()
-    {
-        RequireSqlServer();
-        var tenantId = Guid.NewGuid();
-        var seeded = await SeedCartAsync(tenantId);
-        await using var provider = OrderingProvider(tenantId);
-        await using var scope = provider.CreateAsyncScope();
-        var gate = new BeforeCheckoutSave();
-        await using var context = Commerce(tenantId, gate);
-        var pending = Checkout(context, scope.ServiceProvider, tenantId, new RecordingPayment())
-            .CheckoutAsync(Command(seeded.CartId, "2 Losing Road", FirstDate.AddDays(1)), CartAccessContext.ForGuest(seeded.Token, seeded.Version));
-        try
-        {
-            await gate.WaitUntilReachedAsync(pending);
-            // Reproduce an existing snapshot with an incomplete checkout claim. It is an
-            // integrity failure, not evidence that this request may replace or cancel it.
-            await using (var other = Commerce(tenantId))
-            {
-                other.OrderDeliveryDetails.Add(Snapshot(tenantId, gate.OrderId, "1 Original Road", FirstDate));
-                await other.SaveChangesAsync();
-            }
-            gate.Release.TrySetResult();
-            Func<Task> act = async () => await pending;
-            var error = (await act.Should().ThrowAsync<DbUpdateException>()).Which;
-            error.Should().NotBeOfType<DbUpdateConcurrencyException>();
-            error.InnerException.Should().BeOfType<SqlException>().Which.Number.Should().BeOneOf(2601, 2627);
-            await context.SaveChangesAsync();
-
-            await using var verification = Commerce(tenantId);
-            (await verification.OrderDeliveryDetails.SingleAsync()).AddressLine1.Should().Be("1 Original Road");
-            (await verification.Carts.SingleAsync()).OrderId.Should().BeNull();
-            (await verification.OrderChargeSummaries.CountAsync()).Should().Be(0);
-            (await verification.OrderBundleSelections.CountAsync()).Should().Be(0);
-            await using var readScope = provider.CreateAsyncScope();
-            (await readScope.ServiceProvider.GetRequiredService<IOrderService>().GetAsync(gate.OrderId))!
-                .Status.Should().Be(OrderStatusCodes.Draft);
-        }
-        finally
-        {
-            gate.Release.TrySetResult();
-        }
-    }
-
-    [SkippableFact]
-    public async Task RevokedGuestLosingToAnAdoptedCheckout_Should_NotReplayTheNewOwnersSecretsOrCancelItsOrder()
-    {
-        RequireSqlServer();
-        var tenantId = Guid.NewGuid();
-        var partyId = Guid.NewGuid();
-        var seeded = await SeedCartAsync(tenantId);
-        await using var provider = OrderingProvider(tenantId);
-        await using var scopeA = provider.CreateAsyncScope();
-        await using var scopeB = provider.CreateAsyncScope();
-        var gate = new BeforeCheckoutSave();
-        await using var contextA = Commerce(tenantId, gate);
-        var guestAccess = CartAccessContext.ForGuest(seeded.Token, seeded.Version);
-        var guestAttempt = Checkout(contextA, scopeA.ServiceProvider, tenantId, new RecordingPayment())
-            .CheckoutAsync(Command(seeded.CartId, "Guest address", FirstDate), guestAccess);
-        try
-        {
-            await gate.WaitUntilReachedAsync(guestAttempt);
-            await using var ownerContext = Commerce(tenantId);
-            var tenant = new TestTenantProvider(tenantId);
-            var carts = new CartService(ownerContext, tenant, new ProductPricingService(ownerContext, tenant, Clock), Clock);
-            var adopted = await carts.AdoptAsync(seeded.CartId, partyId, guestAccess);
-            var ownerPayment = new RecordingPayment();
-            var winner = await Checkout(ownerContext, scopeB.ServiceProvider, tenantId, ownerPayment)
-                .CheckoutAsync(Command(seeded.CartId, "Owner address", FirstDate.AddDays(1)),
-                    CartAccessContext.ForParty(partyId, adopted.CartVersion));
-            winner.OrderId.Should().Be(gate.OrderId);
-            gate.Release.TrySetResult();
-
-            Func<Task> act = async () => await guestAttempt;
-            await act.Should().ThrowAsync<NotFoundException>();
-            await contextA.SaveChangesAsync();
             await using var verify = Commerce(tenantId);
-            var cart = await verify.Carts.SingleAsync();
-            cart.BuyerPartyId.Should().Be(partyId);
-            cart.AnonymousToken.Should().BeNull();
-            cart.OrderId.Should().Be(winner.OrderId);
-            (await verify.OrderChargeSummaries.SingleAsync()).PaymentIntentId.Should().Be(ownerPayment.IntentId);
-            (await verify.OrderDeliveryDetails.SingleAsync()).AddressLine1.Should().Be("Owner address");
-            (await verify.OrderBundleSelections.CountAsync()).Should().Be(1);
-            (await verify.InventoryLevels.SingleAsync()).Reserved.Should().Be(1m);
-            await using var readScope = provider.CreateAsyncScope();
-            (await readScope.ServiceProvider.GetRequiredService<IOrderService>().GetAsync(winner.OrderId))!
-                .Status.Should().Be(OrderStatusCodes.Draft);
+            (await verify.OrderChargeSummaries.CountAsync()).Should().Be(0);
+            (await verify.OrderDeliveryDetails.CountAsync()).Should().Be(0);
+            (await verify.InventoryReservations.CountAsync()).Should().Be(0);
+            payment.Calls.Should().Be(0);
         }
         finally { gate.Release.TrySetResult(); }
     }
-
     [SkippableFact]
     public async Task Checkout_Should_RejectFreshlyObservedStaleVersion_WithoutFlushingItsPreviouslyTrackedGraph()
     {
@@ -322,7 +170,7 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
     }
 
     [SkippableFact]
-    public async Task FailedPaymentInitiation_Should_NotStageSelectionsThatALaterInventorySaveCouldFlush()
+    public async Task FailedPaymentInitiation_Should_KeepOneDurableSnapshotAndHold_ForSameAttemptResume()
     {
         RequireSqlServer();
         var tenantId = Guid.NewGuid();
@@ -340,10 +188,10 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         await Inventory(context, tenantId).SetOnHandAsync(seeded.VariantId, 25m);
         await using (var verify = Commerce(tenantId))
         {
-            (await verify.OrderBundleSelections.CountAsync()).Should().Be(0);
-            (await verify.OrderChargeSummaries.CountAsync()).Should().Be(0);
-            (await verify.OrderDeliveryDetails.CountAsync()).Should().Be(0);
-            (await verify.Carts.SingleAsync()).OrderId.Should().BeNull();
+            (await verify.OrderBundleSelections.CountAsync()).Should().Be(1);
+            (await verify.OrderChargeSummaries.CountAsync()).Should().Be(1);
+            (await verify.OrderDeliveryDetails.CountAsync()).Should().Be(1);
+            (await verify.Carts.SingleAsync()).CheckoutState.Should().Be(CartCheckoutStates.AwaitingPayment);
         }
         payment.Fail = false;
         var completed = await checkout.CheckoutAsync(command, access);
@@ -384,6 +232,103 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         error.InnerException.Should().BeOfType<SqlException>().Which.Number.Should().BeOneOf(2601, 2627);
     }
 
+    [SkippableFact]
+    public async Task OwnedGenericRetry_Should_RemoveAndRestoreOptionalDelivery_OnTheSameUniqueSnapshot()
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid();
+        var partyId = Guid.NewGuid();
+        var seeded = await SeedCartAsync(tenantId);
+        string version;
+        await using (var setup = Commerce(tenantId))
+        {
+            var cart = await setup.Carts.SingleAsync();
+            cart.BuyerPartyId = partyId;
+            cart.AnonymousToken = null;
+            await setup.SaveChangesAsync();
+            version = Convert.ToBase64String(cart.RowVersion);
+        }
+        await using var provider = OrderingProvider(tenantId);
+        await using var scope = provider.CreateAsyncScope();
+        await using var context = Commerce(tenantId);
+        var checkout = Checkout(context, scope.ServiceProvider, tenantId, new RecordingPayment());
+        var access = CartAccessContext.ForParty(partyId, version);
+        var first = await checkout.CheckoutAsync(Command(seeded.CartId, "Original address", FirstDate), access);
+        Guid snapshotId;
+        await using (var read = Commerce(tenantId)) snapshotId = (await read.OrderDeliveryDetails.SingleAsync()).Id;
+        var state = await checkout.GetPaymentStateAsync(seeded.CartId, access);
+        var reopened = await checkout.RecoverAsync(seeded.CartId, first.PaymentIntentId, access with { ExpectedCartVersion = state.CartVersion });
+        var second = await checkout.CheckoutAsync(Command(seeded.CartId, "Unused", FirstDate) with { Delivery = null },
+            access with { ExpectedCartVersion = reopened.CartVersion });
+        second.OrderId.Should().Be(first.OrderId);
+        await using (var read = Commerce(tenantId)) (await read.OrderDeliveryDetails.CountAsync()).Should().Be(0);
+        state = await checkout.GetPaymentStateAsync(seeded.CartId, access);
+        reopened = await checkout.RecoverAsync(seeded.CartId, second.PaymentIntentId, access with { ExpectedCartVersion = state.CartVersion });
+        var third = await checkout.CheckoutAsync(Command(seeded.CartId, "Replacement address", FirstDate.AddDays(1)),
+            access with { ExpectedCartVersion = reopened.CartVersion });
+        third.OrderId.Should().Be(first.OrderId);
+        await using var verify = Commerce(tenantId);
+        var snapshot = await verify.OrderDeliveryDetails.SingleAsync();
+        snapshot.Id.Should().Be(snapshotId);
+        snapshot.AddressLine1.Should().Be("Replacement address");
+        (await verify.OrderDeliveryDetails.IncludeSoftDeleted().CountAsync(row => row.TenantId == tenantId)).Should().Be(1);
+        (await verify.InventoryLevels.SingleAsync()).Reserved.Should().Be(1m);
+    }
+
+    [SkippableTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LegacyConfirmationRollback_Should_NotReflushInventoryOrDiscount_OnTheSameContext(bool failDuringDiscount)
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid();
+        var seeded = await SeedCartAsync(tenantId);
+        await using (var setup = Commerce(tenantId))
+        {
+            setup.Discounts.Add(new Discount { TenantId = tenantId, Code = "SAVE10", Value = 10m });
+            await setup.SaveChangesAsync();
+        }
+        await using var provider = OrderingProvider(tenantId);
+        await using var scope = provider.CreateAsyncScope();
+        var failure = new FailConfirmationSave(failDuringDiscount);
+        await using var context = Commerce(tenantId, failure);
+        var checkout = Checkout(context, scope.ServiceProvider, tenantId, new RecordingPayment());
+        var pending = await checkout.CheckoutAsync(Command(seeded.CartId, "Original address", FirstDate) with { DiscountCode = "SAVE10" },
+            CartAccessContext.ForGuest(seeded.Token, seeded.Version));
+        await using (var legacy = Commerce(tenantId))
+        {
+            var cart = await legacy.Carts.SingleAsync();
+            cart.CheckoutPreparationJson = null;
+            cart.CheckoutState = null;
+            await legacy.SaveChangesAsync();
+        }
+        failure.Armed = true;
+
+        var confirm = () => checkout.ConfirmPaymentAsync(pending.OrderId, pending.PaymentIntentId, pending.Total, pending.Currency);
+
+        await confirm.Should().ThrowAsync<InvalidOperationException>().WithMessage("Test confirmation save failure.");
+        failure.WasTriggered.Should().BeTrue();
+        // This save must reload the rolled-back inventory version and must not flush either
+        // the rejected stock commit or the discount increment left by a later failure.
+        await Inventory(context, tenantId).SetOnHandAsync(seeded.VariantId, 25m);
+        await using (var verify = Commerce(tenantId))
+        {
+            (await verify.Carts.SingleAsync()).Status.Should().Be(CartStatuses.Open);
+            (await verify.OrderChargeSummaries.SingleAsync()).PaymentStatus.Should().Be("Pending");
+            (await verify.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Held);
+            (await verify.Discounts.SingleAsync()).TimesRedeemed.Should().Be(0);
+            var stock = await verify.InventoryLevels.SingleAsync();
+            stock.OnHand.Should().Be(25m);
+            stock.Reserved.Should().Be(1m);
+        }
+        (await checkout.ConfirmPaymentAsync(pending.OrderId, pending.PaymentIntentId, pending.Total, pending.Currency)).Should().BeTrue();
+        await using var completed = Commerce(tenantId);
+        (await completed.Discounts.SingleAsync()).TimesRedeemed.Should().Be(1);
+        (await completed.InventoryReservations.SingleAsync()).Status.Should().Be(InventoryReservationStatuses.Committed);
+        (await completed.InventoryLevels.SingleAsync()).OnHand.Should().Be(24m);
+        (await completed.InventoryLevels.SingleAsync()).Reserved.Should().Be(0m);
+    }
+
     private void RequireSqlServer() => Skip.IfNot(database.IsAvailable, database.SkipReason ?? "SQL Server LocalDB unavailable.");
 
     private CommerceDbContext Commerce(Guid tenantId, IInterceptor? interceptor = null)
@@ -412,11 +357,16 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
     private static CheckoutService Checkout(CommerceDbContext context, IServiceProvider ordering, Guid tenantId, RecordingPayment payments)
     {
         var tenant = new TestTenantProvider(tenantId);
+        var parties = new Mock<IPartyService>(MockBehavior.Strict);
+        parties.Setup(service => service.EnsureUnverifiedGuestPartyAsync(It.IsAny<Guid>(), It.IsAny<Guid>(),
+                It.IsAny<CreatePartyRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid id, Guid _, CreatePartyRequest details, CancellationToken _) =>
+                new PartyResponse(id, details.DisplayName, details.PartyType, "Unverified"));
         return new CheckoutService(context, Inventory(context, tenantId), ordering.GetRequiredService<IOrderService>(),
             payments, Mock.Of<IInvoiceWriter>(MockBehavior.Strict), new DiscountService(context, tenant, Clock),
             new ZeroRateTaxCalculator(), tenant, new UnexpectedBoxCheckout(),
             new GuestOrderAccess(new EphemeralDataProtectionProvider()), new FulfilmentPromiseService(context, tenant, Clock),
-            Mock.Of<IDeliveryCoverageService>(MockBehavior.Strict));
+            Mock.Of<IDeliveryCoverageService>(MockBehavior.Strict), parties.Object, Clock);
     }
 
     private async Task<(Guid CartId, string Token, Guid VariantId, string Version)> SeedCartAsync(Guid tenantId)
@@ -455,7 +405,7 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         return (cart.Id, token, variant.Id, Convert.ToBase64String(cart.RowVersion));
     }
 
-    private static CheckoutCommand Command(Guid cartId, string address, DateOnly date) => new(cartId, "Test", "Card",
+    private static CheckoutCommand Command(Guid cartId, string address, DateOnly date) => new(cartId, "Stripe", "Card",
         Delivery: new CheckoutDeliveryDetails(new CheckoutContactDto("buyer@example.com", "Test", "Buyer", "07700900123"),
             new DeliveryAddressDto(address, null, "London", null, "SW1A 1AA", "GB"), date));
 
@@ -478,14 +428,25 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
 
     private sealed class RecordingPayment : IPaymentInitiator
     {
-        public Guid IntentId { get; } = Guid.NewGuid();
+        private readonly Dictionary<Guid, PaymentIntentStateRef> _states = [];
+        public Guid IntentId { get; private set; }
         public int Calls { get; private set; }
         public bool Fail { get; set; }
         public Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken cancellationToken = default)
         {
             Calls++;
             if (Fail) throw new InvalidOperationException("Test payment failure.");
-            return Task.FromResult(new PaymentIntentRef(IntentId, "Pending", $"secret-{IntentId:N}"));
+            IntentId = command.PaymentIntentId!.Value;
+            _states[IntentId] = new(IntentId, command.OrderId, command.Amount, command.Currency, "Pending", false, "https://pay.example/session");
+            return Task.FromResult(new PaymentIntentRef(IntentId, "Pending", $"secret-{IntentId:N}", "https://pay.example/session"));
+        }
+        public Task<PaymentIntentStateRef?> GetStateAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
+            => Task.FromResult(_states.GetValueOrDefault(paymentIntentId));
+        public Task<PaymentIntentStateRef> ExpireAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
+        {
+            var state = _states[paymentIntentId] with { Status = "Cancelled", CanNoLongerPay = true, CheckoutUrl = null };
+            _states[paymentIntentId] = state;
+            return Task.FromResult(state);
         }
     }
 
@@ -494,7 +455,6 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         private int _paused;
         public TaskCompletionSource Reached { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public Guid OrderId { get; private set; }
         public Exception? Failure { get; private set; }
 
         public async Task WaitUntilReachedAsync(Task checkout)
@@ -503,7 +463,7 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
             if (completed == checkout)
             {
                 await checkout; // Surface the checkout failure instead of reporting a barrier timeout.
-                throw new InvalidOperationException("Checkout completed before reaching its final save.");
+                throw new InvalidOperationException("Checkout completed before reaching its initial claim.");
             }
             await Reached.Task;
         }
@@ -511,11 +471,10 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
         public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
             InterceptionResult<int> result, CancellationToken cancellationToken = default)
         {
-            var charge = eventData.Context!.ChangeTracker.Entries<OrderChargeSummary>()
-                .FirstOrDefault(entry => entry.State == EntityState.Added);
-            if (charge is not null && Interlocked.CompareExchange(ref _paused, 1, 0) == 0)
+            var cart = eventData.Context!.ChangeTracker.Entries<Cart>()
+                .FirstOrDefault(entry => entry.State == EntityState.Modified && entry.Entity.CheckoutState == CartCheckoutStates.Preparing);
+            if (cart is not null && Interlocked.CompareExchange(ref _paused, 1, 0) == 0)
             {
-                OrderId = charge.Entity.OrderId;
                 Reached.TrySetResult();
                 await Release.Task.WaitAsync(TimeSpan.FromSeconds(30), cancellationToken);
             }
@@ -532,6 +491,28 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
             InterceptionResult result, CancellationToken cancellationToken = default)
         {
             Failure = eventData.Exception;
+            return ValueTask.FromResult(result);
+        }
+    }
+
+    private sealed class FailConfirmationSave(bool failDuringDiscount) : SaveChangesInterceptor
+    {
+        public bool Armed { get; set; }
+        public bool WasTriggered { get; private set; }
+
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData,
+            InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            var context = eventData.Context!;
+            var targetWrite = failDuringDiscount
+                ? context.ChangeTracker.Entries<Discount>().Any(e => e.State == EntityState.Modified && e.Entity.TimesRedeemed == 1)
+                : context.ChangeTracker.Entries<InventoryReservation>().Any(e => e.State == EntityState.Modified
+                    && e.Entity.Status == InventoryReservationStatuses.Committed);
+            if (Armed && !WasTriggered && targetWrite)
+            {
+                WasTriggered = true;
+                throw new InvalidOperationException("Test confirmation save failure.");
+            }
             return ValueTask.FromResult(result);
         }
     }

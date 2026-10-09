@@ -42,6 +42,10 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
         // them. The partner outcome rides CollectionStatus, never the PaymentStatus-typed Status column.
         builder.Property(x => x.ClientReference).HasMaxLength(200);
         builder.Property(x => x.ProviderReference).HasMaxLength(200);
+        builder.Property(x => x.ProviderCode).HasMaxLength(50);
+        builder.Property(x => x.ProviderAccountId).HasMaxLength(200);
+        builder.Property(x => x.ProviderPaymentIntentReference).HasMaxLength(200);
+        builder.Property(x => x.ProviderCreateRequestJson).HasColumnType("nvarchar(max)");
         builder.Property(x => x.CollectionMethod).HasMaxLength(30);
         builder.Property(x => x.MobileNetwork).HasMaxLength(50);
         builder.Property(x => x.MaskedPhoneNumber).HasMaxLength(50);
@@ -73,5 +77,9 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
         builder.HasIndex(x => new { x.TenantId, x.ClientReference });
         builder.HasIndex(x => new { x.TenantId, x.ProviderReference });
         builder.HasIndex(x => new { x.TenantId, x.ConnectorId });
+        builder.HasIndex(x => new { x.ConnectorId, x.ProviderReference })
+            .IsUnique().HasFilter("[ConnectorId] IS NOT NULL AND [ProviderCode] = 'Stripe' AND [ProviderReference] IS NOT NULL");
+        builder.HasIndex(x => new { x.ConnectorId, x.ProviderPaymentIntentReference })
+            .IsUnique().HasFilter("[ConnectorId] IS NOT NULL AND [ProviderPaymentIntentReference] IS NOT NULL");
     }
 }

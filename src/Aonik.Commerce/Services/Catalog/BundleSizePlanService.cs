@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
@@ -76,7 +76,7 @@ internal sealed class BundleSizePlanService : IBundleSizePlanService
         {
             var openSessions = await _dbContext.Carts.CountAsync(
                 c => c.TenantId == tenantId && c.BoxBundleProductId == productId
-                    && c.Status == CartStatuses.Open && c.OrderId == null,
+                    && c.Status == CartStatuses.Open && (c.CheckoutState == CartCheckoutStates.Retryable || c.OrderId == null && c.CheckoutState == null),
                 cancellationToken);
             if (openSessions > 0)
             {

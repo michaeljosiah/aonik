@@ -75,7 +75,10 @@ public sealed class FinanceModule : IModule
         // Payments
         services.AddScoped<Contracts.Services.Payments.IPaymentService, Services.Payments.PaymentService>();
         services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();
-        services.AddSingleton<Contracts.Services.Payments.IPaymentProviderGateway, Services.Payments.StripeSimulatedPaymentProviderGateway>();
+        services.AddScoped<Services.Payments.CheckoutPaymentService>();
+        services.AddScoped<Contracts.Services.Payments.IStripeConnectorResolver, Services.Payments.StripeConnectorResolver>();
+        services.AddScoped<Contracts.Services.Payments.ICheckoutPaymentReconciler, Services.Payments.CheckoutPaymentReconciler>();
+        services.AddScoped<Contracts.Services.Payments.IStripeWebhookService, Services.Payments.StripeWebhookService>();
         // Saves payout destinations and stitches the customer→recipient party graph
         // (relationship edge + Beneficiary role) via the cross-module IPartyService seam.
         services.AddScoped<Contracts.Services.Payments.IPayoutBeneficiaryService, Services.Payments.PayoutBeneficiaryService>();

@@ -1,6 +1,8 @@
 using Aonik.Commerce.Contracts.Models.Inventory;
 using Aonik.Commerce.Entities.Inventory;
 using Aonik.Commerce.Persistence;
+using Aonik.Commerce.Entities.Cart;
+using Aonik.Commerce.Services.Checkout;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Persistence;
@@ -211,6 +213,9 @@ internal sealed class InventoryService : IInventoryService
         // AcrossTenants() is IgnoreQueryFilters(), which also drops the soft-delete filter — exclude deleted rows explicitly.
         return await _dbContext.InventoryReservations.AsNoTracking().AcrossTenants()
             .Where(r => !r.IsDeleted && r.Status == InventoryReservationStatuses.Held && r.ExpiresAt <= at)
+            .Where(r => !_dbContext.Carts.AcrossTenants().Any(c => c.TenantId == r.TenantId && c.Id == r.HoldRef
+                && (c.CheckoutState == CartCheckoutStates.Preparing || c.CheckoutState == CartCheckoutStates.AwaitingPayment
+                    || c.OrderId != null && c.CheckoutState != CartCheckoutStates.Retryable)))
             .Select(r => r.TenantId)
             .Distinct()
             .ToListAsync(cancellationToken);
@@ -232,7 +237,7 @@ internal sealed class InventoryService : IInventoryService
             query = query.Where(r => scope.Contains(r.TenantId));
         }
 
-        var expired = await query.ToListAsync(cancellationToken);
+        var expired = await query.AsNoTracking().Select(r => new { r.TenantId, r.HoldRef }).Distinct().ToListAsync(cancellationToken);
         if (expired.Count == 0)
         {
             return 0;
@@ -240,6 +245,7 @@ internal sealed class InventoryService : IInventoryService
 
         var originalTenant = _tenantContext.TenantId;
         var originalSource = _tenantContext.ResolutionSource;
+        var released = 0;
         try
         {
             foreach (var group in expired.GroupBy(r => r.TenantId))
@@ -247,23 +253,56 @@ internal sealed class InventoryService : IInventoryService
                 _tenantContext.TenantId = group.Key;
                 _tenantContext.ResolutionSource = "inventory-sweep";
 
-                foreach (var reservation in group)
+                foreach (var candidate in group)
                 {
-                    // Match the level on whichever id the hold carries (Spec 052 §8).
-                    var variantId = reservation.ProductVariantId;
-                    var ingredientId = reservation.IngredientId;
-                    var level = await _dbContext.InventoryLevels.AcrossTenants()
-                        .FirstOrDefaultAsync(l => l.TenantId == reservation.TenantId
-                            && (variantId != null ? l.ProductVariantId == variantId : l.IngredientId == ingredientId)
-                            && l.Location == null, cancellationToken);
-                    if (level is not null)
+                    try
                     {
-                        level.Reserved -= reservation.Quantity;
+                        released += await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+                        {
+                            if (candidate.HoldRef is { } cartId) CartTracking.Detach(_dbContext, candidate.TenantId, cartId);
+                            DetachHold(candidate.TenantId, candidate.HoldRef);
+                            await using var transaction = _dbContext.Database.IsRelational()
+                                ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
+                            var cart = await _dbContext.Carts.AcrossTenants()
+                                .SingleOrDefaultAsync(c => c.TenantId == candidate.TenantId && c.Id == candidate.HoldRef, ct);
+                            if (cart is not null)
+                            {
+                                if (CartWriteGuard.ProtectsStock(cart)) return 0;
+                                // Same parent-first claim as checkout: a preselected expired hold
+                                // must not be freed after another request starts payment.
+                                CartActivity.ServerEdit(_dbContext, cart, _clock);
+                                await _dbContext.SaveChangesAsync(ct);
+                            }
+                            var held = await _dbContext.InventoryReservations.AcrossTenants()
+                                .Where(r => r.TenantId == candidate.TenantId && r.HoldRef == candidate.HoldRef
+                                    && !r.IsDeleted && r.Status == InventoryReservationStatuses.Held && r.ExpiresAt <= at).ToListAsync(ct);
+                            var levels = new Dictionary<StockItemRef, InventoryLevel>();
+                            foreach (var reservation in held)
+                            {
+                                var item = ToStockItemRef(reservation);
+                                if (!levels.TryGetValue(item, out var level))
+                                {
+                                    foreach (var entry in _dbContext.ChangeTracker.Entries<InventoryLevel>().Where(e =>
+                                                 e.Entity.TenantId == candidate.TenantId && (item.IsIngredient
+                                                     ? e.Entity.IngredientId == item.Id : e.Entity.ProductVariantId == item.Id)).ToList())
+                                        entry.State = EntityState.Detached;
+                                    level = await GetOrCreateDefaultLevelAsync(candidate.TenantId, item, ct);
+                                    levels[item] = level;
+                                }
+                                level.Reserved -= reservation.Quantity;
+                                reservation.Status = InventoryReservationStatuses.Released;
+                            }
+                            await _dbContext.SaveChangesAsync(ct);
+                            if (transaction is not null) await transaction.CommitAsync(ct);
+                            return held.Count;
+                        }, cancellationToken);
                     }
-                    reservation.Status = InventoryReservationStatuses.Released;
+                    finally
+                    {
+                        DetachHold(candidate.TenantId, candidate.HoldRef);
+                        if (candidate.HoldRef is { } cartId) CartTracking.Detach(_dbContext, candidate.TenantId, cartId);
+                    }
                 }
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
             }
         }
         finally
@@ -272,7 +311,18 @@ internal sealed class InventoryService : IInventoryService
             _tenantContext.ResolutionSource = originalSource;
         }
 
-        return expired.Count;
+        return released;
+    }
+
+    private void DetachHold(Guid tenantId, Guid? holdRef)
+    {
+        var entries = _dbContext.ChangeTracker.Entries<InventoryReservation>()
+            .Where(e => e.Entity.TenantId == tenantId && e.Entity.HoldRef == holdRef).ToList();
+        foreach (var level in _dbContext.ChangeTracker.Entries<InventoryLevel>().Where(e => e.Entity.TenantId == tenantId
+                     && entries.Any(r => r.Entity.ProductVariantId != null ? r.Entity.ProductVariantId == e.Entity.ProductVariantId
+                         : r.Entity.IngredientId == e.Entity.IngredientId)).ToList())
+            level.State = EntityState.Detached;
+        foreach (var entry in entries) entry.State = EntityState.Detached;
     }
 
     // ── Variant-keyed wrappers (the original Spec 042 surface) ─────────────────────────────────

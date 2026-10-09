@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Catalog;
@@ -580,7 +580,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
             // §8 — drift repair on every load, but only while the session is still editable: a
             // checked-out box is a record, not a session, and must not be rewritten under its order.
-            var editable = cart.Status == CartStatuses.Open && cart.OrderId is null;
+            var editable = CartWriteGuard.IsEditable(cart);
 
             // The live-plan currency guard protects EDITABLE sessions from quoting against a
             // repriced plan; a closed cart's figures are frozen in its charge summary, and an
@@ -1358,7 +1358,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         // A closed cart's quote pins to its durable charge summary — a later plan price edit
         // must not display a figure different from what was actually charged (J7).
         OrderChargeSummary? summary = null;
-        if (cart.OrderId is { } orderId)
+        if (!CartWriteGuard.IsEditable(cart) && cart.OrderId is { } orderId)
         {
             summary = await _dbContext.OrderChargeSummaries
                 .AsNoTracking()

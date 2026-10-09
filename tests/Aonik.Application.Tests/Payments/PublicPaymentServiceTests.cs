@@ -62,7 +62,7 @@ public class PublicPaymentServiceTests
     }
 
     private static PublicPaymentService CreateService(FinanceDbContext context, Guid tenantId) =>
-        new(context, new TestTenantProvider(tenantId), [new FakeGateway()]);
+        new(context, new TestTenantProvider(tenantId), [new FakeGateway()], new CheckoutPaymentTestHarness(context, tenantId).Service);
 
     private static async Task<Order> SeedOrderAsync(
         FinanceDbContext context,
@@ -147,11 +147,14 @@ public class PublicPaymentServiceTests
     {
         var tenantId = Guid.NewGuid();
         using var context = CreateDbContext(tenantId);
-        var order = await SeedOrderAsync(context, tenantId, orderType: "ProductPurchase");
+        var payer = Guid.NewGuid();
+        context.Parties.Add(new Aonik.Finance.Entities.PartyReadModel { Id = payer, TenantId = tenantId, DisplayName = "Guest", Status = "Active" });
+        var order = await SeedOrderAsync(context, tenantId, orderType: "ProductPurchase", payerPartyId: payer);
         var service = CreateService(context, tenantId);
 
         var result = await service.CreateCommerceGuestPaymentIntentAsync(
-            new CreateCommerceGuestPaymentIntentRequest(order.Id, 42.50m, "USD", "Stripe", "Card", null, null));
+            new CreateCommerceGuestPaymentIntentRequest(order.Id, 42.50m, "GBP", "Stripe", "Card", null, null,
+                Guid.NewGuid(), "commerce-valid-attempt"));
 
         result.Should().NotBeNull();
         result.Amount.Should().Be(42.50m);
@@ -170,7 +173,8 @@ public class PublicPaymentServiceTests
         var order = await SeedOrderAsync(context, tenantA, orderType: "ProductPurchase");
 
         var act = async () => await CreateService(context, tenantB).CreateCommerceGuestPaymentIntentAsync(
-            new CreateCommerceGuestPaymentIntentRequest(order.Id, 42.50m, "USD", "Stripe", "Card", null, null));
+            new CreateCommerceGuestPaymentIntentRequest(order.Id, 42.50m, "GBP", "Stripe", "Card", null, null,
+                Guid.NewGuid(), "commerce-other-tenant-attempt"));
 
         await act.Should().ThrowAsync<NotFoundException>(
             "the explicit TenantId predicate must exclude another tenant's order even when the global query filter would allow it");

@@ -49,7 +49,7 @@ public class IntegrationEventDispatcherModuleGateTests
 
         // Assert
         checkout.Verify(
-            c => c.ConfirmPaymentAsync(orderId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()),
+            c => c.ConfirmPaymentAsync(orderId, It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once,
             "the payment already completed, so the handler that reconciles its order must still run");
         recording.Received.Should().ContainSingle();
@@ -81,7 +81,7 @@ public class IntegrationEventDispatcherModuleGateTests
         await dispatcher.DispatchAsync(message);
 
         // Assert
-        checkout.Verify(c => c.ConfirmPaymentAsync(orderId, paymentId, It.IsAny<CancellationToken>()), Times.Once);
+        checkout.Verify(c => c.ConfirmPaymentAsync(orderId, paymentId, 10m, "GBP", It.IsAny<CancellationToken>()), Times.Once);
         recording.Received.Should().ContainSingle();
         dbContext.ChangeTracker.Entries<InboxMessage>().Should().HaveCount(2);
     }
@@ -101,7 +101,7 @@ public class IntegrationEventDispatcherModuleGateTests
         await dispatcher.DispatchAsync(message);
 
         // Assert
-        checkout.Verify(c => c.ConfirmPaymentAsync(orderId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()), Times.Once);
+        checkout.Verify(c => c.ConfirmPaymentAsync(orderId, It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
         recording.Received.Should().ContainSingle();
     }
 
@@ -112,9 +112,9 @@ public class IntegrationEventDispatcherModuleGateTests
         var paymentId = Guid.NewGuid();
         var calls = new List<string>();
         var checkout = new Mock<ICheckoutService>(MockBehavior.Strict);
-        checkout.Setup(service => service.ConfirmPaymentAsync(orderId, paymentId, It.IsAny<CancellationToken>()))
+        checkout.Setup(service => service.ConfirmPaymentAsync(orderId, paymentId, 10m, "GBP", It.IsAny<CancellationToken>()))
             .Callback(() => calls.Add("confirm"))
-            .Returns(Task.CompletedTask);
+            .ReturnsAsync(true);
         var email = new Mock<IOrderConfirmationEmailService>(MockBehavior.Strict);
         var emailAttempts = 0;
         email.Setup(service => service.SendAsync(orderId, paymentId, It.IsAny<CancellationToken>()))
@@ -148,7 +148,7 @@ public class IntegrationEventDispatcherModuleGateTests
         await dispatcher.DispatchAsync(message);
 
         calls.Should().Equal("confirm", "email", "confirm", "email");
-        checkout.Verify(service => service.ConfirmPaymentAsync(orderId, paymentId, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        checkout.Verify(service => service.ConfirmPaymentAsync(orderId, paymentId, 10m, "GBP", It.IsAny<CancellationToken>()), Times.Exactly(2));
         email.Verify(service => service.SendAsync(orderId, paymentId, It.IsAny<CancellationToken>()), Times.Exactly(2));
         recording.Received.Should().ContainSingle();
         (await dbContext.Set<InboxMessage>().CountAsync()).Should().Be(2);
@@ -158,7 +158,7 @@ public class IntegrationEventDispatcherModuleGateTests
     public async Task DispatchAsync_Should_NotSendEmail_WhenCheckoutConfirmationFails()
     {
         var checkout = new Mock<ICheckoutService>(MockBehavior.Strict);
-        checkout.Setup(service => service.ConfirmPaymentAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+        checkout.Setup(service => service.ConfirmPaymentAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<decimal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("Order transition unavailable."));
         var email = new Mock<IOrderConfirmationEmailService>(MockBehavior.Strict);
         using var dbContext = CreateDbContext();

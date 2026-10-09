@@ -3,9 +3,14 @@ using System.Net.Http.Json;
 
 using FluentAssertions;
 
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
+using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Services.Payments;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Entities.Identity;
 using Aonik.Finance.Persistence;
@@ -13,11 +18,11 @@ using Aonik.Platform.Persistence;
 
 namespace Aonik.Api.Tests;
 
-public class PublicPaymentIntentEndpointTests : IClassFixture<CustomWebApplicationFactory>
+public class PublicPaymentIntentEndpointTests : IClassFixture<PublicPaymentIntentEndpointTests.LegacyPaymentFactory>
 {
-    private readonly CustomWebApplicationFactory _factory;
+    private readonly LegacyPaymentFactory _factory;
 
-    public PublicPaymentIntentEndpointTests(CustomWebApplicationFactory factory)
+    public PublicPaymentIntentEndpointTests(LegacyPaymentFactory factory)
     {
         _factory = factory;
     }
@@ -168,6 +173,20 @@ public class PublicPaymentIntentEndpointTests : IClassFixture<CustomWebApplicati
         });
 
         await dbContext.SaveChangesAsync();
+    }
+
+    public sealed class LegacyPaymentFactory : CustomWebApplicationFactory
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            base.ConfigureWebHost(builder);
+            builder.ConfigureTestServices(services =>
+            {
+                // These legacy bill-payment endpoint tests use an explicit fake, never production Stripe.
+                services.RemoveAll<IPaymentProviderGateway>();
+                services.AddScoped<IPaymentProviderGateway, StripeSimulatedPaymentProviderGateway>();
+            });
+        }
     }
 
     private sealed record PublicOrderDraftRequest(

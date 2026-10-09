@@ -84,6 +84,7 @@ public sealed class CommerceModule : IModule
         services.AddScoped<Services.Fulfilment.IFulfilmentPromiseService, Services.Fulfilment.FulfilmentPromiseService>();
         services.AddScoped<Services.Fulfilment.IDeliveryCoverageService, Services.Fulfilment.DeliveryCoverageService>();
         services.AddScoped<ICheckoutService, CheckoutService>();
+        services.AddKeyedScoped<IProposalHandler, CommerceCheckoutProposalHandler>(CommerceCheckoutProposalHandler.ProposalTypeKey);
         services.AddScoped<IOrderConfirmationEmailService, OrderConfirmationEmailService>();
         services.AddScoped<IDiscountService, DiscountService>();
         // Default tax seam — charges no tax. Replace with a jurisdiction-aware calculator at the

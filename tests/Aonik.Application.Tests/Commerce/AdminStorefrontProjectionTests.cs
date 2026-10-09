@@ -81,7 +81,7 @@ public class AdminStorefrontProjectionTests
         // An UNRELATED intent capturing for the same order must not touch this
         // checkout's charge: Finance permits several intents per order, and the
         // summary describes the one checkout recorded.
-        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, Guid.NewGuid());
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, Guid.NewGuid(), checkout.Total, checkout.Currency);
         (await admin.ListOrdersAsync()).Items.Single().PaymentStatus
             .Should().NotBe(CheckoutPaymentStatuses.Captured,
                 "a different intent's capture says nothing about this checkout's charge");
@@ -98,7 +98,7 @@ public class AdminStorefrontProjectionTests
         // once PaymentCompletedEvent fires. Fulfilment does NOT flip: payment is
         // not delivery evidence, so the paid order stays awaiting fulfilment
         // until a real fulfilment lifecycle records the fact.
-        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId, checkout.Total, checkout.Currency);
         var confirmed = (await admin.ListOrdersAsync()).Items.Single();
         confirmed.PaymentStatus.Should().Be(CheckoutPaymentStatuses.Captured);
         confirmed.FulfilmentStatus.Should().Be("Unfulfilled");

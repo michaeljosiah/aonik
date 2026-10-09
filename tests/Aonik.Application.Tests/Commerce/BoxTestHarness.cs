@@ -95,7 +95,7 @@ internal sealed class BoxTestHarness
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),
             new ZeroRateTaxCalculator(), _tenant, boxCarts, GuestOrderAccess,
-            new FulfilmentPromiseService(ctx, _tenant, _clock), coverage ?? new ServedTestDeliveryCoverage());
+            new FulfilmentPromiseService(ctx, _tenant, _clock), coverage ?? new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock);
     }
 
     public CartMaintenanceService Maintenance() => new(
@@ -239,16 +239,16 @@ internal sealed class DictionaryTenantSettingStore : Aonik.SharedKernel.Abstract
     }
 }
 
-internal sealed class FakeBoxPaymentInitiator : IPaymentInitiator
+internal sealed class FakeBoxPaymentInitiator : TestPaymentState
 {
     public decimal LastAmount { get; private set; }
     public int Calls { get; private set; }
 
-    public Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
+    public override Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
     {
         Calls++;
         LastAmount = command.Amount;
-        return Task.FromResult(new PaymentIntentRef(Guid.NewGuid(), "Pending", "secret_box", "https://pay.example/box"));
+        return Task.FromResult(Record(command, "secret_box", "https://pay.example/box"));
     }
 }
 

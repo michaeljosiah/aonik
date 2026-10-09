@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Contracts.Models.Catalog;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
@@ -36,13 +36,13 @@ using static Aonik.Application.Tests.Commerce.CartTestAccess;
 /// </summary>
 public class CheckoutServiceTests
 {
-    private sealed class FakePaymentInitiator : IPaymentInitiator
+    private sealed class FakePaymentInitiator : TestPaymentState
     {
         public Guid LastOrderId { get; private set; }
         public decimal LastAmount { get; private set; }
         public string? LastProvider { get; private set; }
         public int FailTimes { get; set; }
-        public Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
+        public override Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
         {
             if (FailTimes > 0)
             {
@@ -52,16 +52,18 @@ public class CheckoutServiceTests
             LastOrderId = command.OrderId;
             LastAmount = command.Amount;
             LastProvider = command.Provider;
-            return Task.FromResult(new PaymentIntentRef(Guid.NewGuid(), "Pending", "secret_123", "https://pay.example/checkout"));
+            return Task.FromResult(Record(command, "secret_123", "https://pay.example/checkout"));
         }
     }
 
     private sealed class FakeInvoiceWriter : IInvoiceWriter
     {
         public int Calls { get; private set; }
+        public bool LoseCreateResponse { get; set; }
         public Task<InvoiceRef> CreateForOrderAsync(CreateInvoiceForOrderCommand command, CancellationToken ct = default)
         {
             Calls++;
+            if (LoseCreateResponse) throw new InvalidOperationException("Invoice create response was lost.");
             return Task.FromResult(new InvoiceRef(Guid.NewGuid(), "INV-TEST", command.Lines.Sum(l => l.Quantity * l.UnitPrice), command.Currency));
         }
     }
@@ -108,7 +110,7 @@ public class CheckoutServiceTests
         public CheckoutService Checkout() => new(
             Commerce(), Inventory(), new CoreOrderService(Ordering(), _tenant, _clock, _user),
             Payments, Invoices, Discounts(), new ZeroRateTaxCalculator(), _tenant, BoxCarts(), _guestOrderAccess,
-            new FulfilmentPromiseService(Commerce(), _tenant, _clock), new ServedTestDeliveryCoverage());
+            new FulfilmentPromiseService(Commerce(), _tenant, _clock), new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock);
     }
 
     [Fact]
@@ -119,10 +121,10 @@ public class CheckoutServiceTests
             "tea", "Wellness Tea", ProductKinds.Variant,
             Variants: new[] { new CreateVariantLine("TEA-20", "20 bags") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
 
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
@@ -160,18 +162,18 @@ public class CheckoutServiceTests
                 $"granola-{i}", $"Granola {i}", ProductKinds.Simple, CategoryId: category.Id,
                 Variants: new[] { new CreateVariantLine($"GRAN-{i}", $"Granola {i}") }));
             var v = p.Variants.Single().Id;
-            await h.Pricing().SetPriceAsync(new SetPriceCommand(v, "NGN", 2_000m));
+            await h.Pricing().SetPriceAsync(new SetPriceCommand(v, "GBP", 2_000m));
             await h.Inventory().SetOnHandAsync(v, 5m);
             variantIds.Add(v);
         }
 
         var box = await h.Products().CreateProductAsync(new CreateProductCommand(
             "wellness-box", "Build Your Own Box", ProductKinds.Bundle,
-            BundlePricingMode: BundlePricingModes.Fixed, BundleFixedAmount: 12_000m, BundleCurrency: "NGN"));
+            BundlePricingMode: BundlePricingModes.Fixed, BundleFixedAmount: 12_000m, BundleCurrency: "GBP"));
         var slot = await h.Products().AddBundleSlotAsync(new AddBundleSlotCommand(
             box.Id, "Pick 6", MinItems: 6, MaxItems: 6, FromCategoryId: category.Id));
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         var selection = variantIds.Select(v => new BundleSelectionLine(slot.Id, v)).ToList();
         var cartDto = await h.Carts().AddBundleAsync(new AddBundleToCartCommand(cart.Id, box.Id, selection), Owner(cart));
         cartDto.Total.Should().Be(12_000m);
@@ -201,10 +203,10 @@ public class CheckoutServiceTests
             "rare", "Rare Item", ProductKinds.Variant,
             Variants: new[] { new CreateVariantLine("RARE-1", "one") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 1_000m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 1_000m));
         await h.Inventory().SetOnHandAsync(variantId, 1m);
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
 
         var act = async () => await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
@@ -222,15 +224,15 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
 
         (await h.Inventory().GetAvailableAsync(variantId)).Should().Be(8m);
         (await h.Carts().GetCartAsync(cart.Id, Owner(cart)))!.Status.Should().Be("CheckedOut");
@@ -253,12 +255,12 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
         await h.Discounts().CreateAsync(new Aonik.Commerce.Services.Promotions.CreateDiscountCommand(
             "SAVE10", Aonik.Commerce.Entities.Promotions.DiscountKinds.Percentage, 10m));
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart)); // subtotal 5000
 
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: "SAVE10"), Owner(cart));
@@ -296,7 +298,7 @@ public class CheckoutServiceTests
             _ => checkout.PaymentIntentId,
         };
 
-        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, completedIntent);
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, completedIntent ?? Guid.Empty, checkout.Total, checkout.Currency);
 
         await using var commerce = h.Commerce();
         (await commerce.Carts.SingleAsync()).Status.Should().Be(CartStatuses.Open);
@@ -322,7 +324,7 @@ public class CheckoutServiceTests
     {
         var (h, checkout) = await PendingConfirmationAsync();
         if (wasCompleted)
-            await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+            await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId, checkout.Total, checkout.Currency);
         int historyCount;
         await using (var setup = h.Ordering())
         {
@@ -331,7 +333,7 @@ public class CheckoutServiceTests
             historyCount = await setup.OrderHistoryEvents.CountAsync();
         }
 
-        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId, checkout.Total, checkout.Currency);
 
         await using var ordering = h.Ordering();
         (await ordering.Orders.SingleAsync()).Status.Should().Be(laterStatus);
@@ -353,14 +355,14 @@ public class CheckoutServiceTests
     public async Task ConfirmPayment_Should_PreservePostCapturePaymentState_OnAnEmailRetry(string paymentStatus)
     {
         var (h, checkout) = await PendingConfirmationAsync();
-        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId, checkout.Total, checkout.Currency);
         await using (var setup = h.Commerce())
         {
             (await setup.OrderChargeSummaries.SingleAsync()).PaymentStatus = paymentStatus;
             await setup.SaveChangesAsync();
         }
 
-        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId, checkout.Total, checkout.Currency);
 
         await using var commerce = h.Commerce();
         (await commerce.OrderChargeSummaries.SingleAsync()).PaymentStatus.Should().Be(paymentStatus);
@@ -376,9 +378,9 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: [new CreateVariantLine("TEA-20", "20")]));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
         var checkout = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
         return (h, checkout);
@@ -391,10 +393,10 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
 
         var first = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
@@ -420,10 +422,10 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
 
         // First attempt aborts at the payment step, after stock was reserved; cart stays Open.
@@ -446,10 +448,10 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 2m), Owner(cart));
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
@@ -468,7 +470,7 @@ public class CheckoutServiceTests
             await pending.SaveChangesAsync();
         }
 
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
 
         await using var ordering = h.Ordering();
         (await ordering.Orders.FirstAsync(o => o.Id == result.OrderId)).Status.Should().Be("Complete");
@@ -484,8 +486,8 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
 
         var zero = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 0m), Owner(cart));
         var negative = async () => await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, -1m), Owner(cart));
@@ -501,10 +503,10 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m), Owner(cart));
         await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
 
@@ -520,15 +522,80 @@ public class CheckoutServiceTests
         var product = await h.Products().CreateProductAsync(new CreateProductCommand(
             "tea", "Tea", ProductKinds.Variant, Variants: new[] { new CreateVariantLine("TEA-20", "20") }));
         var variantId = product.Variants.Single().Id;
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", 2_500m));
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 2_500m));
         await h.Inventory().SetOnHandAsync(variantId, 10m);
 
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId, 1m), Owner(cart));
 
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", CustomerAccountId: Guid.NewGuid()), Owner(cart));
 
         h.Invoices.Calls.Should().Be(1);
         result.InvoiceId.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Recover_Should_RequireStaff_ForInvoiceCheckoutEvenBeforePreparationCommits(bool loseCreateResponse)
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Simple, Variants: [new CreateVariantLine("TEA", "Tea")]));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 25m));
+        await h.Inventory().SetOnHandAsync(variantId, 10m);
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId), Owner(cart));
+        h.Invoices.LoseCreateResponse = loseCreateResponse;
+        var checkout = () => h.Checkout().CheckoutAsync(
+            new CheckoutCommand(cart.Id, "Stripe", "Card", CustomerAccountId: Guid.NewGuid()), Owner(cart));
+        if (loseCreateResponse) await checkout.Should().ThrowAsync<InvalidOperationException>();
+        else await checkout();
+        var state = await h.Checkout().GetPaymentStateAsync(cart.Id, Owner(cart));
+
+        var recover = () => h.Checkout().RecoverAsync(cart.Id, state.PaymentIntentId!.Value,
+            Owner(cart) with { ExpectedCartVersion = state.CartVersion });
+
+        await recover.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*staff assistance*");
+        h.Invoices.Calls.Should().Be(1);
+        await using var commerce = h.Commerce();
+        var saved = await commerce.Carts.SingleAsync();
+        saved.CheckoutState.Should().Be(loseCreateResponse ? CartCheckoutStates.Preparing : CartCheckoutStates.AwaitingPayment);
+        if (loseCreateResponse)
+        {
+            saved.OrderId.Should().BeNull();
+            (await commerce.OrderChargeSummaries.AnyAsync()).Should().BeFalse();
+            h.Payments.LastOrderId.Should().BeEmpty();
+        }
+    }
+
+    [Theory]
+    [InlineData(0.01)]
+    [InlineData(0.29)]
+    [InlineData(0.295)]
+    public async Task Checkout_Should_RejectBelowProviderMinimumOrFractionalPennies_BeforeClaiming(decimal price)
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "small", "Small item", ProductKinds.Simple, Variants: [new CreateVariantLine("SMALL", "Small")]));
+        var variant = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variant, "GBP", price));
+        await h.Inventory().SetOnHandAsync(variant, 10m);
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variant), Owner(cart));
+
+        var checkout = () => h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
+
+        await checkout.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*from 0.30*");
+        await using var commerce = h.Commerce();
+        var saved = await commerce.Carts.SingleAsync();
+        saved.CheckoutState.Should().BeNull();
+        saved.CheckoutPreparationJson.Should().BeNull();
+        saved.OrderId.Should().BeNull();
+        (await commerce.InventoryReservations.CountAsync()).Should().Be(0);
+        h.Payments.LastOrderId.Should().BeEmpty();
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.CountAsync()).Should().Be(0);
     }
 }

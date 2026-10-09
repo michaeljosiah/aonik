@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Catalog;
+using Aonik.Commerce.Contracts.Models.Catalog;
 
 namespace Aonik.Commerce.Contracts.Models.Checkout;
 
@@ -52,7 +52,8 @@ public record CheckoutCommand(
     string? CancelUrl = null,
     Guid? CustomerAccountId = null,
     string? DiscountCode = null,
-    CheckoutDeliveryDetails? Delivery = null);
+    CheckoutDeliveryDetails? Delivery = null,
+    bool RequireFreshCart = false);
 
 public record CheckoutResult(
     Guid OrderId,
@@ -67,6 +68,9 @@ public record CheckoutResult(
     string? ClientSecret = null,
     string? CheckoutUrl = null,
     string? GuestOrderToken = null);
+
+public record CartPaymentStateDto(Guid? OrderId, Guid? PaymentIntentId, string Status, bool CanEdit,
+    string CartVersion, string? CheckoutUrl = null);
 
 /// <summary>
 /// The one storefront payment status Commerce itself writes. OrderChargeSummary.PaymentStatus

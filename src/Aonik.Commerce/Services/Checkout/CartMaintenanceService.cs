@@ -145,7 +145,7 @@ internal sealed class CartMaintenanceService : ICartMaintenanceService
             .Where(c => !c.IsDeleted
                 && c.BoxBundleProductId != null
                 && c.Status == CartStatuses.Open
-                && c.OrderId == null
+                && (c.CheckoutState == CartCheckoutStates.Retryable || c.OrderId == null && c.CheckoutState == null)
                 && (c.LastActivityAtUtc ?? c.UpdatedAt ?? c.CreatedAt) <=
                     (items.Any(item => item.CartId == c.Id
                         && item.TenantId == c.TenantId && !item.IsDeleted

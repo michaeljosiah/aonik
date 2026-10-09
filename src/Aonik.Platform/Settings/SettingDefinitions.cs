@@ -14,6 +14,7 @@ public static class SettingDefinitions
             // Only the typed, opt-in public profile endpoint may expose this document.
             [BusinessProfileSettingNames.Profile] = new SettingDefinition(BusinessProfileSettingNames.Profile),
             [SignupListSettingNames.Configuration] = new SettingDefinition(SignupListSettingNames.Configuration),
+            [StripeSettingNames.ConnectorId] = new SettingDefinition(StripeSettingNames.ConnectorId),
 
             // ── Auth ──────────────────────────────────────────────────────
             [AuthSettingNames.Provider] = new SettingDefinition(AuthSettingNames.Provider, "AzureAd", IsVisibleToClients: true),

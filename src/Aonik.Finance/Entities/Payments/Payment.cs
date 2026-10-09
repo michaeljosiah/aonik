@@ -6,6 +6,9 @@ public class Payment : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid PaymentIntentId { get; set; }
+    public Guid? ConnectorId { get; set; }
+    public decimal? Amount { get; set; }
+    public string? Currency { get; set; }
     public string Provider { get; set; } = string.Empty;
     public string? ProviderReference { get; set; }
     public DateTime? CapturedAt { get; set; }

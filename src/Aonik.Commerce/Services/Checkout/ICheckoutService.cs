@@ -1,4 +1,4 @@
-﻿using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Checkout;
 
 namespace Aonik.Commerce.Services.Checkout;
 
@@ -14,16 +14,13 @@ public interface ICheckoutService
     /// operation; an unauthorized caller gets the same 404 an unknown cart id gets.</summary>
     Task<CheckoutResult> CheckoutAsync(CheckoutCommand command, CartAccessContext access, CancellationToken cancellationToken = default);
 
-    /// <summary>
-    /// On payment completion for a checkout order (driven by <c>PaymentCompletedEvent</c>), commits
-    /// the held inventory, closes the cart, and transitions the order to Complete. Idempotent.
-    /// </summary>
-    /// <param name="completedPaymentIntentId">
-    /// The intent the event actually completed. Finance permits SEVERAL intents per order, so the
-    /// charge summary's payment status converges only when this matches the intent checkout
-    /// recorded — a different intent (potentially a different amount or currency) must never mark
-    /// this checkout's charge captured. Null means "unknown/legacy caller": the funding side
-    /// effects still run, but the summary's status is left alone rather than guessed.
-    /// </param>
-    Task ConfirmPaymentAsync(Guid orderId, Guid? completedPaymentIntentId = null, CancellationToken cancellationToken = default);
+    Task<CartPaymentStateDto> GetPaymentStateAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default);
+
+    Task<CartPaymentStateDto> RecoverAsync(Guid cartId, Guid expectedPaymentIntentId, CartAccessContext access,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>Converges only the recorded intent and exact money. True also permits an
+    /// already-completed matching event to retry its confirmation email.</summary>
+    Task<bool> ConfirmPaymentAsync(Guid orderId, Guid completedPaymentIntentId, decimal amount, string currency,
+        CancellationToken cancellationToken = default);
 }

@@ -14,6 +14,8 @@ public class CartConfiguration : IEntityTypeConfiguration<Entities.Cart.Cart>
         builder.Property(x => x.Currency).IsRequired().HasMaxLength(3);
         builder.Property(x => x.AnonymousToken).HasMaxLength(128);
         builder.Property(x => x.CheckoutDraftJson).HasMaxLength(24000);
+        builder.Property(x => x.CheckoutState).HasMaxLength(32);
+        builder.Property(x => x.CheckoutPreparationJson).HasMaxLength(262144);
 
         builder.HasMany(x => x.Items)
             .WithOne()

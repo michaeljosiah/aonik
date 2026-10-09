@@ -248,11 +248,11 @@ internal sealed class CommerceAgentTools
         return $"Variant {productVariantId} on-hand set to {onHand}; {available} now available.";
     }
 
-    [Description("Checks out a cart: reserves stock, creates the product-purchase order, and initiates a draft guest payment. Does NOT capture money.")]
+    [Description("Checks out an approved cart: reserves stock, creates the product-purchase order, and opens a real hosted payment session. Requires a durable high-risk approval.")]
     public Task<CheckoutResult> Checkout(
         [Description("The cart id (GUID)")] Guid cartId,
-        [Description("The payment provider code (e.g. Stripe, Paystack)")] string provider,
-        [Description("The payment method type (e.g. Card, BankTransfer)")] string paymentMethodType,
+        [Description("The payment provider code: Stripe")] string provider,
+        [Description("The payment method type: Card")] string paymentMethodType,
         [Description("The guest cart token from the create response")] string? cartToken = null,
         [Description("The CartVersion returned by the most recent cart read or edit")] string? expectedCartVersion = null,
         CancellationToken cancellationToken = default)

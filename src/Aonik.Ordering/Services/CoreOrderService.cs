@@ -1,3 +1,7 @@
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
@@ -202,6 +206,72 @@ internal sealed class CoreOrderService : IOrderService
         }
 
         return MapToDto(order);
+    }
+
+    public async Task<OrderDto> RefreshPendingItemsAsync(Guid orderId, Guid revisionId, Guid? payerPartyId, string currency,
+        IReadOnlyList<OrderItemCommand> items, CancellationToken cancellationToken = default)
+    {
+        if (revisionId == Guid.Empty || items.Count == 0) throw new ArgumentException("A checkout revision and items are required.");
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        foreach (var entry in _dbContext.ChangeTracker.Entries().Where(entry =>
+                       entry.Entity is Order order && order.Id == orderId && order.TenantId == tenantId
+                       || entry.Entity is OrderItem item && item.OrderId == orderId && item.TenantId == tenantId
+                       || entry.Entity is OrderPartyRole partyRole && partyRole.OrderId == orderId && partyRole.TenantId == tenantId
+                       || entry.Entity is OrderHistoryEvent history && history.OrderId == orderId && history.TenantId == tenantId).ToList())
+            entry.State = EntityState.Detached;
+        var current = await _dbContext.Orders.Include(order => order.Items).Include(order => order.PartyRoles)
+            .SingleOrDefaultAsync(order => order.Id == orderId && order.TenantId == tenantId, cancellationToken)
+            ?? throw new NotFoundException("Order was not found.");
+        if (current.OrderType != OrderTypeCodes.ProductPurchase
+            || current.Status is not (OrderStatusCodes.Draft or "PendingFunding"))
+            throw new InvalidStateException("Only an unpaid product purchase can be refreshed.");
+        var revision = JsonSerializer.Serialize(new { commerceCheckoutAttemptId = revisionId });
+        if (current.ProvenanceJson == revision) return MapToDto(current);
+        if (!string.IsNullOrWhiteSpace(current.ProvenanceJson)
+            && !current.ProvenanceJson.Contains("\"commerceCheckoutAttemptId\"", StringComparison.Ordinal))
+            throw new InvalidStateException("This order was not prepared by Commerce checkout.");
+        _dbContext.OrderItems.RemoveRange(current.Items);
+        current.Items = items.Select(item => new OrderItem
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId,
+            ItemType = item.ItemType, ItemIndex = item.ItemIndex, Status = "Valid",
+            DetailsJson = item.DetailsJson ?? "{}", ReceiverPartyId = item.ReceiverPartyId,
+            AmountIn = item.AmountIn, CurrencyIn = item.CurrencyIn, CurrencyOut = item.CurrencyIn,
+            Quantity = item.Quantity, UnitPrice = item.UnitPrice, ProductId = item.ProductId, Sku = item.Sku
+        }).ToList();
+        _dbContext.OrderItems.AddRange(current.Items);
+        foreach (var role in current.PartyRoles.Where(role => role.Role == OrderPartyRoles.Payer).ToList())
+        {
+            _dbContext.OrderPartyRoles.Remove(role);
+            current.PartyRoles.Remove(role);
+        }
+        if (payerPartyId is { } payer)
+        {
+            var role = new OrderPartyRole { TenantId = tenantId, OrderId = orderId, PartyId = payer, Role = OrderPartyRoles.Payer };
+            current.PartyRoles.Add(role);
+            _dbContext.OrderPartyRoles.Add(role);
+        }
+        current.PayerPartyId = payerPartyId;
+        current.AmountIn = items.Sum(item => item.AmountIn);
+        current.CurrencyIn = currency;
+        current.ProvenanceJson = revision;
+        current.UpdatedAt = _clock.UtcNow;
+        _dbContext.Entry(current).Property(order => order.UpdatedAt).IsModified = true;
+        var historyEvent = BuildHistoryEvent(tenantId, orderId, "CheckoutRefreshed", revision);
+        current.HistoryEvents.Add(historyEvent);
+        _dbContext.OrderHistoryEvents.Add(historyEvent);
+        try { await _dbContext.SaveChangesAsync(cancellationToken); }
+        catch
+        {
+            foreach (var entry in _dbContext.ChangeTracker.Entries().Where(entry =>
+                         entry.Entity is Order order && order.Id == orderId && order.TenantId == tenantId
+                         || entry.Entity is OrderItem item && item.OrderId == orderId && item.TenantId == tenantId
+                         || entry.Entity is OrderPartyRole role && role.OrderId == orderId && role.TenantId == tenantId
+                         || entry.Entity is OrderHistoryEvent history && history.OrderId == orderId && history.TenantId == tenantId).ToList())
+                entry.State = EntityState.Detached;
+            throw;
+        }
+        return MapToDto(current);
     }
 
     private void DetachOrderGraph(Order order, IEnumerable<EntityEntry<OutboxMessage>> enqueuedOutbox)
@@ -435,16 +505,41 @@ internal sealed class CoreOrderService : IOrderService
     public async Task LinkFundingAsync(Guid orderId, Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        await EnsureOrderExistsAsync(orderId, cancellationToken);
+        if (!await _dbContext.Orders.AnyAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken))
+            throw new KeyNotFoundException($"Order {orderId} was not found.");
 
-        _dbContext.OrderFundingRefs.Add(new OrderFundingRef
+        // Preserve existing randomly keyed links; retries must not replace their audit identity.
+        if (await _dbContext.OrderFundingRefs.AsNoTracking().AnyAsync(existing => existing.TenantId == tenantId
+                && existing.OrderId == orderId && existing.PaymentIntentId == paymentIntentId, cancellationToken))
+            return;
+
+        // The existing primary key arbitrates simultaneous inserts without another schema/index.
+        var identity = Encoding.UTF8.GetBytes($"Aonik.OrderFundingRef:v1:{tenantId:N}:{orderId:N}:{paymentIntentId:N}");
+        var funding = new OrderFundingRef
         {
-            Id = Guid.NewGuid(),
+            Id = new Guid(SHA256.HashData(identity).AsSpan(0, 16)),
             TenantId = tenantId,
             OrderId = orderId,
             PaymentIntentId = paymentIntentId
-        });
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        };
+        _dbContext.OrderFundingRefs.Add(funding);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            _dbContext.Entry(funding).State = EntityState.Detached;
+            if (!await _dbContext.OrderFundingRefs.AsNoTracking().AnyAsync(existing => existing.Id == funding.Id
+                    && existing.TenantId == tenantId && existing.OrderId == orderId
+                    && existing.PaymentIntentId == paymentIntentId, cancellationToken))
+                throw;
+        }
+        catch
+        {
+            _dbContext.Entry(funding).State = EntityState.Detached;
+            throw;
+        }
     }
 
     public async Task LinkFulfilmentAsync(Guid orderId, OrderFulfilmentLink link, CancellationToken cancellationToken = default)

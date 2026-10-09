@@ -343,6 +343,10 @@ public class RecipientServiceTests
             return Task.FromResult(party);
         }
 
+        public Task<PartyResponse> EnsureUnverifiedGuestPartyAsync(Guid partyId, Guid checkoutId,
+            CreatePartyRequest details, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
         public Task<PartyResponse?> GetPartyAsync(Guid partyId, CancellationToken cancellationToken = default)
             => Task.FromResult(_parties.TryGetValue(partyId, out var party) ? party : null);
 

@@ -13,6 +13,11 @@ public interface IOrderService
 {
     Task<OrderDto> CreateAsync(CreateOrderCommand command, CancellationToken cancellationToken = default);
 
+    /// <summary>Replaces an unpaid product-purchase snapshot once per checkout revision.
+    /// The caller must first close the previous funding attempt conclusively.</summary>
+    Task<OrderDto> RefreshPendingItemsAsync(Guid orderId, Guid revisionId, Guid? payerPartyId, string currency,
+        IReadOnlyList<OrderItemCommand> items, CancellationToken cancellationToken = default);
+
     Task<OrderDto?> GetAsync(Guid orderId, CancellationToken cancellationToken = default);
 
     /// <summary>

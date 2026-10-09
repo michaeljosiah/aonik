@@ -117,6 +117,8 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             throw new NotFoundException($"Payment intent with ID {paymentIntentId} not found");
         }
 
+        EnsureLocalTransitionAllowed(paymentIntent);
+
         // Business logic: only a pending intent can be authorized.
         if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
         {
@@ -174,6 +176,8 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             // (ledger posting, EF SaveChanges) inherits OrderId + PaymentIntentId
             // so a KQL pivot on either id returns the full capture trace.
             using var orderScope = _logger.BeginOrderScope(resolvedOrderId, paymentIntentId: paymentIntentId);
+
+            EnsureLocalTransitionAllowed(paymentIntent);
 
             // Business logic: Validate current status before capturing
             if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
@@ -251,6 +255,8 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             throw new NotFoundException($"Payment intent with ID {paymentIntentId} not found");
         }
 
+        EnsureLocalTransitionAllowed(paymentIntent);
+
         // Business logic: Validate current status before cancelling
         if (!Enum.TryParse<PaymentStatus>(paymentIntent.Status, out var currentStatus))
         {
@@ -268,6 +274,12 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         _metrics.RecordPayment(paymentIntent.TenantId, paymentIntent.Currency, paymentIntent.Status);
 
         return MapToResponse(paymentIntent);
+    }
+
+    private static void EnsureLocalTransitionAllowed(PaymentIntent paymentIntent)
+    {
+        if (paymentIntent.ConnectorId is not null || !string.IsNullOrWhiteSpace(paymentIntent.ProviderCode))
+            throw new InvalidStateException("Provider-backed payments require verified provider reconciliation; local payment transitions are not allowed.");
     }
 
     // Externally material guard (issue #104): an intent must have a real payer and a concrete

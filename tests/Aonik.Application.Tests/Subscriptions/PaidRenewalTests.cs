@@ -48,7 +48,8 @@ public class PaidRenewalTests
 
     /// <summary>Records what the renewal asked the order spine to do.</summary>
     private sealed class FakeOrderService : IOrderService
-    {
+    {        public Task<OrderDto> RefreshPendingItemsAsync(Guid orderId, Guid revisionId, Guid? payerPartyId, string currency,
+            IReadOnlyList<OrderItemCommand> items, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         private readonly Dictionary<Guid, OrderDto> _orders = [];
         private readonly Dictionary<string, Guid> _byKey = [];
 
