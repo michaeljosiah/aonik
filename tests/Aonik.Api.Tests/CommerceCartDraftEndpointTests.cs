@@ -129,7 +129,9 @@ public partial class CommerceBoxCartEndpointTests
             recoverable.Draft! with { Gift = recoverable.Draft.Gift! with { IncludeGreetingCard = false } });
         removed.StatusCode.Should().Be(HttpStatusCode.OK);
         var restored = (await client.GetFromJsonAsync<BoxCartDto>(CurrentBoxRoute))!;
-        restored.Box.Lines.Should().BeEquivalentTo(box.Box.Lines);
+        restored.Box.Lines.Should().BeEquivalentTo(box.Box.Lines, options => options
+            .Using<JsonElement>(context => JsonElement.DeepEquals(context.Subject, context.Expectation).Should().BeTrue())
+            .WhenTypeIs<JsonElement>());
         restored.CheckoutDraft!.Purchaser.Should().Be(draft.Purchaser);
         restored.CheckoutDraft.Notes.Should().Be(draft.Notes);
         restored.CheckoutDraft.Gift!.GiftIntent.Should().BeTrue();

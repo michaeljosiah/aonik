@@ -159,7 +159,9 @@ public class GreetingCardQuoteTests
 
         restored.Should().NotBeNull();
         restored!.Box.CartId.Should().Be(box.Box.CartId);
-        restored.Box.Lines.Should().BeEquivalentTo(box.Box.Lines);
+        restored.Box.Lines.Should().BeEquivalentTo(box.Box.Lines, options => options
+            .Using<System.Text.Json.JsonElement>(context => System.Text.Json.JsonElement.DeepEquals(context.Subject, context.Expectation).Should().BeTrue())
+            .WhenTypeIs<System.Text.Json.JsonElement>());
         restored.CheckoutDraft!.Notes.Should().Be(draft.Notes);
         restored.CheckoutDraft.Gift!.GiftIntent.Should().BeTrue();
         restored.CheckoutDraft.Gift.IncludeGreetingCard.Should().BeFalse();
