@@ -430,6 +430,11 @@ public static class ExceptionHandlerConfiguration
                     new { error = discount.Message, code = discount.Code });
                 return;
 
+            case OrderFulfilmentConflictException:
+                await WriteJsonAsync(context, StatusCodes.Status409Conflict,
+                    new { code = "commerce.fulfilment_conflict", error = ex.Message });
+                return;
+
             case StorefrontValidationException:
                 // Spec 070 §6 — unknown facet keys/values, label-for-value submissions, invalid
                 // sort combinations: a storefront bug should be loud, and a client fault, not 500.

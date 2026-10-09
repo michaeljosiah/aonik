@@ -24,14 +24,16 @@ export function paymentTone(status: string): PillTone {
 
 export function fulfilmentTone(status: string): PillTone {
   switch (status) {
-    // Kept for the day fulfilment is actually tracked; `DeriveFulfilment` cannot return it yet.
+    case 'Delivered':
     case 'Fulfilled':
       return 'success';
     case 'Cancelled':
       return 'danger';
-    // MUTED, not warning. Every order that was not cancelled is "Unfulfilled" today, so a
-    // warning tone would put an alert on every row and mean nothing. The only signal this
-    // column actually carries is cancellation.
+    case 'Confirmed':
+    case 'Cooking':
+    case 'OutForDelivery':
+      return 'info';
+    case 'Unconfirmed':
     case 'Unfulfilled':
       return 'muted';
     default:

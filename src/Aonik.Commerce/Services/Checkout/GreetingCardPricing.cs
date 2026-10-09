@@ -41,7 +41,7 @@ internal static class GreetingCardPricing
 
     public static OrderItemCommand Item(int index, decimal amount, string currency) => new(
         CheckoutService.GreetingCardItemType, index, amount, currency, Quantity: 1m, UnitPrice: amount,
-        ProductId: null, Sku: "greeting-card");
+        ProductId: null, Sku: "greeting-card", NameSnapshot: "Greeting card");
 
     private sealed record Configuration(bool IsEnabled, string Currency, decimal Amount);
 }

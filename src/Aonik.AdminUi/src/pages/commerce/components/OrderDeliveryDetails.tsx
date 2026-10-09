@@ -1,5 +1,5 @@
 import { Card as AonikCard } from '@/components/layout/aonik';
-import { formatCalendarDate } from '@/lib/format';
+import { formatCalendarDate, formatDateTime } from '@/lib/format';
 import type { OrderDeliveryDto } from '@/types/commerce';
 
 export function OrderDeliveryDetails({ delivery }: { delivery: OrderDeliveryDto | null }) {
@@ -43,6 +43,13 @@ export function OrderDeliveryDetails({ delivery }: { delivery: OrderDeliveryDto 
             <div>
               <dt className="text-muted-foreground">Delivery instructions</dt>
               <dd className="whitespace-pre-line break-words">{delivery.notes}</dd>
+            </div>
+          )}
+          {delivery.saleTerms && (
+            <div>
+              <dt className="text-muted-foreground">Accepted sale terms</dt>
+              <dd><a className="text-primary underline" href={delivery.saleTerms.url} target="_blank" rel="noreferrer">Version {delivery.saleTerms.version}</a></dd>
+              <dd>{formatDateTime(delivery.saleTerms.acceptedAtUtc)}</dd>
             </div>
           )}
         </dl>

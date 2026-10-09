@@ -93,7 +93,7 @@ internal sealed class BoxTestHarness
     }
     public BundleSizePlanService Plans() => new(Commerce(), _tenant);
     public StorefrontOrderService StorefrontOrders() => new(
-        Commerce(), _tenant, new CoreOrderService(Ordering(), _tenant, _clock, _user), GuestOrderAccess);
+        Commerce(), _tenant, new CoreOrderService(Ordering(), _tenant, _clock, _user, new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()), GuestOrderAccess);
 
     public BoxCartService BoxCarts(CommerceDbContext? context = null)
     {
@@ -113,10 +113,11 @@ internal sealed class BoxTestHarness
             CommerceTestHarness.NewSelectionService(ctx, _tenantId), inventory,
             new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing(), _clock, DiscountQuotes(ctx));
         return new CheckoutService(
-            ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
+            ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user, new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()),
             Payments, Invoices, new DiscountService(ctx, _tenant, _clock),
             new ZeroRateTaxCalculator(), _tenant, boxCarts, GuestOrderAccess,
-            new FulfilmentPromiseService(ctx, _tenant, _clock), coverage ?? new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock);
+            new FulfilmentPromiseService(ctx, _tenant, _clock), coverage ?? new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock,
+            new DictionaryTenantSettingStore(Settings));
     }
 
     public CartMaintenanceService Maintenance() => new(

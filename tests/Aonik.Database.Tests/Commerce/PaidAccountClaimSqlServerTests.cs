@@ -118,6 +118,7 @@ public class PaidAccountClaimSqlServerTests(SqlLocalDbFixture database) : IClass
         services.AddSingleton<ITenantProvider>(new TestTenantProvider(tenantId));
         services.AddSingleton<ICurrentUserProvider>(new TestCurrentUserProvider());
         services.AddSingleton<IClock>(Clock);
+        services.AddSingleton<IOrderNumberGenerator, Aonik.TestSupport.Ordering.TestOrderNumberGenerator>();
         services.AddOrderingModule(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:DefaultConnection"] = database.ConnectionString

@@ -1,6 +1,7 @@
 ﻿using Aonik.Platform.Agents;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Messaging;
+using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.Platform.Contracts.Services.Autonumbering;
 using Aonik.Platform.Contracts.Services.Cms;
 using Aonik.Platform.Contracts.Services.Compliance;
@@ -202,6 +203,7 @@ public sealed class PlatformModule : IModule
 
         // ── Autonumbering Services ───────────────────────────────────
         services.AddScoped<IAutonumberingService, AutonumberingService>();
+        services.AddScoped<IOrderNumberGenerator, OrderNumberGenerator>();
 
         // ── Seed Services ────────────────────────────────────────────
         services.AddScoped<IDemoSeedService, DemoSeedService>();

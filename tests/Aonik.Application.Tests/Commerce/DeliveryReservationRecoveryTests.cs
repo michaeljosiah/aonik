@@ -253,10 +253,11 @@ public sealed class DeliveryReservationRecoveryTests
     {
         var tenant = new TestTenantProvider(harness.TenantId);
         return new(context, new InventoryService(context, tenant, new TenantContext { TenantId = harness.TenantId }, harness.Clock),
-            new CoreOrderService(harness.Ordering(), tenant, harness.Clock, new TestCurrentUserProvider()), payments,
+            new CoreOrderService(harness.Ordering(), tenant, harness.Clock, new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()), payments,
             new FakeBoxInvoiceWriter(), new DiscountService(context, tenant, harness.Clock), new ZeroRateTaxCalculator(),
             tenant, harness.BoxCarts(context), harness.GuestOrderAccess, new FulfilmentPromiseService(context, tenant, harness.Clock),
-            new ServedTestDeliveryCoverage(), parties ?? CommerceTestHarness.Parties(), harness.Clock);
+            new ServedTestDeliveryCoverage(), parties ?? CommerceTestHarness.Parties(), harness.Clock,
+            new DictionaryTenantSettingStore(harness.Settings));
     }
 
     private sealed class DeadlinePayments(BoxTestHarness harness) : IPaymentInitiator

@@ -40,7 +40,7 @@ public class CheckoutAccountConsentTests
             .Returns(Task.CompletedTask);
         var access = new PaidCheckoutAccountAccessService(context, new TestTenantProvider(harness.TenantId),
             new CoreOrderService(harness.Ordering(), new TestTenantProvider(harness.TenantId), harness.Clock,
-                new TestCurrentUserProvider()), issuer.Object);
+                new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()), issuer.Object);
         var email = new Mock<IOrderConfirmationEmailService>();
         var handler = new CommercePaymentCompletedHandler(harness.Checkout(), email.Object, access,
             NullLogger<CommercePaymentCompletedHandler>.Instance);

@@ -49,7 +49,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.Property(x => x.ProvenanceJson)
             .HasColumnType("nvarchar(max)");
 
-        builder.Property<string>("OrderNumber")
+        builder.Property(x => x.OrderNumber)
             .HasMaxLength(64);
 
         builder.Property<string>("ServiceCode")
@@ -94,8 +94,9 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         builder.HasIndex(x => new { x.TenantId, x.OrderType, x.IdempotencyKey })
             .IsUnique()
             .HasFilter("[IdempotencyKey] IS NOT NULL");
-        builder.HasIndex("OrderNumber")
-            .IsUnique();
+        builder.HasIndex(x => new { x.TenantId, x.OrderNumber })
+            .IsUnique()
+            .HasFilter("[OrderNumber] IS NOT NULL");
         builder.HasIndex("ServiceCode");
     }
 }

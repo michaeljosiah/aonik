@@ -129,7 +129,7 @@ public class GuestOrderReadTests
         var otherTenantId = Guid.NewGuid();
         var otherTenant = new TestTenantProvider(otherTenantId);
         var service = new StorefrontOrderService(harness.Commerce(), otherTenant,
-            new CoreOrderService(harness.Ordering(), otherTenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider()),
+            new CoreOrderService(harness.Ordering(), otherTenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()),
             harness.GuestOrderAccess);
 
         var result = await service.GetGuestOrderAsync(checkout.OrderId, harness.GuestOrderAccess.Issue(otherTenantId, checkout.OrderId));
@@ -206,7 +206,7 @@ public class GuestOrderReadTests
         await using var ordering = harness.Ordering();
         var tenant = new TestTenantProvider(harness.TenantId);
         var orders = new StorefrontOrderService(commerce, tenant,
-            new CoreOrderService(ordering, tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider()),
+            new CoreOrderService(ordering, tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()),
             harness.GuestOrderAccess);
 
         var result = await orders.GetGuestOrderAsync(checkout.OrderId, checkout.GuestOrderToken);
@@ -215,13 +215,13 @@ public class GuestOrderReadTests
         var json = JsonSerializer.SerializeToElement(result, new JsonSerializerOptions(JsonSerializerDefaults.Web));
         json.EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal", "total",
-            "boxSize", "items", "selections", "paymentStatus", "delivery" });
+            "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus" });
         result!.Delivery!.Address.Should().BeEquivalentTo(BoxTestHarness.ValidDelivery.Address);
         result.Delivery.DeliveryDate.Should().Be(BoxTestHarness.ValidDelivery.DeliveryDate);
         json.GetProperty("items")[0].EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {
-            "itemType", "quantity", "unitPrice", "amountIn", "sku" });
+            "itemType", "quantity", "unitPrice", "amountIn", "sku", "name", "itemIndex" });
         json.GetProperty("selections")[0].EnumerateObject().Select(p => p.Name).Should().BeEquivalentTo(new[] {
-            "productVariantId", "quantity", "sku", "personalisationSummary", "orderItemIndex", "name" });
+            "productVariantId", "quantity", "sku", "personalisationSummary", "orderItemIndex", "name", "isSignature" });
         json.GetRawText().Should().NotContain("secret_box").And.NotContain("https://pay.example/box");
         commerce.ChangeTracker.Entries().Should().BeEmpty();
         ordering.ChangeTracker.Entries().Should().BeEmpty();

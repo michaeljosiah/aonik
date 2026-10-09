@@ -110,7 +110,7 @@ export function CommerceOrdersPage() {
       cell: (row) => (
         <span className="flex flex-col">
           <span className="font-[family-name:var(--font-mono)] text-[12px] text-foreground">
-            {row.orderId.slice(0, 8)}
+              {row.orderNumber ?? row.orderId.slice(0, 8)}
           </span>
           {row.boxSize != null && (
             <span className="text-[11px] text-muted-foreground">

@@ -89,7 +89,7 @@ public partial class ProductionOrderServiceTests
             new DbContextOptionsBuilder<OrderingDbContext>().UseInMemoryDatabase(_orderingDb).Options,
             _tenant, _user, Clock);
 
-        public CoreOrderService Orders() => new(Ordering(), _tenant, Clock, _user);
+        public CoreOrderService Orders() => new(Ordering(), _tenant, Clock, _user, new Aonik.TestSupport.Ordering.TestOrderNumberGenerator());
 
         public RecipeService Recipes() => new(_sharedCommerce, _tenant);
 

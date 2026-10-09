@@ -26,7 +26,7 @@ public class CustomerRegistryReadModelTests
         var ctx = new OrderingDbContext(
             new DbContextOptionsBuilder<OrderingDbContext>().UseInMemoryDatabase(db).Options,
             tenant, new TestCurrentUserProvider());
-        return (new CoreOrderService(ctx, tenant, new FixedClock(), new TestCurrentUserProvider()), tenantId, db);
+        return (new CoreOrderService(ctx, tenant, new FixedClock(), new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()), tenantId, db);
     }
 
     private sealed class FixedClock : IClock

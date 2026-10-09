@@ -11,4 +11,5 @@ public record SaveCheckoutDraftRequest(
     string? Notes = null,
     CartGiftDraftDto? Gift = null,
     bool CreateAccount = false,
-    string? DiscountCode = null);
+    string? DiscountCode = null,
+    string? AcceptedTermsVersion = null);

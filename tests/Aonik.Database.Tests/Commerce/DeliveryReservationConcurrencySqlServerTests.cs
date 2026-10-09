@@ -72,7 +72,8 @@ public sealed class DeliveryReservationConcurrencySqlServerTests(SqlLocalDbFixtu
             Mock.Of<IInvoiceWriter>(MockBehavior.Strict), Mock.Of<IDiscountService>(MockBehavior.Strict),
             Mock.Of<ITaxCalculator>(MockBehavior.Strict), tenant, new UnexpectedBoxCheckout(),
             new GuestOrderAccess(new EphemeralDataProtectionProvider()), Mock.Of<IFulfilmentPromiseService>(MockBehavior.Strict),
-            Mock.Of<IDeliveryCoverageService>(MockBehavior.Strict), Mock.Of<IPartyService>(MockBehavior.Strict), firstTenant.Clock);
+            Mock.Of<IDeliveryCoverageService>(MockBehavior.Strict), Mock.Of<IPartyService>(MockBehavior.Strict), firstTenant.Clock,
+            Mock.Of<Aonik.SharedKernel.Abstractions.Settings.ITenantSettingStore>());
 
         var first = await checkout.FindDueDeliveryReservationsAsync();
         var second = await checkout.FindDueDeliveryReservationsAsync(first[^1].ReservationId);

@@ -20,6 +20,31 @@ namespace Aonik.Application.Tests.Commerce;
 public class OrderConfirmationEmailTests
 {
     [Fact]
+    public async Task SendAsync_Should_PreferPurchasedNamesAndReference_AndPreserveSignatureEvidence()
+    {
+        using var fixture = new Fixture();
+        await fixture.SeedAsync();
+        fixture.Order = fixture.Order with
+        {
+            OrderNumber = "BOX-0042",
+            Items = fixture.Order.Items.Select(item => item with { NameSnapshot = "Purchased " + item.ItemType }).ToList(),
+        };
+        var selection = await fixture.Context.OrderBundleSelections.SingleAsync();
+        selection.NameSnapshot = "The original dish";
+        selection.IsSignatureSnapshot = true;
+        await fixture.Context.SaveChangesAsync();
+
+        await fixture.Service().SendAsync(fixture.OrderId, fixture.PaymentId);
+
+        var model = fixture.Sent.Should().ContainSingle().Which.Model;
+        model["order_number"].Should().Be("BOX-0042");
+        ((IEnumerable<Dictionary<string, object?>>)model["items"]!).Single()["description"].Should().Be("Purchased ProductPurchase");
+        var sentSelection = ((IEnumerable<Dictionary<string, object?>>)model["selections"]!).Single();
+        sentSelection["description"].Should().Be("The original dish");
+        sentSelection["is_signature"].Should().Be(true);
+    }
+
+    [Fact]
     public async Task SendAsync_Should_UseRecordedRecipientAndCharges_WithoutDraftOrPaymentSecrets()
     {
         using var fixture = new Fixture();

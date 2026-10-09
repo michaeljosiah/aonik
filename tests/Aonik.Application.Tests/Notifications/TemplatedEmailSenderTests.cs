@@ -22,6 +22,23 @@ public sealed class TemplatedEmailSenderTests
     private readonly Guid _tenantId = Guid.NewGuid();
 
     [Theory]
+    [InlineData(null, "order-123")]
+    [InlineData("BOX-<42>", "BOX-&lt;42&gt;")]
+    public async Task Receipt_Should_EscapeRecordedReferenceAndShowOnlyExplicitSignature(string? reference, string renderedReference)
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var transport = new RecordingEmailSender();
+        var model = ReceiptModel();
+        model["order_id"] = "order-123";
+        model["order_number"] = reference;
+        model["selections"] = new[] { new Dictionary<string, object?> { ["description"] = "Original dish", ["quantity"] = 6, ["is_signature"] = true } };
+        await CreateSender(context, transport).SendAsync(new(TransactionalEmailTemplateNames.OrderConfirmation, "buyer@example.test", model));
+        transport.Messages.Should().ContainSingle().Which.Body.Should().Contain($"<strong>{renderedReference}</strong>")
+            .And.Contain("Signature").And.NotContain("BOX-<42>");
+    }
+
+    [Theory]
     [InlineData(ContactEnquiryEmailTemplates.Staff, "New contact enquiry")]
     [InlineData(ContactEnquiryEmailTemplates.Acknowledgement, "We received your enquiry")]
     public async Task ContactTemplates_Should_EscapeStaffContent_AndKeepAcknowledgementReferenceOnly(string templateName, string subject)

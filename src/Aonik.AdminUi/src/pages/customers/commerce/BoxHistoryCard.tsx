@@ -13,6 +13,7 @@ import {
 import type { StorefrontOrderSummaryDto } from '@/types/commerce';
 
 import { formatCalendarDate, formatCurrency, formatDate } from '@/lib/format';
+import { paymentTone } from '@/pages/commerce/lib/statusTone';
 
 const STATUS_TONE: Record<string, PillTone> = {
   Complete: 'success',
@@ -45,7 +46,8 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
                 <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Placed</TableHead>
                 <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Delivery date</TableHead>
                 <TableHead numeric className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Size</TableHead>
-                <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Status</TableHead>
+                <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Order status</TableHead>
+                <TableHead className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Payment</TableHead>
                 <TableHead numeric className="h-auto px-2 py-2.5 text-xs font-medium text-muted-foreground">Total</TableHead>
               </TableRow>
             </TableHeader>
@@ -54,8 +56,15 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
                 <TableRow key={order.orderId} className="hover:bg-transparent">
                   <TableCell numeric className="px-2 py-2.5">
                     <span className="text-[11px] font-medium text-foreground">
-                      ORD-{order.orderId.replace(/-/g, '').slice(0, 8).toUpperCase()}
+                      {order.orderNumber ?? order.orderId}
                     </span>
+                    {order.isGift && <Pill tone="info">Gift</Pill>}
+                    {order.historyGroup && <p className="text-xs text-muted-foreground">{order.historyGroup === 'PendingPayment' ? 'Pending payment' : order.historyGroup}</p>}
+                    {order.selections?.map((selection, index) => <p key={`${selection.orderItemIndex}-${index}`} className="text-xs whitespace-pre-line">
+                      {selection.quantity} × {selection.name ?? selection.sku}
+                      {selection.isSignature === true && ' · Signature'}
+                      {selection.personalisationSummary && ` — ${selection.personalisationSummary}`}
+                    </p>)}
                   </TableCell>
                   <TableCell className="px-2 py-2.5">
                     <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -79,11 +88,16 @@ export function BoxHistoryCard({ orders }: BoxHistoryCardProps) {
                     <Pill tone={STATUS_TONE[order.status] ?? 'default'} dot>
                       {order.status}
                     </Pill>
+                    {order.fulfilmentStatus && <p className="text-xs text-muted-foreground">{order.fulfilmentStatus === 'OutForDelivery' ? 'Out for delivery' : order.fulfilmentStatus}</p>}
+                  </TableCell>
+                  <TableCell className="px-2 py-2.5">
+                    <Pill tone={paymentTone(order.paymentStatus ?? '')}>{order.paymentStatus ?? 'Unknown'}</Pill>
                   </TableCell>
                   <TableCell numeric className="px-2 py-2.5">
                     <span className="text-[12.5px] font-medium text-foreground">
                       {formatCurrency(order.total, order.currency)}
                     </span>
+                    {!!order.discountTotal && <p className="text-xs text-muted-foreground">{order.discountCode ?? 'Discount'}: −{formatCurrency(order.discountTotal, order.currency)}</p>}
                   </TableCell>
                 </TableRow>
               ))}

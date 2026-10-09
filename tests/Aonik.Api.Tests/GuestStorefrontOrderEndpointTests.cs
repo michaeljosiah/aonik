@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 
 using Aonik.Commerce.Contracts.Models.Checkout;
+using Aonik.Commerce.Contracts.Models.Fulfilment;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Entities.Promotions;
@@ -52,11 +53,11 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         body.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(
         [
             "orderId", "placedAtUtc", "status", "currency", "subtotal", "discountTotal", "taxTotal",
-            "total", "boxSize", "items", "selections", "paymentStatus", "delivery",
+            "total", "boxSize", "items", "selections", "paymentStatus", "delivery", "orderNumber", "discountCode", "fulfilmentStatus",
         ]);
         var delivery = body.GetProperty("delivery");
         delivery.EnumerateObject().Select(property => property.Name).Should().BeEquivalentTo(new[]
-            { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes", "gift" });
+            { "purchaser", "address", "deliveryDate", "timezone", "recipient", "notes", "gift", "saleTerms" });
         delivery.GetProperty("gift").ValueKind.Should().Be(JsonValueKind.Null);
         delivery.GetProperty("deliveryDate").GetString().Should().Be("2026-10-25");
         delivery.GetProperty("timezone").GetString().Should().Be("Europe/London");
@@ -334,6 +335,68 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
         (await response.Content.ReadFromJsonAsync<StorefrontOrderDetailDto>())!.Delivery.Should().BeNull();
     }
 
+    [Fact]
+    public async Task Fulfilment_Should_AdvanceOnlyExplicitly_AndKeepItsAuditPrivate()
+    {
+        var tenantId = Guid.NewGuid();
+        var options = TestAuthOptions.Create().WithTenant(tenantId).WithRoles("Operations");
+        using var staff = await _factory.CreateAuthenticatedClientAsync(options);
+        var seeded = await SeedGuestCheckoutAsync(tenantId, paymentStatus: CheckoutPaymentStatuses.Captured);
+        var path = $"/commerce/admin/orders/{seeded.OrderId}/fulfilment";
+        var detail = await staff.GetFromJsonAsync<AdminOrderStorefrontDto>($"/commerce/admin/orders/{seeded.OrderId}/storefront");
+        detail!.Fulfilment!.Status.Should().Be("Confirmed");
+        detail.Fulfilment.History.Should().BeEmpty();
+        using var skip = await staff.PutAsJsonAsync(path, new UpdateOrderFulfilmentCommand("Delivered", detail.Fulfilment.Version));
+        skip.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        AssertPrivateHeaders(skip);
+        using var stale = await staff.PutAsJsonAsync(path, new UpdateOrderFulfilmentCommand("Cooking", Convert.ToBase64String([1, 2, 3])));
+        stale.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        AssertPrivateHeaders(stale);
+        using var response = await staff.PutAsJsonAsync(path, new UpdateOrderFulfilmentCommand("Cooking", detail.Fulfilment.Version));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertPrivateHeaders(response);
+        var progress = (await response.Content.ReadFromJsonAsync<OrderFulfilmentDto>())!;
+        progress.Status.Should().Be("Cooking");
+        progress.History.Should().ContainSingle().Which.ActorId.Should().Be(options.UserId);
+        using var replay = await staff.PutAsJsonAsync(path, new UpdateOrderFulfilmentCommand("Cooking", detail.Fulfilment.Version));
+        (await replay.Content.ReadFromJsonAsync<OrderFulfilmentDto>())!.Should().BeEquivalentTo(progress);
+
+        using var guest = Client(tenantId);
+        guest.DefaultRequestHeaders.Add("X-Order-Token", seeded.OrderToken);
+        using var customerRead = await guest.GetAsync(GuestPath(seeded.OrderId));
+        var json = await customerRead.Content.ReadAsStringAsync();
+        json.Should().Contain("\"fulfilmentStatus\":\"Cooking\"").And.NotContain("actorId")
+            .And.NotContain("occurredAtUtc").And.NotContain("\"version\"");
+        await AssertCheckoutUnchangedAsync(seeded);
+    }
+
+    [Theory]
+    [InlineData("ReadOnly")]
+    [InlineData("PersonalUser")]
+    public async Task Fulfilment_Should_RejectReadOnlyAndCustomerWrites(string role)
+    {
+        var tenantId = Guid.NewGuid();
+        var seeded = await SeedGuestCheckoutAsync(tenantId, paymentStatus: CheckoutPaymentStatuses.Captured);
+        using var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId).WithRoles(role));
+        using var denied = await client.PutAsJsonAsync($"/commerce/admin/orders/{seeded.OrderId}/fulfilment", new UpdateOrderFulfilmentCommand("Cooking", ""));
+        denied.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        AssertPrivateHeaders(denied);
+    }
+
+    [Fact]
+    public async Task Fulfilment_Should_RejectUnpaidAndForeignTenantOrders()
+    {
+        var seeded = await SeedGuestCheckoutAsync(Guid.NewGuid());
+        var path = $"/commerce/admin/orders/{seeded.OrderId}/fulfilment";
+        using var staff = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(seeded.TenantId).WithRoles("Operations"));
+        using var unpaid = await staff.PutAsJsonAsync(path, new UpdateOrderFulfilmentCommand("Cooking", ""));
+        unpaid.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        using var foreign = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(Guid.NewGuid()).WithRoles("Operations"));
+        using var missing = await foreign.PutAsJsonAsync(path, new UpdateOrderFulfilmentCommand("Cooking", ""));
+        missing.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        AssertPrivateHeaders(missing);
+    }
+
     private HttpClient Client(Guid tenantId)
     {
         var client = _factory.CreateClient();
@@ -503,7 +566,7 @@ public class GuestStorefrontOrderEndpointTests : IClassFixture<CustomWebApplicat
             {
                 Id = Guid.NewGuid(), TenantId = tenantId, OrderId = orderId, ItemIndex = 1,
                 ItemType = CheckoutService.GreetingCardItemType, Quantity = 1, UnitPrice = 3m,
-                AmountIn = 3m, CurrencyIn = "GBP", Sku = "GREETING-CARD", Status = OrderStatuses.Pending,
+                AmountIn = 3m, CurrencyIn = "GBP", Sku = "GREETING-CARD", Status = OrderStatuses.Pending, NameSnapshot = "Greeting card",
             });
         db.Carts.Add(new Cart
         {

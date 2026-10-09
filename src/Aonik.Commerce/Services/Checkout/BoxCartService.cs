@@ -75,13 +75,23 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
     // ─── Create ──────────────────────────────────────────────────────────────
 
-    public async Task<BoxCartDto> CreateAsync(CreateBoxCartCommand command, CancellationToken cancellationToken = default)
+    public Task<BoxCartDto> CreateAsync(CreateBoxCartCommand command, CancellationToken cancellationToken = default)
+        => CreateCoreAsync(command, null, cancellationToken);
+
+    // Only the authorized reorder service supplies purchased lines; no public seed-list input.
+    internal Task<BoxCartDto> CreateFromOrderAsync(CreateBoxCartCommand command,
+        IReadOnlyList<ReorderBoxLine> dishes, CancellationToken cancellationToken = default)
+        => CreateCoreAsync(command, dishes, cancellationToken);
+
+    private async Task<BoxCartDto> CreateCoreAsync(CreateBoxCartCommand command,
+        IReadOnlyList<ReorderBoxLine>? dishes, CancellationToken cancellationToken)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
         // Reuse this identity if the execution strategy retries after an uncertain commit.
         var cartId = Guid.NewGuid();
         var token = CartAccess.MintToken();
         var retrying = false;
+        var changes = new List<BoxChangeDto>();
         var strategy = _dbContext.Database.CreateExecutionStrategy();
         Entities.Cart.Cart writtenCart;
         BundleSizePlan writtenPlan;
@@ -107,6 +117,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                     }
                 }
                 retrying = true;
+                changes.Clear();
 
                 if (command.BuyerPartyId is { } partyId)
                 {
@@ -133,7 +144,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                     Id = cartId,
                     TenantId = tenantId,
                     BuyerPartyId = command.BuyerPartyId,
-                    AnonymousToken = token,
+                    AnonymousToken = dishes is null ? token : null,
                     Status = CartStatuses.Open,
                     Currency = plan.Currency,
                     BoxBundleProductId = product.Id,
@@ -143,6 +154,17 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 _dbContext.Carts.Add(cart);
                 if (command.FirstLine is { } firstLine)
                     await AddLineCoreAsync(tenantId, cart, plan, firstLine, ct);
+                if (dishes is not null)
+                {
+                    foreach (var dish in dishes)
+                    {
+                        var skipped = await AddLineCoreAsync(tenantId, cart, plan, dish.Line, ct, changes, dish.Name);
+                        if (skipped is not null)
+                            changes.Add(new BoxChangeDto(null, null, null, null, skipped,
+                                SourceVariantId: dish.Line.ProductVariantId, SourceName: dish.Name));
+                    }
+                    await ValidateSlotBoundsAsync(tenantId, product.Id, cart.Items, atGate: false, ct);
+                }
 
                 await _dbContext.SaveChangesAsync(ct);
 
@@ -172,7 +194,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }
 
         // Display reads must not cause a retry to repeat an already-committed creation.
-        return await BuildDtoAsync(tenantId, writtenCart, writtenPlan, [], token, cancellationToken);
+        return await BuildDtoAsync(tenantId, writtenCart, writtenPlan, changes, dishes is null ? token : null, cancellationToken);
     }
 
     private Task<List<Entities.Cart.Cart>> ReadActiveCandidatesAsync(Guid tenantId, Guid partyId, CancellationToken ct)
@@ -878,12 +900,14 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
     // ─── Line construction (shared by add, split and create-with-first-line) ─
 
-    private async Task AddLineCoreAsync(
+    private async Task<string?> AddLineCoreAsync(
         Guid tenantId,
         Entities.Cart.Cart cart,
         BundleSizePlan plan,
         AddBoxLineCommand command,
-        CancellationToken ct)
+        CancellationToken ct,
+        List<BoxChangeDto>? reorderChanges = null,
+        string? sourceName = null)
     {
         if (command.Quantity < 1)
         {
@@ -892,23 +916,36 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
 
         var variant = await _dbContext.ProductVariants
             .AsNoTracking()
-            .FirstOrDefaultAsync(v => v.Id == command.ProductVariantId && v.TenantId == tenantId, ct)
-            ?? throw new NotFoundException($"Product variant '{command.ProductVariantId}' was not found.");
+            .FirstOrDefaultAsync(v => v.Id == command.ProductVariantId && v.TenantId == tenantId, ct);
+        if (variant is null)
+        {
+            if (reorderChanges is not null) return BoxChangeReasons.ReorderOffMenu;
+            throw new NotFoundException($"Product variant '{command.ProductVariantId}' was not found.");
+        }
         var product = await _dbContext.Products
             .AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == variant.ProductId && p.TenantId == tenantId, ct)
-            ?? throw new NotFoundException($"Product '{variant.ProductId}' was not found.");
+            .FirstOrDefaultAsync(p => p.Id == variant.ProductId && p.TenantId == tenantId, ct);
+        if (product is null)
+        {
+            if (reorderChanges is not null) return BoxChangeReasons.ReorderOffMenu;
+            throw new NotFoundException($"Product '{variant.ProductId}' was not found.");
+        }
 
         // R5 — a retired SKU can never ride into a box.
         if (!variant.IsActive || product.Status != ProductStatuses.Active)
         {
+            if (reorderChanges is not null) return BoxChangeReasons.ReorderOffMenu;
             throw new StorefrontValidationException("R5: this dish is not currently available.");
         }
 
-        var slotId = await ResolveSlotAsync(tenantId, cart.BoxBundleProductId!.Value, variant, product, command.BundleSlotId, ct);
+        var slotId = await ResolveSlotAsync(tenantId, cart.BoxBundleProductId!.Value, variant, product,
+            command.BundleSlotId, ct, allowUnavailable: reorderChanges is not null);
+        if (slotId is null) return BoxChangeReasons.ReorderOffMenu;
 
         // R4 — Spec 066 owns selection validity and pricing; V10 rejects mis-denominated groups.
-        var priced = await _selections.NormalizeAndPriceAsync(
+        var stored = reorderChanges is null ? null : await _selections.RenormalizeStoredAsync(
+            product.Id, command.Personalisation?.GetRawText() ?? "{}", cart.Currency, ct);
+        var priced = stored?.Result ?? await _selections.NormalizeAndPriceAsync(
             product.Id, command.Personalisation, cart.Currency, ct);
 
         var boxLines = cart.Items
@@ -934,9 +971,15 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         var available = await _inventory.GetAvailableAsync(variant.Id, ct);
         if (cartWide + command.Quantity > available)
         {
+            if (reorderChanges is not null) return BoxChangeReasons.ReorderInsufficientStock;
             throw new StorefrontValidationException(
                 $"R5: only {available:0.##} of this dish is available; the box already holds {cartWide}.");
         }
+
+        if (stored is not null)
+            reorderChanges!.AddRange(stored.Drift.Select(change => new BoxChangeDto(null,
+                change.GroupKey, change.FromChoiceKey, change.ToChoiceKey, change.Reason,
+                SourceVariantId: variant.Id, SourceName: sourceName)));
 
         // R6 — identical (kind, slot, variant, canonical selection) merges, never duplicates.
         var target = boxLines.FirstOrDefault(l => l.BoxBundleSlotId == slotId
@@ -946,10 +989,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         {
             target.Quantity += command.Quantity;
             ApplySelection(target, priced);
-            return;
+            return null;
         }
 
-        var newLine = NewBoxLine(tenantId, cart, slotId, variant, product, command.Quantity, priced);
+        var newLine = NewBoxLine(tenantId, cart, slotId.Value, variant, product, command.Quantity, priced);
         // Explicit Add unless the whole cart graph is itself being added (create-with-first-line):
         // a pre-set key discovered via fixup from an UNCHANGED parent tracks as Modified. The Add
         // fixes up cart.Items itself; the manual append covers only the Added-graph path.
@@ -961,10 +1004,12 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         {
             cart.Items.Add(newLine);
         }
+        return null;
     }
 
-    private async Task<Guid> ResolveSlotAsync(
-        Guid tenantId, Guid bundleProductId, ProductVariant variant, Product product, Guid? named, CancellationToken ct)
+    private async Task<Guid?> ResolveSlotAsync(
+        Guid tenantId, Guid bundleProductId, ProductVariant variant, Product product, Guid? named, CancellationToken ct,
+        bool allowUnavailable = false)
     {
         var slots = await _dbContext.BundleSlots
             .AsNoTracking()
@@ -991,6 +1036,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         return eligible.Count switch
         {
             1 => eligible[0].Id,
+            0 when allowUnavailable => null,
             0 => throw new StorefrontValidationException("R5: this dish fits no slot of the box."),
             _ => throw new StorefrontValidationException(
                 $"R5: this dish is eligible for {eligible.Count} slots — name the slot explicitly."),

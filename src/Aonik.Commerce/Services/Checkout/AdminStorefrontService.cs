@@ -3,6 +3,7 @@ using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Entities.Cart;
 using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Persistence;
+using Aonik.Commerce.Services.Fulfilment;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
@@ -132,7 +133,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
         var orderIds = rows.Select(r => r.OrderId).ToList();
         var deliveryDates = await _dbContext.OrderDeliveryDetails.AsNoTracking()
             .Where(d => d.TenantId == tenantId && orderIds.Contains(d.OrderId))
-            .Select(d => new { d.OrderId, d.DeliveryDate, d.IsGift })
+            .Select(d => new { d.OrderId, d.DeliveryDate, d.IsGift, d.FulfilmentStatus })
             .ToDictionaryAsync(d => d.OrderId, cancellationToken);
         var spine = await _orders.ListAsync(
             new ListOrdersQuery(OrderIds: orderIds, PageSize: rows.Count),
@@ -154,12 +155,13 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                 order.CreatedAt,
                 order.Status,
                 row.PaymentStatus,
-                DeriveFulfilment(order.Status),
+                OrderFulfilmentData.Status(deliveryDates.GetValueOrDefault(row.OrderId)?.FulfilmentStatus, row.PaymentStatus, order.Status) ?? "Unconfirmed",
                 row.Currency,
                 row.Total,
                 row.BoxSize,
                 deliveryDates.GetValueOrDefault(row.OrderId)?.DeliveryDate,
-                deliveryDates.GetValueOrDefault(row.OrderId)?.IsGift ?? false));
+                deliveryDates.GetValueOrDefault(row.OrderId)?.IsGift ?? false,
+                order.OrderNumber));
         }
 
         return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>(results, totalCount, page, pageSize);
@@ -184,19 +186,6 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             return null;
         }
 
-        // Resolve display names for the items: the box aggregate names its bundle
-        // product; add-ons name their variant. A miss falls back to the SKU —
-        // display only, never invented data.
-        var productIds = order.Items.Where(i => i.ProductId is not null).Select(i => i.ProductId!.Value).Distinct().ToList();
-        var productNames = await _dbContext.Products.AsNoTracking()
-            .Where(p => p.TenantId == tenantId && productIds.Contains(p.Id))
-            .Select(p => new { p.Id, p.Name })
-            .ToDictionaryAsync(p => p.Id, p => p.Name, cancellationToken);
-        var variantNames = await _dbContext.ProductVariants.AsNoTracking()
-            .Where(v => v.TenantId == tenantId && productIds.Contains(v.Id))
-            .Select(v => new { v.Id, v.Name })
-            .ToDictionaryAsync(v => v.Id, v => v.Name, cancellationToken);
-
         var items = order.Items
             .OrderBy(i => i.ItemIndex)
             .Select(i =>
@@ -207,35 +196,22 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                     && i.ProductId == cart.BoxBundleProductId
                     && !isDelivery;
                 var isAddOn = cart.BoxBundleProductId is not null && !isDelivery && !isBoxAggregate && !isGreetingCard;
-                var name = isDelivery
-                    ? "Delivery"
-                    : isGreetingCard ? "Greeting card" : (i.ProductId is { } pid
-                        ? (productNames.TryGetValue(pid, out var pn) ? pn
-                            : variantNames.TryGetValue(pid, out var vn) ? vn : i.Sku ?? "Item")
-                        : i.Sku ?? "Item");
                 return new AdminOrderStorefrontItemDto(
-                    i.ItemType, name, i.Sku, i.Quantity, i.UnitPrice, i.AmountIn, isAddOn, isDelivery, i.ItemIndex);
+                    i.ItemType, i.NameSnapshot, i.Sku, i.Quantity, i.UnitPrice, i.AmountIn, isAddOn, isDelivery, i.ItemIndex);
             })
             .ToList();
 
         // Selections carry their OrderItemIndex so the drawer can nest each one
         // under its own bundle aggregate (an order may hold several), plus the
-        // resolved variant name the drawer renders — SKU stays the durable
-        // identifier, and a retired variant simply has no name rather than an
-        // invented one.
+        // purchased name. Legacy rows retain null rather than today's catalogue name.
         var selectionRows = await _dbContext.OrderBundleSelections.AsNoTracking()
             .Where(s => s.TenantId == tenantId && s.OrderId == orderId)
             .OrderBy(s => s.OrderItemIndex).ThenBy(s => s.Sku)
             .ToListAsync(cancellationToken);
-        var selectionVariantIds = selectionRows.Select(s => s.ProductVariantId).Distinct().ToList();
-        var selectionNames = await _dbContext.ProductVariants.AsNoTracking()
-            .Where(v => v.TenantId == tenantId && selectionVariantIds.Contains(v.Id))
-            .Select(v => new { v.Id, v.Name })
-            .ToDictionaryAsync(v => v.Id, v => v.Name, cancellationToken);
         var selections = selectionRows
             .Select(s => new StorefrontOrderSelectionDto(
                 s.ProductVariantId, s.Quantity, s.Sku, s.PersonalisationSummary,
-                s.OrderItemIndex, selectionNames.GetValueOrDefault(s.ProductVariantId)))
+                s.OrderItemIndex, s.NameSnapshot, s.IsSignatureSnapshot))
             .ToList();
 
         var delivery = await _dbContext.OrderDeliveryDetails.AsNoTracking()
@@ -248,14 +224,17 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             order.CreatedAt,
             order.Status,
             summary.PaymentStatus,
-            DeriveFulfilment(order.Status),
+            OrderFulfilmentData.Status(delivery?.FulfilmentStatus, summary.PaymentStatus, order.Status) ?? "Unconfirmed",
             items,
             selections,
             new AdminOrderChargeDto(
                 summary.Subtotal, summary.DiscountTotal, summary.DiscountCode,
                 summary.TaxTotal, summary.Total, summary.Currency),
             cart.BoxSize,
-            delivery is null ? null : OrderDeliveryMapper.Map(delivery));
+            delivery is null ? null : OrderDeliveryMapper.Map(delivery), order.OrderNumber,
+            delivery is not null && summary.PaymentStatus == CheckoutPaymentStatuses.Captured
+                && OrderFulfilmentData.Status(delivery.FulfilmentStatus, summary.PaymentStatus, order.Status) != "Cancelled"
+                ? OrderFulfilmentData.Map(delivery) : null);
     }
 
     public async Task<AdminOrderPackingDto?> GetOrderPackingAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -271,7 +250,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             order.Items.Select(item => new AdminOrderPackingItemDto(
                 item.ItemIndex, item.ItemType, item.Name, item.Sku, item.Quantity)).ToList(), order.Selections,
             delivery?.Gift?.HidePrices == true ? null : new AdminOrderPackingPricesDto(order.Charge,
-                order.Items.Select(item => new AdminOrderPackingLinePriceDto(item.ItemIndex, item.UnitPrice, item.Amount)).ToList()));
+                order.Items.Select(item => new AdminOrderPackingLinePriceDto(item.ItemIndex, item.UnitPrice, item.Amount)).ToList()), order.OrderNumber);
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<AdminCartRowDto>> ListCartsAsync(
@@ -780,12 +759,6 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
     /// the awaiting-fulfilment view until a real fulfilment lifecycle supplies
     /// the fact, and Cancelled/Failed/Expired all mean it never will be.
     /// </summary>
-    private static string DeriveFulfilment(string orderStatus) => orderStatus switch
-    {
-        OrderStatusCodes.Cancelled or OrderStatusCodes.Failed or OrderStatusCodes.Expired => "Cancelled",
-        _ => "Unfulfilled",
-    };
-
     [LoggerMessage(EventId = 8301, Level = LogLevel.Warning,
         Message = "Storefront order list skipped charge summary for order {OrderId} (tenant {TenantId}): the spine order no longer exists.")]
     private static partial void LogOrphanedChargeSummary(ILogger logger, Guid orderId, Guid tenantId);

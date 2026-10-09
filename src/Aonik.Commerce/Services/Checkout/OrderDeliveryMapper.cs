@@ -13,7 +13,9 @@ internal static class OrderDeliveryMapper
         delivery.DeliveryDate, delivery.Timezone,
         new DeliveryRecipientDto(delivery.RecipientName, delivery.RecipientPhone), delivery.Notes,
         delivery.IsGift ? new OrderGiftDto(delivery.HidePrices, delivery.IncludeGreetingCard,
-            delivery.IncludeGreetingCard ? delivery.GreetingCardMessage : null) : null);
+            delivery.IncludeGreetingCard ? delivery.GreetingCardMessage : null) : null,
+        delivery.AcceptedTermsVersion is { } version && delivery.AcceptedTermsUrl is { } url
+            && delivery.TermsAcceptedAtUtc is { } acceptedAt ? new AcceptedSaleTermsDto(version, url, acceptedAt) : null);
 
     public static OrderDeliveryDetails Create(Guid tenantId, Guid orderId, OrderDeliveryDto delivery) => new()
     {
@@ -37,6 +39,9 @@ internal static class OrderDeliveryMapper
         IsGift = delivery.Gift is not null,
         HidePrices = delivery.Gift?.HidePrices ?? false,
         IncludeGreetingCard = delivery.Gift?.IncludeGreetingCard ?? false,
-        GreetingCardMessage = delivery.Gift is { IncludeGreetingCard: true } gift ? gift.GreetingCardMessage : null
+        GreetingCardMessage = delivery.Gift is { IncludeGreetingCard: true } gift ? gift.GreetingCardMessage : null,
+        AcceptedTermsVersion = delivery.SaleTerms?.Version,
+        AcceptedTermsUrl = delivery.SaleTerms?.Url,
+        TermsAcceptedAtUtc = delivery.SaleTerms?.AcceptedAtUtc
     };
 }

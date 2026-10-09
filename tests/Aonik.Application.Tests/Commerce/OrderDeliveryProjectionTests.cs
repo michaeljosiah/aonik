@@ -18,6 +18,62 @@ namespace Aonik.Application.Tests.Commerce;
 
 public class OrderDeliveryProjectionTests
 {
+    [Fact]
+    public async Task History_Should_UseOnlyPurchasedNamesTermsAndExplicitFulfilment_WithoutLiveCatalogueRows()
+    {
+        var h = new BoxTestHarness();
+        var party = Guid.NewGuid();
+        var id = await SeedOrderAsync(h, party, new DateOnly(2020, 1, 1));
+        var acceptedAt = new DateTime(2019, 12, 1, 10, 0, 0, DateTimeKind.Utc);
+        await using (var ordering = h.Ordering())
+        {
+            var order = await ordering.Orders.Include(o => o.Items).SingleAsync(o => o.Id == id);
+            order.OrderNumber = "BOX-2019-000042";
+            order.Items.Single().NameSnapshot = "The purchased winter box";
+            await ordering.SaveChangesAsync();
+        }
+        await using (var db = h.Commerce())
+        {
+            var delivery = await db.OrderDeliveryDetails.SingleAsync(d => d.OrderId == id);
+            delivery.AcceptedTermsVersion = "winter-2019";
+            delivery.AcceptedTermsUrl = "https://example.test/terms/winter-2019";
+            delivery.TermsAcceptedAtUtc = acceptedAt;
+            var charge = await db.OrderChargeSummaries.SingleAsync(s => s.OrderId == id);
+            charge.DiscountCode = "WINTER";
+            charge.DiscountTotal = 5;
+            charge.Total -= 5;
+            db.OrderBundleSelections.Add(new OrderBundleSelection
+            {
+                TenantId = h.TenantId, OrderId = id, ProductVariantId = Guid.NewGuid(), BundleSlotId = Guid.NewGuid(),
+                Sku = "RETIRED-DISH", NameSnapshot = "Original recipe", IsSignatureSnapshot = true,
+                Quantity = 6, PersonalisationSummary = "Mild",
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var detail = (await h.StorefrontOrders().GetMyOrderAsync(party, id))!;
+        detail.OrderNumber.Should().Be("BOX-2019-000042");
+        detail.Items.Single().Name.Should().Be("The purchased winter box");
+        detail.Selections.Single().Name.Should().Be("Original recipe");
+        detail.Selections.Single().IsSignature.Should().BeTrue();
+        detail.DiscountCode.Should().Be("WINTER");
+        detail.DiscountTotal.Should().Be(5);
+        detail.Delivery!.SaleTerms.Should().Be(new AcceptedSaleTermsDto("winter-2019", "https://example.test/terms/winter-2019", acceptedAt));
+        var row = (await h.StorefrontOrders().ListMyOrdersAsync(party)).Items.Single();
+        row.HistoryGroup.Should().Be("Upcoming", "a past scheduled date is not evidence of delivery");
+        row.FulfilmentStatus.Should().Be("Confirmed");
+        row.Selections.Should().BeEquivalentTo(detail.Selections);
+        var admin = (await AdminService(h).GetOrderStorefrontAsync(id))!;
+        admin.Fulfilment!.History.Should().BeEmpty("payment confirms the order without inventing a staff timestamp");
+        admin.Items.Single().Name.Should().Be(detail.Items.Single().Name);
+        (await AdminService(h).GetOrderPackingAsync(id))!.OrderNumber.Should().Be(detail.OrderNumber);
+
+        await using var update = h.Commerce();
+        (await update.OrderDeliveryDetails.SingleAsync(d => d.OrderId == id)).FulfilmentStatus = "Delivered";
+        await update.SaveChangesAsync();
+        (await h.StorefrontOrders().ListMyOrdersAsync(party)).Items.Single().HistoryGroup.Should().Be("Past");
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
@@ -141,6 +197,9 @@ public class OrderDeliveryProjectionTests
         customer!.Delivery.Should().BeNull();
         guest!.Delivery.Should().BeNull();
         admin!.Delivery.Should().BeNull();
+        customer.Items.Single().Name.Should().BeNull();
+        admin.Items.Single().Name.Should().BeNull();
+        admin.Fulfilment.Should().BeNull();
     }
 
     [Fact]
@@ -151,7 +210,7 @@ public class OrderDeliveryProjectionTests
         var otherTenant = Guid.NewGuid();
         var tenant = new TestTenantProvider(otherTenant);
         var otherOrders = new StorefrontOrderService(h.Commerce(), tenant,
-            new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider()),
+            new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()),
             h.GuestOrderAccess);
 
         (await h.StorefrontOrders().GetMyOrderAsync(Guid.NewGuid(), orderId)).Should().BeNull();
@@ -164,7 +223,7 @@ public class OrderDeliveryProjectionTests
     private static async Task<Guid> SeedOrderAsync(BoxTestHarness h, Guid partyId, DateOnly? deliveryDate, OrderGiftDto? gift = null)
     {
         var tenant = new TestTenantProvider(h.TenantId);
-        var orders = new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider());
+        var orders = new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator());
         var items = new List<OrderItemCommand> { new(OrderTypeCodes.ProductPurchase, 0, 95m, "GBP", Quantity: 1m, UnitPrice: 95m, Sku: "BOX") };
         if (gift?.IncludeGreetingCard == true)
             items.Add(new OrderItemCommand(CheckoutService.GreetingCardItemType, 1, 3m, "GBP", Quantity: 1m, UnitPrice: 3m, Sku: "GREETING-CARD"));
@@ -201,7 +260,7 @@ public class OrderDeliveryProjectionTests
     private static AdminStorefrontService AdminService(BoxTestHarness h, Guid? tenantId = null)
     {
         var tenant = new TestTenantProvider(tenantId ?? h.TenantId);
-        var orders = new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider());
+        var orders = new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider(), new Aonik.TestSupport.Ordering.TestOrderNumberGenerator());
         var db = h.Commerce();
         return new AdminStorefrontService(db, tenant, orders,
             new StorefrontOrderService(h.Commerce(), tenant, orders, h.GuestOrderAccess),

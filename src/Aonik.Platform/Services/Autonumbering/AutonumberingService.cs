@@ -112,53 +112,42 @@ internal class AutonumberingService : IAutonumberingService
         var normalizedEntityType = NormalizeEntityType(request.EntityType);
         var tenantId = request.TenantId ?? ResolveTenantId();
 
-        var profile = await _dbContext.AutonumberProfiles
-            .FirstOrDefaultAsync(
-                candidate => candidate.EntityType == normalizedEntityType
-                    && candidate.TenantId == tenantId,
-                cancellationToken);
-
-        if (profile == null)
+        for (var attempt = 0; ; attempt++)
         {
-            throw new InvalidOperationException($"Autonumber profile not found for '{normalizedEntityType}'.");
+            // Reload only this sequence. A prior allocation or a lost native-version race
+            // must not let identity resolution hand back stale LastIssuedValue state.
+            foreach (var entry in _dbContext.ChangeTracker.Entries<AutonumberProfile>()
+                         .Where(entry => entry.Entity.TenantId == tenantId
+                             && entry.Entity.EntityType == normalizedEntityType).ToList())
+            {
+                if (entry.State != EntityState.Unchanged)
+                    throw new InvalidOperationException("Save profile changes before allocating a number.");
+                entry.State = EntityState.Detached;
+            }
+            var profile = await _dbContext.AutonumberProfiles.FirstOrDefaultAsync(
+                candidate => candidate.EntityType == normalizedEntityType && candidate.TenantId == tenantId,
+                cancellationToken)
+                ?? throw new InvalidOperationException($"Autonumber profile not found for '{normalizedEntityType}'.");
+            var now = _clock.UtcNow;
+            var result = NextReference(profile, now);
+            profile.LastIssuedValue = result.SequenceValue;
+            profile.LastIssuedAt = now;
+            try
+            {
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                return result;
+            }
+            catch (DbUpdateConcurrencyException ex) when (attempt < 4
+                && ex.Entries.All(entry => ReferenceEquals(entry.Entity, profile)))
+            {
+                _dbContext.Entry(profile).State = EntityState.Detached;
+            }
+            catch
+            {
+                _dbContext.Entry(profile).State = EntityState.Detached;
+                throw;
+            }
         }
-
-        if (!profile.IsActive)
-        {
-            throw new InvalidOperationException($"Autonumber profile '{normalizedEntityType}' is inactive.");
-        }
-
-        if (profile.Strategy != AutonumberStrategy.Sequential)
-        {
-            throw new InvalidOperationException("Only sequential autonumbering is supported at this time.");
-        }
-
-        var now = _clock.UtcNow;
-        if (ShouldReset(profile, now))
-        {
-            profile.LastIssuedValue = profile.MinValue - 1;
-        }
-
-        var nextValue = profile.LastIssuedValue + 1;
-        if (nextValue > profile.MaxValue)
-        {
-            throw new InvalidOperationException($"Autonumber range exhausted for '{normalizedEntityType}'.");
-        }
-
-        profile.LastIssuedValue = nextValue;
-        profile.LastIssuedAt = now;
-
-        var prefix = ApplyTokens(profile.PrefixTemplate, now);
-        var suffix = ApplyTokens(profile.SuffixTemplate, now);
-        var padded = profile.PaddingLength > 0
-            ? nextValue.ToString($"D{profile.PaddingLength}")
-            : nextValue.ToString();
-
-        var reference = $"{prefix}{padded}{suffix}";
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return new AutonumberGenerateResult(profile.Id, nextValue, reference);
     }
 
     public async Task<AutonumberGenerateResult> PreviewAsync(
@@ -180,38 +169,39 @@ internal class AutonumberingService : IAutonumberingService
             throw new InvalidOperationException($"Autonumber profile not found for '{normalizedEntityType}'.");
         }
 
+        return NextReference(profile, _clock.UtcNow);
+    }
+
+    private static AutonumberGenerateResult NextReference(AutonumberProfile profile, DateTime now)
+    {
         if (!profile.IsActive)
-        {
-            throw new InvalidOperationException($"Autonumber profile '{normalizedEntityType}' is inactive.");
-        }
-
+            throw new InvalidOperationException($"Autonumber profile '{profile.EntityType}' is inactive.");
         if (profile.Strategy != AutonumberStrategy.Sequential)
-        {
             throw new InvalidOperationException("Only sequential autonumbering is supported at this time.");
-        }
+        if (profile.MinValue <= 0 || profile.MaxValue < profile.MinValue || profile.PaddingLength <= 0)
+            throw new InvalidOperationException("The autonumber profile has invalid sequence bounds.");
 
-        var now = _clock.UtcNow;
-        var lastIssuedValue = profile.LastIssuedValue;
-
-        if (ShouldReset(profile, now))
+        var lastValue = ShouldReset(profile, now) ? profile.MinValue - 1 : Math.Max(profile.LastIssuedValue, profile.MinValue - 1);
+        if (lastValue >= profile.MaxValue)
+            throw new InvalidOperationException($"Autonumber range exhausted for '{profile.EntityType}'.");
+        var nextValue = lastValue + 1;
+        if (string.Equals(profile.EntityType, "Order", StringComparison.OrdinalIgnoreCase))
         {
-            lastIssuedValue = profile.MinValue - 1;
+            var template = profile.PrefixTemplate + profile.SuffixTemplate;
+            var hasYear = template.Contains("{YYYY}", StringComparison.OrdinalIgnoreCase)
+                || template.Contains("{YY}", StringComparison.OrdinalIgnoreCase);
+            var hasMonth = template.Contains("{MM}", StringComparison.OrdinalIgnoreCase);
+            if (profile.PaddingLength > 64
+                || profile.ResetPolicy == AutonumberResetPolicy.Monthly && (!hasYear || !hasMonth)
+                || profile.ResetPolicy == AutonumberResetPolicy.Yearly && !hasYear
+                || !Enum.IsDefined(profile.ResetPolicy))
+                throw new InvalidOperationException("Order references require a bounded format and date tokens covering every reset period.");
         }
-
-        var nextValue = lastIssuedValue + 1;
-        if (nextValue > profile.MaxValue)
-        {
-            throw new InvalidOperationException($"Autonumber range exhausted for '{normalizedEntityType}'.");
-        }
-
         var prefix = ApplyTokens(profile.PrefixTemplate, now);
         var suffix = ApplyTokens(profile.SuffixTemplate, now);
-        var padded = profile.PaddingLength > 0
-            ? nextValue.ToString($"D{profile.PaddingLength}")
-            : nextValue.ToString();
-
-        var reference = $"{prefix}{padded}{suffix}";
-
+        var reference = $"{prefix}{nextValue.ToString($"D{profile.PaddingLength}", CultureInfo.InvariantCulture)}{suffix}";
+        if (string.Equals(profile.EntityType, "Order", StringComparison.OrdinalIgnoreCase) && reference.Length > 64)
+            throw new InvalidOperationException("Order references cannot exceed 64 characters.");
         return new AutonumberGenerateResult(profile.Id, nextValue, reference);
     }
 

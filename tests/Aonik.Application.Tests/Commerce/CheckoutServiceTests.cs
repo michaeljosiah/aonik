@@ -119,10 +119,10 @@ public class CheckoutServiceTests
             var context = Commerce();
             var inventory = new InventoryService(context, _tenant,
                 new Aonik.Infrastructure.Multitenancy.TenantContext { TenantId = _tenantId }, _clock);
-            return new(context, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
+            return new(context, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user, new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()),
                 Payments, Invoices, new DiscountService(context, _tenant, _clock), new ZeroRateTaxCalculator(), _tenant,
                 BoxCarts(), _guestOrderAccess, new FulfilmentPromiseService(context, _tenant, _clock),
-                new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock);
+                new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock, new NullTenantSettingStore());
         }
     }
 

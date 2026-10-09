@@ -27,4 +27,5 @@ public class OrderItem : AuditableEntity, ITenantScoped
     public decimal? UnitPrice { get; set; }
     public Guid? ProductId { get; set; }
     public string? Sku { get; set; }
+    public string? NameSnapshot { get; set; }
 }

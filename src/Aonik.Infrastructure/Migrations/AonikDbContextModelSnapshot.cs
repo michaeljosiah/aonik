@@ -3554,6 +3554,13 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<bool?>("IsSignatureSnapshot")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameSnapshot")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");
 
@@ -5163,6 +5170,14 @@ namespace Aonik.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AcceptedTermsUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("AcceptedTermsVersion")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
                     b.Property<string>("AddressLine1")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -5196,6 +5211,14 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<DateOnly>("DeliveryDate")
                         .HasColumnType("date");
+
+                    b.Property<string>("FulfilmentHistoryJson")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<string>("FulfilmentStatus")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
                     b.Property<string>("GreetingCardMessage")
                         .HasMaxLength(1000)
@@ -5267,6 +5290,9 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("TermsAcceptedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Timezone")
                         .IsRequired()
@@ -7610,10 +7636,6 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("OrderNumber")
-                        .IsUnique()
-                        .HasFilter("[OrderNumber] IS NOT NULL");
-
                     b.HasIndex("OrderType");
 
                     b.HasIndex("PayerPartyId");
@@ -7621,6 +7643,10 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("ServiceCode");
 
                     b.HasIndex("Status");
+
+                    b.HasIndex("TenantId", "OrderNumber")
+                        .IsUnique()
+                        .HasFilter("[OrderNumber] IS NOT NULL");
 
                     b.HasIndex("TenantId", "OrderType", "CreatedAt");
 
@@ -7865,6 +7891,10 @@ namespace Aonik.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("NameSnapshot")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uniqueidentifier");

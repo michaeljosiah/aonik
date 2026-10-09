@@ -17,6 +17,8 @@ public class OrderBundleSelection : AuditableEntity, ITenantScoped
     public Guid ProductVariantId { get; set; }
     public decimal Quantity { get; set; }
     public string Sku { get; set; } = string.Empty;
+    public string? NameSnapshot { get; set; }
+    public bool? IsSignatureSnapshot { get; set; }
 
     /// <summary>Spec 068 §9 — canonical selection (query convenience; projection of the envelope).</summary>
     public string? PersonalisationJson { get; set; }

@@ -16,9 +16,10 @@ public record AdminOrderPackingDto(
     OrderGiftDto? Gift,
     IReadOnlyList<AdminOrderPackingItemDto> Items,
     IReadOnlyList<StorefrontOrderSelectionDto> Selections,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdminOrderPackingPricesDto? Prices);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] AdminOrderPackingPricesDto? Prices,
+    string? OrderNumber = null);
 
-public record AdminOrderPackingItemDto(int ItemIndex, string ItemType, string Name, string? Sku, decimal? Quantity);
+public record AdminOrderPackingItemDto(int ItemIndex, string ItemType, string? Name, string? Sku, decimal? Quantity);
 
 /// <summary>All monetary fields are inside this envelope, omitted entirely when the gift hides prices.</summary>
 public record AdminOrderPackingPricesDto(AdminOrderChargeDto Charge, IReadOnlyList<AdminOrderPackingLinePriceDto> Items);

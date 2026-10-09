@@ -7,6 +7,11 @@ function stateOf(orderStatus: string, paymentStatus: string, key: string) {
 }
 
 describe('orderLifecycle', () => {
+  it('marks fulfilment complete only after the recorded Delivered stage', () => {
+    const input = { orderStatus: 'Complete', paymentStatus: 'Captured' };
+    expect(orderLifecycle({ ...input, fulfilmentStatus: 'Cooking' }).steps.find(s => s.key === 'fulfilled')?.state).toBe('current');
+    expect(orderLifecycle({ ...input, fulfilmentStatus: 'Delivered' }).steps.find(s => s.key === 'fulfilled')?.state).toBe('done');
+  });
   it('never claims fulfilment progress — the projection has no Fulfilled value', () => {
     // DeriveFulfilment returns only Unfulfilled or Cancelled, so a "pending" fulfilment step
     // would tell the operator delivery is tracked and merely outstanding. It is not tracked.
