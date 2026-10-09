@@ -198,7 +198,7 @@ public class CartCheckoutDraftTests
     }
 
     [Fact]
-    public async Task Checkout_Should_RejectIncompleteSavedDeliveryAndUnsupportedGifts_BeforePayment()
+    public async Task Checkout_Should_RejectIncompleteSavedDeliveryAndMissingGiftRecipient_BeforePayment()
     {
         var h = new BoxTestHarness();
         var fixture = await h.BuildAsync("dish");
@@ -210,7 +210,7 @@ public class CartCheckoutDraftTests
         await incomplete.Should().ThrowAsync<StorefrontValidationException>();
         await h.Carts().SaveCheckoutDraftAsync(created.Box.CartId, new(Gift: new(GiftIntent: true, IncludeGreetingCard: true)), access);
         var gift = () => h.Checkout().CheckoutAsync(new(created.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
-        await gift.Should().ThrowAsync<StorefrontValidationException>();
+        await gift.Should().ThrowAsync<StorefrontValidationException>().WithMessage("Recipient:*");
         h.Payments.Calls.Should().Be(0);
         await using var context = h.Commerce();
         (await context.InventoryReservations.AnyAsync()).Should().BeFalse();

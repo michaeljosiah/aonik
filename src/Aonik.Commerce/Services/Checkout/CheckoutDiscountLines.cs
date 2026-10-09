@@ -14,7 +14,7 @@ internal static class CheckoutDiscountLines
         Guid tenantId, IReadOnlyList<OrderItemCommand> items, CancellationToken cancellationToken = default)
     {
         // Stored-value, delivery and future non-goods item types are ineligible by default.
-        var goods = items.Where(x => x.ItemType == OrderTypeCodes.ProductPurchase).ToList();
+        var goods = items.Where(x => x.ItemType is OrderTypeCodes.ProductPurchase or CheckoutService.GreetingCardItemType).ToList();
         var ids = goods.Where(x => x.ProductId.HasValue).Select(x => x.ProductId!.Value).Distinct().ToList();
         var variants = await db.ProductVariants.AsNoTracking()
             .Where(x => x.TenantId == tenantId && ids.Contains(x.Id))
@@ -27,6 +27,13 @@ internal static class CheckoutDiscountLines
         var result = new List<DiscountChargeLine>(goods.Count);
         foreach (var item in goods)
         {
+            // A greeting card is ordinary discounted goods without a catalogue product. Only
+            // unrestricted campaigns include it; product allow-lists still require an identity.
+            if (item.ItemType == CheckoutService.GreetingCardItemType && item.ProductId is null)
+            {
+                result.Add(new DiscountChargeLine(item.ItemIndex, null, item.AmountIn));
+                continue;
+            }
             if (item.ProductId is not { } reference)
                 throw new DiscountException(DiscountException.NotEligible);
             var productId = variants.TryGetValue(reference, out var parent) ? parent

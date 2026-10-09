@@ -218,7 +218,7 @@ internal sealed class DiscountService(CommerceDbContext db, ITenantProvider tena
             throw new InvalidStateException("Discount charge lines must have at most four decimal places so recorded allocations match the order amounts.");
         var products = ReadProducts(discount)?.ToHashSet();
         var eligible = lines.Where(line => line.Kind == "Goods" && line.Amount > 0
-                && line.ProductId != Guid.Empty && (products is null || products.Contains(line.ProductId)))
+                && line.ProductId != Guid.Empty && (products is null || line.ProductId is { } productId && products.Contains(productId)))
             .OrderBy(line => line.Index).ToArray();
         var subtotal = eligible.Sum(line => line.Amount);
         if (subtotal <= 0) throw new DiscountException(DiscountException.NotEligible);

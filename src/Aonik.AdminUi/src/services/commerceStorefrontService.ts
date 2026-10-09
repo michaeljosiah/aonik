@@ -11,6 +11,7 @@ import type {
   AdminCollectionDto,
   AdminCollectionSummaryDto,
   AdminOrderStorefrontDto,
+  AdminOrderPackingDto,
   AdminPartyStorefrontDto,
   AdminStorefrontOrderRowDto,
   BoxPlanDto,
@@ -181,6 +182,8 @@ export const commerceStorefrontService = {
   },
   getStorefrontOrder: async (orderId: string): Promise<AdminOrderStorefrontDto> =>
     api.get<AdminOrderStorefrontDto>(`/commerce/admin/orders/${orderId}/storefront`),
+  getOrderPacking: async (orderId: string, signal?: AbortSignal): Promise<AdminOrderPackingDto> =>
+    api.get<AdminOrderPackingDto>(`/commerce/admin/orders/${orderId}/packing`, { signal }),
   listCarts: async (params: ListAdminCartsParams = {}): Promise<PagedResult<AdminCartRowDto>> => {
     const raw = await api.get<CommercePagedResult<AdminCartRowDto>>(
       `/commerce/admin/carts${buildQuery({ ...params })}`,

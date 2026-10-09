@@ -137,6 +137,7 @@ public static class SettingDefinitions
                 CommerceSettingNames.StorefrontDeliveryListAmount,
                 DefaultValue: "0",
                 IsVisibleToClients: true),
+            [CommerceSettingNames.StorefrontGreetingCard] = new SettingDefinition(CommerceSettingNames.StorefrontGreetingCard),
             [CommerceSettingNames.StorefrontDeliveryChargedAmount] = new SettingDefinition(
                 CommerceSettingNames.StorefrontDeliveryChargedAmount,
                 DefaultValue: "0",

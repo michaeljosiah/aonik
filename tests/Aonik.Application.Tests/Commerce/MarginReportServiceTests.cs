@@ -542,6 +542,79 @@ public class MarginReportServiceTests
         report.OrdersExcludedByCurrency.Should().Be(1);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task GetMarginReport_Should_IncludeNetGreetingCardRevenue_AsUnknownCostWithoutAFoodRow(
+        bool legacy, bool cardDiscounted)
+    {
+        var h = new Harness();
+        var (_, dish) = await h.SeedSimpleAsync("Gifted dish", 2_000m);
+        await h.GiveJollofEconomicsAsync(dish);
+        h.Clock.UtcNow = FromUtc.AddDays(1);
+        // Persist the order/charge snapshot directly: this projection must also read historical
+        // allocations independently of today's checkout, campaign, and greeting-card price.
+        var order = await h.Orders().CreateAsync(new(OrderTypeCodes.ProductPurchase, null, "GBP",
+        [
+            new(OrderTypeCodes.ProductPurchase, 0, 2_000m, "GBP", Quantity: 1m, UnitPrice: 2_000m, ProductId: dish),
+            new(CheckoutService.GreetingCardItemType, 1, 3m, "GBP", Quantity: 1m, UnitPrice: 3m),
+            new(CheckoutService.DeliveryFeeItemType, 2, 7m, "GBP")
+        ], AmountIn: 2_002m));
+        await h.Orders().TransitionAsync(order.Id, OrderStatusCodes.Complete);
+        await using (var context = h.Commerce())
+        {
+            var allocations = new List<OrderDiscountAllocation>
+            {
+                new(order.Items.Single(item => item.ProductId == dish).Id, cardDiscounted ? 9m : 10m)
+            };
+            if (cardDiscounted)
+                allocations.Add(new(order.Items.Single(item => item.ItemType == CheckoutService.GreetingCardItemType).Id, 1m));
+            context.OrderChargeSummaries.Add(new OrderChargeSummary
+            {
+                TenantId = h.TenantId, OrderId = order.Id, Currency = "GBP", Subtotal = 2_003m,
+                GreetingCardCharged = 3m, DiscountTotal = 10m, TaxTotal = 2m, Total = 2_002m,
+                DiscountAllocationsJson = legacy ? null : DiscountAllocationSnapshot.Serialize(allocations)
+            });
+            await context.SaveChangesAsync();
+        }
+        await h.Pricing().SetPriceAsync(new(dish, "GBP", 9_000m));
+
+        var report = await h.ReportAsync();
+
+        var row = report.Rows.Should().ContainSingle().Subject;
+        row.ProductVariantId.Should().Be(dish);
+        row.QuantitySold.Should().Be(1m);
+        var expectedDishRevenue = legacy ? 1_990.015m : cardDiscounted ? 1_991m : 1_990m;
+        var expectedCardRevenue = legacy ? 2.985m : cardDiscounted ? 2m : 3m;
+        row.Revenue.Should().Be(expectedDishRevenue);
+        row.Cogs.Should().Be(400m);
+        report.Aggregate.Revenue.Should().Be(1_993m, "delivery and tax are excluded");
+        report.Aggregate.NonCatalogRevenue.Should().Be(expectedCardRevenue);
+        report.Aggregate.UnknownCogsRevenue.Should().Be(expectedCardRevenue);
+        report.Aggregate.KnownCogsRevenue.Should().Be(expectedDishRevenue);
+        report.Aggregate.Cogs.Should().Be(400m);
+        report.Aggregate.GrossMargin.Should().Be(expectedDishRevenue - 400m);
+        report.Aggregate.MarginPct.Should().Be(row.MarginPct);
+        report.VariantsWithoutRecipe.Should().BeEmpty("the card is not a recipe-bearing food variant");
+        report.VariantsWithUnknownCost.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetMarginReport_Should_NotInventMargin_WhenOnlyNonCatalogRevenueIsPresent()
+    {
+        var h = new Harness();
+        h.Clock.UtcNow = FromUtc.AddDays(1);
+        var order = await h.Orders().CreateAsync(new(OrderTypeCodes.ProductPurchase, null, "GBP",
+        [new(CheckoutService.GreetingCardItemType, 0, 3m, "GBP", Quantity: 1m, UnitPrice: 3m)]));
+        await h.Orders().TransitionAsync(order.Id, OrderStatusCodes.Complete);
+
+        var report = await h.ReportAsync();
+
+        report.Rows.Should().BeEmpty();
+        report.Aggregate.Should().Be(new MarginAggregateDto(3m, 0m, 0m, 0m, null, 3m, 3m));
+    }
+
     // ── §10 — target margin: BelowTarget flags ───────────────────────────────────────────────────
 
     [Fact]

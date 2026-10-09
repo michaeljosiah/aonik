@@ -30,5 +30,6 @@ internal static class QuoteComponentKeys
     public const string Personalisation = "personalisation";
     public const string UnitSurcharges = "unitSurcharges";
     public const string AddOns = "addOns";
+    public const string GreetingCard = "greetingCard";
     public const string DeliveryCharged = "deliveryCharged";
 }

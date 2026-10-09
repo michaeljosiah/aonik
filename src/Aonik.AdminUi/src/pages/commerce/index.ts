@@ -8,4 +8,5 @@ export { DeliveryCalendarPage } from './DeliveryCalendarPage';
 export { MerchandisingPage } from './MerchandisingPage';
 export { StorefrontConfigPage } from './StorefrontConfigPage';
 export { CommerceOrdersPage } from './CommerceOrdersPage';
+export { CommerceOrderPackingPage } from './CommerceOrderPackingPage';
 export { CommerceCartsPage } from './CommerceCartsPage';

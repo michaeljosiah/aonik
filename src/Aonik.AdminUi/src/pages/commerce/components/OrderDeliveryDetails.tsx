@@ -22,6 +22,16 @@ export function OrderDeliveryDetails({ delivery }: { delivery: OrderDeliveryDto 
             <dd>{delivery.recipient.name}</dd>
             <dd>{delivery.recipient.phone}</dd>
           </div>
+          {delivery.gift && (
+            <div>
+              <dt className="text-muted-foreground">Gift box</dt>
+              <dd>{delivery.gift.hidePrices ? 'Prices hidden on the packing slip' : 'Prices included on the packing slip'}</dd>
+              <dd>{delivery.gift.includeGreetingCard ? 'Include greeting card' : 'No greeting card'}</dd>
+              {delivery.gift.includeGreetingCard && delivery.gift.greetingCardMessage && (
+                <dd className="whitespace-pre-line break-words">{delivery.gift.greetingCardMessage}</dd>
+              )}
+            </div>
+          )}
           <div>
             <dt className="text-muted-foreground">Delivery address</dt>
             <dd className="whitespace-pre-line break-words">{[

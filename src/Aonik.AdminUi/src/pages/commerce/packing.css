@@ -1,0 +1,8 @@
+.packing-print-root { display: none; }
+
+@media print {
+  /* A direct-body portal excludes app chrome and other open financial views. */
+  body:has(> .packing-print-root) > :not(.packing-print-root) { display: none !important; }
+  body:has(> .packing-print-root) { background: white; }
+  .packing-print-root { display: block; color: black; background: white; padding: 12mm; }
+}

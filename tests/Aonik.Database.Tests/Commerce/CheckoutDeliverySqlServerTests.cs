@@ -41,6 +41,45 @@ public class CheckoutDeliverySqlServerTests(SqlLocalDbFixture database) : IClass
     private static readonly FixedClock Clock = new();
 
     [SkippableFact]
+    public async Task GiftSnapshot_Should_RoundTripUnicodeAndExactFee_AndRejectStaleEditsAcrossSqlContexts()
+    {
+        RequireSqlServer();
+        var tenantId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var message = new string('é', 990) + "\nFrom <A>";
+        await using (var seed = Commerce(tenantId))
+        {
+            var snapshot = Snapshot(tenantId, orderId, "1 Recipient Road", FirstDate);
+            snapshot.IsGift = true;
+            snapshot.HidePrices = true;
+            snapshot.IncludeGreetingCard = true;
+            snapshot.GreetingCardMessage = message;
+            seed.OrderDeliveryDetails.Add(snapshot);
+            seed.OrderChargeSummaries.Add(new OrderChargeSummary
+            {
+                TenantId = tenantId, OrderId = orderId, Currency = "GBP", Subtotal = 23m,
+                GreetingCardCharged = 3m, Total = 23m, PaymentIntentId = Guid.NewGuid(), PaymentStatus = "Pending"
+            });
+            await seed.SaveChangesAsync();
+        }
+
+        await using var first = Commerce(tenantId);
+        await using var stale = Commerce(tenantId);
+        var snapshotA = await first.OrderDeliveryDetails.SingleAsync(x => x.OrderId == orderId);
+        var snapshotB = await stale.OrderDeliveryDetails.SingleAsync(x => x.OrderId == orderId);
+        OrderDeliveryMapper.Map(snapshotA).Gift.Should().Be(new OrderGiftDto(true, true, message));
+        (await first.OrderChargeSummaries.SingleAsync(x => x.OrderId == orderId)).GreetingCardCharged.Should().Be(3m);
+        snapshotA.RowVersion.Should().HaveCount(8);
+        snapshotA.HidePrices = false;
+        await first.SaveChangesAsync();
+        snapshotB.GreetingCardMessage = "Stale message";
+        await stale.Invoking(x => x.SaveChangesAsync()).Should().ThrowAsync<DbUpdateConcurrencyException>();
+        await using var otherTenant = Commerce(Guid.NewGuid());
+        (await otherTenant.OrderDeliveryDetails.AnyAsync(x => x.OrderId == orderId)).Should().BeFalse();
+        (await otherTenant.OrderChargeSummaries.AnyAsync(x => x.OrderId == orderId)).Should().BeFalse();
+    }
+
+    [SkippableFact]
     public async Task CompetingCheckouts_Should_ClaimOneAttemptBeforeMoney_AndReplayItsOriginalSnapshot()
     {
         RequireSqlServer();

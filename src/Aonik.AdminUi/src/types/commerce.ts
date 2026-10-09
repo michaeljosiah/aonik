@@ -525,6 +525,7 @@ export interface StorefrontConfigDto {
   defaultBoxSlug: string | null;
   extrasCollectionSlug: string | null;
   box: StorefrontBoxPlanDto | null;
+  greetingCard?: { amount: number; currency: string } | null;
 }
 
 export interface UpdateStorefrontConfigRequest {
@@ -579,6 +580,13 @@ export interface AdminStorefrontOrderRowDto {
   total: number;
   boxSize: number | null;
   deliveryDate: string | null;
+  isGift?: boolean;
+}
+
+export interface OrderGiftDto {
+  hidePrices: boolean;
+  includeGreetingCard: boolean;
+  greetingCardMessage: string | null;
 }
 
 /** Checkout snapshots: these values are not refreshed from the customer's current profile. */
@@ -596,6 +604,7 @@ export interface OrderDeliveryDto {
   timezone: string;
   recipient: { name: string; phone: string };
   notes: string | null;
+  gift?: OrderGiftDto | null;
 }
 
 export interface AdminOrderStorefrontItemDto {
@@ -607,6 +616,25 @@ export interface AdminOrderStorefrontItemDto {
   amount: number;
   isAddOn: boolean;
   isDeliveryFee: boolean;
+  itemIndex?: number;
+}
+
+/** Recipient-only packing payload. Hidden prices are absent from the server response. */
+export interface AdminOrderPackingDto {
+  orderId: string;
+  boxSize: number | null;
+  deliveryDate: string | null;
+  timezone: string | null;
+  recipient: OrderDeliveryDto['recipient'] | null;
+  address: OrderDeliveryDto['address'] | null;
+  notes: string | null;
+  gift: OrderGiftDto | null;
+  items: { itemIndex: number; itemType: string; name: string; sku: string | null; quantity: number | null }[];
+  selections: StorefrontOrderSelectionDto[];
+  prices?: {
+    charge: AdminOrderChargeDto;
+    items: { itemIndex: number; unitPrice: number | null; amount: number }[];
+  };
 }
 
 export interface AdminOrderChargeDto {
@@ -727,6 +755,7 @@ export interface StorefrontOrderSummaryDto {
   total: number;
   boxSize: number | null;
   deliveryDate: string | null;
+  isGift?: boolean;
 }
 
 export interface AdminPartyActiveCartDto {

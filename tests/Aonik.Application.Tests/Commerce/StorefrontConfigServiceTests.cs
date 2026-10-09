@@ -27,6 +27,7 @@ public class StorefrontConfigServiceTests
         doc.Delivery.Should().Be(new StorefrontDeliveryDto(0m, 0m));
         doc.DefaultBoxSlug.Should().BeNull();
         doc.Box.Should().BeNull("Spec 068 is not live; null is the defined state");
+        doc.GreetingCard.Should().BeNull("there is no platform-wide greeting-card offer");
         doc.BackToTopTrigger.GetProperty("type").GetString().Should().Be("cardIndex");
         doc.BackToTopTrigger.GetProperty("value").GetInt32().Should().Be(10);
     }
@@ -38,6 +39,27 @@ public class StorefrontConfigServiceTests
         var (service, _, _) = NewService(tenantCurrency: "NGN");
 
         (await service.GetAsync()).Currency.Should().Be("NGN");
+    }
+
+    [Fact]
+    public async Task GreetingCard_Should_KeepItsExplicitCurrency_AndBeUnavailableForMalformedOrDisabledConfiguration()
+    {
+        var (service, store, _) = NewService(tenantCurrency: "NGN");
+        store.Values[CommerceSettingNames.StorefrontGreetingCard] = """{"isEnabled":true,"currency":"gbp","amount":3}""";
+        var configured = await service.GetAsync();
+        configured.Currency.Should().Be("NGN");
+        configured.GreetingCard.Should().Be(new GreetingCardPriceDto(3m, "GBP"));
+
+        foreach (var invalid in new[]
+        {
+            "{}", "null", "not json", """{"isEnabled":false,"currency":"GBP","amount":3}""",
+            """{"isEnabled":true,"currency":"GBP"}""", """{"isEnabled":true,"currency":"GBP","amount":0}""",
+            """{"isEnabled":true,"currency":"GBP","amount":3.001}""", """{"isEnabled":true,"currency":"GB","amount":3}"""
+        })
+        {
+            store.Values[CommerceSettingNames.StorefrontGreetingCard] = invalid;
+            (await service.GetAsync()).GreetingCard.Should().BeNull();
+        }
     }
 
     [Fact]

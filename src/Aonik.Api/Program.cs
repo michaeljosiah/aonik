@@ -195,6 +195,16 @@ app.Use(async (context, next) =>
         });
     }
 
+    if (context.Request.Path.StartsWithSegments("/commerce/admin/orders"))
+    {
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            return Task.CompletedTask;
+        });
+    }
+
     if (context.Request.Path.StartsWithSegments("/commerce/admin/discounts"))
     {
         context.Response.OnStarting(() =>

@@ -43,6 +43,7 @@ internal sealed class BoxTestHarness
     public CommerceTestHarness.TestClock Clock => _clock;
 
     public FakeBoxPaymentInitiator Payments { get; } = new();
+    public FakeBoxInvoiceWriter Invoices { get; } = new();
     public GuestOrderAccess GuestOrderAccess { get; } = new(new EphemeralDataProtectionProvider());
 
     public static CheckoutDeliveryDetails ValidDelivery => new(
@@ -113,7 +114,7 @@ internal sealed class BoxTestHarness
             new DictionaryTenantSettingStore(Settings), new NullSettingProvider(), new GbpTenantCurrencyProvider(), Pricing(), _clock, DiscountQuotes(ctx));
         return new CheckoutService(
             ctx, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user),
-            Payments, new FakeBoxInvoiceWriter(), new DiscountService(ctx, _tenant, _clock),
+            Payments, Invoices, new DiscountService(ctx, _tenant, _clock),
             new ZeroRateTaxCalculator(), _tenant, boxCarts, GuestOrderAccess,
             new FulfilmentPromiseService(ctx, _tenant, _clock), coverage ?? new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock);
     }
@@ -278,6 +279,10 @@ internal sealed class FakeBoxPaymentInitiator : TestPaymentState
 
 internal sealed class FakeBoxInvoiceWriter : IInvoiceWriter
 {
+    public CreateInvoiceForOrderCommand? LastCommand { get; private set; }
     public Task<InvoiceRef> CreateForOrderAsync(CreateInvoiceForOrderCommand command, CancellationToken ct = default)
-        => Task.FromResult(new InvoiceRef(Guid.NewGuid(), "INV-BOX", command.Lines.Sum(l => l.Quantity * l.UnitPrice), command.Currency));
+    {
+        LastCommand = command;
+        return Task.FromResult(new InvoiceRef(Guid.NewGuid(), "INV-BOX", command.Lines.Sum(l => l.Quantity * l.UnitPrice), command.Currency));
+    }
 }

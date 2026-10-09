@@ -6,6 +6,7 @@ using Aonik.Commerce.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Ordering;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -29,6 +30,8 @@ public interface IAdminStorefrontService
 
     Task<AdminOrderStorefrontDto?> GetOrderStorefrontAsync(Guid orderId, CancellationToken cancellationToken = default);
 
+    Task<AdminOrderPackingDto?> GetOrderPackingAsync(Guid orderId, CancellationToken cancellationToken = default);
+
     Task<Contracts.Models.Catalog.PagedResult<AdminCartRowDto>> ListCartsAsync(
         string? status = null, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
 
@@ -49,6 +52,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
     private readonly Catalog.IOptionSelectionService _selections;
     private readonly Catalog.IProductPricingService _pricing;
     private readonly ILogger<AdminStorefrontService> _logger;
+    private readonly ITenantSettingStore _settings;
 
     public AdminStorefrontService(
         CommerceDbContext dbContext,
@@ -58,7 +62,8 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
         Catalog.IProductOptionService options,
         Catalog.IOptionSelectionService selections,
         Catalog.IProductPricingService pricing,
-        ILogger<AdminStorefrontService> logger)
+        ILogger<AdminStorefrontService> logger,
+        ITenantSettingStore settings)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -68,6 +73,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
         _selections = selections;
         _pricing = pricing;
         _logger = logger;
+        _settings = settings;
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>> ListOrdersAsync(
@@ -126,8 +132,8 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
         var orderIds = rows.Select(r => r.OrderId).ToList();
         var deliveryDates = await _dbContext.OrderDeliveryDetails.AsNoTracking()
             .Where(d => d.TenantId == tenantId && orderIds.Contains(d.OrderId))
-            .Select(d => new { d.OrderId, d.DeliveryDate })
-            .ToDictionaryAsync(d => d.OrderId, d => (DateOnly?)d.DeliveryDate, cancellationToken);
+            .Select(d => new { d.OrderId, d.DeliveryDate, d.IsGift })
+            .ToDictionaryAsync(d => d.OrderId, cancellationToken);
         var spine = await _orders.ListAsync(
             new ListOrdersQuery(OrderIds: orderIds, PageSize: rows.Count),
             cancellationToken);
@@ -152,7 +158,8 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                 row.Currency,
                 row.Total,
                 row.BoxSize,
-                deliveryDates.GetValueOrDefault(row.OrderId)));
+                deliveryDates.GetValueOrDefault(row.OrderId)?.DeliveryDate,
+                deliveryDates.GetValueOrDefault(row.OrderId)?.IsGift ?? false));
         }
 
         return new Contracts.Models.Catalog.PagedResult<AdminStorefrontOrderRowDto>(results, totalCount, page, pageSize);
@@ -195,18 +202,19 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             .Select(i =>
             {
                 var isDelivery = string.Equals(i.ItemType, DeliveryFeeItemType, StringComparison.Ordinal);
+                var isGreetingCard = string.Equals(i.ItemType, CheckoutService.GreetingCardItemType, StringComparison.Ordinal);
                 var isBoxAggregate = cart.BoxBundleProductId is not null
                     && i.ProductId == cart.BoxBundleProductId
                     && !isDelivery;
-                var isAddOn = cart.BoxBundleProductId is not null && !isDelivery && !isBoxAggregate;
+                var isAddOn = cart.BoxBundleProductId is not null && !isDelivery && !isBoxAggregate && !isGreetingCard;
                 var name = isDelivery
                     ? "Delivery"
-                    : (i.ProductId is { } pid
+                    : isGreetingCard ? "Greeting card" : (i.ProductId is { } pid
                         ? (productNames.TryGetValue(pid, out var pn) ? pn
                             : variantNames.TryGetValue(pid, out var vn) ? vn : i.Sku ?? "Item")
                         : i.Sku ?? "Item");
                 return new AdminOrderStorefrontItemDto(
-                    i.ItemType, name, i.Sku, i.Quantity, i.UnitPrice, i.AmountIn, isAddOn, isDelivery);
+                    i.ItemType, name, i.Sku, i.Quantity, i.UnitPrice, i.AmountIn, isAddOn, isDelivery, i.ItemIndex);
             })
             .ToList();
 
@@ -248,6 +256,22 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                 summary.TaxTotal, summary.Total, summary.Currency),
             cart.BoxSize,
             delivery is null ? null : OrderDeliveryMapper.Map(delivery));
+    }
+
+    public async Task<AdminOrderPackingDto?> GetOrderPackingAsync(Guid orderId, CancellationToken cancellationToken = default)
+    {
+        var order = await GetOrderStorefrontAsync(orderId, cancellationToken);
+        if (order is null) return null;
+        if (order.PaymentStatus != CheckoutPaymentStatuses.Captured || order.FulfilmentStatus == "Cancelled")
+            throw new Catalog.StorefrontValidationException("Packing slips are available only for confirmed paid orders that have not been cancelled.");
+
+        var delivery = order.Delivery;
+        return new AdminOrderPackingDto(order.OrderId, order.BoxSize, delivery?.DeliveryDate,
+            delivery?.Timezone, delivery?.Recipient, delivery?.Address, delivery?.Notes, delivery?.Gift,
+            order.Items.Select(item => new AdminOrderPackingItemDto(
+                item.ItemIndex, item.ItemType, item.Name, item.Sku, item.Quantity)).ToList(), order.Selections,
+            delivery?.Gift?.HidePrices == true ? null : new AdminOrderPackingPricesDto(order.Charge,
+                order.Items.Select(item => new AdminOrderPackingLinePriceDto(item.ItemIndex, item.UnitPrice, item.Amount)).ToList()));
     }
 
     public async Task<Contracts.Models.Catalog.PagedResult<AdminCartRowDto>> ListCartsAsync(
@@ -425,11 +449,11 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
 
     /// <summary>A cart is a LIVE editable session only while Open with no order
     /// claim — the same predicate the box path enforces. A pending-payment cart
-    /// (Open but OrderId stamped) is frozen: its charge is fixed, its own
+    /// is frozen: its charge is fixed, its own
     /// inventory hold would read as self-inflicted unavailability, and its
     /// snapshots are the recorded truth.</summary>
     private static bool IsEditable(Cart cart)
-        => cart.Status == CartStatuses.Open && cart.OrderId is null;
+        => CartWriteGuard.IsEditable(cart);
 
     /// <summary>
     /// Computes, batched across the page, everything the row/detail shapes carry
@@ -539,7 +563,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
         // Plans for unclaimed box carts (value derivation) and recorded totals
         // for claimed ones.
         var planProductIds = carts
-            .Where(c => c.BoxBundleProductId is not null && c.OrderId is null)
+            .Where(c => c.BoxBundleProductId is not null && (IsEditable(c) || c.OrderId is null))
             .Select(c => c.BoxBundleProductId!.Value)
             .Distinct()
             .ToList();
@@ -694,7 +718,11 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
                     || flags.Values.Any(f => f.Unavailable || f.PriceChanged || f.SelectionDrift.Count > 0));
 
             decimal total;
-            if (cart.OrderId is { } orderId && recordedTotals.TryGetValue(orderId, out var recorded))
+            if (!isEditable && cart.CheckoutPreparationJson is not null)
+            {
+                total = CheckoutPreparation.Read(cart).Total;
+            }
+            else if (!isEditable && cart.OrderId is { } orderId && recordedTotals.TryGetValue(orderId, out var recorded))
             {
                 total = recorded;   // the charge summary is the authoritative claimed-cart value
             }
@@ -717,6 +745,9 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             {
                 total = lines.Sum(l => (l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity);
             }
+
+            if (isEditable)
+                total += await GreetingCardPricing.ResolveAsync(_settings, tenantId, cart.Currency, CartDraftData.Read(cart)?.Gift, ct);
 
             var boxMeta = cart.BoxBundleProductId is null || cart.BoxSize is null
                 ? null

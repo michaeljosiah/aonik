@@ -18,6 +18,44 @@ namespace Aonik.Application.Tests.Commerce;
 
 public class OrderDeliveryProjectionTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task GiftReads_Should_KeepHistoricalMoneyAndGiftFacts_WhenDraftAndCurrentFeeChange(bool hidePrices)
+    {
+        var h = new BoxTestHarness();
+        var partyId = Guid.NewGuid();
+        var gift = new OrderGiftDto(hidePrices, true, "Happy birthday!\nWith love <3");
+        var orderId = await SeedOrderAsync(h, partyId, new DateOnly(2026, 10, 25), gift);
+        h.Settings["Commerce.Storefront.GreetingCard"] = """{"isEnabled":true,"currency":"GBP","amount":8}""";
+        await using (var db = h.Commerce())
+        {
+            var cart = await db.Carts.SingleAsync(c => c.OrderId == orderId);
+            cart.CheckoutDraftJson = CartDraftData.Serialize(new CartCheckoutDraftDto());
+            await db.SaveChangesAsync();
+        }
+
+        var customer = await h.StorefrontOrders().GetMyOrderAsync(partyId, orderId);
+        var guest = await h.StorefrontOrders().GetGuestOrderAsync(orderId, h.GuestOrderAccess.Issue(h.TenantId, orderId));
+        var admin = AdminService(h);
+        var financial = await admin.GetOrderStorefrontAsync(orderId);
+        var packing = await admin.GetOrderPackingAsync(orderId);
+
+        customer!.Delivery!.Gift.Should().Be(gift);
+        guest!.Delivery!.Gift.Should().Be(gift);
+        financial!.Delivery!.Gift.Should().Be(gift);
+        packing!.Gift.Should().Be(gift);
+        customer.Total.Should().Be(98m);
+        guest.Total.Should().Be(98m);
+        financial.Charge.Total.Should().Be(98m);
+        financial.Items.Single(item => item.ItemType == CheckoutService.GreetingCardItemType).Amount.Should().Be(3m);
+        (packing.Prices is null).Should().Be(hidePrices);
+        if (!hidePrices) packing.Prices!.Items.Single(item => item.ItemIndex == 1).Amount.Should().Be(3m);
+        (await h.StorefrontOrders().ListMyOrdersAsync(partyId)).Items.Single().IsGift.Should().BeTrue();
+        (await admin.ListOrdersAsync()).Items.Single().IsGift.Should().BeTrue();
+        (await AdminService(h, Guid.NewGuid()).GetOrderPackingAsync(orderId)).Should().BeNull();
+    }
+
     [Fact]
     public async Task OrderReads_Should_ReturnTheSameRecordedDelivery_ToOwnerGuestAndAdmin()
     {
@@ -123,12 +161,15 @@ public class OrderDeliveryProjectionTests
         (await AdminService(h, otherTenant).ListOrdersAsync()).Items.Should().BeEmpty();
     }
 
-    private static async Task<Guid> SeedOrderAsync(BoxTestHarness h, Guid partyId, DateOnly? deliveryDate)
+    private static async Task<Guid> SeedOrderAsync(BoxTestHarness h, Guid partyId, DateOnly? deliveryDate, OrderGiftDto? gift = null)
     {
         var tenant = new TestTenantProvider(h.TenantId);
         var orders = new CoreOrderService(h.Ordering(), tenant, new CommerceTestHarness.TestClock(), new TestCurrentUserProvider());
-        var order = await orders.CreateAsync(new CreateOrderCommand(OrderTypeCodes.ProductPurchase, partyId, "GBP",
-            [new OrderItemCommand(OrderTypeCodes.ProductPurchase, 0, 95m, "GBP", Quantity: 1m, UnitPrice: 95m, Sku: "BOX")]));
+        var items = new List<OrderItemCommand> { new(OrderTypeCodes.ProductPurchase, 0, 95m, "GBP", Quantity: 1m, UnitPrice: 95m, Sku: "BOX") };
+        if (gift?.IncludeGreetingCard == true)
+            items.Add(new OrderItemCommand(CheckoutService.GreetingCardItemType, 1, 3m, "GBP", Quantity: 1m, UnitPrice: 3m, Sku: "GREETING-CARD"));
+        var total = items.Sum(item => item.AmountIn);
+        var order = await orders.CreateAsync(new CreateOrderCommand(OrderTypeCodes.ProductPurchase, partyId, "GBP", items));
         await using var db = h.Commerce();
         db.Carts.Add(new Cart
         {
@@ -137,8 +178,9 @@ public class OrderDeliveryProjectionTests
         });
         db.OrderChargeSummaries.Add(new OrderChargeSummary
         {
-            TenantId = h.TenantId, OrderId = order.Id, Currency = "GBP", Subtotal = 95m, Total = 95m,
+            TenantId = h.TenantId, OrderId = order.Id, Currency = "GBP", Subtotal = total, Total = total,
             PaymentIntentId = Guid.NewGuid(), PaymentStatus = CheckoutPaymentStatuses.Captured,
+            GreetingCardCharged = gift?.IncludeGreetingCard == true ? 3m : 0m,
         });
         if (deliveryDate is { } date)
         {
@@ -148,6 +190,8 @@ public class OrderDeliveryProjectionTests
                 PurchaserEmail = "purchaser@example.com", PurchaserFirstName = "Ada", PurchaserLastName = "Cook", PurchaserPhone = "+44 20 1111 1111",
                 AddressLine1 = "10 Kitchen Road", AddressLine2 = "Flat 2", City = "London", Postcode = "SW1A 1AA", CountryCode = "GB",
                 RecipientName = "Sam Recipient", RecipientPhone = "+44 20 2222 2222", Notes = "Ring the bell\nLeave with reception",
+                IsGift = gift is not null, HidePrices = gift?.HidePrices ?? true,
+                IncludeGreetingCard = gift?.IncludeGreetingCard ?? false, GreetingCardMessage = gift?.GreetingCardMessage,
             });
         }
         await db.SaveChangesAsync();
@@ -162,6 +206,6 @@ public class OrderDeliveryProjectionTests
         return new AdminStorefrontService(db, tenant, orders,
             new StorefrontOrderService(h.Commerce(), tenant, orders, h.GuestOrderAccess),
             CommerceTestHarness.NewOptionService(db, h.TenantId), CommerceTestHarness.NewSelectionService(db, h.TenantId),
-            h.Pricing(), NullLogger<AdminStorefrontService>.Instance);
+            h.Pricing(), NullLogger<AdminStorefrontService>.Instance, new DictionaryTenantSettingStore(h.Settings));
     }
 }

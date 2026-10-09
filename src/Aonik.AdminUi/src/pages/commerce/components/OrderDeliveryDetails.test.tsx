@@ -12,6 +12,16 @@ const delivery: OrderDeliveryDto = {
 };
 
 describe('order delivery snapshot', () => {
+  it('shows the recorded gift instructions without removing purchaser details from the finance view', () => {
+    const html = renderToStaticMarkup(<OrderDeliveryDetails delivery={{ ...delivery,
+      gift: { hidePrices: true, includeGreetingCard: true, greetingCardMessage: 'Happy birthday!\n<em>Love</em>' },
+    }} />);
+    expect(html).toContain('Prices hidden on the packing slip');
+    expect(html).toContain('Include greeting card');
+    expect(html).toContain('Happy birthday!\n&lt;em&gt;Love&lt;/em&gt;');
+    expect(html).toContain('ada@example.com');
+  });
+
   it('renders purchaser and recipient separately with the recorded address and instructions', () => {
     const html = renderToStaticMarkup(<OrderDeliveryDetails delivery={delivery} />);
     for (const fact of ['Ada Cook', 'ada@example.com', '020 1111 1111', 'Sam Recipient', '020 2222 2222',

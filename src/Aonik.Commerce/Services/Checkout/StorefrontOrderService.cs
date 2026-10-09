@@ -26,7 +26,8 @@ public record StorefrontOrderSummaryDto(
     string Currency,
     decimal Total,
     int? BoxSize,
-    DateOnly? DeliveryDate = null);
+    DateOnly? DeliveryDate = null,
+    bool IsGift = false);
 
 public record StorefrontOrderItemDto(
     string ItemType,
@@ -112,8 +113,8 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
         var orderIds = rows.Select(r => r.OrderId).ToList();
         var deliveryDates = await _dbContext.OrderDeliveryDetails.AsNoTracking()
             .Where(d => d.TenantId == tenantId && orderIds.Contains(d.OrderId))
-            .Select(d => new { d.OrderId, d.DeliveryDate })
-            .ToDictionaryAsync(d => d.OrderId, d => (DateOnly?)d.DeliveryDate, cancellationToken);
+            .Select(d => new { d.OrderId, d.DeliveryDate, d.IsGift })
+            .ToDictionaryAsync(d => d.OrderId, cancellationToken);
         var orders = await _orders.ListAsync(
             new ListOrdersQuery(OrderIds: orderIds, PageSize: rows.Count),
             cancellationToken);
@@ -128,7 +129,8 @@ internal sealed class StorefrontOrderService : IStorefrontOrderService
             }
             results.Add(new StorefrontOrderSummaryDto(
                 order.Id, order.CreatedAt, order.Status, row.Currency, row.Total, row.BoxSize,
-                deliveryDates.GetValueOrDefault(row.OrderId)));
+                deliveryDates.GetValueOrDefault(row.OrderId)?.DeliveryDate,
+                deliveryDates.GetValueOrDefault(row.OrderId)?.IsGift ?? false));
         }
 
         return new Contracts.Models.Catalog.PagedResult<StorefrontOrderSummaryDto>(results, totalCount, page, pageSize);

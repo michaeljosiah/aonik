@@ -25,7 +25,8 @@ public record AdminStorefrontOrderRowDto(
     string Currency,
     decimal Total,
     int? BoxSize,
-    DateOnly? DeliveryDate = null);
+    DateOnly? DeliveryDate = null,
+    bool IsGift = false);
 
 public record AdminOrderStorefrontItemDto(
     string ItemType,
@@ -36,7 +37,8 @@ public record AdminOrderStorefrontItemDto(
     decimal Amount,
     /// Spec 071 — an ordinary retail line sold alongside the box.
     bool IsAddOn,
-    bool IsDeliveryFee);
+    bool IsDeliveryFee,
+    int ItemIndex = 0);
 
 public record AdminOrderChargeDto(
     decimal Subtotal,

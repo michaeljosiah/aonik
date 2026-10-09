@@ -19,7 +19,7 @@ public sealed class DiscountException(string code) : InvalidOperationException(M
         NotEligible => "This discount code does not apply to these items.",
         CurrencyMismatch => "This discount code does not apply to this currency.",
         Inactive => "This discount code is not active.",
-        PriceChanged => "The discount quote has changed. Review the current total before checkout.",
+        PriceChanged => "Review and accept the current total before checkout.",
         Conflict => "The discount has changed. Reload it before trying again.",
         _ => "This discount code is invalid."
     };

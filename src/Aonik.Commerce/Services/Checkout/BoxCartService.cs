@@ -1268,6 +1268,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 $"'{negativeAddOn.Line.NameSnapshot}' now has a nonpositive price; remove it to check out.");
         }
         var addOnGoods = addOnLines.Sum(a => a.ChargedUnitPrice * a.Line.Quantity);
+        var greetingCard = await GreetingCardPricing.ResolveAsync(_settingStore, tenantId, cart.Currency,
+            CartDraftData.Read(cart)?.Gift, cancellationToken);
 
         return new BoxCheckoutShape(
             boxPrice + personalisation + surcharges,
@@ -1280,7 +1282,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             envelope,
             lines,
             addOnLines,
-            addOnGoods);
+            addOnGoods,
+            greetingCard);
     }
 
     // ─── Plan, quote and mapping ─────────────────────────────────────────────
@@ -1366,7 +1369,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         {
             var frozen = CheckoutPreparation.Read(cart);
             summary = new OrderChargeSummary { Subtotal = frozen.Subtotal, DiscountTotal = frozen.DiscountTotal,
-                DiscountCode = frozen.DiscountCode, TaxTotal = frozen.TaxTotal, Total = frozen.Total };
+                DiscountCode = frozen.DiscountCode, TaxTotal = frozen.TaxTotal, Total = frozen.Total,
+                GreetingCardCharged = frozen.GreetingCardCharged };
         }
         else if (!CartWriteGuard.IsEditable(cart) && cart.OrderId is { } orderId)
         {
@@ -1407,8 +1411,10 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         // from the recorded subtotal, and delivery is whatever the payment actually included.
         var frozenAddOns = addOnLines.Where(l => !l.IsDeleted).Sum(l =>
             (l.UnitPriceSnapshot + (l.PersonalisationAdjustment ?? 0m) + (l.UnitSurcharge ?? 0m)) * l.Quantity);
+        var greetingCard = summary?.GreetingCardCharged ?? await GreetingCardPricing.ResolveAsync(_settingStore,
+            tenantId, cart.Currency, CartDraftData.Read(cart)?.Gift, ct);
         var boxPrice = summary is not null
-            ? summary.Subtotal - personalisation - surcharges - frozenAddOns
+            ? summary.Subtotal - personalisation - surcharges - frozenAddOns - greetingCard
             : BoxPricing.BoxPrice(plan, size);
         var deliveryCharged = summary is not null
             ? summary.Total - (summary.Subtotal - summary.DiscountTotal + summary.TaxTotal)
@@ -1431,6 +1437,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         {
             components.Add(new QuoteComponentDto(QuoteComponentKeys.AddOns, addOns));
         }
+        if (greetingCard != 0m)
+            components.Add(new QuoteComponentDto(QuoteComponentKeys.GreetingCard, greetingCard));
         components.Add(new QuoteComponentDto(QuoteComponentKeys.DeliveryCharged, deliveryCharged));
 
         // K3 — a frozen view must total exactly what was charged: the recorded discount and tax
@@ -1448,6 +1456,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 pricedItems.Add(new OrderItemCommand(OrderTypeCodes.ProductPurchase, pricedItems.Count,
                     (line.UnitPriceSnapshot + (line.PersonalisationAdjustment ?? 0m) + (line.UnitSurcharge ?? 0m)) * line.Quantity,
                     cart.Currency, ProductId: line.ProductVariantId));
+            if (greetingCard > 0m)
+                pricedItems.Add(GreetingCardPricing.Item(pricedItems.Count, greetingCard, cart.Currency));
             live = await _discountQuotes.CalculateAsync(cart, pricedItems, deliveryCharged, CartDraftData.Read(cart)?.DiscountCode, ct);
         }
         var discount = summary?.DiscountTotal ?? live!.DiscountTotal;

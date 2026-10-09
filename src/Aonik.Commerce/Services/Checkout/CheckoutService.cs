@@ -77,6 +77,7 @@ internal sealed class CheckoutService : ICheckoutService
     /// <summary>The ItemType of a materialised delivery charge (Spec 068 §9) — excluded from
     /// goods-discount apportionment in reporting.</summary>
     internal const string DeliveryFeeItemType = "DeliveryFee";
+    internal const string GreetingCardItemType = "GreetingCard";
 
     public async Task<CheckoutResult> CheckoutAsync(CheckoutCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
     {
@@ -103,8 +104,9 @@ internal sealed class CheckoutService : ICheckoutService
             return await ReplayAsync(cart, existingOrderId, cancellationToken);
         CartWriteGuard.RequireCurrent(cart, access);
         var draft = CartDraftData.Read(cart);
-        if (draft?.Gift is { GiftIntent: true })
-            throw new StorefrontValidationException("Gift fulfilment is not yet available for checkout.");
+        var gift = draft?.Gift is { GiftIntent: true } selectedGift ? selectedGift : null;
+        if (gift is not null && cart.BoxBundleProductId is null)
+            throw new StorefrontValidationException("Gift fulfilment requires a food box.");
         var requestedDelivery = command.Delivery ?? CartDraftData.Delivery(draft);
 
         if (cart.Items.Count == 0)
@@ -128,6 +130,8 @@ internal sealed class CheckoutService : ICheckoutService
         if (requestedDelivery is { } submittedDelivery)
         {
             var details = CheckoutDeliveryValidator.NormalizeAndValidate(submittedDelivery);
+            if (gift is not null && details.Recipient is null)
+                throw new StorefrontValidationException("Recipient: enter the gift recipient's name and phone number.");
             if (cart.BoxBundleProductId is not null)
             {
                 if (details.Address.CountryCode != "GB")
@@ -150,7 +154,9 @@ internal sealed class CheckoutService : ICheckoutService
             var selected = await _fulfilment.ValidateDeliveryDateAsync(details.DeliveryDate, cancellationToken);
             delivery = new OrderDeliveryDto(details.Purchaser, details.Address, selected.DeliveryDate,
                 selected.Timezone, details.Recipient ?? new DeliveryRecipientDto(
-                    $"{details.Purchaser.FirstName} {details.Purchaser.LastName}", details.Purchaser.Phone), details.Notes);
+                    $"{details.Purchaser.FirstName} {details.Purchaser.LastName}", details.Purchaser.Phone), details.Notes,
+                gift is null ? null : new OrderGiftDto(gift.HidePrices, gift.IncludeGreetingCard,
+                    gift.IncludeGreetingCard ? gift.GreetingCardMessage : null));
         }
 
         // Spec 068 §9 — a box cart re-validates everything BEFORE reservation: drift stops the
@@ -171,7 +177,8 @@ internal sealed class CheckoutService : ICheckoutService
         // The whole charge breakdown is computable from the cart alone, so it runs BEFORE any
         // durable side effect: a nonpositive payable (e.g. a 100% coupon with zero delivery)
         // must reject while there is still nothing to unwind (L4).
-        var subtotal = box is not null ? box.GoodsTotal + box.AddOnGoodsTotal : cart.Items.Sum(i => i.UnitPriceSnapshot * i.Quantity);
+        var subtotal = box is not null ? box.GoodsTotal + box.AddOnGoodsTotal + box.GreetingCardCharged
+            : cart.Items.Sum(i => i.UnitPriceSnapshot * i.Quantity);
         if (box is not null && subtotal <= 0)
         {
             // R4 — a delivery charge must not carry a nonpositive goods figure over the final
@@ -254,6 +261,9 @@ internal sealed class CheckoutService : ICheckoutService
                     DetailsJson: priced is null ? null : JsonSerializer.Serialize(priced, EnvelopeSerializerOptions)));
             }
 
+            if (box.GreetingCardCharged > 0)
+                orderItems.Add(GreetingCardPricing.Item(nextIndex++, box.GreetingCardCharged, cart.Currency));
+
             if (box.DeliveryCharged > 0)
             {
                 // Materialised, not absorbed — without this the customer would be charged less
@@ -279,7 +289,7 @@ internal sealed class CheckoutService : ICheckoutService
         var tax = await _tax.CalculateAsync(taxable, cart.Currency, cancellationToken);
         var total = taxable + tax + (box?.DeliveryCharged ?? 0m);
         if ((command.ExpectedTotal is { } expectedTotal && expectedTotal != total)
-            || (!string.IsNullOrWhiteSpace(code) && command.ExpectedTotal is null))
+            || ((!string.IsNullOrWhiteSpace(code) || gift is { IncludeGreetingCard: true }) && command.ExpectedTotal is null))
             throw new DiscountException(DiscountException.PriceChanged);
         if (total <= 0)
             throw new StorefrontValidationException("The payable total for this cart is zero or below; it cannot be checked out.");
@@ -300,6 +310,7 @@ internal sealed class CheckoutService : ICheckoutService
         if (box is not null)
             invoiceLines.AddRange(box.AddOnLines.Select(a => new InvoiceLineSpec(a.Line.NameSnapshot, a.Line.Quantity, a.ChargedUnitPrice)));
         if (box is { DeliveryCharged: > 0 }) invoiceLines.Add(new("Delivery", 1m, box.DeliveryCharged));
+        if (box is { GreetingCardCharged: > 0 }) invoiceLines.Add(new("Greeting card", 1m, box.GreetingCardCharged));
         if (discount.Amount > 0) invoiceLines.Add(new($"Discount ({discount.Code})", 1m, -discount.Amount));
         if (tax > 0) invoiceLines.Add(new("Tax", 1m, tax));
         var selections = new List<CheckoutSelection>();
@@ -318,7 +329,7 @@ internal sealed class CheckoutService : ICheckoutService
             command.Provider, command.PaymentMethodType, command.ReturnUrl, command.CancelUrl, command.CustomerAccountId,
             subtotal, discount.Amount, discount.DiscountId, discount.Code, tax, total, orderItems, invoiceLines,
             reservationLines.Select(line => new CheckoutStockLine(line.Item.Id, line.Quantity)).ToList(), selections, delivery,
-            DiscountAllocations: discount.Allocations);
+            DiscountAllocations: discount.Allocations, GreetingCardCharged: box?.GreetingCardCharged ?? 0m);
         _ = preparation.Serialize();
         try { preparation = await ClaimPreparationAsync(cart.Id, preparation, access, command.RequireFreshCart, cancellationToken); }
         catch (DbUpdateConcurrencyException)
@@ -456,6 +467,7 @@ internal sealed class CheckoutService : ICheckoutService
                 }
                 if (summary.PaymentStatus == CheckoutPaymentStatuses.Captured) throw new InvalidOperationException("A paid checkout is immutable.");
                 summary.Currency = preparation.Currency; summary.Subtotal = preparation.Subtotal;
+                summary.GreetingCardCharged = preparation.GreetingCardCharged;
                 summary.DiscountTotal = preparation.DiscountTotal; summary.DiscountId = preparation.DiscountId;
                 summary.DiscountCode = preparation.DiscountCode; summary.TaxTotal = preparation.TaxTotal; summary.Total = preparation.Total;
                 summary.DiscountAllocationsJson = preparation.DiscountAllocations is null ? null
