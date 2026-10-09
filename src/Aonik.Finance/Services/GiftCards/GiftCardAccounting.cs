@@ -25,6 +25,14 @@ internal static class GiftCardAccounting
         if (accounts.Count != 3 || accounts[binding.CashAccountId].AccountType != "Asset"
             || accounts[binding.ClearingAccountId].AccountType != "Liability" || accounts[binding.LiabilityAccountId].AccountType != "Liability")
             throw new InvalidStateException("Gift-card cash, clearing or liability accounts are unavailable.");
+        // JournalWriter resolves these codes within the ledger. Prove that resolution
+        // identifies only the frozen accounts before allowing an external payment.
+        var codes = accounts.Values.Select(x => x.Code).ToArray();
+        var resolved = await db.LedgerAccounts.AsNoTracking().Where(x => x.TenantId == tenantId && !x.IsDeleted
+            && x.LedgerId == binding.LedgerId && codes.Contains(x.Code)).ToListAsync(ct);
+        if (codes.Any(string.IsNullOrWhiteSpace) || codes.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 3
+            || resolved.Count != 3 || resolved.Any(x => !accounts.ContainsKey(x.Id)))
+            throw new InvalidStateException("Gift-card account codes must uniquely identify the configured accounts.");
         return accounts;
     }
 
@@ -80,5 +88,36 @@ internal static class GiftCardAccounting
             && x.Id == operation.JournalEntryLineId && x.JournalEntryId == entryId && x.Direction == JournalDirections.Credit
             && x.LedgerAccountId == policy.Ledger.LiabilityAccountId && x.Amount == card.FaceValue, ct))
             throw new InvalidStateException("Gift-card issuance provenance is unavailable.");
+    }
+
+    public static async Task RequireRedeemedAsync(FinanceDbContext db, Guid tenantId, PaymentIntent intent,
+        GiftCardCheckoutAttempt attempt, GiftCardFunding funding, CancellationToken ct)
+    {
+        var card = await db.GiftCards.AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenantId
+            && x.Id == attempt.GiftCardId && !x.IsDeleted, ct);
+        var operation = await db.GiftCardOperations.AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenantId
+            && x.Kind == "Redeem" && x.SourceId == intent.Id && !x.IsDeleted, ct);
+        if (card is null || GiftCardService.ReadPolicy(card).Ledger != funding.Ledger || operation is null
+            || operation.GiftCardId != card.Id || operation.OrderId != intent.OrderId || operation.Amount != funding.GiftAmount
+            || attempt.ReservedAmount != funding.GiftAmount || funding.Ledger is null)
+            throw new InvalidStateException("Gift-card redemption funding is not complete.");
+
+        var entryId = await RequirePairAsync(db, tenantId, funding.Ledger.LedgerId, "GiftCardRedeem", intent.Id,
+            funding.Ledger.LiabilityAccountId, funding.Ledger.ClearingAccountId, funding.GiftAmount, ct);
+        if (operation.JournalEntryId != entryId || !await db.JournalEntryLines.AnyAsync(x => x.TenantId == tenantId
+            && !x.IsDeleted && x.Id == operation.JournalEntryLineId && x.JournalEntryId == entryId
+            && x.Direction == JournalDirections.Debit && x.LedgerAccountId == funding.Ledger.LiabilityAccountId
+            && x.Amount == funding.GiftAmount && x.Currency == "GBP", ct))
+            throw new InvalidStateException("Gift-card redemption provenance is unavailable.");
+
+        var receipts = await db.Payments.AsNoTracking().Where(x => x.TenantId == tenantId
+            && x.PaymentIntentId == intent.Id && !x.IsDeleted).ToListAsync(ct);
+        var gift = receipts.SingleOrDefault(x => x.Id == operation.PaymentId);
+        if (receipts.Count != (funding.CardAmount > 0 ? 2 : 1) || receipts.Sum(x => x.Amount) != intent.Amount
+            || gift is null || gift.Provider != "GiftCard" || gift.ConnectorId is not null
+            || gift.Amount != funding.GiftAmount || gift.Currency != "GBP" || gift.OutcomeStatus != "Captured"
+            || gift.CapturedAt is null || gift.ProviderReference != card.Id.ToString("N"))
+            throw new InvalidStateException("Exact gift-card payment receipts have not been proved.");
+        await RequireCashAsync(db, tenantId, intent, funding, ct);
     }
 }

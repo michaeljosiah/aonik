@@ -194,10 +194,13 @@ internal sealed class LedgerPostingService
         journal.Lines.Add(new JournalEntryLine { TenantId = invoice.TenantId, JournalEntryId = journal.Id,
             LedgerAccountId = gift.Ledger.ClearingAccountId, Direction = JournalDirections.Debit,
             Amount = invoice.Total, Currency = invoice.Currency, Narration = "Invoice settled" });
-        // Issuance already moved this value from clearing into its actual gift liability.
-        journal.Lines.Add(new JournalEntryLine { TenantId = invoice.TenantId, JournalEntryId = journal.Id,
-            LedgerAccountId = gift.Ledger.ClearingAccountId, Direction = JournalDirections.Credit,
-            Amount = gift.GiftValue, Currency = invoice.Currency, Narration = "Issued gift value" });
+        if (gift.GiftValue > 0m)
+        {
+            // Issuance already moved this value from clearing into its actual gift liability.
+            journal.Lines.Add(new JournalEntryLine { TenantId = invoice.TenantId, JournalEntryId = journal.Id,
+                LedgerAccountId = gift.Ledger.ClearingAccountId, Direction = JournalDirections.Credit,
+                Amount = gift.GiftValue, Currency = invoice.Currency, Narration = "Issued gift value" });
+        }
         if (remaining > 0m)
         {
             var revenue = await _db.LedgerAccounts.AsNoTracking().SingleOrDefaultAsync(a => a.TenantId == invoice.TenantId

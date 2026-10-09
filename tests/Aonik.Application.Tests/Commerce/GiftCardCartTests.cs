@@ -89,6 +89,23 @@ public sealed class GiftCardCartTests
         await h.Pricing.Invoking(x => x.SelectAsync(cart, selection)).Should().ThrowAsync<StorefrontValidationException>();
     }
 
+    [Theory]
+    [InlineData("Email")]
+    [InlineData("Post")]
+    public async Task FreshQuote_Should_RejectASelectionWhoseDeliveryDateHasPassed(string method)
+    {
+        using var h = await Harness.CreateAsync();
+        var cart = await h.CartAsync();
+        await h.Carts.SetPurchaseAsync(cart.Id, await h.SelectionAsync(method), h.Access(cart));
+        cart = await h.LoadAsync(cart.Id);
+        h.Clock.UtcNow = new(2026, 10, 13, 12, 0, 0, DateTimeKind.Utc);
+        var items = new List<OrderItemCommand>();
+
+        await h.Pricing.Invoking(x => x.AppendAsync(cart, items)).Should().ThrowAsync<StorefrontValidationException>();
+
+        items.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task AcceptedOptions_Should_BindFinanceTermsAndStoreFees_AndRequireAvailableProduct()
     {
@@ -104,6 +121,41 @@ public sealed class GiftCardCartTests
         h.GiftVariant.IsActive = false;
         await h.Db.SaveChangesAsync();
         await h.Pricing.Invoking(x => x.SelectAsync(cart, selection)).Should().ThrowAsync<StorefrontValidationException>();
+    }
+
+    [Theory]
+    [InlineData("Email")]
+    [InlineData("Post")]
+    [InlineData("InFoodBox")]
+    public async Task Selection_Should_RejectDeliveryAfterConfiguredExpiry(string method)
+    {
+        using var h = await Harness.CreateAsync();
+        h.FinancePolicy = h.FinancePolicy with { Validity = new(false, 2) };
+        var cart = new Cart { TenantId = h.TenantId, Currency = "GBP", BoxBundleProductId = Guid.NewGuid(),
+            CheckoutDraftJson = CartDraftData.Serialize(new(DeliveryDate: new(2026, 10, 12))) };
+        var selection = await h.SelectionAsync(method);
+
+        await h.Pricing.Invoking(x => x.SelectAsync(cart, selection)).Should()
+            .ThrowAsync<StorefrontValidationException>().WithMessage("*before its configured expiry*");
+    }
+
+    [Fact]
+    public async Task FreshInBoxCheckout_Should_CheckValidatedDeliveryDateAgainstExpiry()
+    {
+        using var h = await Harness.CreateAsync();
+        h.FinancePolicy = h.FinancePolicy with { Validity = new(false, 2) };
+        var cart = await h.CartAsync();
+        cart.BoxBundleProductId = Guid.NewGuid();
+        var selected = await h.Pricing.SelectAsync(cart, await h.SelectionAsync("InFoodBox"));
+        cart.GiftCardPurchaseJson = JsonSerializer.Serialize(selected, GiftCardPurchasePricing.Json);
+        cart.Items.Add(new CartItem { TenantId = h.TenantId, CartId = cart.Id, ProductVariantId = h.GiftVariant.Id,
+            LineKind = CartLineKinds.GiftCardValue, Quantity = 1, UnitPriceSnapshot = 50 });
+        var items = new List<OrderItemCommand>();
+
+        await h.Pricing.Invoking(x => x.AppendAsync(cart, items, foodDeliveryDate: new(2026, 10, 12))).Should()
+            .ThrowAsync<StorefrontValidationException>().WithMessage("*before its configured expiry*");
+
+        items.Should().BeEmpty();
     }
 
     [Fact]

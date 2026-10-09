@@ -21,6 +21,76 @@ using static CartTestAccess;
 public partial class CheckoutServiceTests
 {
     [Theory]
+    [InlineData("Email", 50)]
+    [InlineData("Post", 55)]
+    public async Task FreshGiftCheckout_Should_RejectSelectionWhoseDeliveryDatePassedBeforePayment(string method, decimal total)
+    {
+        var h = new Harness { GiftCardsEnabled = true };
+        var cart = await CreateGiftPurchaseCartAsync(h, method);
+        h.Now = h.Now.AddDays(3);
+        var checkout = () => h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card", ExpectedTotal: total),
+            CartAccessContext.ForGuest(cart.AnonymousToken, cart.CartVersion));
+
+        await checkout.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*date within the next year*");
+
+        await using var ordering = h.Ordering();
+        await using var commerce = h.Commerce();
+        (await ordering.Orders.CountAsync()).Should().Be(0);
+        (await commerce.OrderGiftCardDeliveries.CountAsync()).Should().Be(0);
+        (await commerce.Carts.SingleAsync()).CheckoutPreparationJson.Should().BeNull();
+        h.Payments.LastCommand.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("Email", 50)]
+    [InlineData("Post", 55)]
+    public async Task PreparedGiftCheckout_Should_ResumeOriginalDeliveryAfterItsDatePassesAndIssuanceIsDisabled(string method, decimal total)
+    {
+        var h = new Harness { GiftCardsEnabled = true };
+        var cart = await CreateGiftPurchaseCartAsync(h, method);
+        var access = CartAccessContext.ForGuest(cart.AnonymousToken, cart.CartVersion);
+        var commands = new List<CreateGuestPaymentIntentForOrderCommand>();
+        h.Payments.BeforeCreate = command => { commands.Add(command); return Task.CompletedTask; };
+        h.Payments.FailTimes = 1;
+        var first = () => h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card", ExpectedTotal: total), access);
+        await first.Should().ThrowAsync<InvalidOperationException>().WithMessage("*provider failure*");
+        string preparation;
+        string delivery;
+        Guid deliveryId;
+        await using (var before = h.Commerce())
+        {
+            var savedCart = await before.Carts.SingleAsync();
+            savedCart.CheckoutState.Should().Be(CartCheckoutStates.AwaitingPayment);
+            preparation = savedCart.CheckoutPreparationJson!;
+            var savedDelivery = await before.OrderGiftCardDeliveries.SingleAsync();
+            delivery = savedDelivery.PurchaseSnapshotJson;
+            deliveryId = savedDelivery.Id;
+        }
+        h.Now = h.Now.AddDays(3);
+        h.Settings.Setup(s => s.GetTenantValueAsync(GiftCardPurchasePricing.SettingName, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        h.Gifts.Setup(g => g.GetPolicyAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new GiftCardPolicy());
+        h.Gifts.Invocations.Clear();
+
+        var result = await h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card"), access);
+        var replay = await h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card"), access);
+
+        result.Total.Should().Be(total);
+        replay.OrderId.Should().Be(result.OrderId);
+        commands.Should().HaveCount(2);
+        commands[1].PaymentIntentId.Should().Be(commands[0].PaymentIntentId);
+        JsonSerializer.Serialize(commands[1].GiftCard).Should().Be(JsonSerializer.Serialize(commands[0].GiftCard));
+        h.Gifts.Verify(g => g.GetPolicyAsync(It.IsAny<CancellationToken>()), Times.Never);
+        await using var after = h.Commerce();
+        (await after.Carts.SingleAsync()).CheckoutPreparationJson.Should().Be(preparation);
+        var frozen = (await after.OrderGiftCardDeliveries.ToListAsync()).Should().ContainSingle().Subject;
+        frozen.Id.Should().Be(deliveryId);
+        frozen.PurchaseSnapshotJson.Should().Be(delivery);
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.CountAsync()).Should().Be(1);
+    }
+
+    [Theory]
     [InlineData("Email", 50, 0)]
     [InlineData("Post", 55.50, .50)]
     public async Task GuestGiftPurchase_Should_FreezeDeliveryAndRealOrderItemBeforePayment_WithoutFoodDeliveryOrStock(

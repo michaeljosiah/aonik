@@ -93,7 +93,7 @@ public partial class CheckoutServiceTests
         public Mock<IGiftCardService> Gifts { get; } = new();
         public Mock<ITenantSettingStore> Settings { get; } = new();
         public bool GiftCardsEnabled { get; set; }
-        public DateTime Now => _clock.UtcNow;
+        public DateTime Now { get => _clock.UtcNow; set => _clock.UtcNow = value; }
         public ITaxCalculator Tax { get; set; } = new ZeroRateTaxCalculator();
 
         public Harness()

@@ -307,7 +307,7 @@ internal sealed class CheckoutService : ICheckoutService
             }
         }
 
-        var giftPurchase = _giftPricing == null ? null : await _giftPricing.AppendAsync(cart, orderItems, cancellationToken);
+        var giftPurchase = _giftPricing == null ? null : await _giftPricing.AppendAsync(cart, orderItems, cancellationToken, delivery?.DeliveryDate);
         if (giftPurchase == null && cart.GiftCardPurchaseJson != null)
             throw new StorefrontValidationException("Gift-card purchasing is not available.");
         subtotal = orderItems.Where(x => x.ItemType != DeliveryFeeItemType).Sum(x => x.AmountIn);

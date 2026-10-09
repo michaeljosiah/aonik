@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Aonik.Finance.Entities;
+using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Entities.Ledger;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Payments;
@@ -53,6 +54,31 @@ public sealed class GiftCardServiceTests
             _ => h.Policy with { Ledger = h.Binding with { LiabilityAccountId = Guid.NewGuid() } }
         });
         await h.Service.Invoking(x => x.GetPolicyAsync()).Should().ThrowAsync<InvalidStateException>();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DuplicateAccountCode_Should_RejectPolicyAndPaymentAdmissionBeforeReserving(bool redeem)
+    {
+        using var h = await Harness.CreateAsync();
+        var checkout = redeem
+            ? await h.TenderAsync((await h.IssueAsync(100)).Code, 80, 60)
+            : await h.PurchaseAsync(50);
+        var journalCount = await h.Db.JournalEntries.CountAsync();
+        h.Db.LedgerAccounts.Add(new LedgerAccount { TenantId = h.TenantId, LedgerId = h.Binding.LedgerId,
+            Code = "gift-liability", AccountType = "Liability" });
+        await h.Db.SaveChangesAsync();
+
+        await h.Service.Invoking(x => x.GetPolicyAsync()).Should().ThrowAsync<InvalidStateException>();
+        (await h.Service.PrepareTrackedAsync(checkout.Intent, checkout.Instruction)).Should().Be("gift_card.unavailable");
+        await h.Db.SaveChangesAsync();
+
+        var attempt = await h.Db.GiftCardCheckoutAttempts.SingleAsync(x => x.PaymentIntentId == checkout.Intent.Id);
+        attempt.Status.Should().Be("Released");
+        attempt.ReservedAmount.Should().Be(0);
+        (await h.Db.JournalEntries.CountAsync()).Should().Be(journalCount);
+        h.Db.Payments.Any(x => x.PaymentIntentId == checkout.Intent.Id).Should().BeFalse();
     }
 
     [Fact]
@@ -325,6 +351,123 @@ public sealed class GiftCardServiceTests
         await wrongInvoice.Should().ThrowAsync<InvalidStateException>();
     }
 
+    [Theory]
+    [InlineData(80)]
+    [InlineData(60)]
+    public async Task InvoiceSettlement_Should_ClearActualPureOrMixedGiftFunding_InOriginalLedger(decimal giftAmount)
+    {
+        using var h = await Harness.CreateAsync();
+        var revenueId = await h.AddInvoiceAccountsAsync();
+        var issued = await h.IssueAsync(100);
+        var (intent, instruction) = await h.TenderAsync(issued.Code, 80, giftAmount);
+        (await h.Service.PrepareTrackedAsync(intent, instruction)).Should().BeNull();
+        await h.Db.SaveChangesAsync();
+        if (giftAmount < 80) await h.RecordCashAsync(intent, 80 - giftAmount);
+        intent.Status = "Captured";
+        await h.Service.CompleteTrackedAsync(intent);
+        await h.Db.SaveChangesAsync();
+        var invoice = new Invoice { TenantId = h.TenantId, OrderId = intent.OrderId, Total = 80, Currency = "GBP" };
+        var service = new LedgerPostingService(h.Db);
+
+        await service.PostInvoiceSettlementAsync(invoice);
+        await service.PostInvoiceSettlementAsync(invoice);
+
+        var journal = await h.Db.JournalEntries.Include(x => x.Lines).SingleAsync(x => x.SourceType == "InvoiceSettlement" && x.SourceId == invoice.Id);
+        journal.LedgerId.Should().Be(h.Binding.LedgerId);
+        journal.Lines.Should().HaveCount(2).And.OnlyContain(x => x.Amount > 0);
+        journal.Lines.Should().ContainSingle(x => x.LedgerAccountId == h.Binding.ClearingAccountId && x.Direction == JournalDirections.Debit && x.Amount == 80);
+        journal.Lines.Should().ContainSingle(x => x.LedgerAccountId == revenueId && x.Direction == JournalDirections.Credit && x.Amount == 80);
+        var clearing = await h.Db.JournalEntryLines.Where(x => x.LedgerAccountId == h.Binding.ClearingAccountId).ToListAsync();
+        clearing.Sum(x => x.Direction == JournalDirections.Debit ? x.Amount : -x.Amount).Should().Be(0);
+        h.Db.GiftCardOperations.Count(x => x.SourceId == intent.Id && x.Kind == "Redeem").Should().Be(1);
+        h.Db.Payments.Where(x => x.PaymentIntentId == intent.Id).Sum(x => x.Amount).Should().Be(80);
+    }
+
+    [Theory]
+    [InlineData("Pending")]
+    [InlineData("Captured")]
+    public async Task InvoiceSettlement_Should_RejectGiftAttemptWithoutCompletedFunding(string status)
+    {
+        using var h = await Harness.CreateAsync();
+        await h.AddInvoiceAccountsAsync();
+        var issued = await h.IssueAsync(100);
+        var (intent, instruction) = await h.TenderAsync(issued.Code, 80, 60);
+        (await h.Service.PrepareTrackedAsync(intent, instruction)).Should().BeNull();
+        intent.Status = status;
+        await h.Db.SaveChangesAsync();
+        var invoice = new Invoice { TenantId = h.TenantId, OrderId = intent.OrderId, Total = 80, Currency = "GBP" };
+
+        await new LedgerPostingService(h.Db).Invoking(x => x.PostInvoiceSettlementAsync(invoice))
+            .Should().ThrowAsync<InvalidStateException>();
+
+        h.Db.JournalEntries.Any(x => x.SourceType == "InvoiceSettlement").Should().BeFalse();
+        h.Db.GiftCardOperations.Any(x => x.SourceId == intent.Id).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("gift-receipt")]
+    [InlineData("gift-journal")]
+    [InlineData("cash-receipt")]
+    [InlineData("cash-journal")]
+    public async Task InvoiceSettlement_Should_RequireActualReceiptsAndJournalProof_NotJustCompletedStatus(string damagedEvidence)
+    {
+        using var h = await Harness.CreateAsync();
+        await h.AddInvoiceAccountsAsync();
+        var issued = await h.IssueAsync(100);
+        var (intent, instruction) = await h.TenderAsync(issued.Code, 80, 60);
+        (await h.Service.PrepareTrackedAsync(intent, instruction)).Should().BeNull();
+        await h.Db.SaveChangesAsync();
+        await h.RecordCashAsync(intent, 20);
+        intent.Status = "Captured";
+        await h.Service.CompleteTrackedAsync(intent);
+        await h.Db.SaveChangesAsync();
+        if (damagedEvidence.EndsWith("receipt", StringComparison.Ordinal))
+        {
+            var provider = damagedEvidence.StartsWith("gift", StringComparison.Ordinal) ? "GiftCard" : "Stripe";
+            h.Db.Payments.Remove(await h.Db.Payments.SingleAsync(x => x.PaymentIntentId == intent.Id && x.Provider == provider));
+        }
+        else
+        {
+            var source = damagedEvidence.StartsWith("gift", StringComparison.Ordinal) ? "GiftCardRedeem" : "PaymentCapture";
+            var journalId = await h.Db.JournalEntries.Where(x => x.SourceId == intent.Id && x.SourceType == source).Select(x => x.Id).SingleAsync();
+            var debit = await h.Db.JournalEntryLines.SingleAsync(x => x.JournalEntryId == journalId && x.Direction == JournalDirections.Debit);
+            debit.LedgerAccountId = h.Binding.ClearingAccountId;
+        }
+        await h.Db.SaveChangesAsync();
+        var invoice = new Invoice { TenantId = h.TenantId, OrderId = intent.OrderId, Total = 80, Currency = "GBP" };
+
+        await new LedgerPostingService(h.Db).Invoking(x => x.PostInvoiceSettlementAsync(invoice))
+            .Should().ThrowAsync<InvalidStateException>();
+
+        h.Db.JournalEntries.Any(x => x.SourceType == "InvoiceSettlement").Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(50)]
+    [InlineData(60)]
+    public async Task InvoiceSettlement_Should_ExcludeIssuedFaceValueFromRevenue(decimal total)
+    {
+        using var h = await Harness.CreateAsync();
+        var revenueId = await h.AddInvoiceAccountsAsync();
+        var (intent, instruction) = await h.PurchaseAsync(50, total);
+        (await h.Service.PrepareTrackedAsync(intent, instruction)).Should().BeNull();
+        await h.Db.SaveChangesAsync();
+        await h.RecordCashAsync(intent, total);
+        intent.Status = "Captured";
+        await h.Service.CompleteTrackedAsync(intent);
+        await h.Db.SaveChangesAsync();
+        var invoice = new Invoice { TenantId = h.TenantId, OrderId = intent.OrderId, Total = total, Currency = "GBP" };
+
+        await new LedgerPostingService(h.Db).PostInvoiceSettlementAsync(invoice);
+
+        var journal = await h.Db.JournalEntries.Include(x => x.Lines).SingleAsync(x => x.SourceType == "InvoiceSettlement");
+        journal.LedgerId.Should().Be(h.Binding.LedgerId);
+        journal.Lines.Should().OnlyContain(x => x.Amount > 0);
+        journal.Lines.Where(x => x.LedgerAccountId == revenueId).Sum(x => x.Amount).Should().Be(total - 50);
+        journal.Lines.Should().ContainSingle(x => x.LedgerAccountId == h.Binding.ClearingAccountId && x.Direction == JournalDirections.Credit && x.Amount == 50);
+        journal.Lines.Should().NotContain(x => x.LedgerAccountId == h.Binding.LiabilityAccountId);
+    }
+
     private sealed class Harness : IDisposable
     {
         public Guid TenantId { get; } = Guid.NewGuid();
@@ -363,6 +506,18 @@ public sealed class GiftCardServiceTests
             return h;
         }
         public void Configure(GiftCardPolicy policy) => Raw = JsonSerializer.Serialize(policy, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        public async Task<Guid> AddInvoiceAccountsAsync()
+        {
+            var otherLedger = new LedgerEntity { TenantId = TenantId, BaseCurrency = "GBP" };
+            var revenue = new LedgerAccount { TenantId = TenantId, LedgerId = Binding.LedgerId, Code = "4000", AccountType = "Revenue" };
+            Db.Ledgers.Add(otherLedger);
+            Db.LedgerAccounts.AddRange(revenue,
+                new LedgerAccount { TenantId = TenantId, LedgerId = otherLedger.Id, Code = "1000", AccountType = "Asset" },
+                new LedgerAccount { TenantId = TenantId, LedgerId = otherLedger.Id, Code = "2100", AccountType = "Liability" },
+                new LedgerAccount { TenantId = TenantId, LedgerId = otherLedger.Id, Code = "4000", AccountType = "Revenue" });
+            await Db.SaveChangesAsync();
+            return revenue.Id;
+        }
         public OtherTenantScope OtherTenant() => new(_options, Clock);
         public async Task<(PaymentIntent Intent, GiftCardCheckout Instruction)> PurchaseAsync(decimal face, decimal? total = null)
         {

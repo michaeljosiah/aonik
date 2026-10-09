@@ -1562,7 +1562,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 ? summary.DiscountCode is null ? null : new DiscountCodeStatusDto(summary.DiscountCode, discount)
                 : live!.Discount,
             summary is not null ? CheckoutLoyaltyQuotes.Frozen(CheckoutLoyaltyData.Read(summary.LoyaltyJson)) : live!.Loyalty,
-            summary is not null ? CheckoutGiftCards.Frozen(cart, CheckoutGiftCards.Read(summary.GiftCardJson)) : live!.GiftCard);
+            summary is not null ? CheckoutGiftCards.Frozen(cart, CheckoutGiftCards.Read(summary.GiftCardJson)) : live!.GiftCard,
+            summary is not null ? null : live!.GiftCardPurchaseStatus);
     }
 
     private static JsonElement? ParseSelection(string? canonicalJson)

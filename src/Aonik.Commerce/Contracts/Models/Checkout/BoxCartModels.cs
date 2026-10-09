@@ -68,7 +68,8 @@ public record BoxQuoteDto(
     bool IsFull,
     DiscountCodeStatusDto? Discount = null,
     LoyaltyQuoteDto? Loyalty = null,
-    Aonik.Commerce.Contracts.Models.GiftCards.GiftCardTenderQuoteDto? GiftCard = null);
+    Aonik.Commerce.Contracts.Models.GiftCards.GiftCardTenderQuoteDto? GiftCard = null,
+    GiftCardPurchaseQuoteStatusDto? GiftCardPurchaseStatus = null);
 
 /// <summary>A customer-visible catalogue-drift notice (§8) — remaps, drops, merges, unavailable
 /// flags. The storefront tells the customer what changed and why.</summary>

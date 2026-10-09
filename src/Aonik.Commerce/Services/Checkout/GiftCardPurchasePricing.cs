@@ -55,6 +55,14 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
     public async Task<GiftCardPurchaseDto> SelectAsync(Cart cart, GiftCardPurchaseSelection selection, CancellationToken ct = default)
     {
         var (store, finance, version) = await PolicyAsync(ct);
+        var purchase = ValidateSelection(cart, selection, store, finance, version);
+        await VariantAsync(store.ProductVariantId, ct);
+        return purchase;
+    }
+
+    private GiftCardPurchaseDto ValidateSelection(Cart cart, GiftCardPurchaseSelection selection,
+        GiftCardStorefrontOptions store, GiftCardPolicy finance, string version, DateOnly? foodDeliveryDate = null)
+    {
         ValidatePolicy(store, finance, version, selection, cart);
         var normalized = selection with
         {
@@ -96,7 +104,15 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
             if (cart.BoxBundleProductId is null) throw new StorefrontValidationException("In-box delivery requires a food box.");
             normalized = normalized with { SendDate = null, RecipientEmail = null, PostingDate = null, PostalAddress = null, RecipientPhone = null };
         }
-        await VariantAsync(store.ProductVariantId, ct);
+        if (finance.Validity is { NeverExpires: false, ValidForDays: { } validDays })
+        {
+            var earliestExpiry = clock.UtcNow.AddDays(validDays);
+            var physicalDate = normalized.DeliveryMethod == "Post" ? normalized.PostingDate
+                : normalized.DeliveryMethod == "InFoodBox" ? foodDeliveryDate ?? CartDraftData.Read(cart)?.DeliveryDate : null;
+            var expiryDate = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(earliestExpiry, zone));
+            if (sendAt >= earliestExpiry || physicalDate >= expiryDate)
+                throw new StorefrontValidationException("Choose gift-card delivery before its configured expiry.");
+        }
         return new(normalized, sendAt, normalized.DeliveryMethod == "Post" ? store.Postage : 0m,
             normalized.IncludeGreetingCard ? store.GreetingCardPrice : 0m);
     }
@@ -111,7 +127,8 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
         return variant;
     }
 
-    public async Task<GiftCardPurchaseQuote?> AppendAsync(Cart cart, List<OrderItemCommand> items, CancellationToken ct = default)
+    public async Task<GiftCardPurchaseQuote?> AppendAsync(Cart cart, List<OrderItemCommand> items, CancellationToken ct = default,
+        DateOnly? foodDeliveryDate = null)
     {
         var purchase = Read(cart);
         var lines = cart.Items.Where(x => !x.IsDeleted && x.LineKind == CartLineKinds.GiftCardValue).ToList();
@@ -121,25 +138,40 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
             return null;
         }
         var (store, finance, version) = await PolicyAsync(ct);
-        ValidatePolicy(store, finance, version, purchase.Selection, cart);
+        var current = ValidateSelection(cart, purchase.Selection, store, finance, version, foodDeliveryDate);
         var variant = await VariantAsync(store.ProductVariantId, ct);
         if (lines.Count != 1 || lines[0].ProductVariantId != variant.Id || lines[0].Quantity != 1m
             || lines[0].UnitPriceSnapshot != purchase.Selection.FaceValue
             || purchase.Postage != (purchase.Selection.DeliveryMethod == "Post" ? store.Postage : 0m)
             || purchase.GreetingCardPrice != (purchase.Selection.IncludeGreetingCard ? store.GreetingCardPrice : 0m))
             throw new StorefrontValidationException("Review the gift-card selection and current price.");
-        var index = items.Count == 0 ? 0 : items.Max(x => x.ItemIndex) + 1;
+        var index = AppendSnapshotLines(cart, purchase, items);
         var s = purchase.Selection;
-        items.Add(new(CartLineKinds.GiftCardValue, index, s.FaceValue, cart.Currency, Quantity: 1m,
-            UnitPrice: s.FaceValue, ProductId: variant.Id, Sku: variant.Sku, NameSnapshot: variant.Name));
+        return new(new GiftCardCheckout(cart.Id, finance.Version, finance.Ledger!, finance.Validity!, finance.TermsVersion!,
+            finance.FundingAllocation!, new GiftCardPurchase(index, Guid.Empty, s.FaceValue)),
+            new(index, Guid.Empty, s.FaceValue, cart.Currency, s.DeliveryMethod, s.RecipientName, s.RecipientEmail,
+                current.SendAtUtc, s.PostingDate, s.PostalAddress, s.RecipientPhone, s.Message, s.SenderName, s.IncludeGreetingCard));
+    }
+
+    internal static int AppendSnapshotLines(Cart cart, GiftCardPurchaseDto purchase, List<OrderItemCommand> items)
+    {
+        var lines = cart.Items.Where(x => !x.IsDeleted && x.LineKind == CartLineKinds.GiftCardValue).ToList();
+        if (lines.Count != 1 || lines[0].Quantity != 1m || lines[0].ProductVariantId == Guid.Empty
+            || lines[0].UnitPriceSnapshot != purchase.Selection.FaceValue || purchase.Selection.FaceValue <= 0m
+            || purchase.Postage < 0m || purchase.GreetingCardPrice < 0m
+            || decimal.Round(purchase.Selection.FaceValue, 2) != purchase.Selection.FaceValue
+            || decimal.Round(purchase.Postage, 2) != purchase.Postage
+            || decimal.Round(purchase.GreetingCardPrice, 2) != purchase.GreetingCardPrice)
+            throw new StorefrontValidationException("The saved gift-card selection is invalid.");
+        var line = lines[0];
+        var index = items.Count == 0 ? 0 : items.Max(x => x.ItemIndex) + 1;
+        items.Add(new(CartLineKinds.GiftCardValue, index, purchase.Selection.FaceValue, cart.Currency, Quantity: 1m,
+            UnitPrice: purchase.Selection.FaceValue, ProductId: line.ProductVariantId, Sku: line.Sku, NameSnapshot: line.NameSnapshot));
         if (purchase.Postage > 0m) items.Add(new(PostageItemType, index + 1, purchase.Postage, cart.Currency,
             Quantity: 1m, UnitPrice: purchase.Postage, NameSnapshot: "Gift-card postage"));
         if (purchase.GreetingCardPrice > 0m) items.Add(new(GreetingItemType, items.Max(x => x.ItemIndex) + 1,
             purchase.GreetingCardPrice, cart.Currency, Quantity: 1m, UnitPrice: purchase.GreetingCardPrice, NameSnapshot: "Gift-card greeting card"));
-        return new(new GiftCardCheckout(cart.Id, finance.Version, finance.Ledger!, finance.Validity!, finance.TermsVersion!,
-            finance.FundingAllocation!, new GiftCardPurchase(index, Guid.Empty, s.FaceValue)),
-            new(index, Guid.Empty, s.FaceValue, cart.Currency, s.DeliveryMethod, s.RecipientName, s.RecipientEmail,
-                purchase.SendAtUtc, s.PostingDate, s.PostalAddress, s.RecipientPhone, s.Message, s.SenderName, s.IncludeGreetingCard));
+        return index;
     }
 
     public static GiftCardPurchaseDto? Read(Cart cart) => cart.GiftCardPurchaseJson == null ? null

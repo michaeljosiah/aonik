@@ -27,8 +27,21 @@ internal sealed class CartDiscountQuotes(CommerceDbContext db, ITenantProvider t
         var pricedItems = items.ToList();
         if (delivery > 0m) pricedItems.Add(new OrderItemCommand(CheckoutService.DeliveryFeeItemType,
             pricedItems.Count == 0 ? 0 : pricedItems.Max(x => x.ItemIndex) + 1, delivery, cart.Currency));
+        GiftCardPurchaseQuoteStatusDto? giftPurchaseStatus = null;
         if (giftPricing != null && !pricedItems.Any(x => x.ItemType == CartLineKinds.GiftCardValue))
-            await giftPricing.AppendAsync(cart, pricedItems, ct);
+        {
+            var savedPurchase = GiftCardPurchasePricing.Read(cart);
+            try { await giftPricing.AppendAsync(cart, pricedItems, ct); }
+            catch (Exception error) when (savedPurchase != null
+                && error is StorefrontValidationException or InvalidStateException)
+            {
+                // Reads retain the selected face value and fees so the owner can remove or
+                // reselect an unavailable offer. Checkout still calls strict AppendAsync.
+                GiftCardPurchasePricing.AppendSnapshotLines(cart, savedPurchase, pricedItems);
+                giftPurchaseStatus = new("gift_card.purchase_unavailable",
+                    "The saved gift-card selection is no longer available. Remove it or review the current options.");
+            }
+        }
         items = pricedItems;
         var subtotal = items.Where(x => x.ItemType != CheckoutService.DeliveryFeeItemType).Sum(x => x.AmountIn);
         var giftValue = items.Where(x => x.ItemType == CartLineKinds.GiftCardValue).Sum(x => x.AmountIn);
@@ -53,7 +66,15 @@ internal sealed class CartDiscountQuotes(CommerceDbContext db, ITenantProvider t
         var taxTotal = await tax.CalculateAsync(subtotal - amount - giftValue, cart.Currency, ct);
         CheckoutLoyaltyQuote? loyalty = null;
         var requested = CartDraftData.Read(cart)?.RequestedPoints ?? 0;
-        if (loyaltyQuotes is not null)
+        if (giftPurchaseStatus is not null)
+        {
+            // A retired gift product may no longer resolve in the catalogue. Do not promise
+            // points on a purchase that must be repaired before the total can be accepted.
+            if (requested > 0)
+                loyalty = new(null, new(requested, 0, 0, 0m, 0,
+                    ReasonCode: giftPurchaseStatus.Code, Message: giftPurchaseStatus.Message));
+        }
+        else if (loyaltyQuotes is not null)
         {
             var chargedItems = items.ToList();
             loyalty = await loyaltyQuotes.CalculateAsync(cart, chargedItems, computation,
@@ -75,7 +96,7 @@ internal sealed class CartDiscountQuotes(CommerceDbContext db, ITenantProvider t
         }
         return new CartDiscountQuoteDto(cart.Id, Convert.ToBase64String(cart.RowVersion), cart.Currency,
             subtotal, amount, taxTotal, delivery, total, status,
-            points, loyalty?.Quote, CheckoutGiftCards.Public(cart, giftFunding));
+            points, loyalty?.Quote, CheckoutGiftCards.Public(cart, giftFunding), giftPurchaseStatus);
     }
 
     public async Task<CartDiscountQuoteDto> SnapshotAsync(Cart cart, string? code, CancellationToken ct = default)
