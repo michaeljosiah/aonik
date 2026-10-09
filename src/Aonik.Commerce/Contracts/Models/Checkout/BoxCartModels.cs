@@ -67,7 +67,8 @@ public record BoxQuoteDto(
     int SpacesLeft,
     bool IsFull,
     DiscountCodeStatusDto? Discount = null,
-    LoyaltyQuoteDto? Loyalty = null);
+    LoyaltyQuoteDto? Loyalty = null,
+    Aonik.Commerce.Contracts.Models.GiftCards.GiftCardTenderQuoteDto? GiftCard = null);
 
 /// <summary>A customer-visible catalogue-drift notice (§8) — remaps, drops, merges, unavailable
 /// flags. The storefront tells the customer what changed and why.</summary>
@@ -109,7 +110,8 @@ public record BoxCartDto(
     string CartVersion = "",
     string Status = "Open",
     Guid? OrderId = null,
-    CartCheckoutDraftDto? CheckoutDraft = null);
+    CartCheckoutDraftDto? CheckoutDraft = null,
+    Aonik.Commerce.Contracts.Models.GiftCards.GiftCardPurchaseDto? GiftCardPurchase = null);
 
 // ─── Commands (§10) ─────────────────────────────────────────────────────────
 

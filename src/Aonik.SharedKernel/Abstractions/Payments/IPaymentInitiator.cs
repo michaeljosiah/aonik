@@ -1,4 +1,5 @@
 using Aonik.SharedKernel.Abstractions.Loyalty;
+using Aonik.SharedKernel.Abstractions.GiftCards;
 
 namespace Aonik.SharedKernel.Abstractions.Payments;
 
@@ -35,7 +36,8 @@ public sealed record CreateGuestPaymentIntentForOrderCommand(
     Guid? PaymentIntentId = null,
     string? IdempotencyKey = null,
     DateTime? ProviderStartDeadlineUtc = null,
-    LoyaltyCheckout? Loyalty = null);
+    LoyaltyCheckout? Loyalty = null,
+    GiftCardCheckout? GiftCard = null);
 
 /// <summary>A reference to the created payment intent, including any client-side completion handles.</summary>
 public sealed record PaymentIntentRef(

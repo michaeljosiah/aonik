@@ -49,6 +49,41 @@ public sealed class WorkItemServiceTests
         RecurrenceCron: cron);
 
     [Fact]
+    public async Task ScheduleAsync_Should_ReplayCancelledTaskWithoutRearming_AndRejectChangedBindings()
+    {
+        var clock = new TestClock();
+        var (service, db) = CreateService(Guid.NewGuid(), clock, new FakeCatalog(TaskActionTypes.NotifyUser));
+        using (db)
+        {
+            var request = NotifyRequest(clock.UtcNow.AddDays(1)) with { TaskId = Guid.NewGuid() };
+            var created = await service.ScheduleAsync(request);
+            await service.CancelAsync(created.Id);
+            var replay = await service.ScheduleAsync(request);
+            replay.Id.Should().Be(created.Id);
+            replay.Status.Should().Be(TaskStatuses.Cancelled);
+            replay.NextRunAtUtc.Should().BeNull();
+            (await db.WorkItems.CountAsync()).Should().Be(1);
+            var changedPayload = () => service.ScheduleAsync(request with { ActionPayloadJson = "{\"other\":true}" });
+            await changedPayload.Should().ThrowAsync<ArgumentException>();
+            var changedDate = () => service.ScheduleAsync(request with { RunAtUtc = request.RunAtUtc!.Value.AddDays(1) });
+            await changedDate.Should().ThrowAsync<ArgumentException>();
+        }
+    }
+
+    [Fact]
+    public async Task ScheduleAsync_Should_RejectStableIdWithoutExplicitUtcOneOff()
+    {
+        var (service, db) = CreateService(Guid.NewGuid(), new TestClock(), new FakeCatalog(TaskActionTypes.NotifyUser));
+        using (db)
+        {
+            var action = () => service.ScheduleAsync(NotifyRequest() with { TaskId = Guid.NewGuid() });
+            await action.Should().ThrowAsync<ArgumentException>();
+            var recurring = () => service.ScheduleAsync(NotifyRequest(cron: "0 * * * * ?") with { TaskId = Guid.NewGuid() });
+            await recurring.Should().ThrowAsync<ArgumentException>();
+        }
+    }
+
+    [Fact]
     public async Task ScheduleAsync_Should_CreateOneOffTask_When_RunAtProvided()
     {
         var tenant = Guid.NewGuid();

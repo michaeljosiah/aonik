@@ -7,10 +7,12 @@ using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Loyalty;
+using Aonik.Finance.Services.GiftCards;
 using Aonik.Finance.Services.Observability;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Payments;
+using Aonik.SharedKernel.Abstractions.GiftCards;
 using Aonik.SharedKernel.Events.Integration;
 
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +36,16 @@ internal sealed class CheckoutPaymentReconciler(
         var intent = await db.PaymentIntents.AsNoTracking()
             .SingleOrDefaultAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, cancellationToken)
             ?? throw new NotFoundException("Payment attempt was not found.");
+        if (intent.ProviderCode == "GiftCard")
+        {
+            if (webhookEventId is not null || candidateSessionId is not null)
+                throw new InvalidStateException("An internal payment cannot accept provider notifications.");
+            if (intent.Status is nameof(PaymentStatus.Captured) or nameof(PaymentStatus.Cancelled)) return State(intent);
+            if (expire)
+                return await CancelUnstartedAsync(paymentIntentId, cancellationToken)
+                    ?? throw new InvalidStateException("The internal payment outcome must be reconciled.");
+            return await CompleteGiftOnlyAsync(paymentIntentId, cancellationToken);
+        }
         RequireStripe(intent);
 
         if (webhookEventId is { } eventId)
@@ -103,7 +115,10 @@ internal sealed class CheckoutPaymentReconciler(
                 var intent = await context.PaymentIntents
                     .SingleOrDefaultAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, ct)
                     ?? throw new NotFoundException("Payment attempt was not found.");
-                ValidateSnapshot(intent, snapshot);
+                var gifts = scope.ServiceProvider.GetRequiredService<GiftCardService>();
+                var funding = await gifts.ReadFundingTrackedAsync(intent, ct);
+                ValidateSnapshot(intent, snapshot, funding.CardAmount);
+                var newlyCaptured = false;
                 PartnerWebhookEvent? inbox = null;
                 if (webhookEventId is { } eventId)
                 {
@@ -127,7 +142,8 @@ internal sealed class CheckoutPaymentReconciler(
                             throw new InvalidStateException("A captured payment requires its actual payer and payment method.");
 
                         // Internal poster saves remain inside this outer transaction.
-                        await scope.ServiceProvider.GetRequiredService<LedgerPostingService>().PostPaymentCaptureAsync(intent, ct);
+                        await scope.ServiceProvider.GetRequiredService<LedgerPostingService>()
+                            .PostPaymentCaptureAsync(intent, funding.CardAmount, funding.Ledger, ct);
                         context.Payments.Add(new Payment
                         {
                             TenantId = tenantId,
@@ -142,7 +158,7 @@ internal sealed class CheckoutPaymentReconciler(
                             OutcomeJson = JsonSerializer.Serialize(new { sessionId = snapshot.SessionId, accountId = snapshot.ProviderAccountId, liveMode = snapshot.LiveMode })
                         });
                         intent.Status = nameof(PaymentStatus.Captured);
-                        context.EnqueueIntegrationEvent(new PaymentCompletedEvent(tenantId, intent.Id, intent.OrderId, intent.Amount, intent.Currency));
+                        newlyCaptured = true;
                     }
                     else if (intent.Status != nameof(PaymentStatus.Cancelled))
                     {
@@ -151,9 +167,13 @@ internal sealed class CheckoutPaymentReconciler(
                 }
                 // Uses the same scoped context and outer transaction as cash, receipt and outbox.
                 // Repeated terminal observations converge without consulting today's policy.
-                var loyalty = scope.ServiceProvider.GetRequiredService<LoyaltyService>();
-                if (intent.Status == nameof(PaymentStatus.Captured)) await loyalty.CompleteTrackedAsync(intent, ct);
-                else if (intent.Status == nameof(PaymentStatus.Cancelled)) await loyalty.ReleaseTrackedAsync(intent, ct);
+                if (intent.Status == nameof(PaymentStatus.Captured))
+                    await CompleteFundingAsync(context, scope.ServiceProvider, intent, funding, newlyCaptured, ct);
+                else if (intent.Status == nameof(PaymentStatus.Cancelled))
+                {
+                    await gifts.ReleaseTrackedAsync(intent, ct);
+                    await scope.ServiceProvider.GetRequiredService<LoyaltyService>().ReleaseTrackedAsync(intent, ct);
+                }
                 if (inbox is not null)
                 {
                     inbox.ProcessingStatus = "Processed";
@@ -178,6 +198,77 @@ internal sealed class CheckoutPaymentReconciler(
         }
     }
 
+    public async Task<PaymentIntentStateRef> CompleteGiftOnlyAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
+    {
+        var tenantId = tenantProvider.GetCurrentTenantId();
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return await db.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
+                {
+                    await using var scope = scopeFactory.CreateAsyncScope();
+                    scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+                    var context = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+                    await using var transaction = context.Database.IsRelational()
+                        ? await context.Database.BeginTransactionAsync(ct) : null;
+                    var intent = await context.PaymentIntents.SingleOrDefaultAsync(p => p.Id == paymentIntentId && p.TenantId == tenantId, ct)
+                        ?? throw new NotFoundException("Payment attempt was not found.");
+                    var gifts = scope.ServiceProvider.GetRequiredService<GiftCardService>();
+                    var funding = await gifts.ReadFundingTrackedAsync(intent, ct);
+                    if (intent.ProviderCode != "GiftCard" || intent.PaymentMethodType != "GiftCard"
+                        || intent.ConnectorId is not null || intent.ProviderReference is not null
+                        || intent.ProviderRequestStartedAtUtc is not null || funding.CardAmount != 0m
+                        || funding.GiftAmount != intent.Amount || funding.GiftAmount <= 0m)
+                        throw new InvalidStateException("Only a fully gift-funded internal checkout can complete without a provider.");
+                    if (intent.Status is nameof(PaymentStatus.Captured) or nameof(PaymentStatus.Cancelled)) return State(intent);
+                    if (intent.Status != nameof(PaymentStatus.Pending))
+                        throw new InvalidStateException("The internal payment is not ready to complete.");
+                    if (intent.PayerPartyId is not { } payer || !await context.Parties.AnyAsync(p => p.Id == payer && p.TenantId == tenantId, ct))
+                        throw new InvalidStateException("A captured payment requires its actual payer.");
+                    if (intent.ProviderStartDeadlineUtc is { } deadline && clock.UtcNow >= deadline)
+                    {
+                        intent.Status = nameof(PaymentStatus.Cancelled);
+                        await gifts.ReleaseTrackedAsync(intent, ct);
+                        await scope.ServiceProvider.GetRequiredService<LoyaltyService>().ReleaseTrackedAsync(intent, ct);
+                    }
+                    else
+                    {
+                        intent.Status = nameof(PaymentStatus.Captured);
+                        // The native intent claim, liability debit and genuine receipt share this transaction.
+                        await CompleteFundingAsync(context, scope.ServiceProvider, intent, funding, true, ct);
+                    }
+                    await context.SaveChangesAsync(ct);
+                    if (transaction is not null) await transaction.CommitAsync(ct);
+                    return State(intent);
+                }, cancellationToken);
+            }
+            catch (DbUpdateConcurrencyException) when (attempt < 2) { }
+        }
+    }
+
+    private static async Task CompleteFundingAsync(FinanceDbContext context, IServiceProvider services,
+        PaymentIntent intent, GiftCardFunding funding, bool newlyCaptured, CancellationToken ct)
+    {
+        // Make the verified card receipt visible to gift issuance within the caller's transaction.
+        await context.SaveChangesAsync(ct);
+        await services.GetRequiredService<GiftCardService>().CompleteTrackedAsync(intent, ct);
+        await services.GetRequiredService<LoyaltyService>().CompleteTrackedAsync(intent, ct);
+        await context.SaveChangesAsync(ct);
+        var receipts = await context.Payments.AsNoTracking()
+            .Where(p => p.TenantId == intent.TenantId && p.PaymentIntentId == intent.Id).ToListAsync(ct);
+        var card = receipts.Where(p => p.Provider == "Stripe" && p.ConnectorId == intent.ConnectorId).ToArray();
+        var gift = receipts.Where(p => p.Provider == "GiftCard" && p.ConnectorId == null).ToArray();
+        if (receipts.Any(p => p.Currency != intent.Currency || p.OutcomeStatus != nameof(PaymentStatus.Captured) || p.Amount is null or <= 0m)
+            || receipts.Count != (funding.CardAmount > 0m ? 1 : 0) + (funding.GiftAmount > 0m ? 1 : 0)
+            || (funding.CardAmount > 0m ? card.Length != 1 || card[0].Amount != funding.CardAmount : card.Length != 0)
+            || (funding.GiftAmount > 0m ? gift.Length != 1 || gift[0].Amount != funding.GiftAmount : gift.Length != 0)
+            || receipts.Sum(p => p.Amount!.Value) != intent.Amount)
+            throw new InvalidStateException("The recorded payment receipts do not prove the exact full checkout funding.");
+        if (newlyCaptured)
+            context.EnqueueIntegrationEvent(new PaymentCompletedEvent(intent.TenantId, intent.Id, intent.OrderId, intent.Amount, intent.Currency));
+    }
+
     private async Task<PaymentIntentStateRef?> CancelUnstartedAsync(Guid paymentIntentId, CancellationToken cancellationToken)
     {
         var tenantId = tenantProvider.GetCurrentTenantId();
@@ -197,6 +288,7 @@ internal sealed class CheckoutPaymentReconciler(
                     if (pending.Status != nameof(PaymentStatus.Pending) || pending.ProviderRequestStartedAtUtc is not null
                         || pending.ProviderReference is not null) return null;
                     pending.Status = nameof(PaymentStatus.Cancelled);
+                    await scope.ServiceProvider.GetRequiredService<GiftCardService>().ReleaseTrackedAsync(pending, ct);
                     await scope.ServiceProvider.GetRequiredService<LoyaltyService>().ReleaseTrackedAsync(pending, ct);
                     await context.SaveChangesAsync(ct);
                     if (transaction is not null) await transaction.CommitAsync(ct);
@@ -213,12 +305,12 @@ internal sealed class CheckoutPaymentReconciler(
             throw new InvalidStateException("This payment attempt is not a bound Stripe checkout.");
     }
 
-    private static void ValidateSnapshot(PaymentIntent intent, PaymentProviderCheckoutSnapshot snapshot)
+    private static void ValidateSnapshot(PaymentIntent intent, PaymentProviderCheckoutSnapshot snapshot, decimal cardAmount)
     {
         RequireStripe(intent);
         if (intent.TenantId != snapshot.TenantId || intent.Id != snapshot.PaymentIntentId || intent.OrderId != snapshot.OrderId
             || intent.ConnectorId != snapshot.ConnectorId || intent.ProviderAccountId != snapshot.ProviderAccountId
-            || intent.ProviderLiveMode != snapshot.LiveMode || intent.Amount != snapshot.Amount
+            || intent.ProviderLiveMode != snapshot.LiveMode || cardAmount <= 0m || cardAmount != snapshot.Amount
             || !string.Equals(intent.Currency, snapshot.Currency, StringComparison.OrdinalIgnoreCase)
             || string.IsNullOrWhiteSpace(snapshot.SessionId) || !snapshot.SessionId.StartsWith("cs_", StringComparison.Ordinal)
             || (intent.ProviderReference is not null && intent.ProviderReference != snapshot.SessionId)
@@ -227,7 +319,7 @@ internal sealed class CheckoutPaymentReconciler(
             throw new InvalidStateException("The verified provider payment does not match the frozen local attempt.");
         if (!Enum.TryParse<PaymentStatus>(snapshot.Status, out var status) || !Enum.IsDefined(status))
             throw new InvalidStateException("The provider returned an unsupported payment state.");
-        if (status == PaymentStatus.Captured && (snapshot.ReceivedAmount != intent.Amount
+        if (status == PaymentStatus.Captured && (snapshot.ReceivedAmount != cardAmount
                 || string.IsNullOrWhiteSpace(snapshot.ProviderPaymentIntentId) || snapshot.CanNoLongerPay))
             throw new InvalidStateException("The provider has not proven the exact captured amount.");
         if (snapshot.CanNoLongerPay && status is PaymentStatus.Authorized or PaymentStatus.Processing or PaymentStatus.RequiresAction)

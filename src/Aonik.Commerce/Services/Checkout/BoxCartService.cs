@@ -37,6 +37,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     private readonly IProductPricingService _pricing;
     private readonly IClock _clock;
     private readonly CartDiscountQuotes _discountQuotes;
+    private readonly GiftCardPurchasePricing? _giftPricing;
 
     public BoxCartService(
         CommerceDbContext dbContext,
@@ -48,7 +49,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         ITenantCurrencyProvider tenantCurrency,
         IProductPricingService pricing,
         IClock clock,
-        CartDiscountQuotes discountQuotes)
+        CartDiscountQuotes discountQuotes, GiftCardPurchasePricing? giftPricing = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -60,6 +61,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         _pricing = pricing;
         _clock = clock;
         _discountQuotes = discountQuotes;
+        _giftPricing = giftPricing;
     }
 
     /// <summary>The storefront delivery settings are denominated in the tenant's canonical
@@ -253,6 +255,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
     public Task<BoxCartDto> AddExtraLineAsync(Guid cartId, AddBoxExtraCommand command, CartAccessContext access, CancellationToken cancellationToken = default)
         => RunAsync(cartId, access, requireOpen: true, touchCart: true, async (ctx, ct) =>
         {
+            if (_giftPricing != null) await _giftPricing.RejectOrdinaryVariantAsync(command.ProductVariantId, ct);
             if (command.Quantity < 1)
             {
                 throw new StorefrontValidationException("R12: quantity must be at least 1.");
@@ -365,6 +368,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             var line = ctx.BoxLines.FirstOrDefault(l => l.Id == lineId)
                 ?? ctx.AddOnLines.FirstOrDefault(l => l.Id == lineId)
                 ?? throw new NotFoundException($"Cart line '{lineId}' was not found.");
+            if (_giftPricing != null) await _giftPricing.RejectOrdinaryVariantAsync(line.ProductVariantId, ct);
             var isAddOn = line.LineKind == CartLineKinds.AddOn;
 
             if (command.Quantity is { } quantity)
@@ -909,6 +913,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         List<BoxChangeDto>? reorderChanges = null,
         string? sourceName = null)
     {
+        if (_giftPricing != null) await _giftPricing.RejectOrdinaryVariantAsync(command.ProductVariantId, ct);
         if (command.Quantity < 1)
         {
             throw new StorefrontValidationException("R12: quantity must be at least 1.");
@@ -1418,7 +1423,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 DiscountCode = frozen.DiscountCode, TaxTotal = frozen.TaxTotal, Total = frozen.Total,
                 GreetingCardCharged = frozen.GreetingCardCharged,
                 PointsAppliedValue = frozen.Loyalty?.PointsAppliedValue ?? 0m,
-                LoyaltyJson = CheckoutLoyaltyData.Serialize(frozen.Loyalty) };
+                LoyaltyJson = CheckoutLoyaltyData.Serialize(frozen.Loyalty), GiftCardJson = CheckoutGiftCards.Serialize(frozen.GiftCard) };
         }
         else if (!CartWriteGuard.IsEditable(cart) && cart.OrderId is { } orderId)
         {
@@ -1435,7 +1440,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             changes,
             cartToken,
             Convert.ToBase64String(cart.RowVersion),
-            CheckoutDraft: CartDraftData.Read(cart), Status: cart.Status, OrderId: cart.OrderId);
+            CheckoutDraft: CartDraftData.Read(cart), Status: cart.Status, OrderId: cart.OrderId,
+            GiftCardPurchase: GiftCardPurchasePricing.Read(cart));
     }
 
     private async Task<BoxQuoteDto> BuildQuoteAsync(
@@ -1472,8 +1478,11 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
                 throw new CartWriteConflictException(cart, "commerce.greeting_card_unavailable", ex.Message);
             }
         }
+        var giftPurchase = GiftCardPurchasePricing.Read(cart);
+        var giftPurchaseTotal = giftPurchase == null ? 0m
+            : giftPurchase.Selection.FaceValue + giftPurchase.Postage + giftPurchase.GreetingCardPrice;
         var boxPrice = summary is not null
-            ? summary.Subtotal - personalisation - surcharges - frozenAddOns - greetingCard
+            ? summary.Subtotal - personalisation - surcharges - frozenAddOns - greetingCard - giftPurchaseTotal
             : BoxPricing.BoxPrice(plan, size);
         var deliveryCharged = summary is not null
             ? summary.Total - (summary.Subtotal - summary.DiscountTotal - summary.PointsAppliedValue + summary.TaxTotal)
@@ -1499,6 +1508,12 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         if (greetingCard != 0m)
             components.Add(new QuoteComponentDto(QuoteComponentKeys.GreetingCard, greetingCard));
         components.Add(new QuoteComponentDto(QuoteComponentKeys.DeliveryCharged, deliveryCharged));
+        if (giftPurchase != null)
+        {
+            components.Add(new("giftCardValue", giftPurchase.Selection.FaceValue));
+            if (giftPurchase.Postage > 0m) components.Add(new("giftCardPostage", giftPurchase.Postage));
+            if (giftPurchase.GreetingCardPrice > 0m) components.Add(new("giftCardGreeting", giftPurchase.GreetingCardPrice));
+        }
 
         // K3 — a frozen view must total exactly what was charged: the recorded discount and tax
         // join as components (zero-amount components may be omitted per §7, and clients iterate
@@ -1546,7 +1561,8 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
             summary is not null
                 ? summary.DiscountCode is null ? null : new DiscountCodeStatusDto(summary.DiscountCode, discount)
                 : live!.Discount,
-            summary is not null ? CheckoutLoyaltyQuotes.Frozen(CheckoutLoyaltyData.Read(summary.LoyaltyJson)) : live!.Loyalty);
+            summary is not null ? CheckoutLoyaltyQuotes.Frozen(CheckoutLoyaltyData.Read(summary.LoyaltyJson)) : live!.Loyalty,
+            summary is not null ? CheckoutGiftCards.Frozen(cart, CheckoutGiftCards.Read(summary.GiftCardJson)) : live!.GiftCard);
     }
 
     private static JsonElement? ParseSelection(string? canonicalJson)

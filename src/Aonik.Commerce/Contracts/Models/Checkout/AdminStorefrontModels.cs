@@ -50,7 +50,7 @@ public record AdminOrderChargeDto(
     decimal TaxTotal,
     decimal Total,
     string Currency,
-    decimal PointsAppliedValue = 0m);
+    decimal PointsAppliedValue = 0m, decimal GiftCardPaid = 0m, decimal? CardAmount = null);
 
 /// <summary>The ENTIRE storefront order detail (Spec 083 dependency callout 1):
 /// the spine's generic read is bill-payment-shaped, so this projection is the

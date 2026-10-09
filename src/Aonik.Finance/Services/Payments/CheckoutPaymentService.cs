@@ -11,9 +11,11 @@ using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Observability;
 using Aonik.Finance.Services.Loyalty;
+using Aonik.Finance.Services.GiftCards;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Payments;
+using Aonik.SharedKernel.Abstractions.GiftCards;
 
 namespace Aonik.Finance.Services.Payments;
 
@@ -39,7 +41,7 @@ internal sealed class CheckoutPaymentService(
             var intent = await PrepareAsync(request, cancellationToken);
             var result = await ResumeAsync(intent, request, cancellationToken);
             activity?.SetTag(FinanceActivitySource.OutcomeTag, MoneyActionOutcomes.Success);
-            logger.PaymentTransmitted(request.OrderId, tenantId, "Stripe", result.ProviderReference);
+            logger.PaymentTransmitted(request.OrderId, tenantId, result.Provider, result.ProviderReference);
             return result;
         }
         catch (Exception exception)
@@ -55,14 +57,14 @@ internal sealed class CheckoutPaymentService(
     {
         var intent = await LoadAsync(id, cancellationToken);
         if (intent is null) return null;
-        RequireStripe(intent);
+        RequireCheckout(intent);
         return State(intent);
     }
 
     public async Task<PaymentIntentStateRef> ExpireAsync(Guid id, CancellationToken cancellationToken = default)
     {
         var intent = await LoadAsync(id, cancellationToken) ?? throw new NotFoundException("Payment attempt was not found.");
-        RequireStripe(intent);
+        RequireCheckout(intent);
         using var activity = FinanceActivitySource.Source.StartActivity("checkout.payment.expire");
         activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Transmit);
         activity?.SetTag(FinanceActivitySource.TenantIdTag, intent.TenantId);
@@ -112,6 +114,7 @@ internal sealed class CheckoutPaymentService(
                     scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
                     var context = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
                     var loyalty = scope.ServiceProvider.GetRequiredService<LoyaltyService>();
+                    var gifts = scope.ServiceProvider.GetRequiredService<GiftCardService>();
                     await using var transaction = context.Database.IsRelational()
                         ? await context.Database.BeginTransactionAsync(ct) : null;
                     var order = await context.Orders.SingleOrDefaultAsync(o => o.Id == request.OrderId && o.TenantId == tenantId, ct)
@@ -121,6 +124,7 @@ internal sealed class CheckoutPaymentService(
                     {
                         ValidateAttempt(intent, request);
                         await loyalty.ValidateReplayAsync(intent, request.Loyalty, ct);
+                        await gifts.ValidateReplayAsync(intent, request.GiftCard, ct);
                         return intent;
                     }
                     if (order.OrderType != "ProductPurchase" || order.Status is not ("Draft" or "PendingFunding"))
@@ -133,17 +137,31 @@ internal sealed class CheckoutPaymentService(
                     {
                         Id = request.PaymentIntentId!.Value, TenantId = tenantId, OrderId = order.Id, Amount = request.Amount,
                         Currency = "GBP", PayerPartyId = payer, PurposeType = "Order", PurposeId = order.Id,
-                        PaymentMethodType = "Card", ProviderCode = "Stripe", IdempotencyKey = request.IdempotencyKey,
+                        PaymentMethodType = IsGiftOnly(request) ? "GiftCard" : "Card",
+                        ProviderCode = IsGiftOnly(request) ? "GiftCard" : "Stripe", IdempotencyKey = request.IdempotencyKey,
                         ProviderStartDeadlineUtc = request.ProviderStartDeadlineUtc,
                         Status = expired ? nameof(PaymentStatus.Cancelled) : nameof(PaymentStatus.Pending)
                     };
                     context.PaymentIntents.Add(intent);
                     // An expired attempt keeps its frozen instruction but needs no current policy.
-                    var rejection = await loyalty.PrepareTrackedAsync(intent, request.Loyalty, ct);
+                    var rejection = await gifts.PrepareTrackedAsync(intent, request.GiftCard, ct);
                     if (rejection is not null)
                     {
                         intent.Status = nameof(PaymentStatus.Cancelled);
                         intent.FailureReason = rejection;
+                    }
+                    var loyaltyRejection = await loyalty.PrepareTrackedAsync(intent, request.Loyalty, ct);
+                    ValidateRewardFunding(request);
+                    rejection ??= loyaltyRejection;
+                    if (rejection is not null)
+                    {
+                        intent.Status = nameof(PaymentStatus.Cancelled);
+                        intent.FailureReason = rejection;
+                    }
+                    if (intent.Status == nameof(PaymentStatus.Cancelled))
+                    {
+                        await gifts.ReleaseTrackedAsync(intent, ct);
+                        await loyalty.ReleaseTrackedAsync(intent, ct);
                     }
                     if (order.Status == "Draft") order.Status = "PendingFunding";
                     await context.SaveChangesAsync(ct);
@@ -179,10 +197,16 @@ internal sealed class CheckoutPaymentService(
                     var expired = current.ProviderStartDeadlineUtc is { } deadline && clock.UtcNow >= deadline;
                     current.Status = expired ? nameof(PaymentStatus.Cancelled) : nameof(PaymentStatus.Processing);
                     if (expired)
+                    {
                         await scope.ServiceProvider.GetRequiredService<LoyaltyService>().ReleaseTrackedAsync(current, ct);
+                        await scope.ServiceProvider.GetRequiredService<GiftCardService>().ReleaseTrackedAsync(current, ct);
+                    }
                     else
                     {
                         if (request is null) throw new InvalidStateException("The provider request is unavailable.");
+                        var funding = await scope.ServiceProvider.GetRequiredService<GiftCardService>().ReadFundingTrackedAsync(current, ct);
+                        if (current.ProviderCode != "Stripe" || funding.CardAmount <= 0m || request.Amount != funding.CardAmount)
+                            throw new InvalidStateException("The provider request does not match its frozen cash funding.");
                         current.ConnectorId = request.ConnectorId;
                         current.ProviderAccountId = request.ProviderAccountId;
                         current.ProviderLiveMode = request.LiveMode;
@@ -204,6 +228,16 @@ internal sealed class CheckoutPaymentService(
         if (intent.ProviderReference is not null || intent.Status is nameof(PaymentStatus.Captured) or nameof(PaymentStatus.Cancelled))
             return Response(intent);
 
+        var funding = await ReadFundingAsync(intent, cancellationToken);
+        if (intent.ProviderCode == "GiftCard")
+        {
+            if (funding.CardAmount != 0m || funding.GiftAmount != intent.Amount)
+                throw new InvalidStateException("The internal payment does not have full gift funding.");
+            await reconciler.CompleteGiftOnlyAsync(intent.Id, cancellationToken);
+            return Response(await LoadAsync(intent.Id, cancellationToken)
+                ?? throw new InvalidStateException("The recorded payment attempt is unavailable."));
+        }
+
         if (intent.ProviderRequestStartedAtUtc is null)
         {
             if (request is null || intent.Status != nameof(PaymentStatus.Pending))
@@ -218,7 +252,7 @@ internal sealed class CheckoutPaymentService(
             }
             var startedAt = clock.UtcNow;
             deadlineReached |= intent.ProviderStartDeadlineUtc is { } currentDeadline && startedAt >= currentDeadline;
-            var providerRequest = deadlineReached ? null : new PaymentProviderIntentRequest(intent.OrderId, intent.Amount, intent.Currency,
+            var providerRequest = deadlineReached ? null : new PaymentProviderIntentRequest(intent.OrderId, funding.CardAmount, intent.Currency,
                 "Card", ReturnUrl(request.ReturnUrl, binding!.ReturnOrigin), ReturnUrl(request.CancelUrl, binding.ReturnOrigin),
                 $"ORD-{intent.OrderId:N}", intent.Id, binding.ConnectorId, binding.ProviderAccountId, binding.LiveMode, intent.IdempotencyKey);
             // A native row-version race with local cancellation must be won BEFORE any HTTP.
@@ -238,7 +272,7 @@ internal sealed class CheckoutPaymentService(
         var frozen = JsonSerializer.Deserialize<PaymentProviderIntentRequest>(intent.ProviderCreateRequestJson
             ?? throw new InvalidStateException("The original provider request is missing."))
             ?? throw new InvalidStateException("The original provider request is invalid.");
-        if (frozen.PaymentIntentId != intent.Id || frozen.OrderId != intent.OrderId || frozen.Amount != intent.Amount
+        if (frozen.PaymentIntentId != intent.Id || frozen.OrderId != intent.OrderId || frozen.Amount != funding.CardAmount
             || frozen.Currency != intent.Currency || frozen.IdempotencyKey != intent.IdempotencyKey
             || frozen.ConnectorId != intent.ConnectorId || frozen.ProviderAccountId != intent.ProviderAccountId
             || frozen.LiveMode != intent.ProviderLiveMode)
@@ -257,6 +291,13 @@ internal sealed class CheckoutPaymentService(
         return db.PaymentIntents.AsNoTracking().SingleOrDefaultAsync(p => p.Id == id && p.TenantId == tenantId, cancellationToken);
     }
 
+    private async Task<GiftCardFunding> ReadFundingAsync(PaymentIntent intent, CancellationToken ct)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantProvider.GetCurrentTenantId();
+        return await scope.ServiceProvider.GetRequiredService<GiftCardService>().ReadFundingTrackedAsync(intent, ct);
+    }
+
     private static void ValidateRequest(CreateCommerceGuestPaymentIntentRequest request)
     {
         if (request.ProviderStartDeadlineUtc is { Kind: not DateTimeKind.Utc })
@@ -268,16 +309,19 @@ internal sealed class CheckoutPaymentService(
         if (!string.Equals(request.Provider, "Stripe", StringComparison.OrdinalIgnoreCase)
             || !string.Equals(request.PaymentMethodType, "Card", StringComparison.OrdinalIgnoreCase)
             || !string.Equals(request.Currency, "GBP", StringComparison.OrdinalIgnoreCase)
-            || request.Amount < 0.30m || request.Amount > 999999.99m || decimal.Round(request.Amount, 2) != request.Amount)
+            || request.Amount <= 0m || (!IsGiftOnly(request) && request.Amount < 0.30m)
+            || request.Amount > 999999.99m || decimal.Round(request.Amount, 2) != request.Amount)
             throw new InvalidStateException("Checkout requires a GBP card amount of at least 30p in whole pennies.");
     }
 
     private static void ValidateAttempt(PaymentIntent intent, CreateCommerceGuestPaymentIntentRequest request)
     {
-        RequireStripe(intent);
+        RequireCheckout(intent);
         if (intent.OrderId != request.OrderId || intent.Amount != request.Amount
             || !string.Equals(intent.Currency, request.Currency, StringComparison.OrdinalIgnoreCase)
-            || intent.IdempotencyKey != request.IdempotencyKey || intent.PaymentMethodType != "Card"
+            || intent.IdempotencyKey != request.IdempotencyKey
+            || intent.ProviderCode != (IsGiftOnly(request) ? "GiftCard" : "Stripe")
+            || intent.PaymentMethodType != (IsGiftOnly(request) ? "GiftCard" : "Card")
             || intent.ProviderStartDeadlineUtc != request.ProviderStartDeadlineUtc)
             throw new InvalidStateException("This payment attempt is bound to different checkout details.");
     }
@@ -293,9 +337,30 @@ internal sealed class CheckoutPaymentService(
         return uri.AbsoluteUri;
     }
 
-    private static void RequireStripe(PaymentIntent intent)
+    private static bool IsGiftOnly(CreateCommerceGuestPaymentIntentRequest request)
+        => request.GiftCard?.Tender is { ExpectedCardAmount: 0m };
+
+    private static void ValidateRewardFunding(CreateCommerceGuestPaymentIntentRequest request)
     {
-        if (intent.ProviderCode != "Stripe") throw new InvalidStateException("This is not a Stripe checkout attempt.");
+        if (request.Loyalty is not { } loyalty) return;
+        var tender = request.GiftCard?.Tender;
+        if (request.GiftCard is { } gift && gift.CartId != loyalty.CartId)
+            throw new InvalidStateException("The reward and gift-card instructions belong to different carts.");
+        var funding = tender?.Lines.ToDictionary(line => line.OrderItemId);
+        foreach (var line in loyalty.Lines)
+        {
+            var share = funding?.GetValueOrDefault(line.OrderItemId);
+            if (line.GiftFundedValue != (share?.GiftFundedValue ?? 0m)
+                || (share is not null && (share.ItemIndex != line.ItemIndex || share.ItemType != line.ItemType
+                    || share.OriginalCharged != line.OriginalCharged || share.CouponDiscount != line.CouponDiscount
+                    || share.PointsAppliedValue != line.PointsAppliedValue)))
+                throw new InvalidStateException("The reward calculation does not match its frozen gift-card funding.");
+        }
+    }
+
+    private static void RequireCheckout(PaymentIntent intent)
+    {
+        if (intent.ProviderCode is not ("Stripe" or "GiftCard")) throw new InvalidStateException("This is not a supported checkout attempt.");
     }
 
     private static string? CheckoutUrl(PaymentIntent intent) =>
@@ -306,5 +371,5 @@ internal sealed class CheckoutPaymentService(
         intent.Currency, intent.Status, intent.Status == nameof(PaymentStatus.Cancelled), CheckoutUrl(intent));
 
     private static GuestPaymentIntentResponse Response(PaymentIntent intent) => new(intent.Id, intent.OrderId, intent.Amount,
-        intent.Currency, intent.Status, "Stripe", intent.ProviderReference ?? string.Empty, null, CheckoutUrl(intent), intent.CreatedAt);
+        intent.Currency, intent.Status, intent.ProviderCode!, intent.ProviderReference ?? string.Empty, null, CheckoutUrl(intent), intent.CreatedAt);
 }

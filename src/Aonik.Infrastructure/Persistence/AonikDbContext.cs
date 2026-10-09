@@ -136,6 +136,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<LoyaltyAccount> LoyaltyAccounts { get; set; } = null!;
     public virtual DbSet<LoyaltyOperation> LoyaltyOperations { get; set; } = null!;
     public virtual DbSet<LoyaltyCheckoutAttempt> LoyaltyCheckoutAttempts { get; set; } = null!;
+    public virtual DbSet<Aonik.Finance.Entities.GiftCards.GiftCard> GiftCards { get; set; } = null!;
+    public virtual DbSet<Aonik.Finance.Entities.GiftCards.GiftCardOperation> GiftCardOperations { get; set; } = null!;
+    public virtual DbSet<Aonik.Finance.Entities.GiftCards.GiftCardCheckoutAttempt> GiftCardCheckoutAttempts { get; set; } = null!;
+    public virtual DbSet<Aonik.Commerce.Entities.Fulfilment.OrderGiftCardDelivery> OrderGiftCardDeliveries { get; set; } = null!;
 
     // Commerce (Spec 042) — catalog + bundle entities; canonical migration stream stays here.
     public virtual DbSet<Product> Products { get; set; } = null!;
@@ -587,6 +591,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<LoyaltyAccount>(modelBuilder, "LoyaltyAccounts");
         MapFinanceTable<LoyaltyOperation>(modelBuilder, "LoyaltyOperations");
         MapFinanceTable<LoyaltyCheckoutAttempt>(modelBuilder, "LoyaltyCheckoutAttempts");
+        MapFinanceTable<Aonik.Finance.Entities.GiftCards.GiftCard>(modelBuilder, "GiftCards");
+        MapFinanceTable<Aonik.Finance.Entities.GiftCards.GiftCardOperation>(modelBuilder, "GiftCardOperations");
+        MapFinanceTable<Aonik.Finance.Entities.GiftCards.GiftCardCheckoutAttempt>(modelBuilder, "GiftCardCheckoutAttempts");
+        MapCommerceTable<Aonik.Commerce.Entities.Fulfilment.OrderGiftCardDelivery>(modelBuilder, "OrderGiftCardDeliveries");
 
         MapFinanceTable<PaymentIntent>(modelBuilder, "PaymentIntents");
         MapFinanceTable<Payment>(modelBuilder, "Payments");

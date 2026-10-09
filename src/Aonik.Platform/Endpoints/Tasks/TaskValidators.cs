@@ -10,7 +10,7 @@ namespace Aonik.Platform.Endpoints.Tasks;
 /// cron validity, and unknown-ActionType rejection are enforced in <c>WorkItemService</c>
 /// and surface as 400 via the endpoint's ArgumentException handling.
 /// </summary>
-public sealed class ScheduleTaskRequestValidator : Validator<ScheduleTaskRequest>
+public sealed class ScheduleTaskRequestValidator : Validator<ScheduleTaskApiRequest>
 {
     public ScheduleTaskRequestValidator()
     {

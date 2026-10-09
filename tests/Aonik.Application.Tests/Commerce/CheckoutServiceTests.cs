@@ -16,6 +16,8 @@ using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Payments;
 using Aonik.SharedKernel.Abstractions.Loyalty;
+using Aonik.SharedKernel.Abstractions.GiftCards;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -37,7 +39,7 @@ using static Aonik.Application.Tests.Commerce.CartTestAccess;
 /// Each service call uses a fresh context over a shared in-memory store — the CoreOrderServiceTests
 /// pattern that avoids EF InMemory change-tracking quirks and mirrors scoped contexts in production.
 /// </summary>
-public class CheckoutServiceTests
+public partial class CheckoutServiceTests
 {
     private sealed class FakePaymentInitiator : TestPaymentState
     {
@@ -45,9 +47,11 @@ public class CheckoutServiceTests
         public decimal LastAmount { get; private set; }
         public string? LastProvider { get; private set; }
         public int FailTimes { get; set; }
+        public Func<CreateGuestPaymentIntentForOrderCommand, Task>? BeforeCreate { get; set; }
         public CreateGuestPaymentIntentForOrderCommand? LastCommand { get; private set; }
-        public override Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
+        public override async Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
         {
+            if (BeforeCreate is not null) await BeforeCreate(command);
             if (FailTimes > 0)
             {
                 FailTimes--;
@@ -57,7 +61,7 @@ public class CheckoutServiceTests
             LastCommand = command;
             LastAmount = command.Amount;
             LastProvider = command.Provider;
-            return Task.FromResult(Record(command, "secret_123", "https://pay.example/checkout"));
+            return Record(command, "secret_123", "https://pay.example/checkout");
         }
     }
 
@@ -86,6 +90,10 @@ public class CheckoutServiceTests
         public FakePaymentInitiator Payments { get; } = new();
         public FakeInvoiceWriter Invoices { get; } = new();
         public Mock<ILoyaltyService> Loyalty { get; } = new();
+        public Mock<IGiftCardService> Gifts { get; } = new();
+        public Mock<ITenantSettingStore> Settings { get; } = new();
+        public bool GiftCardsEnabled { get; set; }
+        public DateTime Now => _clock.UtcNow;
         public ITaxCalculator Tax { get; set; } = new ZeroRateTaxCalculator();
 
         public Harness()
@@ -116,6 +124,8 @@ public class CheckoutServiceTests
                 CommerceTestHarness.NewDiscountQuotes(context, _tenantId, _clock));
         }
         public DiscountService Discounts() => new(Commerce(), _tenant, _clock);
+        public GiftCardPurchasePricing GiftPricing(CommerceDbContext context)
+            => new(context, _tenant, Settings.Object, Gifts.Object, _clock);
         public BoxCartService BoxCarts()
         {
             var ctx = Commerce();
@@ -132,8 +142,10 @@ public class CheckoutServiceTests
             return new(context, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user, new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()),
                 Payments, Invoices, new DiscountService(context, _tenant, _clock), Tax, _tenant,
                 BoxCarts(), _guestOrderAccess, new FulfilmentPromiseService(context, _tenant, _clock),
-                new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock, new NullTenantSettingStore(),
-                new CheckoutLoyaltyQuotes(context, _tenant, Loyalty.Object));
+                new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock, Settings.Object,
+                new CheckoutLoyaltyQuotes(context, _tenant, Loyalty.Object),
+                GiftCardsEnabled ? GiftPricing(context) : null,
+                GiftCardsEnabled ? new CheckoutGiftCards(Gifts.Object) : null);
         }
     }
 

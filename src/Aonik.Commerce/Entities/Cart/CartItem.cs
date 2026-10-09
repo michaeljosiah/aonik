@@ -61,6 +61,7 @@ public class CartItem : AuditableEntity, ITenantScoped
 /// than normalised, and nothing coalesces one on materialisation.</summary>
 public static class CartLineKinds
 {
+    public const string GiftCardValue = "GiftCardValue";
     /// <summary>Fills a box space; personalisable; priced by the box, never individually.</summary>
     public const string BoxDish = "BoxDish";
 

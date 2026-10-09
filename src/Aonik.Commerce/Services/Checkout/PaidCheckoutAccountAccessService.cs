@@ -21,7 +21,7 @@ internal sealed class PaidCheckoutAccountAccessService(
         var source = await LoadPaidSourceAsync(orderId, paymentIntentId, cancellationToken);
         if (source is null || source.Value.Cart.BuyerPartyId is not null) return;
         var (cart, preparation) = source.Value;
-        var email = preparation.Delivery?.Purchaser.Email;
+        var email = (preparation.Purchaser ?? preparation.Delivery?.Purchaser)?.Email;
         if (string.IsNullOrWhiteSpace(email))
             throw new InvalidOperationException("The opted-in paid checkout is missing its purchaser contact snapshot.");
 

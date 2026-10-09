@@ -21,6 +21,29 @@ public sealed class TemplatedEmailSenderTests
 {
     private readonly Guid _tenantId = Guid.NewGuid();
 
+    [Fact]
+    public async Task GiftCardTemplate_Should_EscapeRecipientAndMessage_AndIncludeOnlyTheIntendedGiftCode()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var transport = new RecordingEmailSender();
+        var model = new Dictionary<string, object?>
+        {
+            ["recipient_name"] = "Recipient <script>", ["sender_name"] = "Sender & friend",
+            ["message"] = "<script>not markup</script>", ["gift_code"] = "GIFT&CODE",
+            ["face_value"] = "25.00", ["currency"] = "GBP", ["terms_version"] = "v1",
+            ["expires_at"] = "2027-10-09 12:00 UTC"
+        };
+
+        await CreateSender(context, transport).SendAsync(new(TransactionalEmailTemplateNames.GiftCardDelivery,
+            "recipient@example.test", model));
+
+        var message = transport.Messages.Should().ContainSingle().Which;
+        message.Subject.Should().Be("Your gift card");
+        message.Body.Should().Contain("Recipient &lt;script&gt;").And.Contain("Sender &amp; friend")
+            .And.Contain("GIFT&amp;CODE").And.Contain("2027-10-09 12:00 UTC").And.NotContain("<script>");
+    }
+
     [Theory]
     [InlineData(null, "order-123")]
     [InlineData("BOX-<42>", "BOX-&lt;42&gt;")]

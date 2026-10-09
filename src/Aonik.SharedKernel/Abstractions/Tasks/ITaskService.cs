@@ -57,7 +57,8 @@ public sealed record ScheduleTaskRequest(
     string? Description = null,
     int Priority = 0,
     string? CorrelationId = null,
-    string? SourceModule = null);      // origin module, e.g. "PersonalFinance"
+    string? SourceModule = null,      // origin module, e.g. "PersonalFinance"
+    Guid? TaskId = null);            // internal, source-bound one-off scheduling only
 
 /// <summary>A task as returned to callers and the admin UI.</summary>
 public sealed record TaskResponse(

@@ -7,6 +7,8 @@ using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Loyalty;
+using Aonik.Finance.Services.GiftCards;
+using Microsoft.AspNetCore.DataProtection;
 using Aonik.Finance.Services.Payments;
 using Aonik.Infrastructure.Persistence;
 using Aonik.IntegrationTests.Support;
@@ -31,7 +33,7 @@ using System.Text.Json;
 
 namespace Aonik.Database.Tests.Finance;
 
-public sealed class CheckoutPaymentReconciliationSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
+public sealed partial class CheckoutPaymentReconciliationSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
 {
     [SkippableFact]
     public async Task Apply_Should_CommitReceiptJournalStatusInboxAndOutbox_OnceUnderNativeVersions()
@@ -279,6 +281,8 @@ public sealed class CheckoutPaymentReconciliationSqlServerTests(SqlLocalDbFixtur
         services.AddSingleton(settings.Object);
         services.AddScoped<IJournalWriter, JournalWriter>();
         services.AddScoped<LoyaltyService>();
+        services.AddScoped<GiftCardService>();
+        services.AddSingleton<IDataProtectionProvider>(new EphemeralDataProtectionProvider());
         services.AddScoped<ICheckoutPaymentReconciler, CheckoutPaymentReconciler>();
         services.AddScoped<CheckoutPaymentService>();
         services.AddSingleton<IPaymentProviderGateway>(gateway);
@@ -301,7 +305,7 @@ public sealed class CheckoutPaymentReconciliationSqlServerTests(SqlLocalDbFixtur
             PayerPartyId = payerId, PaymentMethodType = "Card", Status = "Processing", ProviderCode = "Stripe", ConnectorId = Guid.NewGuid(),
             ProviderAccountId = "acct_test", ProviderLiveMode = false, ProviderReference = "cs_" + Guid.NewGuid().ToString("N"),
             ProviderRequestStartedAtUtc = DateTime.UtcNow };
-        var harness = new Harness(root, intent, gateway);
+        var harness = new Harness(root, intent, gateway, settings);
         await using var scope = harness.NewScope();
         var db = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
         var ledger = new Ledger { TenantId = tenantId, BaseCurrency = "GBP", IsCanonical = true };
@@ -339,8 +343,9 @@ public sealed class CheckoutPaymentReconciliationSqlServerTests(SqlLocalDbFixtur
         return harness;
     }
 
-    private sealed class Harness(ServiceProvider root, PaymentIntent intent, RecordingGateway gateway) : IAsyncDisposable
+    private sealed class Harness(ServiceProvider root, PaymentIntent intent, RecordingGateway gateway, Mock<ITenantSettingStore> settings) : IAsyncDisposable
     {
+        public Mock<ITenantSettingStore> Settings => settings;
         public PaymentIntent Intent => intent;
         public LoyaltyCheckout? Loyalty { get; set; }
         public RecordingGateway Gateway => gateway;

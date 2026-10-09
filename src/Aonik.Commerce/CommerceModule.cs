@@ -73,6 +73,12 @@ public sealed class CommerceModule : IModule
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<CartDiscountQuotes>();
         services.AddScoped<CheckoutLoyaltyQuotes>();
+        services.AddScoped<GiftCardPurchasePricing>();
+        services.AddScoped<CheckoutGiftCards>();
+        services.AddScoped<GiftCardCartService>();
+        services.AddScoped<Services.GiftCards.IGiftCardDeliveryService, Services.GiftCards.GiftCardDeliveryService>();
+        services.AddKeyedScoped<Aonik.SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.GiftCards.GiftCardDeliveryTaskHandler>(
+            Services.GiftCards.GiftCardDeliveryService.ActionType);
         services.AddScoped<IBundleSizePlanService, BundleSizePlanService>();
         services.AddScoped<IExtrasCatalogService, ExtrasCatalogService>();
         services.AddSingleton<GuestOrderAccess>();

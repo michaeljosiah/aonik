@@ -8,6 +8,8 @@ using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Observability;
 using Aonik.SharedKernel.Abstractions.Ledgers;
+using Aonik.SharedKernel.Abstractions.GiftCards;
+using Aonik.Finance.Services.GiftCards;
 
 namespace Aonik.Finance.Services.Ledger;
 
@@ -83,12 +85,41 @@ internal sealed class LedgerPostingService
     /// Dr Cash / Cr Payments Clearing for the captured amount. Idempotent per
     /// payment intent.
     /// </summary>
-    public async Task PostPaymentCaptureAsync(PaymentIntent paymentIntent, CancellationToken cancellationToken = default)
+    public Task PostPaymentCaptureAsync(PaymentIntent paymentIntent, CancellationToken cancellationToken = default)
+        => PostPaymentCaptureAsync(paymentIntent, paymentIntent.Amount, cancellationToken);
+
+    /// <summary>Posts only verified external cash, which can be less than aggregate checkout funding.</summary>
+    public Task PostPaymentCaptureAsync(PaymentIntent paymentIntent, decimal capturedAmount, CancellationToken cancellationToken = default)
+        => PostPaymentCaptureAsync(paymentIntent, capturedAmount, null, cancellationToken);
+
+    public async Task PostPaymentCaptureAsync(PaymentIntent paymentIntent, decimal capturedAmount,
+        GiftCardLedgerBinding? giftLedger, CancellationToken cancellationToken = default)
     {
+        if (capturedAmount <= 0m || capturedAmount > paymentIntent.Amount)
+            throw new InvalidOperationException("Captured cash must be positive and cannot exceed the payment intent.");
         var tenantId = paymentIntent.TenantId;
-        var ledgerId = await GetTenantLedgerIdAsync(tenantId, cancellationToken);
-        var cashAccountId = await ResolveRequiredAccountIdAsync(tenantId, CashAccountCode, CashAccountName, cancellationToken);
-        var clearingAccountId = await ResolveOrCreateClearingAccountIdAsync(tenantId, ledgerId, cancellationToken);
+        Guid ledgerId;
+        Guid cashAccountId;
+        Guid clearingAccountId;
+        if (giftLedger is null)
+        {
+            ledgerId = await GetTenantLedgerIdAsync(tenantId, cancellationToken);
+            cashAccountId = await ResolveRequiredAccountIdAsync(tenantId, CashAccountCode, CashAccountName, cancellationToken);
+            clearingAccountId = await ResolveOrCreateClearingAccountIdAsync(tenantId, ledgerId, cancellationToken);
+        }
+        else
+        {
+            ledgerId = giftLedger.LedgerId;
+            cashAccountId = giftLedger.CashAccountId;
+            clearingAccountId = giftLedger.ClearingAccountId;
+            if (paymentIntent.Currency != "GBP" || cashAccountId == clearingAccountId
+                || !await _db.Ledgers.AnyAsync(l => l.TenantId == tenantId && l.Id == ledgerId && l.BaseCurrency == "GBP", cancellationToken)
+                || !await _db.LedgerAccounts.AnyAsync(a => a.TenantId == tenantId && a.LedgerId == ledgerId
+                    && a.Id == cashAccountId && a.AccountType == "Asset", cancellationToken)
+                || !await _db.LedgerAccounts.AnyAsync(a => a.TenantId == tenantId && a.LedgerId == ledgerId
+                    && a.Id == clearingAccountId && a.AccountType == "Liability", cancellationToken))
+                throw new InvalidOperationException("The frozen checkout funding accounts are unavailable.");
+        }
 
         await PostBalancedEntryAsync(
             tenantId,
@@ -97,7 +128,7 @@ internal sealed class LedgerPostingService
             paymentIntent.Id,
             debitAccountId: cashAccountId,
             creditAccountId: clearingAccountId,
-            amount: paymentIntent.Amount,
+            amount: capturedAmount,
             currency: paymentIntent.Currency,
             narration: "Payment captured",
             orderId: paymentIntent.OrderId,
@@ -112,6 +143,12 @@ internal sealed class LedgerPostingService
     public async Task PostInvoiceSettlementAsync(Invoice invoice, CancellationToken cancellationToken = default)
     {
         var tenantId = invoice.TenantId;
+        var gift = await GiftCardInvoiceSettlement.ReadAsync(_db, tenantId, invoice.OrderId, invoice.Total, invoice.Currency, cancellationToken);
+        if (gift is not null)
+        {
+            await PostGiftSettlementAsync(invoice, gift, cancellationToken);
+            return;
+        }
         var ledgerId = await GetTenantLedgerIdAsync(tenantId, cancellationToken);
         var clearingAccountId = await ResolveOrCreateClearingAccountIdAsync(tenantId, ledgerId, cancellationToken);
 
@@ -142,6 +179,36 @@ internal sealed class LedgerPostingService
             narration: "Invoice settled",
             orderId: invoice.OrderId,
             cancellationToken);
+    }
+
+    private async Task PostGiftSettlementAsync(Invoice invoice, GiftCardSettlement gift, CancellationToken ct)
+    {
+        if (await _db.JournalEntries.AsNoTracking().AnyAsync(e => e.TenantId == invoice.TenantId
+            && e.SourceType == InvoiceSettlementSourceType && e.SourceId == invoice.Id, ct)) return;
+        var remaining = invoice.Total - gift.GiftValue;
+        var journal = new JournalEntry
+        {
+            TenantId = invoice.TenantId, LedgerId = gift.Ledger.LedgerId, SourceType = InvoiceSettlementSourceType,
+            SourceId = invoice.Id, Status = "Posted", Timestamp = DateTime.UtcNow
+        };
+        journal.Lines.Add(new JournalEntryLine { TenantId = invoice.TenantId, JournalEntryId = journal.Id,
+            LedgerAccountId = gift.Ledger.ClearingAccountId, Direction = JournalDirections.Debit,
+            Amount = invoice.Total, Currency = invoice.Currency, Narration = "Invoice settled" });
+        // Issuance already moved this value from clearing into its actual gift liability.
+        journal.Lines.Add(new JournalEntryLine { TenantId = invoice.TenantId, JournalEntryId = journal.Id,
+            LedgerAccountId = gift.Ledger.ClearingAccountId, Direction = JournalDirections.Credit,
+            Amount = gift.GiftValue, Currency = invoice.Currency, Narration = "Issued gift value" });
+        if (remaining > 0m)
+        {
+            var revenue = await _db.LedgerAccounts.AsNoTracking().SingleOrDefaultAsync(a => a.TenantId == invoice.TenantId
+                && a.LedgerId == gift.Ledger.LedgerId && a.Code == RevenueAccountCode && a.AccountType == "Revenue", ct)
+                ?? throw new InvalidOperationException("The gift invoice's revenue account is unavailable.");
+            journal.Lines.Add(new JournalEntryLine { TenantId = invoice.TenantId, JournalEntryId = journal.Id,
+                LedgerAccountId = revenue.Id, Direction = JournalDirections.Credit, Amount = remaining,
+                Currency = invoice.Currency, Narration = "Other invoice value" });
+        }
+        _db.JournalEntries.Add(journal);
+        await _db.SaveChangesAsync(ct);
     }
 
     /// <summary>

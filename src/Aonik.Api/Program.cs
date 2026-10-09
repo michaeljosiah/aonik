@@ -188,6 +188,9 @@ app.Use(async (context, next) =>
         || context.Request.Path.StartsWithSegments("/profiles/customers/me/email")
         || context.Request.Path.StartsWithSegments("/profiles/customers/me/addresses")
         || context.Request.Path.StartsWithSegments("/commerce/storefront/loyalty")
+        || context.Request.Path.StartsWithSegments("/commerce/storefront/gift-cards")
+        || context.Request.Path.StartsWithSegments("/commerce/admin/gift-card-deliveries")
+        || context.Request.Path.StartsWithSegments("/commerce/carts")
         || context.Request.Path.StartsWithSegments("/commerce/admin/loyalty"))
     {
         context.Response.OnStarting(() =>
