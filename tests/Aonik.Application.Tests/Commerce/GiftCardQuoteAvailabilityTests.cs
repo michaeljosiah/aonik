@@ -31,6 +31,8 @@ public sealed class GiftCardQuoteAvailabilityTests
     [InlineData("retired")]
     [InlineData("deleted")]
     [InlineData("finance-unavailable")]
+    [InlineData("malformed")]
+    [InlineData("wrong-shape")]
     public async Task CartRead_Should_RetainSavedFaceAndFees_WithUnavailableStatusAndRemovalVersion(string change)
     {
         using var h = await Harness.CreateAsync();
@@ -217,7 +219,9 @@ public sealed class GiftCardQuoteAvailabilityTests
 
         public async Task MakeUnavailableAsync(string change)
         {
-            if (change == "finance-unavailable")
+            if (change is "malformed" or "wrong-shape")
+                Base.Settings[GiftCardPurchasePricing.SettingName] = change == "malformed" ? "{" : "{\"values\":\"bad\"}";
+            else if (change == "finance-unavailable")
                 Gifts.Setup(x => x.GetPolicyAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidStateException("private configuration detail"));
             else if (change is "disabled" or "changed")
             {

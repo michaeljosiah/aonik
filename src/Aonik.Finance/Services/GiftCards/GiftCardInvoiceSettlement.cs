@@ -24,8 +24,20 @@ internal static class GiftCardInvoiceSettlement
             throw new InvalidStateException("Gift-card settlement requires its exact funded invoice.");
 
         var intentIds = attempts.Select(x => x.PaymentIntentId).ToArray();
-        var captured = await db.PaymentIntents.AsNoTracking().Where(x => x.TenantId == tenantId && x.OrderId == orderId
-            && intentIds.Contains(x.Id) && x.Status == "Captured" && !x.IsDeleted).ToListAsync(cancellationToken);
+        var intents = await db.PaymentIntents.AsNoTracking().Where(x => x.TenantId == tenantId && x.OrderId == orderId
+            && intentIds.Contains(x.Id) && !x.IsDeleted).ToListAsync(cancellationToken);
+        if (items.Count == 0)
+        {
+            // A closed tender from an earlier try must not redirect a later cash-only sale.
+            // Neither missing payment state nor a one-sided release proves unpaid closure.
+            attempts.RemoveAll(attempt => attempt.Status == "Released"
+                && intents.Any(intent => intent.Id == attempt.PaymentIntentId && intent.Status == "Cancelled"));
+            if (attempts.Count == 0) return null;
+            if (attempts.Count != 1)
+                throw new InvalidStateException("Gift-card settlement must wait for completed funding.");
+        }
+        var captured = intents.Where(intent => intent.Status == "Captured"
+            && attempts.Any(attempt => attempt.PaymentIntentId == intent.Id)).ToList();
         if (captured.Count != 1)
             throw new InvalidStateException("Gift-card settlement must wait for completed funding.");
         var intent = captured[0];

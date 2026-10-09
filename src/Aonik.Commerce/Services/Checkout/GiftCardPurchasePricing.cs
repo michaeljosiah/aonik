@@ -27,8 +27,7 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
     public async Task<(GiftCardStorefrontOptions Store, GiftCardPolicy Finance, string Version)> PolicyAsync(CancellationToken ct = default)
     {
         var raw = await settings.GetTenantValueAsync(SettingName, tenantProvider.GetCurrentTenantId(), ct);
-        var store = raw is null ? new GiftCardStorefrontOptions() : JsonSerializer.Deserialize<GiftCardStorefrontOptions>(raw, Json)
-            ?? throw new StorefrontValidationException("Gift-card configuration is invalid.");
+        var store = ReadOptions(raw);
         var finance = await gifts.GetPolicyAsync(ct);
         var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { store, finance }, Json))));
         return (store, finance, fingerprint);
@@ -47,9 +46,19 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
     {
         var raw = await settings.GetTenantValueAsync(SettingName, tenantProvider.GetCurrentTenantId(), ct);
         if (raw == null) return;
-        var store = JsonSerializer.Deserialize<GiftCardStorefrontOptions>(raw, Json);
-        if (store?.ProductVariantId == variantId)
+        var store = ReadOptions(raw);
+        if (store.ProductVariantId == variantId)
             throw new StorefrontValidationException("Use the gift-card purchase route for this product.");
+    }
+
+    private static GiftCardStorefrontOptions ReadOptions(string? raw)
+    {
+        try
+        {
+            return raw is null ? new() : JsonSerializer.Deserialize<GiftCardStorefrontOptions>(raw, Json)
+                ?? throw new StorefrontValidationException("Gift-card configuration is invalid.");
+        }
+        catch (JsonException) { throw new StorefrontValidationException("Gift-card configuration is invalid."); }
     }
 
     public async Task<GiftCardPurchaseDto> SelectAsync(Cart cart, GiftCardPurchaseSelection selection, CancellationToken ct = default)

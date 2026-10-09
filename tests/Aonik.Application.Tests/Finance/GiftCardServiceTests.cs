@@ -404,6 +404,81 @@ public sealed class GiftCardServiceTests
         h.Db.GiftCardOperations.Any(x => x.SourceId == intent.Id).Should().BeFalse();
     }
 
+    [Fact]
+    public async Task InvoiceSettlement_Should_AllowCashOnlyRetryAfterGiftTenderWasCancelledAndReleased()
+    {
+        using var h = await Harness.CreateAsync();
+        var issued = await h.IssueAsync(100);
+        var (intent, instruction) = await h.TenderAsync(issued.Code, 80, 60);
+        (await h.Service.PrepareTrackedAsync(intent, instruction)).Should().BeNull();
+        await h.Db.SaveChangesAsync();
+        intent.Status = "Cancelled";
+        await h.Service.ReleaseTrackedAsync(intent);
+        await h.Db.SaveChangesAsync();
+        var retry = await h.RecordOrdinaryCashRetryAsync(intent);
+        var invoice = new Invoice { TenantId = h.TenantId, OrderId = intent.OrderId, Total = 80, Currency = "GBP" };
+        var posting = new LedgerPostingService(h.Db);
+
+        await posting.PostInvoiceSettlementAsync(invoice);
+        await posting.PostInvoiceSettlementAsync(invoice);
+
+        var journal = await h.Db.JournalEntries.Include(x => x.Lines).SingleAsync(x => x.SourceType == "InvoiceSettlement");
+        journal.Lines.Should().HaveCount(2);
+        journal.Lines.Should().ContainSingle(x => x.LedgerAccountId == retry.ClearingId && x.Direction == JournalDirections.Debit && x.Amount == 80);
+        journal.Lines.Should().ContainSingle(x => x.LedgerAccountId == retry.RevenueId && x.Direction == JournalDirections.Credit && x.Amount == 80);
+        var clearing = await h.Db.JournalEntryLines.Where(x => x.LedgerAccountId == retry.ClearingId).ToListAsync();
+        clearing.Sum(x => x.Direction == JournalDirections.Debit ? x.Amount : -x.Amount).Should().Be(0);
+        (await h.Db.Payments.SingleAsync(x => x.PaymentIntentId == retry.Intent.Id)).Amount.Should().Be(80);
+        h.Db.GiftCardOperations.Any(x => x.Kind == "Redeem").Should().BeFalse();
+        (await h.Service.GetBalanceAsync(issued.Code))!.Available.Should().Be(100);
+    }
+
+    [Theory]
+    [InlineData("Cancelled", "Reserved")]
+    [InlineData("Pending", "Released")]
+    [InlineData("Processing", "Released")]
+    [InlineData("Missing", "Released")]
+    public async Task InvoiceSettlement_Should_NotIgnoreUnknownOrOneSidedGiftClosureDespiteCashRetry(string intentStatus, string attemptStatus)
+    {
+        using var h = await Harness.CreateAsync();
+        var issued = await h.IssueAsync(100);
+        var (intent, instruction) = await h.TenderAsync(issued.Code, 80, 60);
+        (await h.Service.PrepareTrackedAsync(intent, instruction)).Should().BeNull();
+        await h.Db.SaveChangesAsync();
+        var attempt = await h.Db.GiftCardCheckoutAttempts.SingleAsync(x => x.PaymentIntentId == intent.Id);
+        attempt.Status = attemptStatus;
+        intent.Status = intentStatus;
+        if (intentStatus == "Missing") h.Db.PaymentIntents.Remove(intent);
+        await h.Db.SaveChangesAsync();
+        await h.RecordOrdinaryCashRetryAsync(intent);
+        var invoice = new Invoice { TenantId = h.TenantId, OrderId = intent.OrderId, Total = 80, Currency = "GBP" };
+
+        await new LedgerPostingService(h.Db).Invoking(x => x.PostInvoiceSettlementAsync(invoice))
+            .Should().ThrowAsync<InvalidStateException>();
+
+        h.Db.JournalEntries.Any(x => x.SourceType == "InvoiceSettlement").Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task InvoiceSettlement_Should_NotIgnoreCancelledGiftValuePurchaseAfterOrdinaryCashPayment()
+    {
+        using var h = await Harness.CreateAsync();
+        var (intent, instruction) = await h.PurchaseAsync(50);
+        (await h.Service.PrepareTrackedAsync(intent, instruction)).Should().BeNull();
+        await h.Db.SaveChangesAsync();
+        intent.Status = "Cancelled";
+        await h.Service.ReleaseTrackedAsync(intent);
+        await h.Db.SaveChangesAsync();
+        await h.RecordOrdinaryCashRetryAsync(intent);
+        var invoice = new Invoice { TenantId = h.TenantId, OrderId = intent.OrderId, Total = 50, Currency = "GBP" };
+
+        await new LedgerPostingService(h.Db).Invoking(x => x.PostInvoiceSettlementAsync(invoice))
+            .Should().ThrowAsync<InvalidStateException>();
+
+        h.Db.JournalEntries.Any(x => x.SourceType == "InvoiceSettlement").Should().BeFalse();
+        h.Db.GiftCards.Should().BeEmpty();
+    }
+
     [Theory]
     [InlineData("gift-receipt")]
     [InlineData("gift-journal")]
@@ -568,6 +643,23 @@ public sealed class GiftCardServiceTests
             Db.Payments.Add(new Payment { TenantId = TenantId, PaymentIntentId = intent.Id, Provider = "Stripe", ConnectorId = intent.ConnectorId,
                 ProviderReference = intent.ProviderPaymentIntentReference, Currency = "GBP", Amount = amount, CapturedAt = Clock.UtcNow, OutcomeStatus = "Captured" });
             await Db.SaveChangesAsync();
+        }
+        public async Task<(PaymentIntent Intent, Guid ClearingId, Guid RevenueId)> RecordOrdinaryCashRetryAsync(PaymentIntent previous)
+        {
+            var cash = new LedgerAccount { TenantId = TenantId, LedgerId = Binding.LedgerId, Code = "1000", AccountType = "Asset" };
+            var clearing = new LedgerAccount { TenantId = TenantId, LedgerId = Binding.LedgerId, Code = "2100", AccountType = "Liability" };
+            var revenue = new LedgerAccount { TenantId = TenantId, LedgerId = Binding.LedgerId, Code = "4000", AccountType = "Revenue" };
+            Db.LedgerAccounts.AddRange(cash, clearing, revenue);
+            var retry = new PaymentIntent { TenantId = TenantId, OrderId = previous.OrderId, PayerPartyId = PartyId,
+                Amount = previous.Amount, Currency = "GBP", Status = "Captured", ProviderCode = "Stripe", PaymentMethodType = "Card",
+                ConnectorId = Guid.NewGuid(), ProviderPaymentIntentReference = "pi_" + Guid.NewGuid().ToString("N") };
+            Db.PaymentIntents.Add(retry);
+            Db.Payments.Add(new Payment { TenantId = TenantId, PaymentIntentId = retry.Id, Provider = "Stripe", ConnectorId = retry.ConnectorId,
+                ProviderReference = retry.ProviderPaymentIntentReference, Currency = "GBP", Amount = retry.Amount,
+                CapturedAt = Clock.UtcNow, OutcomeStatus = "Captured" });
+            await Db.SaveChangesAsync();
+            await new LedgerPostingService(Db).PostPaymentCaptureAsync(retry);
+            return (retry, clearing.Id, revenue.Id);
         }
         public static GiftCardPurchaseSource Source(PaymentIntent intent, GiftCardCheckout instruction) => new(instruction.CartId,
             intent.OrderId, intent.Id, instruction.Purchase!.OrderItemId, instruction.Purchase.ItemIndex);
