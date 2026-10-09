@@ -9,6 +9,10 @@ public interface IPartyService
         CreatePartyRequest request,
         CancellationToken cancellationToken = default);
 
+    /// <summary>Creates the server-allocated unverified purchaser once for a checkout, without a login or email lookup.</summary>
+    Task<PartyResponse> EnsureUnverifiedGuestPartyAsync(Guid partyId, Guid checkoutId,
+        CreatePartyRequest details, CancellationToken cancellationToken = default);
+
     Task<PartyResponse?> GetPartyAsync(
         Guid partyId,
         CancellationToken cancellationToken = default);

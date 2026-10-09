@@ -169,7 +169,7 @@ public class GuestOrderReadTests
 
         var pending = await orders.GetGuestOrderAsync(checkout.OrderId, checkout.GuestOrderToken);
         pending!.PaymentStatus.Should().Be("Pending");
-        await harness.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId);
+        await harness.Checkout().ConfirmPaymentAsync(checkout.OrderId, checkout.PaymentIntentId, checkout.Total, checkout.Currency);
         var paid = await orders.GetGuestOrderAsync(checkout.OrderId, checkout.GuestOrderToken);
         var repeat = await orders.GetGuestOrderAsync(checkout.OrderId, checkout.GuestOrderToken);
 

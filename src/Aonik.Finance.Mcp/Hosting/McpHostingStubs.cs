@@ -106,6 +106,10 @@ internal sealed class McpAuditLogWriter : IAuditLogWriter
 /// </summary>
 internal sealed class McpPartyService : IPartyService
 {
+    public Task<PartyResponse> EnsureUnverifiedGuestPartyAsync(Guid partyId, Guid checkoutId,
+        CreatePartyRequest details, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Guest checkout parties are not available via the Finance MCP server.");
+
     public Task<PartyResponse> CreatePartyAsync(CreatePartyRequest request, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Party creation is not available via the Finance MCP server. Use the Platform MCP server.");
 

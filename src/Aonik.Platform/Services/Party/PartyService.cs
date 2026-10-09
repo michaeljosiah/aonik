@@ -43,9 +43,50 @@ internal class PartyService : IPartyService
         _profilePhotoStore = profilePhotoStore;
     }
 
-    public async Task<PartyResponse> CreatePartyAsync(
+    public Task<PartyResponse> CreatePartyAsync(
         CreatePartyRequest request,
         CancellationToken cancellationToken = default)
+        => CreatePartyCoreAsync(request, Guid.NewGuid(), null, cancellationToken);
+
+    public async Task<PartyResponse> EnsureUnverifiedGuestPartyAsync(
+        Guid partyId, Guid checkoutId, CreatePartyRequest details,
+        CancellationToken cancellationToken = default)
+    {
+        if (partyId == Guid.Empty || checkoutId == Guid.Empty || !IsPersonPartyType(details.PartyType))
+            throw new ArgumentException("A guest checkout requires a stable party, checkout and person identity.");
+
+        var existing = await FindCheckoutGuestAsync(partyId, checkoutId, cancellationToken);
+        if (existing is not null) return existing;
+
+        try
+        {
+            return await CreatePartyCoreAsync(details, partyId, checkoutId, cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            // Concurrent retries may create this exact attempt's party. Never match by email.
+            var winner = await FindCheckoutGuestAsync(partyId, checkoutId, cancellationToken);
+            if (winner is null) throw;
+            return winner;
+        }
+    }
+
+    private async Task<PartyResponse?> FindCheckoutGuestAsync(
+        Guid partyId, Guid checkoutId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var party = await _dbContext.Parties.AsNoTracking()
+            .SingleOrDefaultAsync(p => p.Id == partyId && p.TenantId == tenantId, cancellationToken);
+        if (party is null) return null;
+        if (!await _dbContext.PartyRoleAssignments.AsNoTracking().AnyAsync(r => r.TenantId == tenantId
+                && r.PartyId == partyId && r.Role == "Customer" && r.ContextType == "CommerceCheckout"
+                && r.ContextId == checkoutId, cancellationToken))
+            throw new InvalidStateException("This party does not belong to the guest checkout attempt.");
+        return new PartyResponse(party.Id, party.DisplayName, party.PartyType, party.Status);
+    }
+
+    private async Task<PartyResponse> CreatePartyCoreAsync(
+        CreatePartyRequest request, Guid partyId, Guid? checkoutId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.DisplayName))
         {
@@ -57,11 +98,12 @@ internal class PartyService : IPartyService
             throw new ArgumentException("Party type is required.", nameof(request.PartyType));
         }
 
+        var trackedBefore = _dbContext.ChangeTracker.Entries().Select(e => e.Entity).ToHashSet(ReferenceEqualityComparer.Instance);
         var tenantId = _tenantProvider.GetCurrentTenantId();
         var now = _clock.UtcNow;
         var party = new PartyEntity
         {
-            Id = Guid.NewGuid(),
+            Id = partyId,
             TenantId = tenantId,
             PartyType = request.PartyType.Trim(),
             DisplayName = request.DisplayName.Trim(),
@@ -96,7 +138,22 @@ internal class PartyService : IPartyService
         }
 
         _dbContext.Parties.Add(party);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        if (checkoutId is { } id)
+            _dbContext.PartyRoleAssignments.Add(new PartyRoleAssignment
+            {
+                TenantId = tenantId, PartyId = partyId, Role = "Customer",
+                ContextType = "CommerceCheckout", ContextId = id
+            });
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (checkoutId.HasValue)
+        {
+            foreach (var entry in _dbContext.ChangeTracker.Entries().Where(e => !trackedBefore.Contains(e.Entity)).ToList())
+                entry.State = EntityState.Detached;
+            throw;
+        }
 
         await _auditLogWriter.LogAsync(
             AuditEventNames.PartyCreated,

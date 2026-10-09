@@ -10,8 +10,8 @@ namespace Aonik.Commerce.Agents;
 /// <c>_explode_recipe</c>, <c>_get_product_cost</c>, <c>_check_ingredient_stock</c>,
 /// <c>_list_low_stock</c>, <c>_list_suppliers</c>, <c>_get_production_sheet</c>,
 /// <c>_get_prep_list</c>, <c>_get_kitchen_sheet</c>, <c>_get_margin_report</c>) are omitted — the gate passes unclassified,
-/// read-looking tools through. Commerce never captures money, so no tool is High here (capture
-/// stays a Finance high-tier action; a future <c>commerce_refund</c> would be High via a Finance
+/// read-looking tools through. Checkout is High because it calls a real payment provider (capture
+/// stays a Finance action; a future <c>commerce_refund</c> would be High via a Finance
 /// proposal, and PAYING a purchase-order supplier — <c>commerce_pay_purchase_order</c> — is the
 /// deferred Spec 053 high-tier follow-up, deliberately not registered).
 /// </summary>
@@ -27,11 +27,12 @@ internal sealed class CommerceToolApprovalManifest : IToolApprovalManifest
             ["commerce_add_to_cart"] = Low("Add a product to a cart"),
             ["commerce_add_bundle_to_cart"] = Low("Add a build-your-own-box to a cart"),
 
-            // ── Medium — everyday domain writes + checkout (in-session confirmation) ──
+            // ── Medium — everyday domain writes (in-session confirmation) ──
             ["commerce_create_product"] = Medium("Create a catalog product"),
             ["commerce_set_price"] = Medium("Set a product price"),
             ["commerce_adjust_inventory"] = Medium("Adjust product stock"),
-            ["commerce_checkout"] = Medium("Check out a cart (creates an order + draft payment; no capture)"),
+            ["commerce_checkout"] = ToolClassification.Mutating(new ToolApprovalOptions(
+                ToolApprovalTier.High, "Check out a cart with a payment provider", CommerceCheckoutProposalHandler.ProposalTypeKey)),
 
             // ── Medium — maker-ops master-data writes (Spec 050 §12) ──
             ["commerce_create_ingredient"] = Medium("Create an ingredient"),

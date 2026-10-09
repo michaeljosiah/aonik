@@ -3297,6 +3297,14 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(24000)
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CheckoutPreparationJson")
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CheckoutState")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -5660,6 +5668,9 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<Guid?>("DiscountId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("DiscountTotal")
                         .HasPrecision(19, 4)
                         .HasColumnType("decimal(19,4)");
@@ -5718,7 +5729,8 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "OrderId");
+                    b.HasIndex("TenantId", "OrderId")
+                        .IsUnique();
 
                     b.ToTable("AnkOrderChargeSummaries", "dbo");
                 });
@@ -9134,14 +9146,25 @@ namespace Aonik.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal?>("Amount")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)");
+
                     b.Property<DateTime?>("CapturedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ConnectorId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Currency")
+                        .HasMaxLength(3)
+                        .HasColumnType("nvarchar(3)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -9158,21 +9181,26 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<string>("OutcomeStatus")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("PaymentIntentId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Provider")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("ProviderReference")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
                         .IsRequired()
-                        .HasColumnType("varbinary(max)");
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
@@ -9184,6 +9212,14 @@ namespace Aonik.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ConnectorId", "ProviderReference")
+                        .IsUnique()
+                        .HasFilter("[ConnectorId] IS NOT NULL AND [ProviderReference] IS NOT NULL");
+
+                    b.HasIndex("TenantId", "PaymentIntentId")
+                        .IsUnique()
+                        .HasFilter("[ConnectorId] IS NOT NULL");
 
                     b.ToTable("AnkPayments", "dbo");
                 });
@@ -9287,9 +9323,30 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("ProviderAccountId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ProviderCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("ProviderCreateRequestJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool?>("ProviderLiveMode")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("ProviderPaymentIntentReference")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("ProviderReference")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("ProviderRequestStartedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<Guid>("PurposeId")
                         .HasColumnType("uniqueidentifier");
@@ -9324,6 +9381,14 @@ namespace Aonik.Infrastructure.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ConnectorId", "ProviderPaymentIntentReference")
+                        .IsUnique()
+                        .HasFilter("[ConnectorId] IS NOT NULL AND [ProviderPaymentIntentReference] IS NOT NULL");
+
+                    b.HasIndex("ConnectorId", "ProviderReference")
+                        .IsUnique()
+                        .HasFilter("[ConnectorId] IS NOT NULL AND [ProviderCode] = 'Stripe' AND [ProviderReference] IS NOT NULL");
 
                     b.HasIndex("TenantId", "ClientReference");
 

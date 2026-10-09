@@ -10,6 +10,12 @@ namespace Aonik.SharedKernel.Abstractions.Payments;
 public interface IPaymentInitiator
 {
     Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken cancellationToken = default);
+
+    /// <summary>Reads the recorded attempt without creating another provider object.</summary>
+    Task<PaymentIntentStateRef?> GetStateAsync(Guid paymentIntentId, CancellationToken cancellationToken = default);
+
+    /// <summary>Expires and reconciles this exact attempt. Unknown outcomes remain payable/locked.</summary>
+    Task<PaymentIntentStateRef> ExpireAsync(Guid paymentIntentId, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -23,11 +29,23 @@ public sealed record CreateGuestPaymentIntentForOrderCommand(
     string Provider,
     string PaymentMethodType,
     string? ReturnUrl = null,
-    string? CancelUrl = null);
+    string? CancelUrl = null,
+    Guid? PaymentIntentId = null,
+    string? IdempotencyKey = null);
 
 /// <summary>A reference to the created payment intent, including any client-side completion handles.</summary>
 public sealed record PaymentIntentRef(
     Guid PaymentIntentId,
     string Status,
     string? ClientSecret = null,
+    string? CheckoutUrl = null);
+
+/// <summary>Server-recorded payment state. Only confirmed unpaid closure permits another attempt.</summary>
+public sealed record PaymentIntentStateRef(
+    Guid PaymentIntentId,
+    Guid OrderId,
+    decimal Amount,
+    string Currency,
+    string Status,
+    bool CanNoLongerPay,
     string? CheckoutUrl = null);

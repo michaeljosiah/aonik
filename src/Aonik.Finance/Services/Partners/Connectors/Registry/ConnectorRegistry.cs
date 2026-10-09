@@ -13,9 +13,11 @@ internal static class ConnectorRegistry
     // ── Connector kind codes (stored in Connector.ConnectorType) ───────────────────────────────
     public const string FlutterwavePayoutV4 = "flutterwave-payout-v4";
     public const string FlutterwaveBillsV3 = "flutterwave-bills-v3";
+    public const string StripeCheckoutV1 = "stripe-checkout-v1";
 
     // ── Provider codes (IPartnerConnector.ProviderCode) ────────────────────────────────────────
     public const string ProviderFlutterwave = "Flutterwave";
+    public const string ProviderStripe = "Stripe";
 
     // ── Environment names (the ConfigJson.environment value) ───────────────────────────────────
     public const string EnvironmentSandbox = "sandbox";
@@ -32,6 +34,8 @@ internal static class ConnectorRegistry
     public const string ConfigEnvironment = "environment";
     public const string ConfigDefaultTransferPurpose = "defaultTransferPurpose";
     public const string ConfigCountry = "country";
+    public const string ConfigReturnOrigin = "returnOrigin";
+    public const string ConfigAccountId = "accountId";
 
     // Flutterwave OAuth IdP token endpoint — the same realm for sandbox AND production
     // (Spec 037 §5.2 table: "OAuth IdP … (both)").
@@ -40,6 +44,31 @@ internal static class ConnectorRegistry
 
     private static readonly IReadOnlyList<ConnectorKindDescriptor> AllKinds = new[]
     {
+        new ConnectorKindDescriptor(
+            Kind: StripeCheckoutV1,
+            ProviderCode: ProviderStripe,
+            Port: PartnerServiceCategory.Collection,
+            DisplayName: "Stripe hosted checkout",
+            CredentialFields: new[]
+            {
+                new ConnectorCredentialField(FieldSecretKey, "Secret API key", Required: true),
+                new ConnectorCredentialField(FieldSigningSecret, "Webhook signing secret", Required: true),
+            },
+            ConfigFields: new[]
+            {
+                new ConnectorConfigField(ConfigEnvironment, "Environment", Required: true,
+                    AllowedValues: new[] { EnvironmentSandbox, EnvironmentProduction }, DefaultValue: EnvironmentSandbox),
+                new ConnectorConfigField(ConfigReturnOrigin, "Storefront HTTPS origin", Required: true,
+                    AllowedValues: null, DefaultValue: null),
+                new ConnectorConfigField(ConfigAccountId, "Stripe merchant account ID", Required: true,
+                    AllowedValues: null, DefaultValue: null),
+            },
+            Environments: new[]
+            {
+                new ConnectorEnvironment(EnvironmentSandbox, "https://api.stripe.com", IdpTokenUrl: null),
+                new ConnectorEnvironment(EnvironmentProduction, "https://api.stripe.com", IdpTokenUrl: null),
+            }),
+
         new ConnectorKindDescriptor(
             Kind: FlutterwavePayoutV4,
             ProviderCode: ProviderFlutterwave,

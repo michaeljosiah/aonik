@@ -14,15 +14,18 @@ internal class PublicPaymentService : IPublicPaymentService
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IEnumerable<IPaymentProviderGateway> _providerGateways;
+    private readonly CheckoutPaymentService _checkoutPayments;
 
     public PublicPaymentService(
         FinanceDbContext dbContext,
         ITenantProvider tenantProvider,
-        IEnumerable<IPaymentProviderGateway> providerGateways)
+        IEnumerable<IPaymentProviderGateway> providerGateways,
+        CheckoutPaymentService checkoutPayments)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _providerGateways = providerGateways;
+        _checkoutPayments = checkoutPayments;
     }
 
     public async Task<GuestPaymentIntentResponse> CreateGuestPaymentIntentAsync(
@@ -114,87 +117,10 @@ internal class PublicPaymentService : IPublicPaymentService
             paymentIntent.CreatedAt);
     }
 
-    public async Task<GuestPaymentIntentResponse> CreateCommerceGuestPaymentIntentAsync(
+    public Task<GuestPaymentIntentResponse> CreateCommerceGuestPaymentIntentAsync(
         CreateCommerceGuestPaymentIntentRequest request,
         CancellationToken cancellationToken = default)
-    {
-        // Defense-in-depth (#221) — see CreateGuestPaymentIntentAsync.
-        var tenantId = _tenantProvider.GetCurrentTenantId();
-
-        var order = await _dbContext.Orders
-            .FirstOrDefaultAsync(entity => entity.Id == request.OrderId && entity.TenantId == tenantId, cancellationToken)
-            ?? throw new NotFoundException($"Order {request.OrderId} not found.");
-
-        if (!string.Equals(order.OrderType, "ProductPurchase", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidStateException("This payment path is only for product-purchase orders.");
-        }
-
-        if (!string.Equals(order.Status, "Draft", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(order.Status, "PendingFunding", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidStateException("Only draft or pending funding orders can create payment intents.");
-        }
-
-        if (request.Amount <= 0)
-        {
-            throw new InvalidStateException("Payment amount must be greater than zero.");
-        }
-
-        // Fund the explicit checkout total (after discount/tax), not the order's goods subtotal —
-        // Order, Payment and Ledger stay distinct (Spec 042 §5/§11).
-        var provider = ResolveProvider(request.Provider);
-
-        var reference = $"ORD-{order.Id:N}";
-        var providerResult = await provider.CreateIntentAsync(
-            new PaymentProviderIntentRequest(
-                order.Id,
-                request.Amount,
-                request.Currency,
-                request.PaymentMethodType,
-                request.ReturnUrl,
-                request.CancelUrl,
-                reference),
-            cancellationToken);
-
-        var paymentIntent = new PaymentIntent
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenantId,
-            Amount = request.Amount,
-            Currency = request.Currency,
-            PayerPartyId = order.PayerPartyId,
-            PayeePartyId = null,
-            OrderId = order.Id,
-            InvoiceId = null,
-            PurposeType = "Order",
-            PurposeId = order.Id,
-            PaymentMethodType = request.PaymentMethodType,
-            PaymentMethodRef = providerResult.ProviderReference,
-            Status = providerResult.Status
-        };
-
-        _dbContext.PaymentIntents.Add(paymentIntent);
-
-        if (string.Equals(order.Status, "Draft", StringComparison.OrdinalIgnoreCase))
-        {
-            order.Status = "PendingFunding";
-        }
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        return new GuestPaymentIntentResponse(
-            paymentIntent.Id,
-            paymentIntent.OrderId,
-            paymentIntent.Amount,
-            paymentIntent.Currency,
-            paymentIntent.Status,
-            providerResult.Provider,
-            providerResult.ProviderReference,
-            providerResult.ClientSecret,
-            providerResult.CheckoutUrl,
-            paymentIntent.CreatedAt);
-    }
+        => _checkoutPayments.CreateAsync(request, cancellationToken);
 
     public async Task<GuestPaymentIntentStatusResponse?> GetGuestPaymentIntentStatusAsync(
         GetGuestPaymentIntentStatusRequest request,
@@ -227,7 +153,8 @@ internal class PublicPaymentService : IPublicPaymentService
         if (!string.IsNullOrWhiteSpace(request.ProviderReference))
         {
             var normalizedProviderReference = request.ProviderReference.Trim();
-            query = query.Where(entity => entity.PaymentMethodRef == normalizedProviderReference);
+            query = query.Where(entity => entity.ProviderReference == normalizedProviderReference
+                || entity.PaymentMethodRef == normalizedProviderReference);
         }
 
         var paymentIntent = await query
@@ -245,7 +172,7 @@ internal class PublicPaymentService : IPublicPaymentService
             paymentIntent.Amount,
             paymentIntent.Currency,
             paymentIntent.Status,
-            paymentIntent.PaymentMethodRef ?? string.Empty,
+            paymentIntent.ProviderReference ?? paymentIntent.PaymentMethodRef ?? string.Empty,
             paymentIntent.CreatedAt,
             order.Status);
     }

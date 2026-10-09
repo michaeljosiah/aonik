@@ -1,5 +1,6 @@
 using Aonik.Finance.Contracts.Models.Payments;
 using Aonik.Finance.Contracts.Services.Payments;
+using Aonik.Finance.Services.Payments;
 using Aonik.SharedKernel.Abstractions.Payments;
 
 namespace Aonik.Finance.Services.Integration;
@@ -15,7 +16,19 @@ internal sealed class PaymentInitiator : IPaymentInitiator
 {
     private readonly IPublicPaymentService _publicPayments;
 
-    public PaymentInitiator(IPublicPaymentService publicPayments) => _publicPayments = publicPayments;
+    private readonly CheckoutPaymentService _checkoutPayments;
+
+    public PaymentInitiator(IPublicPaymentService publicPayments, CheckoutPaymentService checkoutPayments)
+    {
+        _publicPayments = publicPayments;
+        _checkoutPayments = checkoutPayments;
+    }
+
+    public Task<PaymentIntentStateRef?> GetStateAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
+        => _checkoutPayments.GetStateAsync(paymentIntentId, cancellationToken);
+
+    public Task<PaymentIntentStateRef> ExpireAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
+        => _checkoutPayments.ExpireAsync(paymentIntentId, cancellationToken);
 
     public async Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken cancellationToken = default)
     {
@@ -27,7 +40,9 @@ internal sealed class PaymentInitiator : IPaymentInitiator
                 Provider: command.Provider,
                 PaymentMethodType: command.PaymentMethodType,
                 ReturnUrl: command.ReturnUrl,
-                CancelUrl: command.CancelUrl),
+                CancelUrl: command.CancelUrl,
+                PaymentIntentId: command.PaymentIntentId,
+                IdempotencyKey: command.IdempotencyKey),
             cancellationToken);
 
         return new PaymentIntentRef(response.PaymentIntentId, response.Status, response.ClientSecret, response.CheckoutUrl);

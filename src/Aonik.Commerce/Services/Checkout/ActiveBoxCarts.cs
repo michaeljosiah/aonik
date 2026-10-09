@@ -11,7 +11,7 @@ internal static class ActiveBoxCarts
     public static IQueryable<Entities.Cart.Cart> ForParty(CommerceDbContext context, Guid tenantId, Guid partyId)
         => context.Carts.Where(cart => cart.TenantId == tenantId && cart.BuyerPartyId == partyId
             && cart.BoxBundleProductId != null && cart.Status == CartStatuses.Open
-            && cart.OrderId == null && !cart.IsDeleted);
+            && (cart.CheckoutState == CartCheckoutStates.Retryable || cart.OrderId == null && cart.CheckoutState == null) && !cart.IsDeleted);
 
     public static ActiveBoxSnapshotDto Snapshot(Entities.Cart.Cart cart)
         => new(cart.Id, Convert.ToBase64String(cart.RowVersion), cart.BoxSize,

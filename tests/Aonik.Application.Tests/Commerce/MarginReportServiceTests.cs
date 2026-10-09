@@ -53,10 +53,10 @@ public class MarginReportServiceTests
     private static readonly DateTime ToUtc = new(2026, 7, 8, 0, 0, 0, DateTimeKind.Utc);
     private static ProductionWindow Window => new(FromUtc, ToUtc);
 
-    private sealed class FakePaymentInitiator : IPaymentInitiator
+    private sealed class FakePaymentInitiator : TestPaymentState
     {
-        public Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
-            => Task.FromResult(new PaymentIntentRef(Guid.NewGuid(), "Pending", "secret_123", "https://pay.example/checkout"));
+        public override Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
+            => Task.FromResult(Record(command, "secret_123", "https://pay.example/checkout"));
     }
 
     private sealed class FakeInvoiceWriter : IInvoiceWriter
@@ -117,14 +117,14 @@ public class MarginReportServiceTests
             return new CheckoutService(
                 Commerce(), Inventory(), Orders(), new FakePaymentInitiator(), new FakeInvoiceWriter(),
                 Discounts(), new ZeroRateTaxCalculator(), _tenant, boxCarts, _guestOrderAccess,
-                new FulfilmentPromiseService(ctx, _tenant, Clock), new ServedTestDeliveryCoverage());
+                new FulfilmentPromiseService(ctx, _tenant, Clock), new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), Clock);
         }
 
         public MarginReportService Margins() => new(Commerce(), Orders(), Costing(), Pricing(), _tenant);
 
         /// <summary>Report evaluated at the window end so every seeded cost is effective (the
         /// rollup is date-aware) — deterministic regardless of the last order's clock.</summary>
-        public Task<MarginReportDto> ReportAsync(string currency = "NGN")
+        public Task<MarginReportDto> ReportAsync(string currency = "GBP")
         {
             Clock.UtcNow = ToUtc;
             return Margins().GetMarginReportAsync(Window, currency);
@@ -138,7 +138,7 @@ public class MarginReportServiceTests
                 CategoryId: categoryId,
                 Variants: new[] { new CreateVariantLine($"SKU-{Guid.NewGuid():N}", name) }));
             var variantId = product.Variants.Single().Id;
-            await Pricing().SetPriceAsync(new SetPriceCommand(variantId, "NGN", priceNgn));
+            await Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", priceNgn));
             await Inventory().SetOnHandAsync(variantId, 1_000m);
             return (product.Id, variantId);
         }
@@ -170,8 +170,8 @@ public class MarginReportServiceTests
                 new RecipeComponentCommand(rice, 1m),
                 new RecipeComponentCommand(tomato, 0.5m),
             }));
-            await Costs().SetCostAsync(new SetIngredientCostCommand(rice, "NGN", 1_200m));
-            await Costs().SetCostAsync(new SetIngredientCostCommand(tomato, "NGN", 800m));
+            await Costs().SetCostAsync(new SetIngredientCostCommand(rice, "GBP", 1_200m));
+            await Costs().SetCostAsync(new SetIngredientCostCommand(tomato, "GBP", 800m));
         }
 
         /// <summary>0.3 kg beef (₦5,000/kg) yields 1 portion ⇒ standard cost ₦1,500/portion.</summary>
@@ -182,14 +182,14 @@ public class MarginReportServiceTests
             {
                 new RecipeComponentCommand(beef, 0.3m),
             }));
-            await Costs().SetCostAsync(new SetIngredientCostCommand(beef, "NGN", 5_000m));
+            await Costs().SetCostAsync(new SetIngredientCostCommand(beef, "GBP", 5_000m));
         }
 
         /// <summary>A checkout-created ProductPurchase order, exactly as production fabricates it
         /// (order + charge summary + bundle selections), optionally payment-confirmed — the
         /// ConfirmPaymentAsync path that transitions the order to Complete (§8).</summary>
         public async Task<CheckoutResult> CheckoutAsync(
-            DateTime createdAtUtc, bool confirmPayment, string currency = "NGN", string? discountCode = null,
+            DateTime createdAtUtc, bool confirmPayment, string currency = "GBP", string? discountCode = null,
             params (Guid VariantId, decimal Quantity)[] lines)
         {
             Clock.UtcNow = createdAtUtc;
@@ -201,7 +201,7 @@ public class MarginReportServiceTests
             var result = await Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card", DiscountCode: discountCode), Owner(cart));
             if (confirmPayment)
             {
-                await Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
+                await Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
             }
             return result;
         }
@@ -223,7 +223,7 @@ public class MarginReportServiceTests
 
         var report = await h.ReportAsync();
 
-        report.Currency.Should().Be("NGN");
+        report.Currency.Should().Be("GBP");
         report.Window.Should().Be(Window);
         report.Rows.Should().HaveCount(2);
 
@@ -330,19 +330,19 @@ public class MarginReportServiceTests
         // A fixed-price box (₦4,500 < the ₦5,000 component value — the box discount).
         var box = await h.Products().CreateProductAsync(new CreateProductCommand(
             "family-box", "Family Box", ProductKinds.Bundle,
-            BundlePricingMode: BundlePricingModes.Fixed, BundleFixedAmount: 4_500m, BundleCurrency: "NGN"));
+            BundlePricingMode: BundlePricingModes.Fixed, BundleFixedAmount: 4_500m, BundleCurrency: "GBP"));
         var slot = await h.Products().AddBundleSlotAsync(new AddBundleSlotCommand(
             box.Id, "Pick 3", MinItems: 3, MaxItems: 3, FromCategoryId: category.Id));
 
         h.Clock.UtcNow = FromUtc.AddDays(1);
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddBundleAsync(new AddBundleToCartCommand(cart.Id, box.Id, new[]
         {
             new BundleSelectionLine(slot.Id, jollof, 2m),
             new BundleSelectionLine(slot.Id, moimoi, 1m),
         }), Owner(cart));
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
 
         var report = await h.ReportAsync();
 
@@ -387,28 +387,28 @@ public class MarginReportServiceTests
         // quantity fallback (2 : 1 ⇒ 3,000 / 1,500) visibly disagree.
         var box = await h.Products().CreateProductAsync(new CreateProductCommand(
             "family-box", "Family Box", ProductKinds.Bundle,
-            BundlePricingMode: BundlePricingModes.Fixed, BundleFixedAmount: 4_500m, BundleCurrency: "NGN"));
+            BundlePricingMode: BundlePricingModes.Fixed, BundleFixedAmount: 4_500m, BundleCurrency: "GBP"));
         var slot = await h.Products().AddBundleSlotAsync(new AddBundleSlotCommand(
             box.Id, "Pick 3", MinItems: 3, MaxItems: 3, FromCategoryId: category.Id));
 
         h.Clock.UtcNow = FromUtc.AddDays(1);
-        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("NGN", BuyerPartyId: Guid.NewGuid()));
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
         await h.Carts().AddBundleAsync(new AddBundleToCartCommand(cart.Id, box.Id, new[]
         {
             new BundleSelectionLine(slot.Id, jollof, 2m),
             new BundleSelectionLine(slot.Id, moimoi, 1m),
         }), Owner(cart));
         var result = await h.Checkout().CheckoutAsync(new CheckoutCommand(cart.Id, "Stripe", "Card"), Owner(cart));
-        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
 
         // A lowercase report currency must behave IDENTICALLY to the uppercase call. The order
         // filter admits case-insensitively but ResolvePriceAsync matches ProductPrice.Currency
         // exactly — an un-normalized "ngn" would find the order, miss every component's standalone
         // NGN price, and silently degrade the §8 value-weighted split to the quantity fallback.
-        var lower = await h.ReportAsync("ngn");
-        var upper = await h.ReportAsync("NGN");
+        var lower = await h.ReportAsync("gbp");
+        var upper = await h.ReportAsync("GBP");
 
-        lower.Currency.Should().Be("NGN");                  // the DTO echoes the NORMALIZED currency
+        lower.Currency.Should().Be("GBP");                  // the DTO echoes the NORMALIZED currency
         lower.OrdersExcludedByCurrency.Should().Be(0);
         var jollofRow = lower.Rows.Single(r => r.ProductVariantId == jollof);
         jollofRow.Revenue.Should().Be(3_600m);              // value-weighted, NOT the 3,000 fallback
@@ -426,7 +426,7 @@ public class MarginReportServiceTests
         var (_, akara) = await h.SeedSimpleAsync("Akara", priceNgn: 1_000m);
         var (_, puffpuff) = await h.SeedSimpleAsync("Puff puff", priceNgn: 1_000m);
         var (_, zobo) = await h.SeedSimpleAsync("Zobo", priceNgn: 1_000m);
-        await h.Discounts().CreateAsync(new CreateDiscountCommand("SAVE100", DiscountKinds.FixedAmount, 100m, "NGN"));
+        await h.Discounts().CreateAsync(new CreateDiscountCommand("SAVE100", DiscountKinds.FixedAmount, 100m, "GBP"));
 
         // One order, three ₦1,000 lines, ₦100 whole-order discount: the ₦33.33̅ per-line share
         // does not round evenly at 4 dp — the remainder lands on the first (largest-tie) line.
@@ -461,7 +461,6 @@ public class MarginReportServiceTests
     {
         var h = new Harness();
         var (_, jollof) = await h.SeedSimpleAsync("Jollof rice", priceNgn: 2_000m);
-        await h.Pricing().SetPriceAsync(new SetPriceCommand(jollof, "GBP", 10m));
 
         // Counted: payment-completed (Complete) in the window.
         await h.CheckoutAsync(FromUtc.AddDays(1), confirmPayment: true, lines: (jollof, 3m));
@@ -479,9 +478,20 @@ public class MarginReportServiceTests
         await h.CheckoutAsync(ToUtc, confirmPayment: true, lines: (jollof, 19m));
 
         // Skipped + surfaced — paid, in-window, but in another currency (Commerce holds no FX).
-        await h.CheckoutAsync(FromUtc.AddDays(5), confirmPayment: true, currency: "GBP", lines: (jollof, 23m));
+        var foreign = await h.CheckoutAsync(FromUtc.AddDays(5), confirmPayment: true, lines: (jollof, 23m));
+        // Reporting also covers historical/imported orders outside the current GBP payment launch.
+        await using (var historical = h.Ordering())
+        {
+            (await historical.Orders.SingleAsync(order => order.Id == foreign.OrderId)).CurrencyIn = "USD";
+            await historical.SaveChangesAsync();
+        }
+        await using (var historical = h.Commerce())
+        {
+            (await historical.OrderChargeSummaries.SingleAsync(summary => summary.OrderId == foreign.OrderId)).Currency = "USD";
+            await historical.SaveChangesAsync();
+        }
 
-        var report = await h.ReportAsync("NGN");
+        var report = await h.ReportAsync("GBP");
 
         var row = report.Rows.Should().ContainSingle().Subject;
         row.ProductVariantId.Should().Be(jollof);
@@ -598,10 +608,10 @@ public class MarginReportServiceTests
     {
         var h = new Harness();
 
-        var inverted = () => h.Margins().GetMarginReportAsync(new ProductionWindow(ToUtc, FromUtc), "NGN");
+        var inverted = () => h.Margins().GetMarginReportAsync(new ProductionWindow(ToUtc, FromUtc), "GBP");
         await inverted.Should().ThrowAsync<ArgumentException>().WithMessage("*FromUtc < ToUtc*");
 
-        var tooWide = () => h.Margins().GetMarginReportAsync(new ProductionWindow(FromUtc, FromUtc.AddDays(93)), "NGN");
+        var tooWide = () => h.Margins().GetMarginReportAsync(new ProductionWindow(FromUtc, FromUtc.AddDays(93)), "GBP");
         await tooWide.Should().ThrowAsync<ArgumentException>().WithMessage("*92 days*");
 
         var noCurrency = () => h.Margins().GetMarginReportAsync(Window, " ");

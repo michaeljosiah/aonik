@@ -75,5 +75,46 @@ internal static class ConnectorConfigJson
                     $"Config '{field.Name}' is required for connector kind '{descriptor.Kind}'.");
             }
         }
+
+        if (descriptor.Kind == ConnectorRegistry.StripeCheckoutV1)
+        {
+            var accountId = values[ConnectorRegistry.ConfigAccountId];
+            if (!accountId.StartsWith("acct_", StringComparison.Ordinal)
+                || accountId.Length is < 6 or > 100
+                || accountId.Skip(5).Any(c => !char.IsAsciiLetterOrDigit(c)))
+            {
+                throw new InvalidOperationException("A Stripe merchant account ID is required.");
+            }
+
+            var origin = values[ConnectorRegistry.ConfigReturnOrigin];
+            if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri)
+                || uri.Scheme != Uri.UriSchemeHttps || string.IsNullOrEmpty(uri.Host)
+                || !string.IsNullOrEmpty(uri.UserInfo) || uri.AbsolutePath != "/"
+                || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+            {
+                throw new InvalidOperationException("Stripe returnOrigin must be an HTTPS origin without a path, query or credentials.");
+            }
+        }
+    }
+
+    public static void ValidateUpdate(string oldKind, string oldJson, string newKind, string newJson)
+    {
+        if (!string.Equals(oldKind, ConnectorRegistry.StripeCheckoutV1, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var oldValues = Parse(oldJson);
+        var newValues = Parse(newJson);
+        if (!string.Equals(oldKind, newKind, StringComparison.OrdinalIgnoreCase)
+            || !oldValues.TryGetValue(ConnectorRegistry.ConfigAccountId, out var oldAccount)
+            || !newValues.TryGetValue(ConnectorRegistry.ConfigAccountId, out var newAccount)
+            || !string.Equals(oldAccount, newAccount, StringComparison.Ordinal)
+            || !oldValues.TryGetValue(ConnectorRegistry.ConfigEnvironment, out var oldEnvironment)
+            || !newValues.TryGetValue(ConnectorRegistry.ConfigEnvironment, out var newEnvironment)
+            || !string.Equals(oldEnvironment, newEnvironment, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException("A Stripe connector's kind, merchant account and environment cannot change. Create a new connector instead.");
+        }
     }
 }

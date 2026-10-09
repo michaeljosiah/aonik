@@ -174,19 +174,16 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
     }
 
     [Fact]
-    public async Task Checkout_Should_KeepGenericNonshippingCartsWorking_WithoutInventingDelivery()
+    public async Task Checkout_Should_RequireActualPurchaserDetails_ForAnAnonymousNonshippingCart()
     {
         var seeded = await SeedCartAsync(calendar: false);
         using var client = Client(seeded);
 
         using var response = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(null));
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var checkout = (await response.Content.ReadFromJsonAsync<CheckoutResult>())!;
-        client.DefaultRequestHeaders.Add("X-Order-Token", checkout.GuestOrderToken);
-        var confirmation = await client.GetFromJsonAsync<StorefrontOrderDetailDto>(GuestPath(checkout.OrderId));
-        confirmation!.Delivery.Should().BeNull();
-        await AssertOneCheckoutAsync(seeded, checkout.OrderId, null);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await response.Content.ReadAsStringAsync()).Should().Contain("Purchaser contact details");
+        await AssertNoCheckoutEffectsAsync(seeded);
     }
 
     [Fact]
@@ -284,8 +281,44 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
         new("buyer@example.test", "Pat", "Customer", "+44 7700 900123"),
         new("12 Sample Street", null, "London", null, "SW1A 1AA", "GB"), SelectedDate);
 
+    [Fact]
+    public async Task PaymentRecovery_Should_RequireOwnershipAndCurrentVersion_AndReuseTheOrderAfterEditing()
+    {
+        var seeded = await SeedCartAsync();
+        using var client = Client(seeded);
+        using var checkoutResponse = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(ValidDelivery()));
+        checkoutResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var checkout = (await checkoutResponse.Content.ReadFromJsonAsync<CheckoutResult>())!;
+        var paymentPath = $"/commerce/carts/{seeded.CartId}/payment";
+        using var outsider = Client(seeded, includeCartToken: false);
+        using var hidden = await outsider.GetAsync(paymentPath);
+        hidden.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        using var stateResponse = await client.GetAsync(paymentPath);
+        stateResponse.Headers.CacheControl!.NoStore.Should().BeTrue();
+        var state = (await stateResponse.Content.ReadFromJsonAsync<CartPaymentStateDto>())!;
+        state.CanEdit.Should().BeFalse();
+        state.PaymentIntentId.Should().Be(checkout.PaymentIntentId);
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
+        using var missingVersion = await client.PostAsJsonAsync(paymentPath + "/recover", new { checkout.PaymentIntentId });
+        missingVersion.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", state.CartVersion);
+        using var recoveredResponse = await client.PostAsJsonAsync(paymentPath + "/recover", new { checkout.PaymentIntentId });
+        recoveredResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var recovered = (await recoveredResponse.Content.ReadFromJsonAsync<CartPaymentStateDto>())!;
+        recovered.CanEdit.Should().BeTrue();
+        recovered.OrderId.Should().Be(checkout.OrderId);
+        recovered.CheckoutUrl.Should().BeNull();
+        client.DefaultRequestHeaders.Remove("X-Cart-Version");
+        client.DefaultRequestHeaders.TryAddWithoutValidation("X-Cart-Version", recovered.CartVersion);
+        using var nextResponse = await client.PostAsJsonAsync(CheckoutPath(seeded), Request(ValidDelivery() with { Notes = "Retry instructions" }));
+        nextResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var next = (await nextResponse.Content.ReadFromJsonAsync<CheckoutResult>())!;
+        next.OrderId.Should().Be(checkout.OrderId);
+        next.PaymentIntentId.Should().NotBe(checkout.PaymentIntentId);
+    }
+
     private static CheckoutRequest Request(CheckoutDeliveryDetails? delivery)
-        => new("Test", "Card", null, null, null, null, delivery);
+        => new("Stripe", "Card", null, null, null, null, delivery);
 
     private static string CheckoutPath(SeededCart seeded) => $"/commerce/carts/{seeded.CartId}/checkout";
     private static string GuestPath(Guid orderId) => $"/commerce/storefront/guest-orders/{orderId}";
@@ -366,7 +399,8 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
         scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = seeded.TenantId;
         var db = scope.ServiceProvider.GetRequiredService<AonikDbContext>();
         (await db.Carts.SingleAsync(row => row.Id == seeded.CartId)).OrderId.Should().Be(orderId);
-        (await db.Set<Order>().SingleAsync(row => row.TenantId == seeded.TenantId)).PayerPartyId.Should().BeNull();
+        (await db.Set<Order>().SingleAsync(row => row.TenantId == seeded.TenantId)).PayerPartyId.Should().NotBeNull();
+        (await db.Carts.SingleAsync(row => row.Id == seeded.CartId)).BuyerPartyId.Should().BeNull();
         (await db.OrderChargeSummaries.SingleAsync(row => row.TenantId == seeded.TenantId)).OrderId.Should().Be(orderId);
         (await db.InventoryReservations.CountAsync(row => row.TenantId == seeded.TenantId)).Should().Be(1);
         (await db.InventoryLevels.SingleAsync(row => row.ProductVariantId == seeded.VariantId)).Reserved.Should().Be(2m);
@@ -420,12 +454,24 @@ public class CommerceCheckoutDeliveryEndpointTests : IClassFixture<CommerceCheck
 
     private sealed class TestPaymentInitiator(ConcurrentQueue<CreateGuestPaymentIntentForOrderCommand> calls) : IPaymentInitiator
     {
+        private readonly ConcurrentDictionary<Guid, PaymentIntentStateRef> _states = new();
         public Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command,
             CancellationToken cancellationToken = default)
         {
             calls.Enqueue(command);
-            return Task.FromResult(new PaymentIntentRef(Guid.NewGuid(), "RequiresAction",
+            var id = command.PaymentIntentId!.Value;
+            _states[id] = new(id, command.OrderId, command.Amount, command.Currency, "RequiresAction", false,
+                "https://example.test/private-payment-url");
+            return Task.FromResult(new PaymentIntentRef(id, "RequiresAction",
                 "private-payment-secret", "https://example.test/private-payment-url"));
+        }
+        public Task<PaymentIntentStateRef?> GetStateAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
+            => Task.FromResult(_states.GetValueOrDefault(paymentIntentId));
+        public Task<PaymentIntentStateRef> ExpireAsync(Guid paymentIntentId, CancellationToken cancellationToken = default)
+        {
+            var state = _states[paymentIntentId] with { Status = "Cancelled", CanNoLongerPay = true, CheckoutUrl = null };
+            _states[paymentIntentId] = state;
+            return Task.FromResult(state);
         }
     }
 }

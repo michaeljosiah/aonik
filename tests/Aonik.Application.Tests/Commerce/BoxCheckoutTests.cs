@@ -231,7 +231,7 @@ public class BoxCheckoutTests
         var checkout = h.Checkout();
         var result = await checkout.CheckoutAsync(new CheckoutCommand(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), Token(box));
         // Draft orders are deliberately not kitchen demand (§9) — payment completion admits them.
-        await checkout.ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId);
+        await checkout.ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
 
         var tenant = new Aonik.TestSupport.Multitenancy.TestTenantProvider(h.TenantId);
         var planning = new ProductionPlanningService(h.Commerce(),
