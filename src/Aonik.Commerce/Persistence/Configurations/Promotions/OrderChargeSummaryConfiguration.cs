@@ -14,6 +14,8 @@ public class OrderChargeSummaryConfiguration : IEntityTypeConfiguration<OrderCha
         builder.Property(x => x.Subtotal).HasPrecision(19, 4);
         builder.Property(x => x.GreetingCardCharged).HasPrecision(19, 4);
         builder.Property(x => x.DiscountTotal).HasPrecision(19, 4);
+        builder.Property(x => x.PointsAppliedValue).HasPrecision(19, 4);
+        builder.Property(x => x.LoyaltyJson).HasMaxLength(262144);
         builder.Property(x => x.TaxTotal).HasPrecision(19, 4);
         builder.Property(x => x.Total).HasPrecision(19, 4);
         builder.Property(x => x.DiscountCode).HasMaxLength(64);

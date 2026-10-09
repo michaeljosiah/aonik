@@ -3,6 +3,8 @@ using System.Collections.Concurrent;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -12,10 +14,15 @@ using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Payments;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Payments;
+using Aonik.Finance.Services.Ledger;
+using Aonik.Finance.Services.Loyalty;
 using Aonik.Infrastructure.Persistence;
 using Aonik.IntegrationTests.Support;
 using Aonik.Platform.Entities.Party;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Ledgers;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.TestSupport.Multitenancy;
 
 namespace Aonik.Database.Tests.Finance;
@@ -28,7 +35,7 @@ public sealed class CheckoutPaymentDeadlineSqlServerTests(SqlLocalDbFixture data
     public async Task ExpiredCreate_Should_PreventDelayedCreatorFromStarting_WhenCancellationWins(bool pauseProviderClaim)
     {
         Skip.IfNot(database.IsAvailable, database.SkipReason ?? "SQL Server unavailable.");
-        var test = await CreateHarnessAsync();
+        using var test = await CreateHarnessAsync();
         var pause = new PauseIntentSave(pauseProviderClaim);
         await using var delayedDb = test.NewContext(pause);
         var delayed = test.Service(delayedDb).CreateAsync(test.Request);
@@ -64,7 +71,7 @@ public sealed class CheckoutPaymentDeadlineSqlServerTests(SqlLocalDbFixture data
     public async Task ExpiredCreate_Should_KeepStartedAttemptUnknown_WhenProviderStartWinsBeforeTimeout()
     {
         Skip.IfNot(database.IsAvailable, database.SkipReason ?? "SQL Server unavailable.");
-        var test = await CreateHarnessAsync();
+        using var test = await CreateHarnessAsync();
         var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var calls = 0;
@@ -129,11 +136,12 @@ public sealed class CheckoutPaymentDeadlineSqlServerTests(SqlLocalDbFixture data
         await reached;
     }
 
-    private sealed class Harness
+    private sealed class Harness : IDisposable
     {
         private readonly SqlLocalDbFixture _database;
         private readonly Mock<IStripeConnectorResolver> _connectors = new(MockBehavior.Strict);
         private readonly Mock<ICheckoutPaymentReconciler> _reconciler = new(MockBehavior.Strict);
+        private readonly List<ServiceProvider> _services = [];
         public Guid TenantId { get; } = Guid.NewGuid();
         public DateTime StartedAt { get; } = new(2026, 10, 9, 12, 0, 0, DateTimeKind.Utc);
         public DateTime Deadline => StartedAt.AddMinutes(10);
@@ -163,11 +171,37 @@ public sealed class CheckoutPaymentDeadlineSqlServerTests(SqlLocalDbFixture data
             return new FinanceDbContext(options.Options, new TestTenantProvider(TenantId), null, Clock);
         }
 
-        public CheckoutPaymentService Service(FinanceDbContext db) => new(db, new TestTenantProvider(TenantId),
-            _connectors.Object, [Gateway], _reconciler.Object, Clock, NullLogger<CheckoutPaymentService>.Instance);
+        public CheckoutPaymentService Service(FinanceDbContext db)
+        {
+            var services = new ServiceCollection();
+            services.AddScoped<Tenant>();
+            services.AddScoped<ITenantProvider>(p => p.GetRequiredService<Tenant>());
+            services.AddScoped<ITenantContext>(p => p.GetRequiredService<Tenant>());
+            services.AddSingleton<IClock>(Clock);
+            services.AddSingleton(Mock.Of<ITenantSettingStore>());
+            var options = (DbContextOptions<FinanceDbContext>)db.GetService<IDbContextOptions>();
+            services.AddScoped(p => new FinanceDbContext(options, p.GetRequiredService<ITenantProvider>(), null, Clock));
+            services.AddScoped<IJournalWriter, JournalWriter>();
+            services.AddScoped<LoyaltyService>();
+            var root = services.BuildServiceProvider();
+            _services.Add(root);
+            return new(db, new TestTenantProvider(TenantId), _connectors.Object, [Gateway], _reconciler.Object,
+                Clock, NullLogger<CheckoutPaymentService>.Instance, root.GetRequiredService<IServiceScopeFactory>());
+        }
+
+        public void Dispose() { foreach (var service in _services) service.Dispose(); }
     }
 
     private sealed class MutableClock : IClock { public DateTime UtcNow { get; set; } }
+
+    private sealed class Tenant : ITenantContext, ITenantProvider
+    {
+        public Guid? TenantId { get; set; }
+        public string? ResolutionSource { get; set; }
+        public bool IsResolved => TenantId.HasValue;
+        public Guid GetCurrentTenantId() => TenantId!.Value;
+        public bool TryGetCurrentTenantId(out Guid tenantId) { tenantId = TenantId ?? Guid.Empty; return TenantId.HasValue; }
+    }
 
     private sealed class RecordingGateway : IPaymentProviderGateway
     {

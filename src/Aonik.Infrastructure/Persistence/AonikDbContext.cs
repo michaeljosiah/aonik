@@ -24,6 +24,7 @@ using Aonik.Platform.Entities.Tasks;
 using Aonik.Finance.Entities.Billing;
 using Aonik.PersonalFinance.Entities;
 using Aonik.Finance.Entities.Ledger;
+using Aonik.Finance.Entities.Loyalty;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;
 using Aonik.Finance.Entities.Payments;
@@ -132,6 +133,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     // Register before shared rowversion/filter configuration, rather than only during table mapping.
     public virtual DbSet<OrderFundingRef> OrderFundingRefs { get; set; } = null!;
     public virtual DbSet<Payment> Payments { get; set; } = null!;
+    public virtual DbSet<LoyaltyAccount> LoyaltyAccounts { get; set; } = null!;
+    public virtual DbSet<LoyaltyOperation> LoyaltyOperations { get; set; } = null!;
+    public virtual DbSet<LoyaltyCheckoutAttempt> LoyaltyCheckoutAttempts { get; set; } = null!;
 
     // Commerce (Spec 042) — catalog + bundle entities; canonical migration stream stays here.
     public virtual DbSet<Product> Products { get; set; } = null!;
@@ -580,6 +584,9 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapFinanceTable<JournalEntry>(modelBuilder, "JournalEntries");
         MapFinanceTable<JournalEntryLine>(modelBuilder, "JournalEntryLines");
         MapFinanceTable<BalanceSnapshot>(modelBuilder, "BalanceSnapshots");
+        MapFinanceTable<LoyaltyAccount>(modelBuilder, "LoyaltyAccounts");
+        MapFinanceTable<LoyaltyOperation>(modelBuilder, "LoyaltyOperations");
+        MapFinanceTable<LoyaltyCheckoutAttempt>(modelBuilder, "LoyaltyCheckoutAttempts");
 
         MapFinanceTable<PaymentIntent>(modelBuilder, "PaymentIntents");
         MapFinanceTable<Payment>(modelBuilder, "Payments");

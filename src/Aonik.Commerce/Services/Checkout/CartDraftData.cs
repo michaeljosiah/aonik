@@ -25,6 +25,8 @@ internal static class CartDraftData
 
     public static CartCheckoutDraftDto Normalize(CartCheckoutDraftDto draft)
     {
+        if (draft.RequestedPoints < 0)
+            throw new StorefrontValidationException("RequestedPoints: use a nonnegative whole number of points.");
         var purchaser = draft.Purchaser is { } p ? new CheckoutContactDto(
             Text(p.Email, 254, "Purchaser.Email") ?? "",
             Text(p.FirstName, 100, "Purchaser.FirstName") ?? "",

@@ -66,6 +66,8 @@ public sealed class FinanceModule : IModule
         // these are the SharedKernel-facing mirrors, alongside IInvoiceWriter/IPaymentInitiator.
         services.AddScoped<SharedKernel.Abstractions.Ledgers.IJournalWriter, Services.Ledger.JournalWriter>();
         services.AddScoped<SharedKernel.Abstractions.Ledgers.ILedgerResolver, Services.Ledger.LedgerResolver>();
+        services.AddScoped<Services.Loyalty.LoyaltyService>();
+        services.AddScoped<SharedKernel.Abstractions.Loyalty.ILoyaltyService>(sp => sp.GetRequiredService<Services.Loyalty.LoyaltyService>());
 
         // Spec 088 P4 - standing authorisations. Authoring stays Finance-internal; only the
         // charging contract is reachable from outside.

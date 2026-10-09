@@ -15,6 +15,7 @@ using Aonik.Ordering.Services;
 using Aonik.SharedKernel.Abstractions.Billing;
 using Aonik.SharedKernel.Abstractions.Ordering;
 using Aonik.SharedKernel.Abstractions.Payments;
+using Aonik.SharedKernel.Abstractions.Loyalty;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
 
@@ -23,6 +24,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.DataProtection;
+using Moq;
 
 namespace Aonik.Application.Tests.Commerce;
 
@@ -43,6 +45,7 @@ public class CheckoutServiceTests
         public decimal LastAmount { get; private set; }
         public string? LastProvider { get; private set; }
         public int FailTimes { get; set; }
+        public CreateGuestPaymentIntentForOrderCommand? LastCommand { get; private set; }
         public override Task<PaymentIntentRef> CreateGuestIntentForOrderAsync(CreateGuestPaymentIntentForOrderCommand command, CancellationToken ct = default)
         {
             if (FailTimes > 0)
@@ -51,6 +54,7 @@ public class CheckoutServiceTests
                 throw new InvalidOperationException("Simulated payment provider failure.");
             }
             LastOrderId = command.OrderId;
+            LastCommand = command;
             LastAmount = command.Amount;
             LastProvider = command.Provider;
             return Task.FromResult(Record(command, "secret_123", "https://pay.example/checkout"));
@@ -81,8 +85,14 @@ public class CheckoutServiceTests
 
         public FakePaymentInitiator Payments { get; } = new();
         public FakeInvoiceWriter Invoices { get; } = new();
+        public Mock<ILoyaltyService> Loyalty { get; } = new();
+        public ITaxCalculator Tax { get; set; } = new ZeroRateTaxCalculator();
 
-        public Harness() => _tenant = new TestTenantProvider(_tenantId);
+        public Harness()
+        {
+            _tenant = new TestTenantProvider(_tenantId);
+            Loyalty.Setup(service => service.GetPolicyAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new LoyaltyPolicy());
+        }
 
         public CommerceDbContext Commerce() => CommerceTestHarness.CreateContext(
             new DbContextOptionsBuilder<CommerceDbContext>().UseInMemoryDatabase(_commerceDb).Options, _tenantId);
@@ -120,10 +130,103 @@ public class CheckoutServiceTests
             var inventory = new InventoryService(context, _tenant,
                 new Aonik.Infrastructure.Multitenancy.TenantContext { TenantId = _tenantId }, _clock);
             return new(context, inventory, new CoreOrderService(Ordering(), _tenant, _clock, _user, new Aonik.TestSupport.Ordering.TestOrderNumberGenerator()),
-                Payments, Invoices, new DiscountService(context, _tenant, _clock), new ZeroRateTaxCalculator(), _tenant,
+                Payments, Invoices, new DiscountService(context, _tenant, _clock), Tax, _tenant,
                 BoxCarts(), _guestOrderAccess, new FulfilmentPromiseService(context, _tenant, _clock),
-                new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock, new NullTenantSettingStore());
+                new ServedTestDeliveryCoverage(), CommerceTestHarness.Parties(), _clock, new NullTenantSettingStore(),
+                new CheckoutLoyaltyQuotes(context, _tenant, Loyalty.Object));
         }
+    }
+
+    [Fact]
+    public async Task Checkout_Should_FreezeLoyaltyAgainstRealOrderLines_AndRecalculateTaxAfterTheBenefit()
+    {
+        var h = new Harness { Tax = new TenPercentTax() };
+        var cart = await CreateRewardCartAsync(h, 1000);
+
+        var result = await h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card", ExpectedTotal: 99m), Owner(cart));
+
+        result.Subtotal.Should().Be(100m);
+        result.DiscountTotal.Should().Be(0m);
+        result.TaxTotal.Should().Be(9m);
+        result.Total.Should().Be(99m);
+        result.Loyalty!.AppliedValue.Should().Be(10m);
+        result.Loyalty.EarnedPoints.Should().BeNull();
+        result.Loyalty.EarningStatus.Should().Be("NotPaid");
+        var frozen = h.Payments.LastCommand!.Loyalty!;
+        frozen.OrderValueBeforePoints.Should().Be(110m);
+        frozen.PayableTotal.Should().Be(99m);
+        frozen.EarnedPoints.Should().Be(180);
+        frozen.RedeemedPoints.Should().Be(1000);
+        await using var ordering = h.Ordering();
+        var line = await ordering.OrderItems.SingleAsync();
+        frozen.Lines.Single().OrderItemId.Should().Be(line.Id);
+        frozen.Lines.Single().NetPaidValue.Should().Be(90m);
+
+        await h.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, 99m, "GBP");
+        var paid = await h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card"), Owner(cart));
+        paid.Loyalty!.EarnedPoints.Should().Be(180);
+        paid.Loyalty.EarningStatus.Should().Be("Earned");
+    }
+
+    [Theory]
+    [InlineData(1000, null)]
+    [InlineData(2001, 79.99)]
+    public async Task Checkout_Should_RejectUnacceptedOrExcessPoints_BeforeCreatingAnOrder(long points, double? expected)
+    {
+        var h = new Harness();
+        var cart = await CreateRewardCartAsync(h, points);
+        var action = () => h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card",
+            ExpectedTotal: expected is null ? null : (decimal)expected), Owner(cart));
+
+        if (expected is null)
+            (await action.Should().ThrowAsync<DiscountException>()).Which.Code.Should().Be(DiscountException.PriceChanged);
+        else
+            await action.Should().ThrowAsync<StorefrontValidationException>();
+
+        await using var ordering = h.Ordering();
+        (await ordering.Orders.CountAsync()).Should().Be(0);
+        h.Payments.LastCommand.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Checkout_Should_ReplayFrozenLoyalty_WhenPolicyChangesAfterPreparation()
+    {
+        var h = new Harness();
+        var cart = await CreateRewardCartAsync(h, 1000);
+        var original = await h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card", ExpectedTotal: 90m), Owner(cart));
+        h.Loyalty.Setup(service => service.GetPolicyAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new LoyaltyPolicy());
+
+        var replay = await h.Checkout().CheckoutAsync(new(cart.Id, "Stripe", "Card"), Owner(cart));
+
+        replay.Total.Should().Be(original.Total);
+        replay.Loyalty.Should().Be(original.Loyalty);
+        h.Loyalty.Verify(service => service.GetPolicyAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    private static async Task<CartDto> CreateRewardCartAsync(Harness h, long points)
+    {
+        var product = await h.Products().CreateProductAsync(new("loyalty-tea", "Tea", ProductKinds.Variant,
+            Variants: new[] { new CreateVariantLine("LOYAL-TEA", "Tea") }));
+        var variant = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new(variant, "GBP", 100m));
+        await h.Inventory().SetOnHandAsync(variant, 5m);
+        var cart = await h.Carts().CreateCartAsync(new("GBP", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new(cart.Id, variant), Owner(cart));
+        h.Loyalty.Setup(service => service.GetPolicyAsync(It.IsAny<CancellationToken>())).ReturnsAsync(new LoyaltyPolicy(
+            true, "test-policy", new(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid())));
+        h.Loyalty.Setup(service => service.GetBalanceAsync(cart.BuyerPartyId!.Value, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LoyaltyBalance(5000, 0, 5000, 50m, 0));
+        await using var context = h.Commerce();
+        var stored = await context.Carts.SingleAsync();
+        stored.CheckoutDraftJson = CartDraftData.Serialize(new CartCheckoutDraftDto(RequestedPoints: points));
+        await context.SaveChangesAsync();
+        return cart;
+    }
+
+    private sealed class TenPercentTax : ITaxCalculator
+    {
+        public Task<decimal> CalculateAsync(decimal taxable, string currency, CancellationToken cancellationToken = default)
+            => Task.FromResult(taxable / 10m);
     }
 
     [Fact]

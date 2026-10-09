@@ -170,7 +170,9 @@ internal class NotificationTemplateSeedService
             <ul>{% for selection in selections %}<li>{{ selection.description | escape }} &times; {{ selection.quantity | escape }}{% if selection.is_signature == true %} &middot; Signature{% endif %}{% if selection.personalisation != blank %} ({{ selection.personalisation | escape }}){% endif %}</li>{% endfor %}</ul>
             {% endif %}
             <p>Subtotal: {{ currency | escape }} {{ subtotal | escape }}<br/>
-            Discount: {{ currency | escape }} {{ discount_total | escape }}<br/>
+            {% if has_points_redemption == true %}Coupon discount: {{ currency | escape }} {{ coupon_discount_total | escape }}<br/>
+            Loyalty points: {{ currency | escape }} {{ points_applied_value | escape }}<br/>
+            {% else %}Discount: {{ currency | escape }} {{ discount_total | escape }}<br/>{% endif %}
             Tax: {{ currency | escape }} {{ tax_total | escape }}<br/>
             Delivery: {{ currency | escape }} {{ delivery_total | escape }}<br/>
             <strong>Total paid: {{ currency | escape }} {{ total | escape }}</strong></p>

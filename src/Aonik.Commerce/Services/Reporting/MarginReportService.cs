@@ -117,6 +117,24 @@ internal sealed class MarginReportService : IMarginReportService
                 discountShares = items.Select(item => byItem.GetValueOrDefault(item.Id)).ToArray();
             }
 
+            if (summary is { PointsAppliedValue: > 0m })
+            {
+                var loyalty = Checkout.CheckoutLoyaltyData.Read(summary.LoyaltyJson)
+                    ?? throw new InvalidOperationException("The recorded points reduction has no allocations.");
+                var allocations = loyalty.Lines.Where(line => line.PointsAppliedValue != 0m).ToList();
+                if (allocations.Select(line => line.OrderItemId).Distinct().Count() != allocations.Count
+                    || allocations.Any(line => line.PointsAppliedValue < 0m || items.All(item => item.Id != line.OrderItemId))
+                    || allocations.Sum(line => line.PointsAppliedValue) != summary.PointsAppliedValue)
+                    throw new InvalidOperationException("Order points allocations do not match the recorded charge.");
+                var byItem = allocations.ToDictionary(line => line.OrderItemId, line => line.PointsAppliedValue);
+                for (var i = 0; i < items.Count; i++)
+                {
+                    discountShares[i] += byItem.GetValueOrDefault(items[i].Id);
+                    if (discountShares[i] > items[i].AmountIn)
+                        throw new InvalidOperationException("Order reductions exceed the original charged line.");
+                }
+            }
+
             for (var i = 0; i < items.Count; i++)
             {
                 var item = items[i];

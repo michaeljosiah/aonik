@@ -10,7 +10,8 @@ public record CartCheckoutDraftDto(
     CartGiftDraftDto? Gift = null,
     bool CreateAccount = false,
     string? DiscountCode = null,
-    string? AcceptedTermsVersion = null);
+    string? AcceptedTermsVersion = null,
+    long RequestedPoints = 0);
 
 public record CartGiftDraftDto(
     bool GiftIntent = false,

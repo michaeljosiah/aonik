@@ -33,6 +33,9 @@ internal class FinanceDbContext : AonikDbContextBase
     public DbSet<JournalEntry> JournalEntries { get; set; } = null!;
     public DbSet<JournalEntryLine> JournalEntryLines { get; set; } = null!;
     public DbSet<BalanceSnapshot> BalanceSnapshots { get; set; } = null!;
+    public DbSet<Entities.Loyalty.LoyaltyAccount> LoyaltyAccounts { get; set; } = null!;
+    public DbSet<Entities.Loyalty.LoyaltyOperation> LoyaltyOperations { get; set; } = null!;
+    public DbSet<Entities.Loyalty.LoyaltyCheckoutAttempt> LoyaltyCheckoutAttempts { get; set; } = null!;
 
     // ── Payments ─────────────────────────────────────────────────────
     public DbSet<PaymentIntent> PaymentIntents { get; set; } = null!;

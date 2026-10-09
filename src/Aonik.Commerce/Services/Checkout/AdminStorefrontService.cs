@@ -229,7 +229,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             selections,
             new AdminOrderChargeDto(
                 summary.Subtotal, summary.DiscountTotal, summary.DiscountCode,
-                summary.TaxTotal, summary.Total, summary.Currency),
+                summary.TaxTotal, summary.Total, summary.Currency, summary.PointsAppliedValue),
             cart.BoxSize,
             delivery is null ? null : OrderDeliveryMapper.Map(delivery), order.OrderNumber,
             delivery is not null && summary.PaymentStatus == CheckoutPaymentStatuses.Captured

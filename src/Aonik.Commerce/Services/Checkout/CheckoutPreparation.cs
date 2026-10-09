@@ -3,6 +3,7 @@ using System.Text.Json;
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions.Billing;
+using Aonik.SharedKernel.Abstractions.Loyalty;
 using Aonik.SharedKernel.Abstractions.Ordering;
 
 namespace Aonik.Commerce.Services.Checkout;
@@ -17,7 +18,7 @@ internal sealed record CheckoutPreparation(
     IReadOnlyList<CheckoutStockLine> Stock, IReadOnlyList<CheckoutSelection> Selections, OrderDeliveryDto? Delivery,
     Guid? DeliveryReservationId = null, DateTime? ProviderStartDeadlineUtc = null, bool CreateAccount = false,
     Guid? DiscountReservationId = null, IReadOnlyList<DiscountAllocation>? DiscountAllocations = null,
-    decimal GreetingCardCharged = 0m)
+    decimal GreetingCardCharged = 0m, LoyaltyCheckout? Loyalty = null)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
         { RespectRequiredConstructorParameters = true };

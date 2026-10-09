@@ -24,7 +24,7 @@ public sealed class SaveCheckoutDraftEndpoint(ICartService carts)
     {
         var response = await carts.SaveCheckoutDraftAsync(Route<Guid>("cartId"),
             new CartCheckoutDraftDto(req.Purchaser, req.Address, req.Recipient, req.DeliveryDate,
-                req.Notes, req.Gift, req.CreateAccount, req.DiscountCode, req.AcceptedTermsVersion),
+                req.Notes, req.Gift, req.CreateAccount, req.DiscountCode, req.AcceptedTermsVersion, req.RequestedPoints),
             await CartRequestAccess.FromAsync(HttpContext, ct), ct);
         await Send.OkAsync(response, ct);
     }

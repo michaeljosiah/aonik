@@ -133,6 +133,9 @@ export function OrderDrawer({ orderId, onClose }: OrderDrawerProps) {
                         chip={charge.discountCode}
                       />
                     )}
+                    {(charge.pointsAppliedValue ?? 0) > 0 && (
+                      <ChargeRow label="Loyalty points" amount={-charge.pointsAppliedValue!} currency={currency} />
+                    )}
                     {charge.taxTotal !== 0 && (
                       <ChargeRow label="Tax" amount={charge.taxTotal} currency={currency} />
                     )}
