@@ -59,9 +59,11 @@ public class CheckoutServiceTests
     private sealed class FakeInvoiceWriter : IInvoiceWriter
     {
         public int Calls { get; private set; }
+        public bool LoseCreateResponse { get; set; }
         public Task<InvoiceRef> CreateForOrderAsync(CreateInvoiceForOrderCommand command, CancellationToken ct = default)
         {
             Calls++;
+            if (LoseCreateResponse) throw new InvalidOperationException("Invoice create response was lost.");
             return Task.FromResult(new InvoiceRef(Guid.NewGuid(), "INV-TEST", command.Lines.Sum(l => l.Quantity * l.UnitPrice), command.Currency));
         }
     }
@@ -530,6 +532,42 @@ public class CheckoutServiceTests
 
         h.Invoices.Calls.Should().Be(1);
         result.InvoiceId.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Recover_Should_RequireStaff_ForInvoiceCheckoutEvenBeforePreparationCommits(bool loseCreateResponse)
+    {
+        var h = new Harness();
+        var product = await h.Products().CreateProductAsync(new CreateProductCommand(
+            "tea", "Tea", ProductKinds.Simple, Variants: [new CreateVariantLine("TEA", "Tea")]));
+        var variantId = product.Variants.Single().Id;
+        await h.Pricing().SetPriceAsync(new SetPriceCommand(variantId, "GBP", 25m));
+        await h.Inventory().SetOnHandAsync(variantId, 10m);
+        var cart = await h.Carts().CreateCartAsync(new CreateCartCommand("GBP", BuyerPartyId: Guid.NewGuid()));
+        await h.Carts().AddItemAsync(new AddCartItemCommand(cart.Id, variantId), Owner(cart));
+        h.Invoices.LoseCreateResponse = loseCreateResponse;
+        var checkout = () => h.Checkout().CheckoutAsync(
+            new CheckoutCommand(cart.Id, "Stripe", "Card", CustomerAccountId: Guid.NewGuid()), Owner(cart));
+        if (loseCreateResponse) await checkout.Should().ThrowAsync<InvalidOperationException>();
+        else await checkout();
+        var state = await h.Checkout().GetPaymentStateAsync(cart.Id, Owner(cart));
+
+        var recover = () => h.Checkout().RecoverAsync(cart.Id, state.PaymentIntentId!.Value,
+            Owner(cart) with { ExpectedCartVersion = state.CartVersion });
+
+        await recover.Should().ThrowAsync<StorefrontValidationException>().WithMessage("*staff assistance*");
+        h.Invoices.Calls.Should().Be(1);
+        await using var commerce = h.Commerce();
+        var saved = await commerce.Carts.SingleAsync();
+        saved.CheckoutState.Should().Be(loseCreateResponse ? CartCheckoutStates.Preparing : CartCheckoutStates.AwaitingPayment);
+        if (loseCreateResponse)
+        {
+            saved.OrderId.Should().BeNull();
+            (await commerce.OrderChargeSummaries.AnyAsync()).Should().BeFalse();
+            h.Payments.LastOrderId.Should().BeEmpty();
+        }
     }
 
     [Theory]

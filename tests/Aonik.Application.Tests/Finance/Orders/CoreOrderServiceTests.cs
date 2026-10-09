@@ -134,6 +134,57 @@ public class CoreOrderServiceTests
     }
 
     [Fact]
+    public async Task LinkFundingAsync_Should_ReplayWithoutAddingAnotherReference_AndKeepDifferentAttempts()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+        var order = await service.CreateAsync(ProductPurchaseCommand());
+        var firstAttempt = Guid.NewGuid();
+        var replacementAttempt = Guid.NewGuid();
+
+        await service.LinkFundingAsync(order.Id, firstAttempt);
+        await service.LinkFundingAsync(order.Id, firstAttempt);
+        await using var retryContext = CreateDbContext(options, tenantId);
+        await CreateService(retryContext, tenantId).LinkFundingAsync(order.Id, firstAttempt);
+        await service.LinkFundingAsync(order.Id, replacementAttempt);
+
+        var links = await retryContext.OrderFundingRefs.AsNoTracking().ToListAsync();
+        links.Should().HaveCount(2);
+        links.Select(link => link.PaymentIntentId).Should().BeEquivalentTo(new[] { firstAttempt, replacementAttempt });
+    }
+
+    [Fact]
+    public async Task LinkFundingAsync_Should_ReuseLegacyRandomlyKeyedReference()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var service = CreateService(context, tenantId);
+        var order = await service.CreateAsync(ProductPurchaseCommand());
+        var legacy = new OrderFundingRef { TenantId = tenantId, OrderId = order.Id, PaymentIntentId = Guid.NewGuid() };
+        context.OrderFundingRefs.Add(legacy);
+        await context.SaveChangesAsync();
+
+        await service.LinkFundingAsync(order.Id, legacy.PaymentIntentId);
+
+        (await context.OrderFundingRefs.SingleAsync()).Id.Should().Be(legacy.Id);
+    }
+
+    [Fact]
+    public async Task LinkFundingAsync_Should_RejectAnotherTenantsOrder_EvenWhenContextFilterWouldAllowIt()
+    {
+        var (options, tenantId) = NewDb();
+        await using var context = CreateDbContext(options, tenantId);
+        var order = await CreateService(context, tenantId).CreateAsync(ProductPurchaseCommand());
+        var foreignService = CreateService(context, Guid.NewGuid());
+
+        var link = () => foreignService.LinkFundingAsync(order.Id, Guid.NewGuid());
+
+        await link.Should().ThrowAsync<KeyNotFoundException>();
+        (await context.OrderFundingRefs.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
     public async Task LinkFulfilmentAsync_Should_Reject_When_NotExactlyOneReferenceSet()
     {
         var (options, tenantId) = NewDb();

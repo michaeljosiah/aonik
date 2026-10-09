@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
@@ -503,16 +505,41 @@ internal sealed class CoreOrderService : IOrderService
     public async Task LinkFundingAsync(Guid orderId, Guid paymentIntentId, CancellationToken cancellationToken = default)
     {
         var tenantId = _tenantProvider.GetCurrentTenantId();
-        await EnsureOrderExistsAsync(orderId, cancellationToken);
+        if (!await _dbContext.Orders.AnyAsync(o => o.Id == orderId && o.TenantId == tenantId, cancellationToken))
+            throw new KeyNotFoundException($"Order {orderId} was not found.");
 
-        _dbContext.OrderFundingRefs.Add(new OrderFundingRef
+        // Preserve existing randomly keyed links; retries must not replace their audit identity.
+        if (await _dbContext.OrderFundingRefs.AsNoTracking().AnyAsync(existing => existing.TenantId == tenantId
+                && existing.OrderId == orderId && existing.PaymentIntentId == paymentIntentId, cancellationToken))
+            return;
+
+        // The existing primary key arbitrates simultaneous inserts without another schema/index.
+        var identity = Encoding.UTF8.GetBytes($"Aonik.OrderFundingRef:v1:{tenantId:N}:{orderId:N}:{paymentIntentId:N}");
+        var funding = new OrderFundingRef
         {
-            Id = Guid.NewGuid(),
+            Id = new Guid(SHA256.HashData(identity).AsSpan(0, 16)),
             TenantId = tenantId,
             OrderId = orderId,
             PaymentIntentId = paymentIntentId
-        });
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        };
+        _dbContext.OrderFundingRefs.Add(funding);
+        try
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            _dbContext.Entry(funding).State = EntityState.Detached;
+            if (!await _dbContext.OrderFundingRefs.AsNoTracking().AnyAsync(existing => existing.Id == funding.Id
+                    && existing.TenantId == tenantId && existing.OrderId == orderId
+                    && existing.PaymentIntentId == paymentIntentId, cancellationToken))
+                throw;
+        }
+        catch
+        {
+            _dbContext.Entry(funding).State = EntityState.Detached;
+            throw;
+        }
     }
 
     public async Task LinkFulfilmentAsync(Guid orderId, OrderFulfilmentLink link, CancellationToken cancellationToken = default)

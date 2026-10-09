@@ -112,9 +112,14 @@ internal static class ConnectorConfigJson
             || !string.Equals(oldAccount, newAccount, StringComparison.Ordinal)
             || !oldValues.TryGetValue(ConnectorRegistry.ConfigEnvironment, out var oldEnvironment)
             || !newValues.TryGetValue(ConnectorRegistry.ConfigEnvironment, out var newEnvironment)
-            || !string.Equals(oldEnvironment, newEnvironment, StringComparison.OrdinalIgnoreCase))
+            || !string.Equals(oldEnvironment, newEnvironment, StringComparison.OrdinalIgnoreCase)
+            || !oldValues.TryGetValue(ConnectorRegistry.ConfigReturnOrigin, out var oldOrigin)
+            || !newValues.TryGetValue(ConnectorRegistry.ConfigReturnOrigin, out var newOrigin)
+            || !Uri.TryCreate(oldOrigin, UriKind.Absolute, out var oldUri)
+            || !Uri.TryCreate(newOrigin, UriKind.Absolute, out var newUri)
+            || !string.Equals(oldUri.GetLeftPart(UriPartial.Authority), newUri.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("A Stripe connector's kind, merchant account and environment cannot change. Create a new connector instead.");
+            throw new ArgumentException("A Stripe connector's kind, merchant account, environment and return origin cannot change. Create a new connector instead.");
         }
     }
 }

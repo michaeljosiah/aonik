@@ -129,11 +129,25 @@ public class StripeConnectorResolverTests
         act.Should().Throw<ArgumentException>();
     }
 
-    [Fact]
-    public void ConfigUpdate_Should_AllowChangingReturnOriginWithinSameMerchant()
+    [Theory]
+    [InlineData("https://new.example")]
+    [InlineData("https://shop.example:8443")]
+    public void ConfigUpdate_Should_PreserveReturnOriginForFrozenCreateRetries(string origin)
     {
         var act = () => ConnectorConfigJson.ValidateUpdate(ConnectorRegistry.StripeCheckoutV1, Config(),
-            ConnectorRegistry.StripeCheckoutV1, Config(origin: "https://new.example"));
+            ConnectorRegistry.StripeCheckoutV1, Config(origin: origin));
+
+        act.Should().Throw<ArgumentException>().WithMessage("*return origin cannot change*");
+    }
+
+    [Theory]
+    [InlineData("https://shop.example")]
+    [InlineData("https://SHOP.EXAMPLE/")]
+    [InlineData("https://shop.example:443/")]
+    public void ConfigUpdate_Should_AllowEquivalentReturnOrigin(string origin)
+    {
+        var act = () => ConnectorConfigJson.ValidateUpdate(ConnectorRegistry.StripeCheckoutV1, Config(),
+            ConnectorRegistry.StripeCheckoutV1, Config(origin: origin));
 
         act.Should().NotThrow();
     }

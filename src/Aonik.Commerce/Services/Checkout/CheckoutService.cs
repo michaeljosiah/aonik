@@ -495,7 +495,9 @@ internal sealed class CheckoutService : ICheckoutService
             return await GetPaymentStateAsync(cartId, access, cancellationToken);
         if (!ActiveBoxCarts.MatchesVersion(cart, access.ExpectedCartVersion))
             throw new CartWriteConflictException(cart, "commerce.cart_conflict", "The cart changed. Reload checkout.");
-        if (cart.OrderId is { } invoicedOrder && await _dbContext.OrderChargeSummaries.AsNoTracking()
+        // Invoice creation commits independently, including before Commerce finishes preparation.
+        if (preparation?.CustomerAccountId is not null || cart.OrderId is { } invoicedOrder
+            && await _dbContext.OrderChargeSummaries.AsNoTracking()
                 .AnyAsync(s => s.TenantId == cart.TenantId && s.OrderId == invoicedOrder && s.InvoiceId != null, cancellationToken))
             throw new StorefrontValidationException("Invoice checkout recovery requires staff assistance.");
         // Preparing has never entered Finance. Taking the same parent row claim below prevents
