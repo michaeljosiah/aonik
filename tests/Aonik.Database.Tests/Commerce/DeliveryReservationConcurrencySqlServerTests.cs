@@ -1,8 +1,10 @@
 using System.Data.Common;
 
 using FluentAssertions;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Moq;
 
 using Aonik.Commerce.Contracts.Models.Checkout;
 using Aonik.Commerce.Contracts.Models.Fulfilment;
@@ -12,14 +14,79 @@ using Aonik.Commerce.Entities.Fulfilment;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Fulfilment;
+using Aonik.Commerce.Services.Inventory;
+using Aonik.Commerce.Services.Promotions;
 using Aonik.IntegrationTests.Support;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Billing;
+using Aonik.SharedKernel.Abstractions.Ordering;
+using Aonik.SharedKernel.Abstractions.Payments;
 using Aonik.TestSupport.Multitenancy;
 
 namespace Aonik.Database.Tests.Commerce;
 
 public sealed class DeliveryReservationConcurrencySqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
 {
+    [SkippableFact]
+    public async Task DueDiscovery_Should_TranslateGuidSeekAndPageEveryDueReservationAcrossTenants()
+    {
+        RequireSql();
+        var firstTenant = await SeedAsync();
+        var secondTenant = await SeedAsync();
+        // Earlier than the other cases' holds in this class fixture: discovery is deliberately global.
+        var now = new DateTime(2025, 1, 1, 12, 0, 0, DateTimeKind.Utc);
+        firstTenant.Clock.UtcNow = now;
+        secondTenant.Clock.UtcNow = now;
+        var expected = new List<(Guid ReservationId, Guid TenantId, Guid CartId)>();
+        foreach (var (test, count) in new[] { (firstTenant, 27), (secondTenant, 28) })
+        {
+            await using var seed = Context(test);
+            var poolId = await seed.DeliveryDateCapacities.Where(p => p.DeliveryDate == test.Date).Select(p => p.Id).SingleAsync();
+            CartDeliveryReservation Row(string status, DateTime expiresAt, DateTime? deadline = null, bool deleted = false) => new()
+            {
+                TenantId = test.TenantId, CartId = Guid.NewGuid(), CapacityId = poolId,
+                DeliveryDate = test.Date, SelectedAtUtc = now.AddMinutes(-15), ExpiresAtUtc = expiresAt,
+                Status = status, PaymentDeadlineUtc = deadline, IsDeleted = deleted
+            };
+            for (var index = 0; index < count; index++)
+            {
+                var row = index % 2 == 0
+                    ? Row(DeliveryReservationStatuses.Held, now)
+                    : Row(DeliveryReservationStatuses.PaymentPending, now.AddMinutes(-5), now.AddSeconds(-1));
+                seed.CartDeliveryReservations.Add(row);
+                expected.Add((row.Id, row.TenantId, row.CartId));
+            }
+            seed.CartDeliveryReservations.AddRange(
+                Row(DeliveryReservationStatuses.Held, now.AddSeconds(1)),
+                Row(DeliveryReservationStatuses.PaymentPending, now.AddMinutes(-5), now.AddSeconds(1)),
+                Row(DeliveryReservationStatuses.PaymentPending, now.AddMinutes(-5)),
+                Row(DeliveryReservationStatuses.Committed, now.AddMinutes(-5), now.AddMinutes(-1)),
+                Row(DeliveryReservationStatuses.Released, now.AddMinutes(-5), now.AddMinutes(-1)),
+                Row(DeliveryReservationStatuses.Held, now.AddMinutes(-5), deleted: true));
+            await seed.SaveChangesAsync();
+        }
+        await using var db = Context(firstTenant);
+        var tenant = new TestTenantProvider(firstTenant.TenantId);
+        var checkout = new CheckoutService(db, Mock.Of<IInventoryService>(MockBehavior.Strict),
+            Mock.Of<IOrderService>(MockBehavior.Strict), Mock.Of<IPaymentInitiator>(MockBehavior.Strict),
+            Mock.Of<IInvoiceWriter>(MockBehavior.Strict), Mock.Of<IDiscountService>(MockBehavior.Strict),
+            Mock.Of<ITaxCalculator>(MockBehavior.Strict), tenant, new UnexpectedBoxCheckout(),
+            new GuestOrderAccess(new EphemeralDataProtectionProvider()), Mock.Of<IFulfilmentPromiseService>(MockBehavior.Strict),
+            Mock.Of<IDeliveryCoverageService>(MockBehavior.Strict), Mock.Of<IPartyService>(MockBehavior.Strict), firstTenant.Clock);
+
+        var first = await checkout.FindDueDeliveryReservationsAsync();
+        var second = await checkout.FindDueDeliveryReservationsAsync(first[^1].ReservationId);
+        var end = await checkout.FindDueDeliveryReservationsAsync(second[^1].ReservationId);
+
+        first.Should().HaveCount(50);
+        second.Should().HaveCount(5);
+        first.Concat(second).Should().BeEquivalentTo(expected);
+        first.Concat(second).Select(row => row.ReservationId).Should().OnlyHaveUniqueItems();
+        first.Concat(second).Select(row => row.TenantId).Distinct().Should().BeEquivalentTo(
+            new[] { firstTenant.TenantId, secondTenant.TenantId });
+        end.Should().BeEmpty();
+    }
+
     [SkippableFact]
     public async Task Reserve_Should_AdmitOneOfTwoCartsToLastSlot_WithoutLeakingLosingDraft()
     {
@@ -146,7 +213,7 @@ public sealed class DeliveryReservationConcurrencySqlServerTests(SqlLocalDbFixtu
             await service.BeginPaymentTrackedAsync(cart, test.Date, attemptId);
             cart.CheckoutState = CartCheckoutStates.Preparing;
             return true;
-        });
+        }, System.Data.IsolationLevel.ReadCommitted);
         var expiry = TrackedWriteAsync(expiryDb, test, expiryClock,
             (service, cart) => service.ExpireHeldTrackedAsync(cart));
 
@@ -245,7 +312,8 @@ public sealed class DeliveryReservationConcurrencySqlServerTests(SqlLocalDbFixtu
     // Mirrors the documented tracked-helper contract: one parent cart claim and the hold/pool
     // changes share a short transaction. Financial/provider work is deliberately outside this fixture.
     private static async Task<bool> TrackedWriteAsync(CommerceDbContext db, Harness test, IClock clock,
-        Func<DeliveryReservationService, Cart, Task<bool>> mutation)
+        Func<DeliveryReservationService, Cart, Task<bool>> mutation,
+        System.Data.IsolationLevel isolationLevel = System.Data.IsolationLevel.Serializable)
     {
         var service = Service(db, test, clock);
         try
@@ -254,7 +322,7 @@ public sealed class DeliveryReservationConcurrencySqlServerTests(SqlLocalDbFixtu
             {
                 service.Detach(test.First.Id);
                 CartTracking.Detach(db, test.TenantId, test.First.Id);
-                await using var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                await using var transaction = await db.Database.BeginTransactionAsync(isolationLevel);
                 var cart = await db.Carts.SingleAsync(c => c.TenantId == test.TenantId && c.Id == test.First.Id);
                 var changed = await mutation(service, cart);
                 if (changed)
@@ -328,6 +396,11 @@ public sealed class DeliveryReservationConcurrencySqlServerTests(SqlLocalDbFixtu
 
     private sealed class MutableClock : IClock { public DateTime UtcNow { get; set; } }
     private sealed class InjectedReplacementFailure : Exception { }
+    private sealed class UnexpectedBoxCheckout : IBoxCheckoutSupport
+    {
+        public Task<BoxCheckoutShape> PrepareForCheckoutAsync(Cart cart, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("Reservation discovery must not prepare checkout.");
+    }
 
     private sealed class FailReplacementSave : SaveChangesInterceptor
     {

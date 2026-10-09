@@ -348,8 +348,10 @@ internal sealed class CheckoutService : ICheckoutService
                 return await _dbContext.Database.CreateExecutionStrategy().ExecuteAsync(async ct =>
                 {
                     DetachCheckout(cartId, preparation);
+                    // Native versions on cart, hold and pool arbitrate the single atomic save.
+                    // Retaining read locks here would block competing edits before that claim.
                     await using var transaction = _dbContext.Database.IsRelational()
-                        ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable, ct) : null;
+                        ? await _dbContext.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted, ct) : null;
                     var current = await LoadAuthorizedAsync(cartId, access, ct);
                     if (!requireFreshCart && current.CheckoutPreparationJson is not null
                         && (current.CheckoutState is CartCheckoutStates.Preparing or CartCheckoutStates.AwaitingPayment
