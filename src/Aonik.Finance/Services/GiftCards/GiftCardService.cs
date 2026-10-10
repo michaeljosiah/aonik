@@ -134,6 +134,8 @@ internal sealed partial class GiftCardService(
     {
         await GiftCardAccounting.RequireIssuedAsync(db, TenantId, card, ct);
         var policy = ReadPolicy(card);
+        var issuance = await AttemptAsync(card.PaymentIntentId, ct) ?? throw new InvalidStateException("Gift-card issuance is unavailable.");
+        var issueSource = Read(issuance).PurchasedCards().Count > 1 ? card.Id : card.PaymentIntentId;
         var invalid = await db.GiftCardOperations.AsNoTracking().Where(x => x.TenantId == TenantId && x.GiftCardId == card.Id)
             .AnyAsync(operation => !db.JournalEntryLines.Any(line => line.TenantId == TenantId
                 && line.Id == operation.JournalEntryLineId && line.JournalEntryId == operation.JournalEntryId
@@ -148,7 +150,7 @@ internal sealed partial class GiftCardService(
                             && original.GiftCardId == card.Id && original.Kind == "Issue")))
                 && db.JournalEntries.Any(entry => entry.TenantId == TenantId && entry.Id == line.JournalEntryId
                     && entry.Status == "Posted" && entry.LedgerId == policy.Ledger.LedgerId
-                    && entry.SourceId == operation.SourceId && entry.SourceType == "GiftCard" + operation.Kind)), ct);
+                    && entry.SourceId == (operation.Kind == "Issue" ? issueSource : operation.SourceId) && entry.SourceType == "GiftCard" + operation.Kind)), ct);
         if (invalid) throw new InvalidStateException("Gift-card ledger evidence is unavailable.");
         var balance = await (from operation in db.GiftCardOperations.AsNoTracking()
             where operation.TenantId == TenantId && operation.GiftCardId == card.Id

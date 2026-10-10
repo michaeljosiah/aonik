@@ -7,6 +7,7 @@ using Aonik.Commerce.Entities.Catalog;
 using Aonik.Commerce.Entities.Promotions;
 using Aonik.Commerce.Persistence;
 using Aonik.Commerce.Services.Catalog;
+using Aonik.Commerce.Services.GiftCards;
 using Aonik.Commerce.Services.Checkout;
 using Aonik.Commerce.Services.Promotions;
 using Aonik.SharedKernel.Abstractions;
@@ -61,6 +62,47 @@ public sealed class GiftCardCartTests
         items.Single(x => x.ItemType == CartLineKinds.GiftCardValue).AmountIn.Should().Be(50);
         items.Sum(x => x.AmountIn).Should().Be(50 + postage + greeting);
         items.Should().OnlyContain(x => x.Quantity == 1);
+    }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(10)]
+    public async Task Quantity_ExpandsIndependentOrderLines_ButChargesOneEnvelopeAndGreetingCard(int quantity)
+    {
+        using var h = await Harness.CreateAsync();
+        var cart = new Cart { TenantId = h.TenantId, Currency = "GBP" };
+        var selected = await h.Pricing.SelectAsync(cart, (await h.SelectionAsync("Post")) with { Quantity = quantity });
+        cart.GiftCardPurchaseJson = JsonSerializer.Serialize(selected, GiftCardPurchasePricing.Json);
+        cart.Items.Add(new CartItem { TenantId = h.TenantId, CartId = cart.Id, ProductVariantId = h.GiftVariant.Id,
+            LineKind = CartLineKinds.GiftCardValue, Quantity = quantity, UnitPriceSnapshot = 50 });
+        var items = new List<OrderItemCommand>();
+        var quote = await h.Pricing.AppendAsync(cart, items);
+        quote!.Checkout.PurchasedCards().Should().HaveCount(quantity);
+        quote.Deliveries.Should().HaveCount(quantity);
+        quote.Deliveries.Count(x => x.IncludeGreetingCard).Should().Be(1);
+        items.Where(x => x.ItemType == CartLineKinds.GiftCardValue).Should().HaveCount(quantity).And.OnlyContain(x => x.Quantity == 1);
+        items.Sum(x => x.AmountIn).Should().Be(50 * quantity + 4 + 3);
+        items.Select(x => x.ItemIndex).Distinct().Should().HaveCount(items.Count);
+        var deliveries = quote.Deliveries.Select(item => item with { OrderItemId = Guid.NewGuid() }).ToArray();
+        var orderId = Guid.NewGuid(); var intentId = Guid.NewGuid();
+        for (var replay = 0; replay < 2; replay++)
+        {
+            foreach (var delivery in deliveries)
+                await GiftCardDeliveryData.StageTrackedAsync(h.Db, h.TenantId, cart.Id, orderId, intentId, delivery);
+            await h.Db.SaveChangesAsync();
+        }
+        (await h.Db.OrderGiftCardDeliveries.CountAsync()).Should().Be(quantity);
+
+    }
+
+    [Fact]
+    public void PartialGiftDraft_PreservesRemovedDetails_WithoutCreatingPricedPurchase()
+    {
+        var draft = CartDraftData.Normalize(new CartCheckoutDraftDto(GiftCardDraft: new(Value: 75, Quantity: 10, Message: "Happy birthday", Removed: true)));
+        draft.GiftCardDraft!.Message.Should().Be("Happy birthday");
+        draft.GiftCardDraft.Quantity.Should().Be(10);
+        draft.GiftCardDraft.Removed.Should().BeTrue();
+        CartDraftData.Serialize(draft).Should().Contain("giftCardDraft");
     }
 
     [Theory]

@@ -108,10 +108,12 @@ internal sealed partial class GiftCardService
         var funding = await ReadFundingTrackedAsync(intent, cancellationToken);
         await GiftCardAccounting.BindingAsync(db, TenantId, instruction.Ledger, cancellationToken);
         await GiftCardAccounting.RequireCashAsync(db, TenantId, intent, funding, cancellationToken);
-        if (instruction.Purchase is { } purchase)
+        if (instruction.Purchase is not null)
         {
-            var card = db.GiftCards.Local.SingleOrDefault(x => x.TenantId == TenantId && x.CartId == instruction.CartId)
-                ?? await db.GiftCards.SingleOrDefaultAsync(x => x.TenantId == TenantId && x.CartId == instruction.CartId, cancellationToken);
+          foreach (var purchase in instruction.PurchasedCards())
+          {
+            var card = db.GiftCards.Local.SingleOrDefault(x => x.TenantId == TenantId && x.CartId == instruction.CartId && x.OrderItemId == purchase.OrderItemId)
+                ?? await db.GiftCards.SingleOrDefaultAsync(x => x.TenantId == TenantId && x.CartId == instruction.CartId && x.OrderItemId == purchase.OrderItemId, cancellationToken);
             if (card is null)
             {
                 var code = Convert.ToHexString(RandomNumberGenerator.GetBytes(16));
@@ -130,12 +132,13 @@ internal sealed partial class GiftCardService
                 || card.OrderItemId != purchase.OrderItemId || card.ItemIndex != purchase.ItemIndex || card.FaceValue != purchase.FaceValue
                 || !MatchesPolicy(instruction, ReadPolicy(card)))
                 throw new InvalidStateException("This cart already issued a gift card from different funding.");
-            var existing = await OperationAsync("Issue", intent.Id, cancellationToken);
-            await PostAsync(card, "Issue", intent, purchase.FaceValue, instruction.Ledger, cancellationToken);
+            var existing = await OperationAsync("Issue", intent.Id, cancellationToken, card.Id);
+            await PostAsync(card, "Issue", intent, purchase.FaceValue, instruction.Ledger, cancellationToken, instruction.AdditionalPurchases?.Count > 0 ? card.Id : intent.Id);
             if (existing is null)
                 db.EnqueueIntegrationEvent(new GiftCardIssuedEvent(TenantId, card.Id,
                     new(card.CartId, card.OrderId, card.PaymentIntentId, card.OrderItemId, card.ItemIndex)));
-            attempt.GiftCardId = card.Id;
+            attempt.GiftCardId ??= card.Id;
+          }
         }
         else
         {
@@ -167,14 +170,15 @@ internal sealed partial class GiftCardService
     }
 
     private async Task PostAsync(GiftCard card, string kind, PaymentIntent intent, decimal amount,
-        GiftCardLedgerBinding binding, CancellationToken ct)
+        GiftCardLedgerBinding binding, CancellationToken ct, Guid? journalSource = null)
     {
-        var existing = await OperationAsync(kind, intent.Id, ct);
+        var source = journalSource ?? intent.Id;
+        var existing = await OperationAsync(kind, intent.Id, ct, card.Id);
         if (existing is not null)
         {
             if (existing.GiftCardId != card.Id || existing.OrderId != intent.OrderId || existing.Amount != amount)
                 throw new InvalidStateException("Gift-card operation source has different facts.");
-            var existingEntry = await GiftCardAccounting.RequirePairAsync(db, TenantId, binding.LedgerId, "GiftCard" + kind, intent.Id,
+            var existingEntry = await GiftCardAccounting.RequirePairAsync(db, TenantId, binding.LedgerId, "GiftCard" + kind, source,
                 kind == "Issue" ? binding.ClearingAccountId : binding.LiabilityAccountId,
                 kind == "Issue" ? binding.LiabilityAccountId : binding.ClearingAccountId, amount, ct);
             if (existing.JournalEntryId != existingEntry) throw new InvalidStateException("Gift-card operation journal changed.");
@@ -191,13 +195,13 @@ internal sealed partial class GiftCardService
         var debitId = kind == "Issue" ? binding.ClearingAccountId : binding.LiabilityAccountId;
         var creditId = kind == "Issue" ? binding.LiabilityAccountId : binding.ClearingAccountId;
         var dimensions = Serialize(new { giftCardId = card.Id, operationId = operation.Id, orderId = intent.OrderId });
-        var journal = await journals.PostAsync(new(binding.LedgerId, "GiftCard" + kind, intent.Id,
+        var journal = await journals.PostAsync(new(binding.LedgerId, "GiftCard" + kind, source,
         [
             new(accounts[debitId].Code, JournalDirections.Debit, amount, "GBP", "Gift card " + kind, dimensions),
             new(accounts[creditId].Code, JournalDirections.Credit, amount, "GBP", "Gift card " + kind, dimensions)
         ], clock.UtcNow), ct);
         operation.JournalEntryId = await GiftCardAccounting.RequirePairAsync(db, TenantId, binding.LedgerId, "GiftCard" + kind,
-            intent.Id, debitId, creditId, amount, ct);
+            source, debitId, creditId, amount, ct);
         if (operation.JournalEntryId != journal.JournalEntryId) throw new InvalidStateException("Gift-card journal source changed.");
         operation.JournalEntryLineId = await db.JournalEntryLines.Where(x => x.TenantId == TenantId
             && x.JournalEntryId == journal.JournalEntryId && x.LedgerAccountId == binding.LiabilityAccountId
@@ -231,9 +235,9 @@ internal sealed partial class GiftCardService
     private async Task<GiftCard?> TrackedCardAsync(Guid id, CancellationToken ct) =>
         db.GiftCards.Local.SingleOrDefault(x => x.TenantId == TenantId && x.Id == id && !x.IsDeleted)
         ?? await db.GiftCards.SingleOrDefaultAsync(x => x.TenantId == TenantId && x.Id == id && !x.IsDeleted, ct);
-    private async Task<GiftCardOperation?> OperationAsync(string kind, Guid sourceId, CancellationToken ct) =>
-        db.GiftCardOperations.Local.SingleOrDefault(x => x.TenantId == TenantId && x.Kind == kind && x.SourceId == sourceId)
-        ?? await db.GiftCardOperations.SingleOrDefaultAsync(x => x.TenantId == TenantId && x.Kind == kind && x.SourceId == sourceId && !x.IsDeleted, ct);
+    private async Task<GiftCardOperation?> OperationAsync(string kind, Guid sourceId, CancellationToken ct, Guid? cardId = null) =>
+        db.GiftCardOperations.Local.SingleOrDefault(x => x.TenantId == TenantId && x.Kind == kind && x.SourceId == sourceId && (cardId == null || x.GiftCardId == cardId))
+        ?? await db.GiftCardOperations.SingleOrDefaultAsync(x => x.TenantId == TenantId && x.Kind == kind && x.SourceId == sourceId && (cardId == null || x.GiftCardId == cardId) && !x.IsDeleted, ct);
     private void Touch(GiftCard card)
     {
         card.UpdatedAt = clock.UtcNow;
@@ -268,15 +272,21 @@ internal sealed partial class GiftCardService
         ValidatePolicy(PolicyOf(instruction));
         var giftItems = await db.OrderItems.AsNoTracking().Where(x => x.TenantId == TenantId && x.OrderId == intent.OrderId
             && x.ItemType == "GiftCardValue" && !x.IsDeleted).ToListAsync(ct);
-        if (instruction.Purchase is { } purchase)
+        if (instruction.Purchase is not null)
         {
-            if (purchase.OrderItemId == Guid.Empty || purchase.ItemIndex < 0 || !Money(purchase.FaceValue) || purchase.FaceValue <= 0
-                || purchase.FaceValue > intent.Amount || giftItems.Count != 1 || giftItems[0].Id != purchase.OrderItemId
-                || giftItems[0].ItemIndex != purchase.ItemIndex || giftItems[0].AmountIn != purchase.FaceValue
-                || giftItems[0].CurrencyIn != "GBP" || giftItems[0].Quantity != 1 || giftItems[0].UnitPrice != purchase.FaceValue)
-                throw new InvalidStateException("Gift-card issuance requires exactly one fully paid gift-value order line.");
+            var purchases = instruction.PurchasedCards();
+            if (purchases.Count is < 1 or > 10 || giftItems.Count != purchases.Count
+                || purchases.Select(x => x.OrderItemId).Distinct().Count() != purchases.Count
+                || purchases.Select(x => x.ItemIndex).Distinct().Count() != purchases.Count
+                || purchases.Sum(x => x.FaceValue) > intent.Amount
+                || purchases.Any(purchase => purchase.OrderItemId == Guid.Empty || purchase.ItemIndex < 0
+                    || !Money(purchase.FaceValue) || purchase.FaceValue <= 0
+                    || !giftItems.Any(item => item.Id == purchase.OrderItemId && item.ItemIndex == purchase.ItemIndex
+                        && item.AmountIn == purchase.FaceValue && item.CurrencyIn == "GBP" && item.Quantity == 1 && item.UnitPrice == purchase.FaceValue)))
+                throw new InvalidStateException("Gift-card issuance requires one fully funded order line per card, from one to ten cards.");
             return;
         }
+        if (instruction.AdditionalPurchases?.Count > 0) throw new InvalidStateException("Gift-card tender cannot include purchases.");
         var tender = instruction.Tender!;
         if (giftItems.Count != 0 || tender.Lines is null || !Money(tender.Amount) || tender.Amount <= 0
             || !Money(tender.ExpectedCardAmount) || tender.Amount + tender.ExpectedCardAmount != intent.Amount

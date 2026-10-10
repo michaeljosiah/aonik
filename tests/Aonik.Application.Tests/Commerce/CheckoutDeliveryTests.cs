@@ -12,6 +12,22 @@ namespace Aonik.Application.Tests.Commerce;
 public class CheckoutDeliveryTests
 {
     [Fact]
+    public async Task CapturedGuestProof_IsReadOnlyOwnerScoped_AndAbsentFromOrdinaryPaymentPolling()
+    {
+        var (harness, box) = await FullBoxAsync();
+        var access = CartAccessContext.ForGuest(box.CartToken, box.CartVersion);
+        var result = await harness.Checkout().CheckoutAsync(new(box.Box.CartId, "Stripe", "Card", Delivery: BoxTestHarness.ValidDelivery), access);
+        (await harness.Checkout().GetPaymentConfirmationStateAsync(box.Box.CartId, access)).GuestOrderToken.Should().BeNull();
+        await harness.Checkout().ConfirmPaymentAsync(result.OrderId, result.PaymentIntentId, result.Total, result.Currency);
+        var proof = await harness.Checkout().GetPaymentConfirmationStateAsync(box.Box.CartId, access);
+        proof.Status.Should().Be("succeeded");
+        proof.GuestOrderToken.Should().NotBeNullOrWhiteSpace();
+        (await harness.Checkout().GetPaymentStateAsync(box.Box.CartId, access)).GuestOrderToken.Should().BeNull();
+        var wrongOwner = () => harness.Checkout().GetPaymentConfirmationStateAsync(box.Box.CartId, CartAccessContext.ForGuest("wrong-proof"));
+        await wrongOwner.Should().ThrowAsync<NotFoundException>();
+    }
+
+    [Fact]
     public async Task Checkout_Should_FreezePurchaserRecipientAddressAndCalendar_AndReplayWithoutRevalidation()
     {
         var (harness, box) = await FullBoxAsync();
