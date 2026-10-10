@@ -20,6 +20,28 @@ namespace Aonik.Api.Tests;
 public partial class CommerceBoxCartEndpointTests
 {
     [Fact]
+    public async Task SelectedReorder_Should_PreviewWithoutMutation_AndBuildOnlyRequestedQuantity()
+    {
+        var tenantId = Guid.NewGuid();
+        var (bundleId, variantId) = await SeedBoxWorldAsync(tenantId);
+        var customer = await CustomerAsync(tenantId);
+        var source = await CreateBoxAsync(customer.Client, bundleId, variantId, 6);
+        var orderId = await SeedReorderPurchaseAsync(tenantId, source, customer.PartyId);
+        using var previewResponse = await customer.Client.GetAsync($"/commerce/storefront/orders/{orderId}/reorder-preview");
+        previewResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        AssertNoStore(previewResponse);
+        var preview = (await previewResponse.Content.ReadFromJsonAsync<ReorderPreviewDto>())!;
+        preview.Dishes.Should().ContainSingle();
+        (await ReadCartsAsync(tenantId)).Should().ContainSingle();
+        using var response = await customer.Client.PostAsJsonAsync($"/commerce/storefront/orders/{orderId}/reorder",
+            new ReorderSelectionRequest([new(preview.Dishes.Single().SelectionId, 2)]));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var fresh = (await response.Content.ReadFromJsonAsync<BoxCartDto>())!;
+        fresh.Box.Lines.Should().ContainSingle().Which.Quantity.Should().Be(2);
+        fresh.CheckoutDraft.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Reorder_Should_CreateFreshOwnedBox_AndReturnExistingConflictOnRepeat()
     {
         var tenantId = Guid.NewGuid();
@@ -57,7 +79,7 @@ public partial class CommerceBoxCartEndpointTests
         var route = $"/commerce/storefront/orders/{orderId}/reorder";
         using var anonymous = Client(tenantId);
         anonymous.DefaultRequestHeaders.Add("X-Cart-Token", source.CartToken!);
-        using var unauthenticated = await anonymous.PostAsJsonAsync(route, new { buyerPartyId = customer.PartyId });
+        using var unauthenticated = await anonymous.PostAsJsonAsync(route, new { selections = new[] { new { selectionId = Guid.NewGuid(), quantity = 1 } }, buyerPartyId = customer.PartyId });
         unauthenticated.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
         AssertNoStore(unauthenticated);
 
@@ -67,7 +89,7 @@ public partial class CommerceBoxCartEndpointTests
         var otherTenant = await CustomerAsync(otherTenantId);
         foreach (var client in new[] { other.Client, otherTenant.Client })
         {
-            using var denied = await client.PostAsJsonAsync(route + $"?partyId={customer.PartyId}", new { buyerPartyId = customer.PartyId });
+            using var denied = await client.PostAsJsonAsync(route + $"?partyId={customer.PartyId}", new { selections = new[] { new { selectionId = Guid.NewGuid(), quantity = 1 } }, buyerPartyId = customer.PartyId });
             denied.StatusCode.Should().Be(HttpStatusCode.NotFound);
             AssertNoStore(denied);
             (await denied.Content.ReadAsStringAsync()).Should().NotContain(source.Box.CartId.ToString());
