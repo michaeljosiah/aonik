@@ -15,7 +15,11 @@ public sealed record GiftCardPolicy(bool Enabled = false, string Version = "", s
 /// <summary>Frozen server instruction. Exactly one purchase or tender; never expose its private grant.</summary>
 public sealed record GiftCardCheckout(Guid CartId, string PolicyVersion, GiftCardLedgerBinding Ledger,
     GiftCardValidity Validity, string TermsVersion, string FundingAllocation,
-    GiftCardPurchase? Purchase = null, GiftCardTender? Tender = null);
+    GiftCardPurchase? Purchase = null, GiftCardTender? Tender = null, IReadOnlyList<GiftCardPurchase>? AdditionalPurchases = null)
+{
+    public IReadOnlyList<GiftCardPurchase> PurchasedCards() => Purchase is null ? Array.Empty<GiftCardPurchase>()
+        : new[] { Purchase }.Concat(AdditionalPurchases ?? Array.Empty<GiftCardPurchase>()).ToArray();
+};
 public sealed record GiftCardPurchase(int ItemIndex, Guid OrderItemId, decimal FaceValue);
 public sealed record GiftCardTender(string PrivateCartGrant, decimal Amount, decimal ExpectedCardAmount,
     decimal TaxTotal, decimal GiftFundedTaxAmount, IReadOnlyList<GiftCardFundingLine> Lines);

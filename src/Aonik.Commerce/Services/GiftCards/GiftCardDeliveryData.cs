@@ -29,7 +29,7 @@ internal static class GiftCardDeliveryData
             throw new InvalidStateException("The gift card purchase snapshot is incomplete.");
         var json = JsonSerializer.Serialize(snapshot, Json);
         if (json.Length > 10000) throw new InvalidStateException("The gift card purchase snapshot is too large.");
-        var id = StableId("delivery", tenantId, paymentIntentId, 0);
+        var id = StableId("delivery", tenantId, paymentIntentId, snapshot.ItemIndex);
         var existing = db.OrderGiftCardDeliveries.Local.SingleOrDefault(row => row.Id == id)
             ?? await db.OrderGiftCardDeliveries.AsNoTracking().SingleOrDefaultAsync(row => row.Id == id && row.TenantId == tenantId, ct);
         if (existing is not null)

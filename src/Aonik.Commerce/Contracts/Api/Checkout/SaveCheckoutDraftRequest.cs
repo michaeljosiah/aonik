@@ -13,4 +13,4 @@ public record SaveCheckoutDraftRequest(
     bool CreateAccount = false,
     string? DiscountCode = null,
     string? AcceptedTermsVersion = null,
-    long RequestedPoints = 0);
+    long RequestedPoints = 0, GiftCardDraftDto? GiftCardDraft = null);

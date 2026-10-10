@@ -64,13 +64,13 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
     public async Task<GiftCardPurchaseDto> SelectAsync(Cart cart, GiftCardPurchaseSelection selection, CancellationToken ct = default)
     {
         var (store, finance, version) = await PolicyAsync(ct);
-        var purchase = ValidateSelection(cart, selection, store, finance, version);
+        var purchase = ValidateSelection(cart, selection, store, finance, version, complete: false);
         await VariantAsync(store.ProductVariantId, ct);
         return purchase;
     }
 
     private GiftCardPurchaseDto ValidateSelection(Cart cart, GiftCardPurchaseSelection selection,
-        GiftCardStorefrontOptions store, GiftCardPolicy finance, string version, DateOnly? foodDeliveryDate = null)
+        GiftCardStorefrontOptions store, GiftCardPolicy finance, string version, DateOnly? foodDeliveryDate = null, bool complete = true)
     {
         ValidatePolicy(store, finance, version, selection, cart);
         var normalized = selection with
@@ -79,10 +79,13 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
             RecipientEmail = CartDraftData.Text(selection.RecipientEmail, 254, "RecipientEmail"),
             RecipientPhone = CartDraftData.Text(selection.RecipientPhone, 32, "RecipientPhone"),
             SenderName = CartDraftData.Text(selection.SenderName, 201, "SenderName"),
-            Message = CartDraftData.Text(selection.Message, 1000, "Message", true),
+            Message = CartDraftData.Text(selection.Message, 240, "Message", true),
             PostalAddress = CartDraftData.Normalize(new CartCheckoutDraftDto(Address: selection.PostalAddress)).Address
         };
-        if (normalized.RecipientName.Length == 0) throw new StorefrontValidationException("Enter the gift recipient's name.");
+        if (complete && normalized.DeliveryMethod == "InFoodBox" && normalized.RecipientName.Length == 0)
+            normalized = normalized with { RecipientName = CartDraftData.Read(cart)?.Recipient?.Name
+                ?? string.Join(" ", new[] { CartDraftData.Read(cart)?.Purchaser?.FirstName, CartDraftData.Read(cart)?.Purchaser?.LastName }.Where(x => !string.IsNullOrWhiteSpace(x))) };
+        if (normalized.RecipientName.Length == 0 && (complete || normalized.DeliveryMethod != "InFoodBox")) throw new StorefrontValidationException("Enter the gift recipient's name.");
         var zone = TimeZoneInfo.FindSystemTimeZoneById(store.Timezone!);
         var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(clock.UtcNow, zone));
         DateTime? sendAt = null;
@@ -149,23 +152,26 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
         var (store, finance, version) = await PolicyAsync(ct);
         var current = ValidateSelection(cart, purchase.Selection, store, finance, version, foodDeliveryDate);
         var variant = await VariantAsync(store.ProductVariantId, ct);
-        if (lines.Count != 1 || lines[0].ProductVariantId != variant.Id || lines[0].Quantity != 1m
+        if (lines.Count != 1 || lines[0].ProductVariantId != variant.Id || lines[0].Quantity != purchase.Selection.Quantity
             || lines[0].UnitPriceSnapshot != purchase.Selection.FaceValue
             || purchase.Postage != (purchase.Selection.DeliveryMethod == "Post" ? store.Postage : 0m)
             || purchase.GreetingCardPrice != (purchase.Selection.IncludeGreetingCard ? store.GreetingCardPrice : 0m))
             throw new StorefrontValidationException("Review the gift-card selection and current price.");
         var index = AppendSnapshotLines(cart, purchase, items);
-        var s = purchase.Selection;
+        var s = current.Selection;
+        var purchases = Enumerable.Range(0, s.Quantity).Select(offset => new GiftCardPurchase(index + offset, Guid.Empty, s.FaceValue)).ToArray();
+        var deliveries = purchases.Select(item => new GiftCardPurchaseSnapshot(item.ItemIndex, Guid.Empty, s.FaceValue,
+            cart.Currency, s.DeliveryMethod, s.RecipientName, s.RecipientEmail, current.SendAtUtc,
+            s.PostingDate, s.PostalAddress, s.RecipientPhone, s.Message, s.SenderName, s.IncludeGreetingCard && item.ItemIndex == index)).ToArray();
         return new(new GiftCardCheckout(cart.Id, finance.Version, finance.Ledger!, finance.Validity!, finance.TermsVersion!,
-            finance.FundingAllocation!, new GiftCardPurchase(index, Guid.Empty, s.FaceValue)),
-            new(index, Guid.Empty, s.FaceValue, cart.Currency, s.DeliveryMethod, s.RecipientName, s.RecipientEmail,
-                current.SendAtUtc, s.PostingDate, s.PostalAddress, s.RecipientPhone, s.Message, s.SenderName, s.IncludeGreetingCard));
+            finance.FundingAllocation!, purchases[0], AdditionalPurchases: purchases.Skip(1).ToArray()), deliveries);
+
     }
 
     internal static int AppendSnapshotLines(Cart cart, GiftCardPurchaseDto purchase, List<OrderItemCommand> items)
     {
         var lines = cart.Items.Where(x => !x.IsDeleted && x.LineKind == CartLineKinds.GiftCardValue).ToList();
-        if (lines.Count != 1 || lines[0].Quantity != 1m || lines[0].ProductVariantId == Guid.Empty
+        if (lines.Count != 1 || lines[0].Quantity != purchase.Selection.Quantity || lines[0].ProductVariantId == Guid.Empty
             || lines[0].UnitPriceSnapshot != purchase.Selection.FaceValue || purchase.Selection.FaceValue <= 0m
             || purchase.Postage < 0m || purchase.GreetingCardPrice < 0m
             || decimal.Round(purchase.Selection.FaceValue, 2) != purchase.Selection.FaceValue
@@ -174,9 +180,11 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
             throw new StorefrontValidationException("The saved gift-card selection is invalid.");
         var line = lines[0];
         var index = items.Count == 0 ? 0 : items.Max(x => x.ItemIndex) + 1;
-        items.Add(new(CartLineKinds.GiftCardValue, index, purchase.Selection.FaceValue, cart.Currency, Quantity: 1m,
+        if (purchase.Selection.Quantity is < 1 or > 10) throw new StorefrontValidationException("Choose 1 to 10 gift cards.");
+        for (var offset = 0; offset < purchase.Selection.Quantity; offset++)
+        items.Add(new(CartLineKinds.GiftCardValue, index + offset, purchase.Selection.FaceValue, cart.Currency, Quantity: 1m,
             UnitPrice: purchase.Selection.FaceValue, ProductId: line.ProductVariantId, Sku: line.Sku, NameSnapshot: line.NameSnapshot));
-        if (purchase.Postage > 0m) items.Add(new(PostageItemType, index + 1, purchase.Postage, cart.Currency,
+        if (purchase.Postage > 0m) items.Add(new(PostageItemType, index + purchase.Selection.Quantity, purchase.Postage, cart.Currency,
             Quantity: 1m, UnitPrice: purchase.Postage, NameSnapshot: "Gift-card postage"));
         if (purchase.GreetingCardPrice > 0m) items.Add(new(GreetingItemType, items.Max(x => x.ItemIndex) + 1,
             purchase.GreetingCardPrice, cart.Currency, Quantity: 1m, UnitPrice: purchase.GreetingCardPrice, NameSnapshot: "Gift-card greeting card"));
@@ -198,6 +206,7 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
             || decimal.Round(store.Postage, 2) != store.Postage || decimal.Round(store.GreetingCardPrice, 2) != store.GreetingCardPrice)
             throw new StorefrontValidationException("Gift-card purchasing is not configured.");
         if (s.AcceptedVersion != version) throw new StorefrontValidationException("Gift-card terms or prices changed. Review and accept the current options.");
+        if (s.Quantity is < 1 or > 10) throw new StorefrontValidationException("Choose 1 to 10 gift cards.");
         if (s.FaceValue <= 0m || s.FaceValue > 999999.99m || decimal.Round(s.FaceValue, 2) != s.FaceValue
             || !(store.Values?.Contains(s.FaceValue) == true || store.CustomMinimum is { } min && min > 0m
                 && store.CustomMaximum is { } max && max >= min && s.FaceValue >= min && s.FaceValue <= max))
@@ -210,4 +219,4 @@ internal sealed class GiftCardPurchasePricing(CommerceDbContext db, ITenantProvi
     }
 }
 
-internal sealed record GiftCardPurchaseQuote(GiftCardCheckout Checkout, GiftCardPurchaseSnapshot Delivery);
+internal sealed record GiftCardPurchaseQuote(GiftCardCheckout Checkout, IReadOnlyList<GiftCardPurchaseSnapshot> Deliveries);

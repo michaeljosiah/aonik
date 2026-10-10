@@ -21,7 +21,8 @@ internal sealed record CheckoutPreparation(
     decimal GreetingCardCharged = 0m, LoyaltyCheckout? Loyalty = null,
     Aonik.SharedKernel.Abstractions.GiftCards.GiftCardCheckout? GiftCard = null,
     Aonik.Commerce.Contracts.Models.GiftCards.GiftCardPurchaseSnapshot? GiftCardDelivery = null,
-    CheckoutContactDto? Purchaser = null)
+    CheckoutContactDto? Purchaser = null,
+    IReadOnlyList<Aonik.Commerce.Contracts.Models.GiftCards.GiftCardPurchaseSnapshot>? AdditionalGiftCardDeliveries = null)
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
         { RespectRequiredConstructorParameters = true };

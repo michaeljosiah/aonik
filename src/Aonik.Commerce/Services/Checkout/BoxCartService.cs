@@ -1480,7 +1480,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         }
         var giftPurchase = GiftCardPurchasePricing.Read(cart);
         var giftPurchaseTotal = giftPurchase == null ? 0m
-            : giftPurchase.Selection.FaceValue + giftPurchase.Postage + giftPurchase.GreetingCardPrice;
+            : giftPurchase.Selection.FaceValue * giftPurchase.Selection.Quantity + giftPurchase.Postage + giftPurchase.GreetingCardPrice;
         var boxPrice = summary is not null
             ? summary.Subtotal - personalisation - surcharges - frozenAddOns - greetingCard - giftPurchaseTotal
             : BoxPricing.BoxPrice(plan, size);
@@ -1510,7 +1510,7 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         components.Add(new QuoteComponentDto(QuoteComponentKeys.DeliveryCharged, deliveryCharged));
         if (giftPurchase != null)
         {
-            components.Add(new("giftCardValue", giftPurchase.Selection.FaceValue));
+            components.Add(new("giftCardValue", giftPurchase.Selection.FaceValue * giftPurchase.Selection.Quantity));
             if (giftPurchase.Postage > 0m) components.Add(new("giftCardPostage", giftPurchase.Postage));
             if (giftPurchase.GreetingCardPrice > 0m) components.Add(new("giftCardGreeting", giftPurchase.GreetingCardPrice));
         }

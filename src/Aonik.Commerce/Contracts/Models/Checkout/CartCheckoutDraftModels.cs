@@ -11,7 +11,7 @@ public record CartCheckoutDraftDto(
     bool CreateAccount = false,
     string? DiscountCode = null,
     string? AcceptedTermsVersion = null,
-    long RequestedPoints = 0);
+    long RequestedPoints = 0, GiftCardDraftDto? GiftCardDraft = null);
 
 public record CartGiftDraftDto(
     bool GiftIntent = false,
@@ -25,3 +25,11 @@ public record CartCheckoutDraftResponse(
     string Status,
     Guid? OrderId,
     CartCheckoutDraftDto? Draft);
+
+/// <summary>Partial standalone/in-box configuration, not proof of a priced or payable purchase.</summary>
+public sealed record GiftCardDraftDto(decimal Value = 100m, string Route = "email", int Quantity = 1,
+    string? Message = null, bool IncludeGreetingCard = false, string? Email = null,
+    string? FirstName = null, string? LastName = null, string? RecipientEmail = null,
+    string? Line1 = null, string? Line2 = null, string? City = null, string? Region = null,
+    string? Postcode = null, string? Phone = null, string? Date = null,
+    bool CreateAccount = false, bool Removed = false, bool Dismissed = false);

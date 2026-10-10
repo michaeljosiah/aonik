@@ -58,18 +58,24 @@ internal static class GiftCardInvoiceSettlement
             return new(snapshot.Ledger, 0);
         }
 
-        var purchase = snapshot.Purchase!;
-        var card = await db.GiftCards.AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == tenantId && x.OrderId == orderId
-            && x.PaymentIntentId == intent.Id && x.Id == attempt.GiftCardId && !x.IsDeleted, cancellationToken)
-            ?? throw new InvalidStateException("Gift-value settlement must wait for funded issuance.");
-        if (items.Count != 1 || purchase.OrderItemId != items[0].Id || card.OrderItemId != items[0].Id
-            || purchase.ItemIndex != items[0].ItemIndex || purchase.FaceValue != card.FaceValue || items[0].AmountIn != card.FaceValue
-            || invoiceTotal < card.FaceValue || GiftCardService.ReadPolicy(card).Ledger != snapshot.Ledger)
+        var purchases = snapshot.PurchasedCards();
+        var cards = await db.GiftCards.AsNoTracking().Where(x => x.TenantId == tenantId && x.OrderId == orderId
+            && x.PaymentIntentId == intent.Id && !x.IsDeleted).ToListAsync(cancellationToken);
+        if (items.Count != purchases.Count || cards.Count != purchases.Count || invoiceTotal < purchases.Sum(x => x.FaceValue))
             throw new InvalidStateException("The invoice does not match funded gift issuance.");
-        await GiftCardAccounting.RequireIssuedAsync(db, tenantId, card, cancellationToken);
+        foreach (var purchase in purchases)
+        {
+            var card = cards.SingleOrDefault(x => x.OrderItemId == purchase.OrderItemId);
+            var item = items.SingleOrDefault(x => x.Id == purchase.OrderItemId);
+            if (card is null || item is null || card.ItemIndex != purchase.ItemIndex || item.ItemIndex != purchase.ItemIndex
+                || purchase.FaceValue != card.FaceValue || item.AmountIn != card.FaceValue || GiftCardService.ReadPolicy(card).Ledger != snapshot.Ledger)
+                throw new InvalidStateException("The invoice does not match funded gift issuance.");
+            await GiftCardAccounting.RequireIssuedAsync(db, tenantId, card, cancellationToken);
+        }
         await GiftCardAccounting.RequireCashAsync(db, tenantId, intent,
             new(intent.Amount, 0, intent.Amount, currency, snapshot.Ledger), cancellationToken);
-        return new(snapshot.Ledger, card.FaceValue);
+        return new(snapshot.Ledger, purchases.Sum(x => x.FaceValue));
+
     }
 }
 
