@@ -85,6 +85,19 @@ internal sealed class BoxCartService : IBoxCartService, IBoxCheckoutSupport
         IReadOnlyList<ReorderBoxLine> dishes, CancellationToken cancellationToken = default)
         => CreateCoreAsync(command, dishes, cancellationToken);
 
+    // Read-only preview; creation rechecks every row and aggregate stock in its existing transaction.
+    internal async Task<int> ReorderMaximumAsync(Guid bundleId, Guid variantId, CancellationToken ct)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var variant = await _dbContext.ProductVariants.AsNoTracking().FirstOrDefaultAsync(x => x.TenantId == tenantId && x.Id == variantId, ct);
+        if (variant is null || !variant.IsActive) return 0;
+        var product = await _dbContext.Products.AsNoTracking().FirstOrDefaultAsync(x => x.TenantId == tenantId && x.Id == variant.ProductId, ct);
+        if (product is null || product.Status != ProductStatuses.Active) return 0;
+        if (await ResolveSlotAsync(tenantId, bundleId, variant, product, null, ct, allowUnavailable: true) is null) return 0;
+        var available = await _inventory.GetAvailableAsync(variantId, ct);
+        return checked((int)Math.Min(99m, Math.Max(0m, decimal.Floor(available))));
+    }
+
     private async Task<BoxCartDto> CreateCoreAsync(CreateBoxCartCommand command,
         IReadOnlyList<ReorderBoxLine>? dishes, CancellationToken cancellationToken)
     {

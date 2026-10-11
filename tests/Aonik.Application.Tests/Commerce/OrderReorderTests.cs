@@ -22,6 +22,58 @@ namespace Aonik.Application.Tests.Commerce;
 public class OrderReorderTests
 {
     [Fact]
+    public async Task Preview_Should_ShowPurchasedRows_AndCurrentAvailability_WithoutCreatingCart()
+    {
+        var source = await SeedAsync();
+        await using (var edit = source.H.Commerce())
+        {
+            (await edit.InventoryLevels.SingleAsync(x => x.ProductVariantId == source.Fixture.DishVariants["first"])).OnHand = 0;
+            await edit.SaveChangesAsync();
+        }
+        var preview = (await Service(source).PreviewAsync(source.Order.Id, source.PartyId))!;
+        preview.Dishes.Should().HaveCount(2);
+        preview.Dishes.Single(x => x.Name == "Purchased first dish").MaxQuantity.Should().Be(0);
+        preview.Dishes.Single(x => x.Name == "Purchased second dish").MaxQuantity.Should().BeGreaterThan(0);
+        await using var verify = source.H.Commerce();
+        (await verify.Carts.CountAsync()).Should().Be(1);
+        (await Service(source).PreviewAsync(source.Order.Id, Guid.NewGuid())).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task SelectedReorder_Should_UseOnlyChosenPurchasedRows_AndRequestedQuantity()
+    {
+        var source = await SeedAsync();
+        await using var read = source.H.Commerce();
+        var selected = await read.OrderBundleSelections.SingleAsync(x => x.ProductVariantId == source.Fixture.DishVariants["second"]);
+        var result = (await Service(source).ReorderSelectedAsync(source.Order.Id, source.PartyId, [new(selected.Id, 3)]))!;
+        result.Box.Size.Should().Be(6);
+        result.Box.Lines.Should().ContainSingle().Which.Quantity.Should().Be(3);
+        result.Box.Lines.Single().VariantId.Should().Be(selected.ProductVariantId);
+        result.CheckoutDraft.Should().BeNull();
+        (await read.OrderBundleSelections.CountAsync()).Should().Be(2);
+    }
+
+    [Theory]
+    [InlineData("foreign")]
+    [InlineData("duplicate")]
+    [InlineData("zero")]
+    [InlineData("overflow")]
+    [InlineData("empty")]
+    [InlineData("null")]
+    public async Task SelectedReorder_Should_RejectInvalidChoices_BeforeCreatingAnyCart(string kind)
+    {
+        var source = await SeedAsync();
+        await using var read = source.H.Commerce();
+        var id = (await read.OrderBundleSelections.FirstAsync()).Id;
+        IReadOnlyList<ReorderDishChoice> choices = kind switch {
+            "foreign" => [new(Guid.NewGuid(), 1)], "duplicate" => [new(id, 1), new(id, 1)],
+            "null" => [null!], "zero" => [new(id, 0)], "overflow" => [new(id, 100)], _ => [] };
+        var attempt = () => Service(source).ReorderSelectedAsync(source.Order.Id, source.PartyId, choices);
+        await attempt.Should().ThrowAsync<StorefrontValidationException>();
+        (await read.Carts.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
     public async Task Reorder_Should_RepricePurchasedDishes_AndStartWithNoCheckoutState()
     {
         var source = await SeedAsync();
