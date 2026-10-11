@@ -748,7 +748,7 @@ internal sealed partial class AdminStorefrontService : IAdminStorefrontService
             }
 
             if (isEditable && GiftCardPurchasePricing.Read(cart) is { } giftCard)
-                total += (isBox ? giftCard.Selection.FaceValue : 0m) + giftCard.Postage + giftCard.GreetingCardPrice;
+                total += (isBox ? giftCard.Selection.FaceValue * giftCard.Selection.Quantity : 0m) + giftCard.Postage + giftCard.GreetingCardPrice;
 
             var boxMeta = cart.BoxBundleProductId is null || cart.BoxSize is null
                 ? null

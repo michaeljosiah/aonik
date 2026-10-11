@@ -76,7 +76,7 @@ public record CheckoutResult(
 public record OrderLoyaltyDto(long RedeemedPoints, decimal AppliedValue, long? EarnedPoints, string EarningStatus);
 
 public record CartPaymentStateDto(Guid? OrderId, Guid? PaymentIntentId, string Status, bool CanEdit,
-    string CartVersion, string? CheckoutUrl = null);
+    string CartVersion, string? CheckoutUrl = null, string? GuestOrderToken = null);
 
 /// <summary>
 /// The one storefront payment status Commerce itself writes. OrderChargeSummary.PaymentStatus

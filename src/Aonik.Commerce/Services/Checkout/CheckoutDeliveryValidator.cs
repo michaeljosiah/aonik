@@ -8,9 +8,15 @@ namespace Aonik.Commerce.Services.Checkout;
 
 internal sealed class CheckoutDeliveryValidator : AbstractValidator<CheckoutDeliveryDetails>
 {
-    public CheckoutDeliveryValidator()
+    public CheckoutDeliveryValidator(bool giftRecipient = false)
     {
-        RuleFor(x => x.Purchaser).SetValidator(CheckoutContactValidation.ContactValidator());
+        if (giftRecipient) {
+            RuleFor(x => x.Recipient).NotNull().WithMessage("Gift recipient details are required.");
+            RuleFor(x => x.Purchaser.Email).RequiredText(254).EmailAddress();
+            RuleFor(x => x.Purchaser.FirstName).OptionalText(100);
+            RuleFor(x => x.Purchaser.LastName).OptionalText(100);
+            RuleFor(x => x.Purchaser.Phone).OptionalText(32);
+        } else RuleFor(x => x.Purchaser).SetValidator(CheckoutContactValidation.ContactValidator());
         RuleFor(x => x.Address).SetValidator(CheckoutContactValidation.AddressValidator());
         RuleFor(x => x.DeliveryDate).NotEqual(default(DateOnly));
         When(x => x.Recipient is not null, () =>
@@ -31,7 +37,7 @@ internal sealed class CheckoutDeliveryValidator : AbstractValidator<CheckoutDeli
             .WithMessage("Contact and address fields must not contain control characters.");
     }
 
-    public static CheckoutDeliveryDetails NormalizeAndValidate(CheckoutDeliveryDetails details)
+    public static CheckoutDeliveryDetails NormalizeAndValidate(CheckoutDeliveryDetails details, bool giftRecipient = false)
     {
         var purchaser = details.Purchaser ?? new CheckoutContactDto("", "", "", "");
         var address = details.Address ?? new DeliveryAddressDto("", null, "", null, "", "");
@@ -45,7 +51,7 @@ internal sealed class CheckoutDeliveryValidator : AbstractValidator<CheckoutDeli
             Notes = Optional(details.Notes),
             WindowId = Optional(details.WindowId)
         };
-        var validation = new CheckoutDeliveryValidator().Validate(normalized);
+        var validation = new CheckoutDeliveryValidator(giftRecipient).Validate(normalized);
         if (!validation.IsValid)
             throw new StorefrontValidationException(string.Join(" ", validation.Errors
                 .Select(error => $"{error.PropertyName}: {error.ErrorMessage}").Distinct()));

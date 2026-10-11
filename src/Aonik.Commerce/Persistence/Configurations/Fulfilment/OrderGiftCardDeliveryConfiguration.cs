@@ -16,7 +16,7 @@ public sealed class OrderGiftCardDeliveryConfiguration : IEntityTypeConfiguratio
         builder.Property(row => row.MaskedCode).IsRequired().HasMaxLength(64);
         builder.Property(row => row.PostingDate).HasColumnType("date");
         builder.HasIndex(row => new { row.TenantId, row.OrderId, row.OrderItemId }).IsUnique();
-        builder.HasIndex(row => new { row.TenantId, row.PaymentIntentId }).IsUnique();
+        builder.HasIndex(row => new { row.TenantId, row.PaymentIntentId, row.OrderItemId }).IsUnique();
         builder.HasIndex(row => new { row.TenantId, row.DeliveryMethod, row.PostingDate, row.Status });
     }
 }

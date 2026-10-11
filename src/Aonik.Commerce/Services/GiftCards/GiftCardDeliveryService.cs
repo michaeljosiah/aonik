@@ -29,7 +29,7 @@ internal sealed class GiftCardDeliveryService(CommerceDbContext db, ITenantProvi
             throw new InvalidStateException("The gift card event does not belong to the current tenant.");
         var source = issued.Source;
         var row = await db.OrderGiftCardDeliveries.AsNoTracking().SingleOrDefaultAsync(value => value.TenantId == issued.TenantId
-            && value.PaymentIntentId == source.PaymentIntentId, cancellationToken)
+            && value.PaymentIntentId == source.PaymentIntentId && value.OrderItemId == source.OrderItemId, cancellationToken)
             ?? throw new InvalidStateException("The gift card purchase has not been recorded for delivery.");
         row = await LoadAsync(row.Id, cancellationToken);
         if (GiftCardDeliveryData.Source(row) != source)

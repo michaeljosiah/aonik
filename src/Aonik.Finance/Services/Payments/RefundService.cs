@@ -72,7 +72,7 @@ internal sealed partial class RefundService(FinanceDbContext db, ITenantProvider
         var result = RefundCalculation.Calculate(source, draft, Prior(rows));
         var intent = await IntentAsync(source, cancellationToken);
         await RequireFundingAsync(intent, source, cancellationToken);
-        await gifts.ReadRefundInstructionAsync(intent, result.Preview.GiftAmount, Reclaim(source, result.Components), cancellationToken);
+        await gifts.ReadRefundInstructionAsync(intent, result.Preview.GiftAmount, Reclaim(source, result.Components), cancellationToken, ReclaimOrderItem(source, result.Components));
         return result.Preview;
     }
 
@@ -106,7 +106,7 @@ internal sealed partial class RefundService(FinanceDbContext db, ITenantProvider
                 throw new InvalidStateException("The refund breakdown changed. Review a fresh preview.");
             var cashLedger = await service.RequireFundingAsync(intent, source, ct);
             var gift = await service.Gifts.ReadRefundInstructionAsync(intent, calculation.Preview.GiftAmount,
-                Reclaim(source, calculation.Components), ct);
+                Reclaim(source, calculation.Components), ct, ReclaimOrderItem(source, calculation.Components));
             var pointLines = calculation.Components.Where(x => x.EarnedPointsToReverse > 0 || x.RedeemedPointsToRestore > 0)
                 .Select(x => new LoyaltyRefundLine(x.OrderItemId ?? throw new InvalidStateException("Points require an original order line."),
                     x.EarnedPointsToReverse, x.RedeemedPointsToRestore)).ToArray();
@@ -183,6 +183,14 @@ internal sealed partial class RefundService(FinanceDbContext db, ITenantProvider
             && x.ProcessingStatus == "NeedsReconciliation" && intentIds.Contains(x.ClientReference), ct))
             return "An external refund requires accounting reconciliation.";
         return null;
+    }
+    // A refund has one reclaim hold. Staff select the original card's order component;
+    // multiple cards can be reclaimed using separate, sequential refund requests.
+    private static Guid? ReclaimOrderItem(CheckoutRefundSource source, IReadOnlyList<RefundAllocation> components)
+    {
+        var cards = components.Where(x => source.Components.Single(c => c.ComponentId == x.ComponentId).Kind == "GiftCardValue").ToArray();
+        if (cards.Length > 1) throw new InvalidStateException("Refund one gift-card value at a time; each card needs its own reclaim hold.");
+        return cards.SingleOrDefault()?.OrderItemId;
     }
     private static decimal Reclaim(CheckoutRefundSource source, IReadOnlyList<RefundAllocation> components) => components
         .Where(x => source.Components.Single(c => c.ComponentId == x.ComponentId).Kind == "GiftCardValue").Sum(x => x.Amount);

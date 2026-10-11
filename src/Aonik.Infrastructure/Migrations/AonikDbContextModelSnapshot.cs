@@ -5441,10 +5441,10 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "PaymentIntentId")
+                    b.HasIndex("TenantId", "OrderId", "OrderItemId")
                         .IsUnique();
 
-                    b.HasIndex("TenantId", "OrderId", "OrderItemId")
+                    b.HasIndex("TenantId", "PaymentIntentId", "OrderItemId")
                         .IsUnique();
 
                     b.HasIndex("TenantId", "DeliveryMethod", "PostingDate", "Status");
@@ -7459,16 +7459,16 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TenantId", "CartId")
-                        .IsUnique();
-
                     b.HasIndex("TenantId", "CodeHash")
                         .IsUnique();
 
                     b.HasIndex("TenantId", "OrderItemId")
                         .IsUnique();
 
-                    b.HasIndex("TenantId", "PaymentIntentId")
+                    b.HasIndex("TenantId", "CartId", "OrderItemId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "PaymentIntentId", "OrderItemId")
                         .IsUnique();
 
                     b.ToTable("AnkGiftCards", "dbo");
@@ -7626,7 +7626,7 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("TenantId", "GiftCardId", "OccurredAtUtc");
 
-                    b.HasIndex("TenantId", "Kind", "SourceId")
+                    b.HasIndex("TenantId", "Kind", "SourceId", "GiftCardId")
                         .IsUnique();
 
                     b.ToTable("AnkGiftCardOperations", "dbo");

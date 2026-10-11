@@ -16,6 +16,9 @@ public interface ICheckoutService
 
     Task<CartPaymentStateDto> GetPaymentStateAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default);
 
+    /// <summary>Read-only recovery of a captured guest order capability for the authorized cart owner.</summary>
+    Task<CartPaymentStateDto> GetPaymentConfirmationStateAsync(Guid cartId, CartAccessContext access, CancellationToken cancellationToken = default);
+
     Task<CartPaymentStateDto> RecoverAsync(Guid cartId, Guid expectedPaymentIntentId, CartAccessContext access,
         CancellationToken cancellationToken = default);
 

@@ -12,7 +12,7 @@ public sealed class GiftCardOperationConfiguration : IEntityTypeConfiguration<Gi
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Kind).HasMaxLength(24).IsRequired();
         builder.Property(x => x.Amount).HasPrecision(19, 4);
-        builder.HasIndex(x => new { x.TenantId, x.Kind, x.SourceId }).IsUnique();
+        builder.HasIndex(x => new { x.TenantId, x.Kind, x.SourceId, x.GiftCardId }).IsUnique();
         builder.HasIndex(x => new { x.TenantId, x.JournalEntryLineId }).IsUnique();
         builder.HasIndex(x => new { x.TenantId, x.GiftCardId, x.OccurredAtUtc });
         builder.HasIndex(x => new { x.TenantId, x.OriginalOperationId });

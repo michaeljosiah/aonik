@@ -27,7 +27,7 @@ internal sealed class GiftCardCartService(CommerceDbContext db, ITenantProvider 
                 throw new StorefrontValidationException("Gift-card options changed. Review the current options.");
             var variant = await pricing.VariantAsync(policy.Store.ProductVariantId, ct);
             replacement = new CartItem { TenantId = cart.TenantId, CartId = cart.Id,
-                ProductVariantId = variant.Id, Quantity = 1m, UnitPriceSnapshot = purchase.Selection.FaceValue,
+                ProductVariantId = variant.Id, Quantity = purchase.Selection.Quantity, UnitPriceSnapshot = purchase.Selection.FaceValue,
                 LineKind = CartLineKinds.GiftCardValue, Sku = variant.Sku, NameSnapshot = variant.Name };
         }
         var existing = cart.Items.Where(x => x.LineKind == CartLineKinds.GiftCardValue).ToList();

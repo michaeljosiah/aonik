@@ -50,13 +50,29 @@ internal static class CartDraftData
                 ? Text(g.GreetingCardMessage, 1000, "Gift.GreetingCardMessage", multiline: true) : null
         } : null;
 
+        var card = draft.GiftCardDraft;
+        if (card != null)
+        {
+            if (card.Route is not ("email" or "post" or "box") || card.Quantity is < 1 or > 10
+                || card.Value < 1m || card.Value > 999m || decimal.Truncate(card.Value) != card.Value)
+                throw new StorefrontValidationException("Choose 1 to 10 cards with a whole-pound value from 1 to 999.");
+            card = card with {
+                Message = Text(card.Message, 240, "GiftCardDraft.Message", true),
+                Email = Text(card.Email, 254, "GiftCardDraft.Email"),
+                RecipientEmail = Text(card.RecipientEmail, 254, "GiftCardDraft.RecipientEmail"),
+                FirstName = Text(card.FirstName, 100, "GiftCardDraft.FirstName"), LastName = Text(card.LastName, 100, "GiftCardDraft.LastName"),
+                Line1 = Text(card.Line1, 200, "GiftCardDraft.Line1"), Line2 = Text(card.Line2, 200, "GiftCardDraft.Line2"),
+                City = Text(card.City, 100, "GiftCardDraft.City"), Region = Text(card.Region, 100, "GiftCardDraft.Region"),
+                Postcode = Text(card.Postcode, 16, "GiftCardDraft.Postcode"), Phone = Text(card.Phone, 32, "GiftCardDraft.Phone"),
+                Date = Text(card.Date, 10, "GiftCardDraft.Date") };
+        }
         return draft with
         {
             Purchaser = purchaser,
             Address = address,
             Recipient = recipient,
             Notes = Text(draft.Notes, 1000, "Notes", multiline: true),
-            Gift = gift,
+            Gift = gift, GiftCardDraft = card,
             DiscountCode = Text(draft.DiscountCode, 64, "DiscountCode"),
             AcceptedTermsVersion = Text(draft.AcceptedTermsVersion, 128, "AcceptedTermsVersion")
         };

@@ -82,7 +82,12 @@ internal static class GiftCardAccounting
             || operation.Amount != card.FaceValue || operation.OrderId != card.OrderId)
             throw new InvalidStateException("Gift-card issuance funding is not complete.");
         var policy = GiftCardService.ReadPolicy(card);
-        var entryId = await RequirePairAsync(db, tenantId, policy.Ledger!.LedgerId, "GiftCardIssue", card.PaymentIntentId,
+        var instruction = System.Text.Json.JsonSerializer.Deserialize<GiftCardCheckout>(attempt!.SnapshotJson, GiftCardService.Json)
+            ?? throw new InvalidStateException("Gift-card instruction is missing.");
+        if (!instruction.PurchasedCards().Any(x => x.OrderItemId == card.OrderItemId && x.ItemIndex == card.ItemIndex && x.FaceValue == card.FaceValue))
+            throw new InvalidStateException("Gift-card instrument is not part of its funded instruction.");
+        var issueSource = instruction.AdditionalPurchases?.Count > 0 ? card.Id : card.PaymentIntentId;
+        var entryId = await RequirePairAsync(db, tenantId, policy.Ledger!.LedgerId, "GiftCardIssue", issueSource,
             policy.Ledger.ClearingAccountId, policy.Ledger.LiabilityAccountId, card.FaceValue, ct);
         if (operation.JournalEntryId != entryId || !await db.JournalEntryLines.AnyAsync(x => x.TenantId == tenantId
             && x.Id == operation.JournalEntryLineId && x.JournalEntryId == entryId && x.Direction == JournalDirections.Credit

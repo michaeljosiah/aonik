@@ -7,6 +7,15 @@ namespace Aonik.Commerce.Services.Checkout;
 
 internal static class CheckoutContactValidation
 {
+    public static CheckoutContactDto ValidateGiftPurchaser(CheckoutContactDto contact)
+    {
+        contact = CartDraftData.Normalize(new CartCheckoutDraftDto(Purchaser: contact)).Purchaser
+            ?? throw new StorefrontValidationException("Enter your order-confirmation email address.");
+        if (contact.Email.Length > 254 || !System.Net.Mail.MailAddress.TryCreate(contact.Email, out var email) || email.Address != contact.Email)
+            throw new StorefrontValidationException("Enter your order-confirmation email address.");
+        return contact;
+    }
+
     public static CheckoutContactDto ValidateContact(CheckoutContactDto contact)
     {
         var normalized = CartDraftData.Normalize(new CartCheckoutDraftDto(Purchaser: contact)).Purchaser

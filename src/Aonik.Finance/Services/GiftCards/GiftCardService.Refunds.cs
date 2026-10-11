@@ -18,14 +18,21 @@ internal sealed record GiftCardRefundInstruction(Guid GiftCardId, Guid OriginalO
 internal sealed partial class GiftCardService
 {
     public async Task<GiftCardRefundInstruction?> ReadRefundInstructionAsync(PaymentIntent intent,
-        decimal restoreAmount, decimal reclaimAmount, CancellationToken ct = default)
+        decimal restoreAmount, decimal reclaimAmount, CancellationToken ct = default, Guid? orderItemId = null)
     {
         if (intent.TenantId != TenantId || intent.Status != "Captured" || !Money(restoreAmount) || !Money(reclaimAmount)
             || restoreAmount > 0 && reclaimAmount > 0)
             throw new InvalidStateException("Gift-card refunds require their original captured funding.");
         if (restoreAmount == 0 && reclaimAmount == 0) return null;
         var restoring = restoreAmount > 0;
-        var original = await OperationAsync(restoring ? "Redeem" : "Issue", intent.Id, ct)
+        Guid? cardId = null;
+        if (!restoring && orderItemId is not null)
+            cardId = await db.GiftCards.Where(x => x.TenantId == TenantId && !x.IsDeleted && x.PaymentIntentId == intent.Id && x.OrderItemId == orderItemId).Select(x => (Guid?)x.Id).SingleOrDefaultAsync(ct)
+                ?? throw new InvalidStateException("The selected order line has no original issued gift card.");
+        if (!restoring && cardId is null && await db.GiftCardOperations.CountAsync(x => x.TenantId == TenantId
+            && x.Kind == "Issue" && x.SourceId == intent.Id && !x.IsDeleted, ct) > 1)
+            throw new InvalidStateException("A multi-card purchase refund must identify its original gift card; amount-only reclaim is unavailable.");
+        var original = await OperationAsync(restoring ? "Redeem" : "Issue", intent.Id, ct, cardId)
             ?? throw new InvalidStateException("The original gift-card operation is unavailable.");
         var card = await db.GiftCards.AsNoTracking().SingleOrDefaultAsync(x => x.TenantId == TenantId
             && x.Id == original.GiftCardId && !x.IsDeleted, ct)
@@ -162,15 +169,15 @@ internal sealed partial class GiftCardService
     {
         var attempt = await AttemptAsync(intent.Id, ct);
         if (intent.Status != "Captured" || intent.Currency != "GBP" || attempt?.Status != "Completed"
-            || attempt.OrderId != intent.OrderId || attempt.GiftCardId != card.Id
+            || attempt.OrderId != intent.OrderId
             || original.OrderId != intent.OrderId || original.SourceId != intent.Id || original.GiftCardId != card.Id)
             throw new InvalidStateException("The original gift-card funding is not complete.");
         var instruction = Read(attempt);
         var funding = new GiftCardFunding(intent.Amount, instruction.Tender?.Amount ?? 0m,
             intent.Amount - (instruction.Tender?.Amount ?? 0m), intent.Currency, instruction.Ledger);
-        if (original.Kind == "Redeem" && instruction.Tender is not null)
+        if (original.Kind == "Redeem" && instruction.Tender is not null && attempt.GiftCardId == card.Id)
             await GiftCardAccounting.RequireRedeemedAsync(db, TenantId, intent, attempt, funding, ct);
-        else if (original.Kind == "Issue" && instruction.Purchase is not null)
+        else if (original.Kind == "Issue" && instruction.PurchasedCards().Any(x => x.OrderItemId == card.OrderItemId && x.ItemIndex == card.ItemIndex && x.FaceValue == card.FaceValue))
         {
             if (card.PaymentIntentId != intent.Id)
                 throw new InvalidStateException("The refund does not match the original issuance payment.");
