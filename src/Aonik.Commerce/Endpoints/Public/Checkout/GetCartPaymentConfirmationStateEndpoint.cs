@@ -1,5 +1,4 @@
 using Aonik.Commerce.Contracts.Models.Checkout;
-using Aonik.Commerce.Endpoints.Public.Fulfilment;
 using Aonik.Commerce.Services.Checkout;
 
 using FastEndpoints;
@@ -13,7 +12,7 @@ public sealed class GetCartPaymentConfirmationStateEndpoint(ICheckoutService che
     {
         Get("/commerce/carts/{cartId:guid}/payment/confirmation");
         AllowAnonymous();
-        Options(builder => builder.RequireRateLimiting(GetDeliveryCoverageEndpoint.RateLimitPolicyName));
+        Options(builder => builder.RequireRateLimiting(CheckoutRateLimitPolicies.PaymentStatus));
     }
 
     public override async Task HandleAsync(CancellationToken ct)

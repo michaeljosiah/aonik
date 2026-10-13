@@ -1,6 +1,5 @@
 ﻿using Aonik.Commerce.Contracts.Api.Checkout;
 using Aonik.Commerce.Contracts.Models.Checkout;
-using Aonik.Commerce.Endpoints.Public.Fulfilment;
 using Aonik.Commerce.Services.Checkout;
 
 using FastEndpoints;
@@ -17,7 +16,7 @@ public class CheckoutEndpoint : Endpoint<CheckoutRequest, CheckoutResult>
     {
         Post("/commerce/carts/{cartId:guid}/checkout");
         AllowAnonymous();
-        Options(builder => builder.RequireRateLimiting(GetDeliveryCoverageEndpoint.RateLimitPolicyName));
+        Options(builder => builder.RequireRateLimiting(CheckoutRateLimitPolicies.Checkout));
         Summary(s => s.Summary = "Check out a cart: reserve stock, create the order, and initiate payment.");
     }
 

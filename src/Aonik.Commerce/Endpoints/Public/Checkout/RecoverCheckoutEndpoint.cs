@@ -1,5 +1,4 @@
 using Aonik.Commerce.Contracts.Models.Checkout;
-using Aonik.Commerce.Endpoints.Public.Fulfilment;
 using Aonik.Commerce.Services.Checkout;
 
 using FastEndpoints;
@@ -15,7 +14,7 @@ public sealed class RecoverCheckoutEndpoint(ICheckoutService checkout) : Endpoin
     {
         Post("/commerce/carts/{cartId:guid}/payment/recover");
         AllowAnonymous();
-        Options(builder => builder.RequireRateLimiting(GetDeliveryCoverageEndpoint.RateLimitPolicyName));
+        Options(builder => builder.RequireRateLimiting(CheckoutRateLimitPolicies.Checkout));
     }
 
     public override async Task HandleAsync(RecoverCheckoutRequest req, CancellationToken ct)
