@@ -200,6 +200,8 @@ jobs:
       # Firebase Cloud Messaging (mobile push)
       NOTIFICATIONS__FCM__PROJECTID: ${{ vars.NOTIFICATIONS__FCM__PROJECTID }}
       NOTIFICATIONS__FCM__SERVICEACCOUNTJSON: ${{ secrets.NOTIFICATIONS__FCM__SERVICEACCOUNTJSON }}
+      # Commerce postcode validation is an explicit per-environment opt-in.
+      COMMERCE__POSTCODESIO__ENABLED: ${{ vars.COMMERCE__POSTCODESIO__ENABLED }}
 
     steps:
       - name: Checkout repository
@@ -236,6 +238,7 @@ jobs:
               "AI__",
               "AUTH__",
               "FINANCE__",
+              "COMMERCE__",
               "NOTIFICATIONS__",
               "SETTINGS__",
           )
