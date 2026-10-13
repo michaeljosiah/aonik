@@ -255,7 +255,7 @@ public sealed class CommerceDeliveryCoverageEndpointTests
     }
 
     [Fact]
-    public async Task Checkout_Should_ShareThePublicLookupBudget_AndNotRepeatUpstreamWorkAfterRejection()
+    public async Task Checkout_Should_HaveItsOwnBudget_IndependentOfCoverageAndPaymentPolling()
     {
         var tenantId = await SeedTenantAsync();
         await ConfigureAsync(tenantId, new(true, ["W1A"]));
@@ -264,9 +264,18 @@ public sealed class CommerceDeliveryCoverageEndpointTests
         client.DefaultRequestHeaders.Add("X-Cart-Token", cart.Token);
         client.DefaultRequestHeaders.Add("X-Cart-Version", cart.Version);
         var before = _factory.Lookups.Count;
-        using var first = await client.GetAsync(PublicPath + "?postcode=W1A0AX");
-        first.StatusCode.Should().Be(HttpStatusCode.OK);
-        for (var request = 1; request < CoverageFactory.Permits; request++)
+        for (var request = 0; request < CoverageFactory.Permits; request++)
+        {
+            using var coverage = await client.GetAsync(PublicPath + "?postcode=W1A0AX");
+            coverage.StatusCode.Should().Be(HttpStatusCode.OK);
+            using var payment = await client.GetAsync($"/commerce/carts/{cart.Id}/payment");
+            payment.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+        using var coverageRejected = await client.GetAsync(PublicPath + "?postcode=W1A0AX");
+        coverageRejected.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        using var pollingRejected = await client.GetAsync($"/commerce/carts/{cart.Id}/payment");
+        pollingRejected.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
+        for (var request = 0; request < CoverageFactory.Permits; request++)
         {
             using var unavailable = await client.PostAsJsonAsync(CheckoutPath(cart), CheckoutBody("W1A 0AX"));
             unavailable.StatusCode.Should().Be(HttpStatusCode.ServiceUnavailable);
@@ -278,7 +287,9 @@ public sealed class CommerceDeliveryCoverageEndpointTests
         rejected.StatusCode.Should().Be(HttpStatusCode.TooManyRequests);
         rejected.Headers.RetryAfter!.Delta.Should().BeGreaterThan(TimeSpan.Zero);
         AssertNoStore(rejected);
-        _factory.Lookups.Count.Should().Be(before + CoverageFactory.Permits);
+        _factory.Lookups.Count.Should().Be(before + 2 * CoverageFactory.Permits);
+        var rejection = await rejected.Content.ReadFromJsonAsync<JsonElement>();
+        rejection.GetProperty("code").GetString().Should().Be("commerce.checkout_rate_limited");
         await AssertNoCommerceEffectsAsync(tenantId, cart);
     }
 
@@ -409,7 +420,12 @@ public sealed class CommerceDeliveryCoverageEndpointTests
         {
             base.ConfigureWebHost(builder);
             builder.ConfigureAppConfiguration((_, configuration) => configuration.AddInMemoryCollection(
-                new Dictionary<string, string?> { ["Commerce:DeliveryCoverage:RequestsPerMinute"] = Permits.ToString() }));
+                new Dictionary<string, string?>
+                {
+                    ["Commerce:DeliveryCoverage:RequestsPerMinute"] = Permits.ToString(),
+                    ["Commerce:Checkout:RequestsPerMinute"] = Permits.ToString(),
+                    ["Commerce:PaymentStatus:RequestsPerMinute"] = Permits.ToString()
+                }));
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IPostcodeLookup>();
