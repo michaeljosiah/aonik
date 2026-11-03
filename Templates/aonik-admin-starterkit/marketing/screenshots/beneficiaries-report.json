@@ -1,0 +1,24 @@
+{
+  "checks": [
+    "actual React UI",
+    "customer-scoped listing",
+    "row/detail Send transfer selects customer and destination",
+    "prefill survives reload",
+    "missing/unverified selection rejected",
+    "pending recovery takes precedence",
+    "shared icons and themes",
+    "search and status filters",
+    "conditional Bank/MobileMoney/Wallet fields",
+    "raw details cleared on rail change",
+    "explicit verification",
+    "provider error and manual retry",
+    "verified destination listed",
+    "notes save and readback",
+    "confirmed removal",
+    "captured tenant on mutations",
+    "no browser persistence of raw rails",
+    "read-only access",
+    "no runtime exceptions"
+  ],
+  "registrations": 2
+}

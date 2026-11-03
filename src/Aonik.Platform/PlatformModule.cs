@@ -138,6 +138,8 @@ public sealed class PlatformModule : IModule
         services.AddScoped<INotificationDeviceService, NotificationDeviceService>();
         services.AddScoped<INotificationTemplateService, NotificationTemplateService>();
         services.AddScoped<ITemplatedEmailSender, TemplatedEmailSender>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Messaging.ICustomerReceiptContactReader, CustomerReceiptContactReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Messaging.ICustomerReceiptContactEditor, CustomerReceiptContactEditor>();
         services.AddSingleton<NotificationRealtimePublisher>();
 
         // ── Task / WorkItem Scheduling (Spec 034) ────────────────────
@@ -166,6 +168,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserPartyResolver, Services.Party.UserPartyResolver>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IChatParticipantDirectory, Services.Identity.ChatParticipantDirectory>();
 
         // Compliance reacts to document erasure (Spec 035 §12/§15) by marking dependent usages
         // Expired. Registering the assembly's IEventHandler implementations lets the Worker's outbox

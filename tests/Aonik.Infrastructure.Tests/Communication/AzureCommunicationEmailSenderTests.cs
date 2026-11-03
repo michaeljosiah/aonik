@@ -214,6 +214,57 @@ public class AzureCommunicationEmailSenderTests
 
     private static EmailMessage Message() => new("recipient@example.test", "Private subject", "Private body");
 
+    [Fact]
+    public async Task Send_Should_UseTheReservedOperationId_ForTrackedReceipts()
+    {
+        var h = new Harness();
+        h.ConfigureTenant("tenant-connection", "tenant@example.test");
+        var trackingId = Guid.NewGuid();
+        await h.Sender.SendAsync(Message() with { TrackingId = trackingId });
+
+        h.Client.Verify(client => client.SendAsync(WaitUntil.Completed, It.IsAny<SdkEmailMessage>(), trackingId, It.IsAny<CancellationToken>()), Times.Once);
+        h.Client.Verify(client => client.SendAsync(WaitUntil.Completed, It.IsAny<SdkEmailMessage>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Send_Should_PreservePdfAttachmentBytesAndMetadata()
+    {
+        var h = new Harness();
+        h.ConfigureTenant("tenant-connection", "tenant@example.test");
+        byte[] pdf = [37, 80, 68, 70, 45];
+
+        await h.Sender.SendAsync(Message() with { Attachments = [new("receipt.pdf", "application/pdf", pdf)] });
+
+        var attachment = h.Sent.Should().ContainSingle().Which.Message.Attachments.Should().ContainSingle().Which;
+        attachment.Name.Should().Be("receipt.pdf");
+        attachment.ContentType.Should().Be("application/pdf");
+        attachment.Content.ToArray().Should().Equal(pdf);
+    }
+
+    [Fact]
+    public async Task Send_Should_RejectUnsafeAttachmentNames_BeforeProviderDispatch()
+    {
+        var h = new Harness();
+        h.ConfigureTenant("tenant-connection", "tenant@example.test");
+        var act = () => h.Sender.SendAsync(Message() with { Attachments = [new("receipt\r\n.pdf", "application/pdf", [1])] });
+
+        await act.Should().ThrowAsync<Aonik.SharedKernel.Abstractions.Messaging.EmailDeliveryNotStartedException>();
+        h.Sent.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("Failed", true)]
+    [InlineData("Running", false)]
+    public async Task Send_Should_DistinguishProviderRejectionFromUncertainAcceptance(string providerStatus, bool definitive)
+    {
+        var h = new Harness { SendStatus = new EmailSendStatus(providerStatus) };
+        h.ConfigureTenant("tenant-connection", "tenant@example.test");
+        var failure = await FluentActions.Awaiting(() => h.Sender.SendAsync(Message())).Should().ThrowAsync<InvalidOperationException>();
+
+        (failure.Which is Aonik.SharedKernel.Abstractions.Messaging.EmailDeliveryNotStartedException).Should().Be(definitive);
+        h.Log.Entries.Should().NotContain(entry => entry.Level == LogLevel.Information);
+    }
+
     private sealed class Harness
     {
         public Dictionary<(Guid TenantId, string Key), string?> TenantValues { get; } = new();
@@ -227,6 +278,7 @@ public class AzureCommunicationEmailSenderTests
         public List<string> Connections { get; } = [];
         public List<(SdkEmailMessage Message, CancellationToken Cancellation)> Sent { get; } = [];
         public Exception? InitializationFailure { get; set; }
+        public EmailSendStatus SendStatus { get; set; } = EmailSendStatus.Succeeded;
         public AzureCommunicationEmailSender Sender { get; }
 
         public Harness()
@@ -237,9 +289,12 @@ public class AzureCommunicationEmailSenderTests
                 .ReturnsAsync((string key, CancellationToken _) => GlobalValues.GetValueOrDefault(key));
             var operation = new Mock<EmailSendOperation>();
             operation.SetupGet(value => value.Id).Returns("operation-349");
-            operation.SetupGet(value => value.Value).Returns(EmailModelFactory.EmailSendResult("operation-349", EmailSendStatus.Succeeded));
+            operation.SetupGet(value => value.Value).Returns(() => EmailModelFactory.EmailSendResult("operation-349", SendStatus));
             Client.Setup(client => client.SendAsync(WaitUntil.Completed, It.IsAny<SdkEmailMessage>(), It.IsAny<CancellationToken>()))
                 .Callback<WaitUntil, SdkEmailMessage, CancellationToken>((_, message, cancellation) => Sent.Add((message, cancellation)))
+                .ReturnsAsync(operation.Object);
+            Client.Setup(client => client.SendAsync(WaitUntil.Completed, It.IsAny<SdkEmailMessage>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+                .Callback<WaitUntil, SdkEmailMessage, Guid, CancellationToken>((_, message, _, cancellation) => Sent.Add((message, cancellation)))
                 .ReturnsAsync(operation.Object);
             Sender = new RecordingSender(Global.Object, Options, Log, TenantStore.Object, Tenants, connection =>
             {

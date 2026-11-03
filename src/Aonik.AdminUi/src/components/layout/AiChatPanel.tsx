@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, X, Maximize2, Sparkles } from 'lucide-react';
+import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -136,7 +137,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
       {/* Header: title, connection status, open-full-chat and close. */}
       <div className="flex h-14 shrink-0 items-center gap-2.5 border-b px-3">
         <div className="grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-          <Sparkles className="size-4" />
+          <AgentAvatar name="aonik" className="size-7" />
         </div>
         <div className="min-w-0 flex-1 leading-tight">
           <div className="text-sm font-medium">Ask Aonik</div>
@@ -232,7 +233,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
               'AG-UI connected'
             )}
           </span>
-          <span>AONIK Orchestrator</span>
+          <span>AONIK · AI assistant</span>
         </div>
       </div>
     </aside>

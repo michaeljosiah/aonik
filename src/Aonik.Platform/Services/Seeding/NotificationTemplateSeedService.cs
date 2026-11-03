@@ -207,6 +207,26 @@ internal class NotificationTemplateSeedService
             <p>Gift card terms version: {{ terms_version | escape }}.</p>
             """),
         TransactionalTemplate(
+            TransactionalEmailTemplateNames.RemittanceReceipt,
+            "Customer transfer receipt with a server-generated PDF attachment",
+            "Your transfer receipt",
+            """
+            <div style="border-top:3px solid #055a60;padding-top:20px;color:#1f2328;">
+              <h1 style="font-size:24px;">Transfer receipt</h1>
+              <p>Hi {{ customer_name | escape }},</p>
+              <p>Your receipt for transfer <strong>{{ order_number | escape }}</strong> is attached as a PDF.</p>
+              <p><strong>Status: {{ status | escape }}</strong><br/>{{ status_description | escape }}</p>
+              <table style="width:100%;border-collapse:collapse;">
+                <tr><td style="padding:8px 0;border-bottom:1px solid #e4e6e9;">Customer sends</td><td>{{ send_amount | escape }}</td></tr>
+                <tr><td style="padding:8px 0;border-bottom:1px solid #e4e6e9;">Fees</td><td>{{ fees | escape }}</td></tr>
+                <tr><td style="padding:8px 0;border-bottom:1px solid #e4e6e9;">Total debit</td><td><strong>{{ total_debit | escape }}</strong></td></tr>
+                <tr><td style="padding:8px 0;border-bottom:1px solid #e4e6e9;">Recipient amount</td><td><strong>{{ recipient_amount | escape }}</strong></td></tr>
+                <tr><td style="padding:8px 0;">Destination</td><td>{{ destination | escape }}</td></tr>
+              </table>
+              <p style="color:#5f6670;font-size:12px;">Receipt generated {{ generated_at | escape }}. This is a snapshot of the recorded transfer status.</p>
+            </div>
+            """),
+        TransactionalTemplate(
             TransactionalEmailTemplateNames.AccountSetupAccess,
             "Ready for secure account setup or access links issued by the account flow",
             "Set up or access your account",

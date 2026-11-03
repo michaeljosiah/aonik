@@ -57,6 +57,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
     private readonly ITenantProvider _tenantProvider;
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IClock _clock;
+    private readonly ChatRoomInvocationGuard? _roomContext;
+    private readonly IChatRoomApprovalAuthority? _roomApprovalAuthority;
 
     public ToolApprovalService(
         IToolApprovalRequestStore requestStore,
@@ -65,7 +67,9 @@ internal sealed class ToolApprovalService : IToolApprovalService
         IProposalApprovalPolicy proposalApprovalPolicy,
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
-        IClock clock)
+        IClock clock,
+        ChatRoomInvocationGuard? roomContext = null,
+        IChatRoomApprovalAuthority? roomApprovalAuthority = null)
     {
         _requestStore = requestStore ?? throw new ArgumentNullException(nameof(requestStore));
         _proposalStore = proposalStore ?? throw new ArgumentNullException(nameof(proposalStore));
@@ -74,6 +78,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
         _tenantProvider = tenantProvider ?? throw new ArgumentNullException(nameof(tenantProvider));
         _currentUserProvider = currentUserProvider ?? throw new ArgumentNullException(nameof(currentUserProvider));
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        _roomContext = roomContext;
+        _roomApprovalAuthority = roomApprovalAuthority;
     }
 
     public async Task<ToolGateOutcome> GateAsync(
@@ -150,10 +156,12 @@ internal sealed class ToolApprovalService : IToolApprovalService
         // Resubmit path: a server-validated approval for these exact arguments already exists.
         // Consume it (single-use) and let the inner tool run once.
         var approved = await _requestStore
-            .FindConsumableApprovedAsync(tenantId, requestingUserId, context.ToolName, argsHash, now, cancellationToken)
+            .FindConsumableApprovedAsync(tenantId, requestingUserId, context.ToolName, argsHash, now, cancellationToken, _roomContext?.RoomId?.ToString())
             .ConfigureAwait(false);
         if (approved is not null)
         {
+            if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(approved.AiRunId, cancellationToken))
+                return new ToolGateOutcome(ToolGateDecision.Refused, Reason: "Room execution authority changed.");
             approved.ConsumedAt = now;
             await _requestStore.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ToolGateOutcome(ToolGateDecision.ApprovedInline, ApprovalRequestId: approved.Id, Summary: actionKind);
@@ -197,7 +205,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
             TenantId: tenantId,
             ProposalType: options.ProposalType!,
             ProposedByAgentId: Guid.Empty,
-            AiRunId: null,
+            AiRunId: _roomContext?.AiRunId,
             ImpactSummary: actionKind,
             RiskTier: HighRiskTier,
             PayloadJson: argumentsJson);
@@ -260,6 +268,12 @@ internal sealed class ToolApprovalService : IToolApprovalService
             return new ToolApprovalDecisionResult(
                 request.Id, ToolApprovalDecisionOutcome.AlreadyDecided, request.ProposalId,
                 Message: $"This request was already {request.Status} and cannot be decided again.");
+        }
+
+        if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(request.AiRunId, cancellationToken))
+        {
+            return new ToolApprovalDecisionResult(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
+                "Current room access does not permit deciding this action.");
         }
 
         // Consumer self-approval (§12): when the request records a requesting user, the deciding
@@ -347,7 +361,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
             Message: "The action was approved. Ask the agent to proceed.");
     }
 
-    private static ToolApprovalRequest NewRequest(
+    private ToolApprovalRequest NewRequest(
         ToolGateContext context,
         ToolApprovalOptions options,
         string actionKind,
@@ -360,6 +374,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
         {
             TenantId = tenantId,
             RequestingUserId = requestingUserId,
+            AiRunId = _roomContext?.AiRunId,
+            ThreadId = _roomContext?.RoomId?.ToString(),
             ToolName = context.ToolName,
             ArgumentsRedactedJson = argumentsJson,
             ArgsHash = argsHash,

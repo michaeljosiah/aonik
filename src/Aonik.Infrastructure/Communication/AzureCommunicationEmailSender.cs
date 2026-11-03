@@ -85,7 +85,7 @@ public class AzureCommunicationEmailSender : IEmailSender
             : message.From;
 
         if (string.IsNullOrWhiteSpace(fromAddress))
-            throw new InvalidOperationException("Communication.Email.AzureCommunicationServices.FromAddress is required for email sending.");
+            throw new MessagingNotConfiguredException("Email", "Communication.Email.AzureCommunicationServices.FromAddress is required for email sending.");
 
         var recipients = new EmailRecipients(
             new List<EmailAddress> { new(message.To) });
@@ -102,8 +102,22 @@ public class AzureCommunicationEmailSender : IEmailSender
         }
 
         var emailMessage = new Azure.Communication.Email.EmailMessage(fromAddress, recipients, content);
+        foreach (var attachment in message.Attachments ?? [])
+        {
+            if (attachment.Content.Length > 7 * 1024 * 1024 || string.IsNullOrWhiteSpace(attachment.FileName) || attachment.FileName.Contains('\r') || attachment.FileName.Contains('\n'))
+                throw new Aonik.SharedKernel.Abstractions.Messaging.EmailDeliveryNotStartedException("The email attachment is invalid or too large.");
+            emailMessage.Attachments.Add(new Azure.Communication.Email.EmailAttachment(attachment.FileName, attachment.ContentType, BinaryData.FromBytes(attachment.Content)));
+        }
 
-        var operation = await client.SendAsync(WaitUntil.Completed, emailMessage, cancellationToken);
+        // Reserve this ID in the domain before calling the provider. Delivery events can arrive
+        // before polling completes, or after this request times out.
+        var operation = message.TrackingId is { } trackingId
+            ? await client.SendAsync(WaitUntil.Completed, emailMessage, trackingId, cancellationToken)
+            : await client.SendAsync(WaitUntil.Completed, emailMessage, cancellationToken);
+        if (operation.Value.Status == EmailSendStatus.Failed)
+            throw new Aonik.SharedKernel.Abstractions.Messaging.EmailDeliveryNotStartedException("The email provider rejected the message.");
+        if (operation.Value.Status != EmailSendStatus.Succeeded)
+            throw new InvalidOperationException("The email provider did not confirm message acceptance.");
 
         // Provider completion means acceptance for delivery, not arrival in the recipient's mailbox.
         _logger.LogInformation("Email provider operation {OperationId} completed with status {Status}.",

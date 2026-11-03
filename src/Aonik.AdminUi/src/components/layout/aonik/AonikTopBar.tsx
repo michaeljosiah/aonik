@@ -101,7 +101,7 @@ export function AonikTopBar({
   onFullscreenChange,
   onAskAonik,
 }: AonikTopBarProps) {
-  const { isPathVisible, allowsPolicy } = useModules();
+  const { isPathVisible, allowsPolicy, contextKey } = useModules();
   const [showNotifications, setShowNotifications] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [workspaceTabs, setWorkspaceTabs] = useState<WorkspaceTab[]>([]);
@@ -115,7 +115,7 @@ export function AonikTopBar({
   const [confirmName, setConfirmName] = useState('');
   const [paletteOpen, setPaletteOpen] = useState(false);
 
-  const { notifications, unreadCount, loading, markRead, dismiss, markAllRead } = useNotifications(allowsPolicy('AdminPolicy'));
+  const { notifications, unreadCount, loading, markRead, dismiss, markAllRead } = useNotifications(allowsPolicy('AdminReadPolicy'), contextKey);
 
   // Hydrate workspace tabs and listen for state-change events from WorkspacePage
   useEffect(() => {
@@ -410,7 +410,7 @@ export function AonikTopBar({
               {isFullscreen ? <Minimize2Icon /> : <Maximize2Icon />}
             </Button>
           </IconAction>
-          {allowsPolicy('AdminPolicy') && <IconAction label="Notifications">
+          {allowsPolicy('AdminReadPolicy') && <IconAction label="Notifications">
             <Button
               variant="ghost"
               size="icon-sm"
@@ -444,7 +444,8 @@ export function AonikTopBar({
       />
 
       <NotificationsPanel
-        open={showNotifications && allowsPolicy('AdminPolicy')}
+        key={contextKey}
+        open={showNotifications && allowsPolicy('AdminReadPolicy')}
         onClose={() => setShowNotifications(false)}
         notifications={notifications}
         unreadCount={unreadCount}

@@ -17,6 +17,8 @@ using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Modules;
 
 using FluentAssertions;
+using Moq;
+using Aonik.Finance.Contracts.Services.Payments;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -171,7 +173,7 @@ public class RemittanceOrderServiceTests
 
     private static RemittanceOrderService CreateService(
         FinanceDbContext db, Guid tenantId, IClock? clock = null, IConfiguration? configuration = null,
-        IPartnerPayoutConnector? payoutConnector = null, Guid? userId = null, IModuleGate? moduleGate = null)
+        IPartnerPayoutConnector? payoutConnector = null, Guid? userId = null, IModuleGate? moduleGate = null, IPermissionService? permissionService = null)
     {
         var simulated = new SimulatedPartnerConnector();
         var translator = new SimulatedPartnerWebhookTranslator();
@@ -195,7 +197,9 @@ public class RemittanceOrderServiceTests
             new TestSettingProvider(),
             effectiveClock,
             moduleGate ?? TestModuleGate.AllowAll,
-            NullLogger<RemittanceOrderService>.Instance);
+            NullLogger<RemittanceOrderService>.Instance,
+            permissionService ?? Mock.Of<IPermissionService>(),
+            Mock.Of<IPayoutBeneficiaryService>());
     }
 
     private static RemittanceOrderService CreateService(
@@ -229,7 +233,9 @@ public class RemittanceOrderServiceTests
             new TestSettingProvider(),
             effectiveClock,
             moduleGate ?? TestModuleGate.AllowAll,
-            NullLogger<RemittanceOrderService>.Instance);
+            NullLogger<RemittanceOrderService>.Instance,
+            Mock.Of<IPermissionService>(),
+            Mock.Of<IPayoutBeneficiaryService>());
     }
 
     // Links the authenticated caller to a customer party (the UserParty bridge), so confirm/quote
@@ -294,6 +300,117 @@ public class RemittanceOrderServiceTests
         };
         db.ExternalPayoutAccounts.Add(account);
         return account;
+    }
+
+    private static IPermissionService StaffPermissions(params string[] allowed)
+    {
+        var permissions = new Mock<IPermissionService>();
+        permissions.Setup(service => service.HasPermissionAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid _, string permission, CancellationToken _) => allowed.Contains(permission));
+        return permissions.Object;
+    }
+
+    [Fact]
+    public async Task OperatorQuote_Should_PriceTenantCustomerWithoutImpersonation_WhileCustomerEndpointStillDeniesIt()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        db.Parties.Add(new Aonik.Finance.Entities.PartyReadModel { Id = customerId, TenantId = tenantId, DisplayName = "Customer" });
+        await db.SaveChangesAsync();
+        var service = CreateService(db, tenantId, permissionService: StaffPermissions("Payment.Create"));
+        var request = new RemittanceQuoteRequest(customerId, "NG", "NG", "NGN", "NGN", 1000m, null, null, "FamilySupport", null);
+
+        // Act / Assert
+        var quote = await service.QuoteForCustomerAsync(request);
+        quote.QuoteType.Should().Be("Remittance");
+        db.UserParties.Should().BeEmpty("operators must never be linked to customers to bypass ownership");
+        var customerCall = () => service.QuoteAsync(request);
+        await customerCall.Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Fact]
+    public async Task OperatorQuote_Should_DenyMissingPermissionsAndUnknownCustomers_BeforePricing()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        var request = new RemittanceQuoteRequest(Guid.NewGuid(), "NG", "NG", "NGN", "NGN", 1000m, null, null, "FamilySupport", null);
+        var denied = CreateService(db, tenantId);
+        var allowed = CreateService(db, tenantId, permissionService: StaffPermissions("Payment.Create"));
+
+        // Act / Assert
+        await ((Func<Task>)(() => denied.QuoteForCustomerAsync(request))).Should().ThrowAsync<PermissionDeniedException>();
+        await ((Func<Task>)(() => allowed.QuoteForCustomerAsync(request))).Should().ThrowAsync<Aonik.SharedKernel.Abstractions.NotFoundException>();
+        (await db.PricingQuotes.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task OperatorReadAndQuote_Should_NotExposeAnotherTenantsPartyOrOrder()
+    {
+        // Arrange: both contexts share a physical test store but resolve different tenants.
+        var tenantId = Guid.NewGuid();
+        var foreignTenantId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var options = new DbContextOptionsBuilder<FinanceDbContext>().UseInMemoryDatabase($"OperatorIsolation_{Guid.NewGuid()}").Options;
+        await using (var foreign = new FinanceDbContext(options, new TestTenantProvider(foreignTenantId)))
+        {
+            foreign.Parties.Add(new Aonik.Finance.Entities.PartyReadModel { Id = customerId, TenantId = foreignTenantId, DisplayName = "Foreign customer" });
+            foreign.Orders.Add(new Order { Id = orderId, TenantId = foreignTenantId, OrderType = "Remittance", PayerPartyId = customerId });
+            await foreign.SaveChangesAsync();
+        }
+        await using var db = new FinanceDbContext(options, new TestTenantProvider(tenantId));
+        var service = CreateService(db, tenantId, permissionService: StaffPermissions("Payment.Create", "Payment.Read"));
+        var request = new RemittanceQuoteRequest(customerId, "NG", "NG", "NGN", "NGN", 1000m, null, null, "FamilySupport", null);
+
+        // Act / Assert
+        await ((Func<Task>)(() => service.QuoteForCustomerAsync(request))).Should().ThrowAsync<NotFoundException>();
+        (await service.GetForOperatorAsync(orderId)).Should().BeNull();
+        (await db.PricingQuotes.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task OperatorConfirm_Should_RequireCapturePermissionAndExplicitConfirmation_ThenReplayExactlyOnce()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        db.Parties.Add(new Aonik.Finance.Entities.PartyReadModel { Id = customerId, TenantId = tenantId, DisplayName = "Customer" });
+        SeedLedger(db, tenantId);
+        var quote = SeedQuote(db, tenantId, customerId, DateTime.UtcNow.AddMinutes(30));
+        var account = SeedAccount(db, tenantId, customerId);
+        await db.SaveChangesAsync();
+        var readOnly = CreateService(db, tenantId, permissionService: StaffPermissions("Payment.Create"));
+        var connector = new CapturingPayoutConnector();
+        var service = CreateService(db, tenantId, payoutConnector: connector, permissionService: StaffPermissions("Payment.Create", "Payment.Capture", "Payment.Read"));
+        var request = new ConfirmRemittanceRequest(quote.Id, customerId, account.Id, "FamilySupport", null, null, null);
+
+        // Act / Assert: neither permission refusal nor absent human confirmation may write an order.
+        await ((Func<Task>)(() => readOnly.ConfirmForCustomerAsync(request, "staff-send", true))).Should().ThrowAsync<PermissionDeniedException>();
+        await ((Func<Task>)(() => service.ConfirmForCustomerAsync(request, "staff-send", false))).Should().ThrowAsync<ArgumentException>();
+        (await db.Orders.CountAsync()).Should().Be(0);
+        account.IsVerified = false;
+        await db.SaveChangesAsync();
+        await ((Func<Task>)(() => service.ConfirmForCustomerAsync(request, "staff-rejected", true))).Should().ThrowAsync<RemittanceNotStartedException>();
+        (await db.Orders.CountAsync()).Should().Be(0);
+        account.IsVerified = true;
+        await db.SaveChangesAsync();
+        var sent = await service.ConfirmForCustomerAsync(request, "staff-send", true);
+        var replayed = await service.ConfirmForCustomerAsync(request, "staff-send", true);
+        replayed.OrderId.Should().Be(sent.OrderId);
+        (await db.Orders.CountAsync()).Should().Be(1);
+        (await db.Payouts.CountAsync()).Should().Be(1);
+        (await db.Transmissions.CountAsync()).Should().Be(1);
+        connector.LastInstruction.Should().NotBeNull();
+        (await service.GetForOperatorAsync(sent.OrderId))!.OrderId.Should().Be(sent.OrderId);
+        (await service.GetAsync(sent.OrderId)).Should().BeNull("the operator is not the customer's owner");
+        var changed = request with { PurposeCode = "Other" };
+        await ((Func<Task>)(() => service.ConfirmForCustomerAsync(changed, "staff-send", true))).Should().ThrowAsync<Aonik.SharedKernel.Abstractions.InvalidStateException>();
+        var history = await db.Orders.Include(order => order.HistoryEvents).SingleAsync();
+        history.HistoryEvents.Should().Contain(item => item.EventType == "RemittanceConfirmed" && item.ActorId == CallerUserId);
     }
 
     // ── Confirm ──────────────────────────────────────────────────────────────
@@ -518,6 +635,39 @@ public class RemittanceOrderServiceTests
         var result = await service.ConfirmAsync(request, "resume-key");
 
         result.Status.Should().Be(OrderStatuses.Complete);
+        (await db.Transmissions.CountAsync(t => t.PayoutId == payout.Id)).Should().Be(1);
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceDebit")).Should().Be(1);
+        (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ConfirmAsync_Should_ResumeConfirmedTransferToRemovedDestination_WhileRejectingNewTransfers()
+    {
+        // Simulates a confirm that committed the order/payout but crashed before posting the debit and
+        // dispatching. A replay with the same key must complete it (debit -> dispatch -> settle), not
+        // return it half-built.
+        var tenantId = Guid.NewGuid();
+        var customerPartyId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        SeedLedger(db, tenantId);
+        var account = SeedAccount(db, tenantId, customerPartyId);
+        SeedCaller(db, tenantId, customerPartyId);
+        var quote = SeedQuote(db, tenantId, customerPartyId, DateTime.UtcNow.AddMinutes(30));
+        var (_, payout) = SeedConfirmableRemittance(
+            db, tenantId, customerPartyId, account, quote, "resume-key", OrderStatuses.Pending, transmissionStatus: null);
+        await db.SaveChangesAsync();
+
+        db.ExternalPayoutAccounts.Remove(account);
+        await db.SaveChangesAsync();
+
+        var service = CreateService(db, tenantId);
+        var request = new ConfirmRemittanceRequest(quote.Id, customerPartyId, account.Id, "FamilySupport", null, null, null);
+
+        var result = await service.ConfirmAsync(request, "resume-key");
+
+        await service.Invoking(service => service.ConfirmAsync(request, "new-key-after-removal")).Should().ThrowAsync<NotFoundException>();
+        result.Status.Should().Be(OrderStatuses.Complete);
+        (await db.ExternalPayoutAccounts.CountAsync()).Should().Be(0);
         (await db.Transmissions.CountAsync(t => t.PayoutId == payout.Id)).Should().Be(1);
         (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceDebit")).Should().Be(1);
         (await db.JournalEntries.CountAsync(j => j.SourceType == "RemittanceSettlement")).Should().Be(1);

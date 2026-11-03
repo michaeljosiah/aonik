@@ -302,6 +302,7 @@ public static class DependencyInjection
         services.AddScoped<IIdpPasswordResetServiceFactory, IdpPasswordResetServiceFactory>();
         services.AddScoped<IIdpAccountServiceFactory, IdpAccountServiceFactory>();
         services.AddScoped<IEmailSender, AzureCommunicationEmailSender>();
+        services.AddSingleton<Aonik.Finance.Contracts.Services.Remittance.IRemittanceReceiptRenderer, Aonik.Infrastructure.Receipts.RemittanceReceiptRenderer>();
         services.AddScoped<ISmsSender, AzureCommunicationSmsSender>();
         services.AddSingleton<INotificationTemplateRenderer, FluidNotificationTemplateRenderer>();
         services.AddHttpClient<IPushNotificationSender, FirebasePushNotificationSender>();

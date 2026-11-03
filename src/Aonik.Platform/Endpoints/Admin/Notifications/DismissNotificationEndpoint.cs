@@ -17,7 +17,7 @@ internal sealed class DismissNotificationEndpoint : EndpointWithoutRequest<Notif
     public override void Configure()
     {
         Post("/admin/notifications/{id}/dismiss");
-        Policies("AdminPolicy");
+        Policies("AdminReadPolicy");
         Summary(s =>
         {
             s.Summary = "Dismiss a notification";

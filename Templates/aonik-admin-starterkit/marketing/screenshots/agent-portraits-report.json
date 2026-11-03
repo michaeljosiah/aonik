@@ -1,0 +1,15 @@
+{
+  "checks": [
+    "16 distinct original square CGI headshots",
+    "10 runtime agents and 6 design personas",
+    "20/32/44px avatar previews",
+    "complete original PNG download links",
+    "light/dark contact sheets",
+    "all 8 starter-kit roster identities mapped",
+    "SVG-compatible profile/topology portraits",
+    "unknown names retain fallback",
+    "no application API calls",
+    "no runtime errors"
+  ],
+  "portraits": 16
+}

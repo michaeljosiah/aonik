@@ -1,0 +1,2150 @@
+{
+  "businessTypes": {
+    "base": "general",
+    "simi": "general",
+    "food-commerce": "food-commerce",
+    "arke-kids": "arke-kids",
+    "remittance": "remittance"
+  },
+  "profiles": {
+    "general": {
+      "id": "general",
+      "landingPage": "home",
+      "screens": {
+        "approvals": {},
+        "ai.runs": {},
+        "ai.policies": {},
+        "ai.usage": {},
+        "ai.workflows": {},
+        "ai.workflow-detail": {},
+        "ai.extensions": {},
+        "commerce.overview": {},
+        "commerce.products": {},
+        "commerce.product-detail": {},
+        "commerce.personalisation": {},
+        "commerce.content": {},
+        "commerce.box-plans": {},
+        "commerce.delivery": {},
+        "commerce.merchandising": {},
+        "commerce.discounts": {},
+        "commerce.storefront-config": {},
+        "commerce.orders": {},
+        "commerce.order-detail": {},
+        "commerce.order-packing": {},
+        "commerce.carts": {},
+        "home": {},
+        "workspace": {},
+        "ai.chat": {},
+        "ai.chat-agent": {},
+        "ai.models": {},
+        "ai.agents": {},
+        "ai.agent-detail": {},
+        "ai.tasks": {},
+        "ai.traces": {},
+        "ai.trace-detail": {},
+        "ai.routing": {},
+        "ai.playground": {},
+        "finance.accounts": {},
+        "finance.account-transactions": {},
+        "finance.account-connection": {},
+        "finance.orders-root": {},
+        "finance.orders": {},
+        "finance.order-new": {},
+        "finance.order-edit": {},
+        "finance.beneficiaries": {},
+        "finance.transfer-new": {},
+        "finance.transfer-detail": {},
+        "finance.invoices": {},
+        "finance.invoice-new": {},
+        "finance.invoice-detail": {},
+        "finance.ledger": {},
+        "finance.ledger-accounts": {},
+        "finance.journal-entries": {},
+        "finance.catalog": {},
+        "finance.countries": {},
+        "finance.categories": {},
+        "finance.billers": {},
+        "finance.biller-detail": {},
+        "finance.biller-services": {},
+        "finance.biller-service": {},
+        "finance.partners": {},
+        "finance.partner-detail": {},
+        "settings.autonumbering": {},
+        "settings.fx-rates": {},
+        "customers": {},
+        "customer-detail": {},
+        "contact-enquiries": {},
+        "contact-enquiry-detail": {},
+        "compliance": {},
+        "documents": {},
+        "document-new": {},
+        "document-detail": {},
+        "access.users": {},
+        "access.user-detail": {},
+        "access.roles": {},
+        "access.permissions": {},
+        "tombstones": {},
+        "tenants": {},
+        "tenant-new": {},
+        "tenant-detail": {},
+        "alerts": {},
+        "alert-detail": {},
+        "tasks": {},
+        "settings": {},
+        "settings.general": {},
+        "settings.global": {},
+        "settings.authentication": {},
+        "settings.communication": {},
+        "settings.payment-gateways": {},
+        "settings.credential-bundles": {},
+        "settings.audit-logs": {},
+        "settings.speech": {},
+        "settings.background-jobs": {},
+        "settings.background-jobs-detail": {},
+        "settings.system-tools": {},
+        "settings.notification-templates": {},
+        "settings.modules": {},
+        "cms.content-blocks": {},
+        "cms.content-new": {},
+        "cms.content-detail": {},
+        "cms.content-wizard": {},
+        "cms.media": {},
+        "observability.overview": {},
+        "observability.topology": {},
+        "observability.traces": {},
+        "observability.logs": {},
+        "observability.audit": {}
+      },
+      "navigation": [
+        {
+          "id": "home-section",
+          "label": "Home",
+          "items": [
+            {
+              "screen": "home"
+            }
+          ]
+        },
+        {
+          "id": "operations",
+          "label": "Transact",
+          "items": [
+            {
+              "screen": "finance.orders"
+            },
+            {
+              "screen": "customers"
+            },
+            {
+              "screen": "contact-enquiries"
+            },
+            {
+              "screen": "approvals"
+            }
+          ]
+        },
+        {
+          "id": "products",
+          "label": "Products",
+          "items": [
+            {
+              "id": "bill-payments",
+              "label": "Bill Payments",
+              "items": [
+                {
+                  "screen": "finance.billers"
+                },
+                {
+                  "screen": "finance.categories"
+                }
+              ]
+            },
+            {
+              "id": "remittances",
+              "label": "Remittances",
+              "items": [
+                {
+                  "screen": "finance.countries"
+                },
+                {
+                  "screen": "finance.partners"
+                },
+                {
+                  "screen": "settings.fx-rates"
+                }
+              ]
+            },
+            {
+              "id": "billing",
+              "label": "Billing",
+              "items": [
+                {
+                  "screen": "finance.invoices"
+                },
+                {
+                  "screen": "finance.accounts"
+                },
+                {
+                  "screen": "finance.ledger"
+                },
+                {
+                  "screen": "finance.ledger-accounts"
+                },
+                {
+                  "screen": "finance.journal-entries"
+                }
+              ]
+            },
+            {
+              "id": "commerce",
+              "label": "Commerce",
+              "items": [
+                {
+                  "screen": "commerce.overview"
+                },
+                {
+                  "screen": "commerce.products"
+                },
+                {
+                  "screen": "commerce.personalisation"
+                },
+                {
+                  "screen": "commerce.content"
+                },
+                {
+                  "screen": "commerce.box-plans"
+                },
+                {
+                  "screen": "commerce.delivery"
+                },
+                {
+                  "screen": "commerce.merchandising"
+                },
+                {
+                  "screen": "commerce.discounts"
+                },
+                {
+                  "screen": "commerce.storefront-config"
+                },
+                {
+                  "screen": "commerce.orders"
+                },
+                {
+                  "screen": "commerce.carts"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "platform",
+          "label": "Platform",
+          "items": [
+            {
+              "id": "team",
+              "label": "Team",
+              "items": [
+                {
+                  "screen": "access.users"
+                },
+                {
+                  "screen": "access.roles"
+                },
+                {
+                  "screen": "access.permissions"
+                }
+              ]
+            },
+            {
+              "id": "content",
+              "label": "Content",
+              "items": [
+                {
+                  "screen": "cms.content-blocks"
+                },
+                {
+                  "screen": "cms.content-wizard"
+                },
+                {
+                  "screen": "cms.media"
+                }
+              ]
+            },
+            {
+              "screen": "compliance"
+            },
+            {
+              "id": "ai-agents",
+              "label": "AI & Agents",
+              "items": [
+                {
+                  "screen": "ai.playground"
+                },
+                {
+                  "screen": "ai.agents"
+                },
+                {
+                  "screen": "ai.tasks"
+                },
+                {
+                  "screen": "ai.policies"
+                },
+                {
+                  "screen": "ai.usage"
+                }
+              ]
+            },
+            {
+              "screen": "settings"
+            }
+          ]
+        },
+        {
+          "id": "host",
+          "label": "Host",
+          "items": [
+            {
+              "screen": "tenants"
+            },
+            {
+              "id": "observability",
+              "label": "Observability",
+              "items": [
+                {
+                  "screen": "observability.overview"
+                },
+                {
+                  "screen": "observability.traces"
+                },
+                {
+                  "screen": "observability.logs"
+                },
+                {
+                  "screen": "observability.audit"
+                }
+              ]
+            },
+            {
+              "id": "host-settings",
+              "label": "Settings",
+              "items": [
+                {
+                  "screen": "settings.communication"
+                },
+                {
+                  "screen": "settings.notification-templates"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "food-commerce": {
+      "id": "food-commerce",
+      "landingPage": "commerce.orders",
+      "screens": {
+        "commerce.overview": {
+          "label": "Business Overview"
+        },
+        "commerce.orders": {
+          "label": "Food Orders"
+        },
+        "commerce.order-detail": {
+          "label": "Food Order"
+        },
+        "commerce.order-packing": {},
+        "commerce.products": {
+          "label": "Menu"
+        },
+        "commerce.product-detail": {
+          "label": "Menu Item"
+        },
+        "commerce.personalisation": {},
+        "commerce.content": {
+          "label": "Menu Content"
+        },
+        "commerce.box-plans": {},
+        "commerce.delivery": {},
+        "commerce.merchandising": {},
+        "commerce.discounts": {},
+        "commerce.storefront-config": {},
+        "commerce.carts": {},
+        "workspace": {},
+        "customers": {},
+        "customer-detail": {},
+        "contact-enquiries": {},
+        "contact-enquiry-detail": {},
+        "access.users": {},
+        "access.user-detail": {},
+        "access.roles": {},
+        "access.permissions": {},
+        "settings": {},
+        "settings.modules": {},
+        "settings.speech": {},
+        "ai.chat": {},
+        "ai.chat-agent": {},
+        "ai.agents": {},
+        "ai.agent-detail": {},
+        "ai.tasks": {},
+        "ai.usage": {},
+        "approvals": {},
+        "finance.invoices": {},
+        "finance.invoice-new": {},
+        "finance.invoice-detail": {},
+        "finance.ledger": {},
+        "finance.ledger-accounts": {},
+        "finance.journal-entries": {},
+        "settings.payment-gateways": {}
+      },
+      "navigation": [
+        {
+          "id": "food-operations",
+          "label": "Kitchen & Orders",
+          "items": [
+            {
+              "screen": "commerce.overview"
+            },
+            {
+              "screen": "commerce.orders"
+            },
+            {
+              "screen": "commerce.products"
+            },
+            {
+              "screen": "commerce.delivery"
+            },
+            {
+              "screen": "commerce.carts"
+            }
+          ]
+        },
+        {
+          "id": "food-storefront",
+          "label": "Storefront",
+          "items": [
+            {
+              "screen": "commerce.personalisation"
+            },
+            {
+              "screen": "commerce.content"
+            },
+            {
+              "screen": "commerce.box-plans"
+            },
+            {
+              "screen": "commerce.merchandising"
+            },
+            {
+              "screen": "commerce.discounts"
+            },
+            {
+              "screen": "commerce.storefront-config"
+            }
+          ]
+        },
+        {
+          "id": "food-finances",
+          "label": "Finances",
+          "items": [
+            {
+              "screen": "finance.invoices"
+            },
+            {
+              "screen": "finance.ledger"
+            }
+          ]
+        },
+        {
+          "id": "food-administration",
+          "label": "Administration",
+          "items": [
+            {
+              "screen": "customers"
+            },
+            {
+              "screen": "contact-enquiries"
+            },
+            {
+              "id": "team",
+              "label": "Team",
+              "items": [
+                {
+                  "screen": "access.users"
+                },
+                {
+                  "screen": "access.roles"
+                },
+                {
+                  "screen": "access.permissions"
+                }
+              ]
+            },
+            {
+              "screen": "settings"
+            }
+          ]
+        }
+      ]
+    },
+    "arke-kids": {
+      "id": "arke-kids",
+      "landingPage": "customers",
+      "screens": {
+        "workspace": {},
+        "customers": {},
+        "customer-detail": {},
+        "access.users": {},
+        "access.user-detail": {},
+        "access.roles": {},
+        "access.permissions": {},
+        "settings": {},
+        "settings.modules": {},
+        "settings.speech": {},
+        "ai.chat": {},
+        "ai.chat-agent": {},
+        "ai.agents": {},
+        "ai.agent-detail": {},
+        "ai.tasks": {},
+        "ai.usage": {},
+        "approvals": {}
+      },
+      "navigation": [
+        {
+          "id": "arke-operations",
+          "label": "Operations",
+          "items": [
+            {
+              "screen": "customers"
+            },
+            {
+              "screen": "ai.usage"
+            },
+            {
+              "screen": "approvals"
+            }
+          ]
+        },
+        {
+          "id": "arke-administration",
+          "label": "Administration",
+          "items": [
+            {
+              "id": "team",
+              "label": "Team",
+              "items": [
+                {
+                  "screen": "access.users"
+                },
+                {
+                  "screen": "access.roles"
+                },
+                {
+                  "screen": "access.permissions"
+                }
+              ]
+            },
+            {
+              "id": "ai-agents",
+              "label": "AI & Agents",
+              "items": [
+                {
+                  "screen": "ai.agents"
+                },
+                {
+                  "screen": "ai.tasks"
+                }
+              ]
+            },
+            {
+              "screen": "settings"
+            }
+          ]
+        }
+      ]
+    },
+    "remittance": {
+      "id": "remittance",
+      "landingPage": "finance.orders",
+      "screens": {
+        "home": {},
+        "workspace": {},
+        "finance.orders-root": {
+          "label": "Transfer orders"
+        },
+        "finance.orders": {
+          "label": "Transfer orders"
+        },
+        "finance.beneficiaries": {},
+        "finance.transfer-new": {},
+        "finance.transfer-detail": {},
+        "customers": {},
+        "customer-detail": {},
+        "approvals": {},
+        "finance.countries": {},
+        "finance.partners": {},
+        "finance.partner-detail": {},
+        "settings.fx-rates": {},
+        "finance.ledger": {},
+        "finance.ledger-accounts": {},
+        "finance.journal-entries": {},
+        "compliance": {},
+        "documents": {},
+        "document-new": {},
+        "document-detail": {},
+        "access.users": {},
+        "access.user-detail": {},
+        "access.roles": {},
+        "access.permissions": {},
+        "ai.chat": {},
+        "ai.chat-agent": {},
+        "ai.agents": {},
+        "ai.agent-detail": {},
+        "ai.tasks": {},
+        "ai.usage": {},
+        "settings": {},
+        "settings.modules": {}
+      },
+      "navigation": [
+        {
+          "id": "transfers",
+          "label": "Money movement",
+          "items": [
+            {
+              "screen": "finance.orders"
+            },
+            {
+              "screen": "finance.transfer-new"
+            },
+            {
+              "screen": "finance.beneficiaries"
+            },
+            {
+              "screen": "customers"
+            },
+            {
+              "screen": "approvals"
+            }
+          ]
+        },
+        {
+          "id": "network",
+          "label": "Network & treasury",
+          "items": [
+            {
+              "screen": "finance.countries"
+            },
+            {
+              "screen": "finance.partners"
+            },
+            {
+              "screen": "settings.fx-rates"
+            },
+            {
+              "screen": "finance.ledger"
+            }
+          ]
+        },
+        {
+          "id": "administration",
+          "label": "Administration",
+          "items": [
+            {
+              "screen": "compliance"
+            },
+            {
+              "id": "team",
+              "label": "Team",
+              "items": [
+                {
+                  "screen": "access.users"
+                },
+                {
+                  "screen": "access.roles"
+                },
+                {
+                  "screen": "access.permissions"
+                }
+              ]
+            },
+            {
+              "id": "ai-agents",
+              "label": "AI & Agents",
+              "items": [
+                {
+                  "screen": "ai.agents"
+                },
+                {
+                  "screen": "ai.tasks"
+                },
+                {
+                  "screen": "ai.usage"
+                }
+              ]
+            },
+            {
+              "screen": "settings"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "packs": {
+    "base": {
+      "businessType": "base",
+      "version": 1,
+      "displayName": "Base",
+      "modules": [],
+      "settings": {},
+      "agents": [],
+      "referenceData": []
+    },
+    "simi": {
+      "businessType": "simi",
+      "version": 1,
+      "displayName": "Simi",
+      "modules": [
+        "personal-finance",
+        "groups",
+        "documents",
+        "ai",
+        "agents",
+        "voice"
+      ],
+      "settings": {
+        "Branding.AgentDisplayName": "Simi",
+        "Branding.StatementVerificationPrefix": "SIMI"
+      },
+      "agents": [
+        {
+          "name": "personal-finance-agent",
+          "instructionsText": "You are Simi, a warm and precise personal finance companion. Describe, never prescribe.",
+          "toolset": null,
+          "modelId": null
+        }
+      ],
+      "referenceData": []
+    },
+    "food-commerce": {
+      "businessType": "food-commerce",
+      "version": 1,
+      "displayName": "Food Commerce",
+      "modules": [
+        "commerce",
+        "ai",
+        "agents"
+      ],
+      "settings": {
+        "Branding.AgentDisplayName": "Kitchen"
+      },
+      "agents": [],
+      "referenceData": [
+        {
+          "type": "unit_of_measure",
+          "items": [
+            {
+              "code": "kg",
+              "displayName": "Kilogram",
+              "sortOrder": 1
+            },
+            {
+              "code": "g",
+              "displayName": "Gram",
+              "sortOrder": 2
+            },
+            {
+              "code": "l",
+              "displayName": "Litre",
+              "sortOrder": 3
+            },
+            {
+              "code": "ml",
+              "displayName": "Millilitre",
+              "sortOrder": 4
+            },
+            {
+              "code": "each",
+              "displayName": "Each",
+              "sortOrder": 5
+            }
+          ]
+        }
+      ]
+    },
+    "remittance": {
+      "businessType": "remittance",
+      "version": 1,
+      "displayName": "Remittance",
+      "modules": [
+        "finance",
+        "ai",
+        "agents",
+        "documents"
+      ],
+      "settings": {
+        "Branding.AgentDisplayName": "Remittance"
+      },
+      "agents": [],
+      "referenceData": []
+    }
+  },
+  "moduleCatalog": [
+    {
+      "id": "platform",
+      "isCore": true,
+      "dependsOn": []
+    },
+    {
+      "id": "ordering",
+      "isCore": true,
+      "dependsOn": []
+    },
+    {
+      "id": "ai",
+      "isCore": true,
+      "dependsOn": []
+    },
+    {
+      "id": "agents",
+      "isCore": true,
+      "dependsOn": [
+        "ai"
+      ]
+    },
+    {
+      "id": "finance",
+      "isCore": false,
+      "dependsOn": [
+        "ordering"
+      ]
+    },
+    {
+      "id": "commerce",
+      "isCore": false,
+      "dependsOn": [
+        "ordering",
+        "finance"
+      ]
+    },
+    {
+      "id": "subscriptions",
+      "isCore": false,
+      "dependsOn": [
+        "ordering",
+        "finance"
+      ]
+    },
+    {
+      "id": "groups",
+      "isCore": false,
+      "dependsOn": []
+    },
+    {
+      "id": "workspaces",
+      "isCore": false,
+      "dependsOn": [
+        "groups",
+        "subscriptions"
+      ]
+    },
+    {
+      "id": "personal-finance",
+      "isCore": false,
+      "dependsOn": []
+    },
+    {
+      "id": "voice",
+      "isCore": false,
+      "dependsOn": [
+        "ai",
+        "agents"
+      ]
+    },
+    {
+      "id": "documents",
+      "isCore": false,
+      "dependsOn": []
+    }
+  ],
+  "screens": {
+    "home": {
+      "id": "home",
+      "label": "My Space",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "home",
+      "path": "/",
+      "requires": []
+    },
+    "workspace": {
+      "id": "workspace",
+      "label": "Workspace",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "stack",
+      "path": "/workspace",
+      "requires": []
+    },
+    "ai.chat": {
+      "id": "ai.chat",
+      "label": "AI Chat",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/chat",
+      "requires": []
+    },
+    "ai.chat-agent": {
+      "id": "ai.chat-agent",
+      "label": "AI Chat",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/chat/:agentId",
+      "requires": []
+    },
+    "ai.models": {
+      "id": "ai.models",
+      "label": "AI Models",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/models",
+      "requires": []
+    },
+    "ai.agents": {
+      "id": "ai.agents",
+      "label": "Agents",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/agents",
+      "requires": []
+    },
+    "ai.agent-detail": {
+      "id": "ai.agent-detail",
+      "label": "Agent",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/agents/:agentName",
+      "requires": []
+    },
+    "ai.tasks": {
+      "id": "ai.tasks",
+      "label": "Tasks",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/tasks",
+      "requires": []
+    },
+    "ai.traces": {
+      "id": "ai.traces",
+      "label": "AI Traces",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/traces",
+      "requires": []
+    },
+    "ai.trace-detail": {
+      "id": "ai.trace-detail",
+      "label": "AI Trace",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/traces/:runId",
+      "requires": []
+    },
+    "ai.routing": {
+      "id": "ai.routing",
+      "label": "Route Policies",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "sparkles",
+      "path": "/ai/routing",
+      "requires": []
+    },
+    "ai.playground": {
+      "id": "ai.playground",
+      "label": "Playground",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/playground",
+      "requires": []
+    },
+    "contact-enquiries": {
+      "id": "contact-enquiries",
+      "label": "Contact enquiries",
+      "permissions": {
+        "allOf": [
+          "Customers.Read"
+        ]
+      },
+      "policy": "AdminReadPolicy",
+      "icon": "mail",
+      "path": "/contact-enquiries",
+      "requires": []
+    },
+    "contact-enquiry-detail": {
+      "id": "contact-enquiry-detail",
+      "label": "Contact enquiry",
+      "permissions": {
+        "allOf": [
+          "Customers.Read"
+        ]
+      },
+      "policy": "AdminReadPolicy",
+      "icon": "mail",
+      "path": "/contact-enquiries/:id",
+      "requires": []
+    },
+    "customers": {
+      "id": "customers",
+      "label": "Customers",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "users",
+      "path": "/customers",
+      "requires": []
+    },
+    "customer-detail": {
+      "id": "customer-detail",
+      "label": "Customer",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "users",
+      "path": "/customers/:partyId",
+      "requires": []
+    },
+    "compliance": {
+      "id": "compliance",
+      "label": "Compliance",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "file",
+      "path": "/compliance",
+      "requires": [
+        "documents"
+      ]
+    },
+    "documents": {
+      "id": "documents",
+      "label": "Documents",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "file",
+      "path": "/compliance/documents",
+      "requires": [
+        "documents"
+      ]
+    },
+    "document-new": {
+      "id": "document-new",
+      "label": "New document",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserWritePolicy",
+      "icon": "file",
+      "path": "/compliance/documents/new",
+      "requires": [
+        "documents"
+      ]
+    },
+    "document-detail": {
+      "id": "document-detail",
+      "label": "Document",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "file",
+      "path": "/compliance/documents/:documentId",
+      "requires": [
+        "documents"
+      ]
+    },
+    "access.users": {
+      "id": "access.users",
+      "label": "Users",
+      "permissions": {
+        "allOf": [
+          "Users.Read"
+        ]
+      },
+      "policy": "AdminPolicy",
+      "icon": "users",
+      "path": "/access/users",
+      "requires": []
+    },
+    "access.user-detail": {
+      "id": "access.user-detail",
+      "label": "User",
+      "permissions": {
+        "allOf": [
+          "Users.Read"
+        ]
+      },
+      "policy": "AdminPolicy",
+      "icon": "users",
+      "path": "/access/users/:userId",
+      "requires": []
+    },
+    "access.roles": {
+      "id": "access.roles",
+      "label": "Roles",
+      "permissions": {
+        "allOf": [
+          "Roles.Read"
+        ]
+      },
+      "policy": "AdminPolicy",
+      "icon": "users",
+      "path": "/access/roles",
+      "requires": []
+    },
+    "access.permissions": {
+      "id": "access.permissions",
+      "label": "Permissions",
+      "permissions": {
+        "allOf": [
+          "Permissions.Read"
+        ]
+      },
+      "policy": "AdminPolicy",
+      "icon": "users",
+      "path": "/access/permissions",
+      "requires": []
+    },
+    "tombstones": {
+      "id": "tombstones",
+      "label": "Deleted users",
+      "permissions": {
+        "allOf": [
+          "Users.Read"
+        ]
+      },
+      "policy": "AdminPolicy",
+      "icon": "users",
+      "path": "/compliance/tombstones",
+      "requires": []
+    },
+    "tenants": {
+      "id": "tenants",
+      "label": "Tenants",
+      "permissions": {
+        "allOf": [
+          "Tenants.Read"
+        ]
+      },
+      "policy": "PlatformAdmin",
+      "icon": "building",
+      "audience": "host",
+      "path": "/tenants",
+      "requires": []
+    },
+    "tenant-new": {
+      "id": "tenant-new",
+      "label": "New tenant",
+      "permissions": {
+        "allOf": [
+          "Tenants.Write"
+        ]
+      },
+      "policy": "PlatformAdmin",
+      "icon": "building",
+      "audience": "host",
+      "path": "/tenants/new",
+      "requires": []
+    },
+    "tenant-detail": {
+      "id": "tenant-detail",
+      "label": "Tenant",
+      "permissions": {
+        "allOf": [
+          "Tenants.Read"
+        ]
+      },
+      "policy": "PlatformAdmin",
+      "icon": "building",
+      "audience": "host",
+      "path": "/tenants/:id",
+      "requires": []
+    },
+    "alerts": {
+      "id": "alerts",
+      "label": "Platform alerts",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "PlatformAdmin",
+      "icon": "building",
+      "audience": "host",
+      "path": "/admin/alerts",
+      "requires": []
+    },
+    "alert-detail": {
+      "id": "alert-detail",
+      "label": "Platform alert",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "PlatformAdmin",
+      "icon": "building",
+      "audience": "host",
+      "path": "/admin/alerts/:id",
+      "requires": []
+    },
+    "tasks": {
+      "id": "tasks",
+      "label": "Tasks",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "settings",
+      "path": "/tasks",
+      "requires": []
+    },
+    "settings": {
+      "id": "settings",
+      "label": "Settings",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "settings",
+      "path": "/settings",
+      "requires": []
+    },
+    "settings.general": {
+      "id": "settings.general",
+      "label": "Settings",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/general",
+      "requires": []
+    },
+    "settings.global": {
+      "id": "settings.global",
+      "label": "Platform settings",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/global",
+      "requires": []
+    },
+    "settings.authentication": {
+      "id": "settings.authentication",
+      "label": "Authentication",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/authentication",
+      "requires": []
+    },
+    "settings.communication": {
+      "id": "settings.communication",
+      "audience": "host",
+      "label": "Communication",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/communication",
+      "requires": []
+    },
+    "settings.payment-gateways": {
+      "id": "settings.payment-gateways",
+      "label": "Payment gateways",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/payment-gateways",
+      "requires": [
+        "finance"
+      ]
+    },
+    "settings.credential-bundles": {
+      "id": "settings.credential-bundles",
+      "label": "Credential bundles",
+      "permissions": {
+        "allOf": [
+          "Settings.Write"
+        ]
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/credential-bundles",
+      "requires": [
+        "finance"
+      ]
+    },
+    "settings.audit-logs": {
+      "id": "settings.audit-logs",
+      "label": "Audit logs",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/audit-logs",
+      "requires": []
+    },
+    "settings.speech": {
+      "id": "settings.speech",
+      "label": "Speech & Voice",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/speech",
+      "requires": [
+        "voice"
+      ]
+    },
+    "settings.background-jobs": {
+      "id": "settings.background-jobs",
+      "label": "Background jobs",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/background-jobs",
+      "requires": []
+    },
+    "settings.background-jobs-detail": {
+      "id": "settings.background-jobs-detail",
+      "label": "Background job",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/background-jobs/:jobName",
+      "requires": []
+    },
+    "settings.system-tools": {
+      "id": "settings.system-tools",
+      "label": "System tools",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/system-tools",
+      "requires": []
+    },
+    "settings.notification-templates": {
+      "id": "settings.notification-templates",
+      "audience": "host",
+      "label": "Notification templates",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/notification-templates",
+      "requires": []
+    },
+    "settings.modules": {
+      "id": "settings.modules",
+      "label": "Modules",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "settings",
+      "path": "/settings/modules",
+      "requires": []
+    },
+    "cms.content-blocks": {
+      "id": "cms.content-blocks",
+      "label": "Content Blocks",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "file",
+      "path": "/cms/content-blocks",
+      "requires": []
+    },
+    "cms.content-new": {
+      "id": "cms.content-new",
+      "label": "New content block",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "file",
+      "path": "/cms/content-blocks/new",
+      "requires": []
+    },
+    "cms.content-detail": {
+      "id": "cms.content-detail",
+      "label": "Content block",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "file",
+      "path": "/cms/content-blocks/:id",
+      "requires": []
+    },
+    "cms.content-wizard": {
+      "id": "cms.content-wizard",
+      "label": "Content Wizard",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "file",
+      "path": "/cms/content-wizard",
+      "requires": []
+    },
+    "cms.media": {
+      "id": "cms.media",
+      "label": "Media Library",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "file",
+      "path": "/cms/media",
+      "requires": []
+    },
+    "observability.overview": {
+      "id": "observability.overview",
+      "label": "Observability",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "chart",
+      "audience": "host",
+      "path": "/admin/observability",
+      "requires": []
+    },
+    "observability.topology": {
+      "id": "observability.topology",
+      "label": "Topology",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "chart",
+      "audience": "host",
+      "path": "/admin/observability/topology",
+      "requires": []
+    },
+    "observability.traces": {
+      "id": "observability.traces",
+      "label": "Traces",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "chart",
+      "audience": "host",
+      "path": "/admin/observability/traces",
+      "requires": []
+    },
+    "observability.logs": {
+      "id": "observability.logs",
+      "label": "Logs",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "chart",
+      "audience": "host",
+      "path": "/admin/observability/logs",
+      "requires": []
+    },
+    "observability.audit": {
+      "id": "observability.audit",
+      "label": "Audit Log",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "chart",
+      "audience": "host",
+      "path": "/admin/observability/audit",
+      "requires": []
+    },
+    "finance.accounts": {
+      "id": "finance.accounts",
+      "label": "Customer accounts",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "bank",
+      "path": "/accounts",
+      "requires": [
+        "finance",
+        "personal-finance"
+      ]
+    },
+    "finance.account-transactions": {
+      "id": "finance.account-transactions",
+      "label": "Transactions",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "bank",
+      "path": "/accounts/:accountId/transactions",
+      "requires": [
+        "finance",
+        "personal-finance"
+      ]
+    },
+    "finance.account-connection": {
+      "id": "finance.account-connection",
+      "label": "Account connection",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "bank",
+      "path": "/accounts/connections/:connectionId",
+      "requires": [
+        "finance",
+        "personal-finance"
+      ]
+    },
+    "finance.orders-root": {
+      "id": "finance.orders-root",
+      "label": "Orders",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "receipt",
+      "path": "/orders",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.orders": {
+      "id": "finance.orders",
+      "label": "All orders",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "receipt",
+      "path": "/orders/activity",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.order-new": {
+      "id": "finance.order-new",
+      "label": "New order",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserWritePolicy",
+      "icon": "receipt",
+      "path": "/orders/bill-payments/new",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.order-edit": {
+      "id": "finance.order-edit",
+      "label": "Order",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "receipt",
+      "path": "/orders/bill-payments/:orderId",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.beneficiaries": {
+      "id": "finance.beneficiaries",
+      "label": "Beneficiaries",
+      "permissions": {
+        "allOf": [
+          "Payment.Read",
+          "Customers.Read"
+        ]
+      },
+      "policy": "AdminReadPolicy",
+      "icon": "menu-beneficiaries",
+      "path": "/remittance/beneficiaries",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.transfer-new": {
+      "id": "finance.transfer-new",
+      "label": "New transfer",
+      "permissions": {
+        "allOf": [
+          "Payment.Create",
+          "Payment.Read",
+          "Customers.Read"
+        ]
+      },
+      "policy": "AdminWritePolicy",
+      "icon": "menu-transfer-orders",
+      "path": "/orders/transfers/new",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.transfer-detail": {
+      "id": "finance.transfer-detail",
+      "label": "Transfer details",
+      "permissions": {
+        "allOf": [
+          "Payment.Read"
+        ]
+      },
+      "policy": "AdminReadPolicy",
+      "icon": "menu-transfer-orders",
+      "path": "/orders/transfers/:orderId",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.invoices": {
+      "id": "finance.invoices",
+      "label": "Invoices",
+      "permissions": {
+        "allOf": [
+          "Invoice.Read"
+        ]
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "book",
+      "path": "/billing/invoices",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.invoice-new": {
+      "id": "finance.invoice-new",
+      "label": "New invoice",
+      "permissions": {
+        "allOf": [
+          "Invoice.Create"
+        ]
+      },
+      "policy": "AdminUserWritePolicy",
+      "icon": "book",
+      "path": "/billing/invoices/new",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.invoice-detail": {
+      "id": "finance.invoice-detail",
+      "label": "Invoice",
+      "permissions": {
+        "allOf": [
+          "Invoice.Read"
+        ]
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "book",
+      "path": "/billing/invoices/:id",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.ledger": {
+      "id": "finance.ledger",
+      "label": "Ledgers",
+      "permissions": {
+        "allOf": [
+          "Ledger.Read"
+        ]
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "book",
+      "path": "/ledger",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.ledger-accounts": {
+      "id": "finance.ledger-accounts",
+      "label": "Chart of accounts",
+      "permissions": {
+        "allOf": [
+          "Ledger.Read"
+        ]
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "book",
+      "path": "/ledger/accounts",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.journal-entries": {
+      "id": "finance.journal-entries",
+      "label": "Journal entries",
+      "permissions": {
+        "allOf": [
+          "Ledger.Read"
+        ]
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "book",
+      "path": "/ledger/journal-entries",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.catalog": {
+      "id": "finance.catalog",
+      "label": "Catalog",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "globe2",
+      "path": "/catalog",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.countries": {
+      "id": "finance.countries",
+      "label": "Corridors",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "globe2",
+      "path": "/catalog/countries",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.categories": {
+      "id": "finance.categories",
+      "label": "Categories",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "globe2",
+      "path": "/catalog/categories",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.billers": {
+      "id": "finance.billers",
+      "label": "Billers",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "globe2",
+      "path": "/catalog/billers",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.biller-detail": {
+      "id": "finance.biller-detail",
+      "label": "Biller",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "globe2",
+      "path": "/catalog/billers/:billerId",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.biller-services": {
+      "id": "finance.biller-services",
+      "label": "Services",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "globe2",
+      "path": "/catalog/billers/:billerId/services",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.biller-service": {
+      "id": "finance.biller-service",
+      "label": "Service",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "globe2",
+      "path": "/catalog/billers/:billerId/services/:serviceId",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.partners": {
+      "id": "finance.partners",
+      "label": "Partners",
+      "permissions": {
+        "allOf": [
+          "Catalog.Read"
+        ]
+      },
+      "policy": "AdminPolicy",
+      "icon": "globe2",
+      "path": "/catalog/partners",
+      "requires": [
+        "finance"
+      ]
+    },
+    "finance.partner-detail": {
+      "id": "finance.partner-detail",
+      "label": "Partner",
+      "permissions": {
+        "allOf": [
+          "Catalog.Read"
+        ]
+      },
+      "policy": "AdminPolicy",
+      "icon": "globe2",
+      "path": "/catalog/partners/:partnerId",
+      "requires": [
+        "finance"
+      ]
+    },
+    "settings.autonumbering": {
+      "id": "settings.autonumbering",
+      "label": "Autonumbering",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "settings",
+      "path": "/settings/autonumbering",
+      "requires": [
+        "finance"
+      ]
+    },
+    "settings.fx-rates": {
+      "id": "settings.fx-rates",
+      "label": "FX & Rates",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "arrows",
+      "path": "/settings/fx-rates",
+      "requires": [
+        "finance"
+      ]
+    },
+    "commerce.overview": {
+      "id": "commerce.overview",
+      "label": "Commerce",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.products": {
+      "id": "commerce.products",
+      "label": "Products",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/products",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.discounts": {
+      "id": "commerce.discounts",
+      "label": "Discount codes",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/discounts",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.product-detail": {
+      "id": "commerce.product-detail",
+      "label": "Product",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/products/:productId",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.personalisation": {
+      "id": "commerce.personalisation",
+      "label": "Personalisation",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/personalisation",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.content": {
+      "id": "commerce.content",
+      "label": "Product content",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/content",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.box-plans": {
+      "id": "commerce.box-plans",
+      "label": "Box plans",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/box-plans",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.delivery": {
+      "id": "commerce.delivery",
+      "label": "Delivery",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/delivery",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.merchandising": {
+      "id": "commerce.merchandising",
+      "label": "Merchandising",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/merchandising",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.storefront-config": {
+      "id": "commerce.storefront-config",
+      "label": "Storefront config",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/storefront-config",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.orders": {
+      "id": "commerce.orders",
+      "label": "Orders",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/orders",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.order-detail": {
+      "id": "commerce.order-detail",
+      "label": "Order",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/orders/:orderId",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.order-packing": {
+      "id": "commerce.order-packing",
+      "label": "Packing slip",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminReadPolicy",
+      "path": "/commerce/orders/:orderId/packing",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "commerce.carts": {
+      "id": "commerce.carts",
+      "label": "Carts",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "path": "/commerce/carts",
+      "requires": [
+        "commerce"
+      ]
+    },
+    "approvals": {
+      "id": "approvals",
+      "label": "Approvals",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "clipcheck",
+      "path": "/approvals",
+      "requires": [
+        "agents"
+      ]
+    },
+    "ai.runs": {
+      "id": "ai.runs",
+      "label": "Run queue",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/runs",
+      "requires": [
+        "agents"
+      ]
+    },
+    "ai.policies": {
+      "id": "ai.policies",
+      "label": "Policies",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "sparkles",
+      "path": "/ai/policies",
+      "requires": [
+        "agents"
+      ]
+    },
+    "ai.usage": {
+      "id": "ai.usage",
+      "label": "Usage",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/usage",
+      "requires": [
+        "agents"
+      ]
+    },
+    "ai.workflows": {
+      "id": "ai.workflows",
+      "label": "Workflows",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/workflows",
+      "requires": [
+        "agents"
+      ]
+    },
+    "ai.workflow-detail": {
+      "id": "ai.workflow-detail",
+      "label": "Workflow",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminUserPolicy",
+      "icon": "sparkles",
+      "path": "/ai/workflows/:workflowId",
+      "requires": [
+        "agents"
+      ]
+    },
+    "ai.extensions": {
+      "id": "ai.extensions",
+      "label": "Agent Extensions",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "sparkles",
+      "path": "/ai/agent-extensions",
+      "requires": [
+        "agents"
+      ]
+    }
+  }
+}

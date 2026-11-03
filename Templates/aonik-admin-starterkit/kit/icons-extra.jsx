@@ -119,3 +119,6 @@ const EXTRA_ICONS = {
 
 // Merge into ICONS map at boot time
 Object.assign(window.ICONS, EXTRA_ICONS);
+Object.entries(window.AonikMenuIcons.paths).forEach(([name, paths]) => {
+  window.ICONS[`menu-${name}`] = paths;
+});

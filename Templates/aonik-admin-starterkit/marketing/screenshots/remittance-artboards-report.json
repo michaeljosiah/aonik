@@ -1,0 +1,30 @@
+{
+  "checks": [
+    "12 native editable artboards",
+    "canvas focus and Escape",
+    "24 light/dark captures",
+    "shared SVG paths and branding",
+    "no screenshot-backed artboards",
+    "no horizontal overflow",
+    "editable quote invalidation and recalculation",
+    "recipient confirmation and local resend history",
+    "local destination verification",
+    "no application API calls",
+    "full design canvas registration and focus",
+    "no runtime exceptions"
+  ],
+  "scenes": [
+    "transfer-editor",
+    "transfer-review",
+    "beneficiaries",
+    "beneficiary-new",
+    "beneficiary-detail",
+    "transfer-details",
+    "receipt-send",
+    "receipt-history",
+    "receipt-delivery",
+    "receipt-email-review",
+    "receipt-resend",
+    "receipt-recovery"
+  ]
+}

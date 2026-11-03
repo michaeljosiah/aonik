@@ -141,6 +141,43 @@ public class ConfigPackModuleRowsTests
     }
 
     [Fact]
+    public async Task ApplyModulesAsync_Should_ProvisionRemittanceDependenciesAndPreserveExplicitOverridesOnReapply()
+    {
+        // Arrange
+        await SeedTenantAsync("remittance");
+        await using var db = NewDb();
+        var applier = NewApplier(new ConfigPackSource(), db);
+        string[] expectedOn = [ModuleIds.Platform, ModuleIds.Ordering, ModuleIds.Finance, ModuleIds.Ai, ModuleIds.Agents, ModuleIds.Documents];
+
+        // Act
+        await applier.ApplyModulesAsync(_tenantId, "remittance", initialProvisioning: true);
+
+        // Assert
+        var rows = await RowsAsync();
+        rows.Should().HaveCount(ModuleCatalog.All.Count);
+        rows.Should().OnlyContain(row => row.Source == TenantModuleSource.Pack && row.Reason == "pack:remittance@v1");
+        rows.Where(row => row.IsEnabled).Select(row => row.ModuleId).Should().BeEquivalentTo(expectedOn);
+        rows.Where(row => !row.IsEnabled).Select(row => row.ModuleId).Should().BeEquivalentTo(
+            ModuleCatalog.All.Select(module => module.Id).Except(expectedOn));
+
+        // Arrange: a host explicitly disables Documents after the initial pack application.
+        var documents = await db.TenantModules.SingleAsync(row => row.ModuleId == ModuleIds.Documents);
+        documents.IsEnabled = false;
+        documents.Source = TenantModuleSource.Explicit;
+        documents.Reason = "Host disabled documents";
+        await db.SaveChangesAsync();
+
+        // Act
+        await applier.ApplyModulesAsync(_tenantId, "remittance", initialProvisioning: false);
+
+        // Assert
+        rows = await RowsAsync();
+        rows.Should().HaveCount(ModuleCatalog.All.Count);
+        rows.Single(row => row.ModuleId == ModuleIds.Documents).Should().Match<TenantModule>(
+            row => !row.IsEnabled && row.Source == TenantModuleSource.Explicit && row.Reason == "Host disabled documents");
+    }
+
+    [Fact]
     public async Task ApplyModulesAsync_Should_WriteNoRows_When_PackDeclaresNoModules()
     {
         await SeedTenantAsync("base");

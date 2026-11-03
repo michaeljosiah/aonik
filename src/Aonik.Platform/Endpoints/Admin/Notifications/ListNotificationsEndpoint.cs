@@ -32,7 +32,7 @@ internal sealed class ListNotificationsEndpoint : Endpoint<ListNotificationsRequ
     public override void Configure()
     {
         Get("/admin/notifications");
-        Policies("AdminPolicy");
+        Policies("AdminReadPolicy");
         Summary(s =>
         {
             s.Summary = "List notifications";

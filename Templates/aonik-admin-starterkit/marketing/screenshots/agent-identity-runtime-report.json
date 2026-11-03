@@ -1,0 +1,15 @@
+{
+  "checks": [
+    "AONIK workspace commentary",
+    "AONIK and domain chat authors",
+    "generic legacy author fallback",
+    "two explicit notification authors",
+    "system metadata cannot assign an agent portrait",
+    "notification severity retained",
+    "mark-read callback retained",
+    "six decoded portraits",
+    "light/dark shared component captures",
+    "zero API calls"
+  ],
+  "apiCalls": 0
+}

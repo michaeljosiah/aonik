@@ -6,7 +6,7 @@ function Icon({ name, size = 18, color = 'currentColor' }) {
   const paths = ICONS[name] || '';
   return (
     <svg
-      width={size} height={size} viewBox="0 0 24 24"
+      width={size} height={size} viewBox="0 0 24 24" data-icon={name} aria-hidden="true"
       fill="none" stroke={color} strokeWidth="1.75"
       strokeLinecap="round" strokeLinejoin="round"
       style={{ flex: 'none', display: 'inline-block', verticalAlign: '-3px' }}

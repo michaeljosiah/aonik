@@ -307,16 +307,16 @@ function IdentityTab({
     <div className="flex flex-col gap-5">
       {/* Profile editor */}
       <div>
-        <FieldLabel hint="Generated · keyed on agent name">Profile image</FieldLabel>
+        <FieldLabel hint="Shared CGI portrait · keyed on agent name">Profile image</FieldLabel>
         <div className="flex items-center gap-3.5 rounded-lg border border-border bg-muted p-3.5">
           <AgentPortrait name={name} color={color} glyph={glyph} size={72} />
           <div className="flex flex-1 flex-col gap-1">
             <span className="text-[12px] font-medium text-foreground">
-              Style · <span className="capitalize text-primary">{glyph}</span>
+              Style · <span className="text-primary">CGI portrait / glyph fallback</span>
             </span>
             <span className="text-[11px] leading-relaxed text-muted-foreground">
-              Each agent gets a deterministic glyph portrait. Pick a glyph and hue from below, or upload a
-              custom mark (coming soon).
+              Built-in agents use shared CGI portraits. Glyphs and hues below preview the fallback
+              appearance for agents without a portrait. Custom uploads are coming soon.
             </span>
             <div className="mt-1.5 flex gap-1.5">
               <Button variant="outline" size="sm" disabled>
@@ -346,7 +346,7 @@ function IdentityTab({
                   : 'border-[1.5px] border-transparent hover:border-border',
               )}
             >
-              <AgentPortrait name={name} color={color} glyph={g} size={42} ring={false} />
+              <AgentPortrait name={name} color={color} glyph={g} size={42} ring={false} forceGlyph />
             </button>
           ))}
         </div>

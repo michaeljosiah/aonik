@@ -56,6 +56,10 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
         AIFunctionArguments arguments,
         CancellationToken cancellationToken)
     {
+        if (_serviceProvider?.GetService(typeof(IEnumerable<IAgentMutationGuard>)) is IEnumerable<IAgentMutationGuard> guards)
+        {
+            foreach (var guard in guards) await guard.ValidateAsync(cancellationToken).ConfigureAwait(false);
+        }
         var approvals = ResolveApprovalService();
 
         if (_options.Tier == ToolApprovalTier.Low)

@@ -1,0 +1,32 @@
+{
+  "checks": [
+    "6 editable chat artboards",
+    "12 clean light/dark marketing captures",
+    "12 editable-artboard previews",
+    "shared SVGs, CGI agent portraits and semantic tokens",
+    "contextual response with ledger references",
+    "one-time permission approval and decline",
+    "explicit room audience confirmation",
+    "private and shared message isolation",
+    "two human and three agent authors",
+    "participant-specific permission inspector",
+    "Operations role cannot approve money movement",
+    "finance approval requires exact-action confirmation",
+    "approval queues execution without claiming capture or ledger posting",
+    "human invite and local message composition",
+    "conversation search",
+    "focused and full canvas registration",
+    "human mention and agent message notifications",
+    "notification filters, read, dismiss and linked-message focus",
+    "no application API calls",
+    "no runtime exceptions"
+  ],
+  "scenes": [
+    "slideout",
+    "permissions",
+    "collaboration",
+    "proposal-review",
+    "notifications",
+    "mentions"
+  ]
+}

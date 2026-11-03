@@ -80,7 +80,7 @@ function Sidebar({ active = 'dashboard' }) {
                   fontSize: 13, fontWeight: isActive ? 500 : 400,
                   boxShadow: isActive ? '0 1px 2px 0 rgb(0 0 0 / 0.04)' : 'none',
                 }}>
-                  <Icon name={item.icon} size={16} color={isActive ? 'var(--brand-primary)' : 'var(--text-secondary)'}/>
+                  <Icon name={window.AonikMenuIcons.legacyItem(item.id)} size={16} color={isActive ? 'var(--brand-primary)' : 'var(--text-secondary)'}/>
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {item.badge && (
                     <span style={{
@@ -103,7 +103,7 @@ function Sidebar({ active = 'dashboard' }) {
         display: 'flex', alignItems: 'center', gap: 10,
       }}>
         <div style={{ position: 'relative' }}>
-          <Avatar name="Aonik AI" size={30} color="var(--brand-primary)" textColor="#fff"/>
+          <img src={globalThis.AonikAgentPortraits.resolve('aonik')} alt="AONIK · AI assistant" style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover' }}/>
           <span style={{
             position: 'absolute', bottom: -1, right: -1,
             width: 10, height: 10, borderRadius: 999,
@@ -172,7 +172,7 @@ function AgentRail({ messages, proposals = [], thinking = false }) {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           color: '#fff',
         }}>
-          <Icon name="sparkles" size={16}/>
+          <img src={globalThis.AonikAgentPortraits.resolve('ledger-agent')} alt="Ledger · AI agent" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}/>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Ledger Agent</div>
@@ -190,7 +190,7 @@ function AgentRail({ messages, proposals = [], thinking = false }) {
         {proposals.map((p, i) => <ProposalCard key={i} {...p}/>)}
         {thinking && (
           <div style={{ display: 'flex', gap: 10 }}>
-            <Avatar name="L" size={24} color="var(--brand-primary)" textColor="#fff"/>
+            <img src={globalThis.AonikAgentPortraits.resolve('ledger-agent')} alt="Ledger · AI agent" style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }}/>
             <div style={{ padding: '8px 12px', background: 'var(--surface-inset)', borderRadius: '12px 12px 12px 4px', fontSize: 12 }}>
               <span className="shimmer">Drafting journal entry for INV-2041…</span>
             </div>
@@ -249,7 +249,7 @@ function ProposalCard({ agent = 'Billing', confidence = 0.94, summary, diff, rea
       display: 'flex', flexDirection: 'column', gap: 10,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Avatar name={agent} size={22} color="var(--brand-primary-10)" textColor="var(--brand-primary)"/>
+        {globalThis.AonikAgentPortraits.resolve(agent) ? <img src={globalThis.AonikAgentPortraits.resolve(agent)} alt={`${agent} · AI agent`} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }}/> : <Avatar name={agent} size={22} color="var(--brand-primary-10)" textColor="var(--brand-primary)"/>}
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{agent} Agent</span>
         <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)' }}>
           conf · {confidence.toFixed(2)}

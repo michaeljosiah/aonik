@@ -8,8 +8,11 @@ function ScreenMySpace() {
           <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: 26, fontWeight: 700, marginTop: 6, letterSpacing: '-0.01em' }}>
             Morning, Oliver.
           </h1>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-            3 proposals waiting · 4 invoices unpaid · cash position updated 4 min ago
+          <div data-component="aonik-commentary" style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+            <img src={globalThis.AonikAgentPortraits.resolve('aonik')} alt="AONIK · AI assistant" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--border)' }}/>
+            <div><div style={{ fontSize: 11, fontWeight: 600 }}>AONIK <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>AI assistant · Workspace brief</span></div>
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>3 proposals waiting · 4 invoices unpaid · cash position updated 4 min ago</div>
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>

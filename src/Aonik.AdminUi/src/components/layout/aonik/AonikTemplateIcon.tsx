@@ -1,6 +1,7 @@
 import type { CSSProperties, SVGProps } from 'react';
 
 import { cn } from '@/lib/utils';
+import { getMenuIconPath } from '@/lib/menuIcons';
 
 const ICON_PATHS: Record<string, string> = {
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
@@ -73,7 +74,7 @@ export function AonikTemplateIcon({
   style,
   ...props
 }: AonikTemplateIconProps) {
-  const paths = ICON_PATHS[name];
+  const paths = getMenuIconPath(name) ?? ICON_PATHS[name];
   if (!paths) return null;
 
   return (
@@ -81,6 +82,7 @@ export function AonikTemplateIcon({
       width={size}
       height={size}
       viewBox="0 0 24 24"
+      data-icon={name}
       fill="none"
       stroke={color}
       strokeWidth="1.75"

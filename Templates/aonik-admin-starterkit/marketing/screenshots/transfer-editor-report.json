@@ -1,0 +1,24 @@
+{
+  "checks": [
+    "Actual Admin UI renders",
+    "customer search",
+    "unverified rail disabled",
+    "server quote",
+    "changed amount invalidates quote",
+    "light/dark screenshots",
+    "explicit confirmation dialog",
+    "definitive rejection unlocks and requotes",
+    "no duplicate submit",
+    "lost-response journal survives reload",
+    "locked uncertain request",
+    "same body/key/tenant on retry",
+    "read-only detail",
+    "actual named PDF receipt download",
+    "fresh execution snapshot for receipt",
+    "pending receipt",
+    "long-reference receipt pagination",
+    "permission refusal prevents cached export",
+    "no runtime exceptions"
+  ],
+  "confirmations": 3
+}

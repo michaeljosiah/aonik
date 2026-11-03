@@ -1,0 +1,12 @@
+{
+  "checks": [
+    "delivered and bounced provider badges",
+    "waiting and unavailable older sends",
+    "separate send and delivery timestamps",
+    "shared delivery SVGs",
+    "read-only history",
+    "delivery refresh does not send",
+    "light/dark captures"
+  ],
+  "emailRequests": 7
+}

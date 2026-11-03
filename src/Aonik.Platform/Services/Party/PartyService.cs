@@ -269,7 +269,7 @@ internal class PartyService : IPartyService
             parties.ToPartyName,
             relationship.RelationshipTypeCode,
             relationship.RelationshipTypeCode,
-            relationship.IsActive);
+            relationship.IsActive, relationship.Notes);
 
         return new RelatedPartyResponse(
             new PartyResponse(party.Id, party.DisplayName, party.PartyType, party.Status),
@@ -317,7 +317,7 @@ internal class PartyService : IPartyService
             parties.ToPartyName,
             relationship.RelationshipTypeCode,
             relationship.RelationshipTypeCode,
-            relationship.IsActive);
+            relationship.IsActive, relationship.Notes);
     }
 
     public async Task<IReadOnlyList<PartyRelationshipResponse>> GetRelationshipsAsync(
@@ -353,7 +353,7 @@ internal class PartyService : IPartyService
             partyLookup.TryGetValue(rel.ToPartyId, out var toName) ? toName : string.Empty,
             rel.RelationshipTypeCode,
             rel.RelationshipTypeCode,
-            rel.IsActive)).ToList();
+            rel.IsActive, rel.Notes)).ToList();
     }
 
     public async Task AssignPartyRoleAsync(

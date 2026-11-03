@@ -1,15 +1,8 @@
-/* ==========================================================================
-   AONIK Design System — Core tokens
-   --------------------------------------------------------------------------
-   Source of truth: src/Aonik.AdminUi/src/index.css (Tailwind v4 @theme block)
-   from michaeljosiah/aonik@master. This is the IN-PRODUCT palette — the
-   marketing site uses a separate indigo/violet skin; see `tokens-marketing.css`.
-
-   Load this once at the document root. All surfaces — dashboards, data tables,
-   module pages, agent panels, settings — read from these variables.
-   ========================================================================== */
+/* AONIK starter kit: production semantic tokens with legacy component aliases. */
 
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+
+@import url("design-system/semantic-tokens.css");
 
 /* Infra is the brand display face. Falls back to DM Sans if the .otf file
    is unavailable (e.g. when the system is used outside this project). */
@@ -35,161 +28,77 @@
   font-display: swap;
 }
 
+
 :root {
-  /* ─── Brand — Teal primary, coral secondary ─────────────────────────────── */
-  --brand-primary:        #055a60;
-  --brand-primary-dark:   #044c51;
-  --brand-primary-10:     #055a601f;  /* 12% — tint fills, hover halos  */
-  --brand-primary-20:     #055a6033;  /* 20% — chip bg, soft borders   */
-  --brand-primary-60:     #055a6099;  /* 60% — focus glows              */
-
-  --brand-secondary:      #eb5c37;    /* coral — accents, pending pills */
-  --brand-secondary-dark: #d44a28;
-  --brand-secondary-10:   #eb5c3720;
-  --brand-secondary-20:   #eb5c3733;
-  --brand-secondary-60:   #eb5c3799;
-
-  /* Favicon gold — reserved for the single-pixel brand dot, not a utility. */
-  --brand-mark-dot:       #e8a838;
-
-  /* ─── Surfaces (light) ──────────────────────────────────────────────────── */
-  --background:           #f9fafb;   /* app canvas */
-  --surface:              #ffffff;   /* cards, panels */
-  --surface-inset:        #f6f6f9;   /* recessed regions, sidebar bg */
-  --surface-elevated:     #ffffff;   /* popovers, tooltips */
-  --border:               #e5e7eb;
-  --border-light:         #f0f0f0;
-
-  /* ─── Gray scale ────────────────────────────────────────────────────────── */
-  --gray-50:  #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
-
-  /* ─── Text ──────────────────────────────────────────────────────────────── */
-  --text-primary:   #2f2f2f;
-  --text-secondary: #888888;
-  --text-tertiary:  #9ca3af;
-  --text-heading:   #4b5563;
-  --text-inverse:   #ffffff;
-
-  /* ─── Status ────────────────────────────────────────────────────────────── */
-  --success:       #4caf50;
-  --success-light: #4caf5020;
-  --warning:       #ebc334;
-  --warning-light: #ebc33420;
-  --danger:        #cc2e2e;
-  --danger-light:  #cc2e2e20;
-  --info:          #3b82f6;
-  --info-light:    #3b82f620;
-  --pending:       #eb5c37;
-  --pending-light: #eb5c3720;
-
-  /* Accent variants used for agent/theme scoping in the real app. */
-  --accent-violet: #7b76b6;
-  --accent-patrol: #0097a9;   /* "patrol" — deeper teal alt */
-  --accent-jade:   #17b0ad;
-  --accent-team:   #5facbd;   /* Team Agent theme */
-  --accent-ent:    #3ab795;   /* Enterprise Agent theme */
-
-  /* ─── Type ──────────────────────────────────────────────────────────────── */
-  --font-brand: 'Infra', 'DM Sans', system-ui, -apple-system, sans-serif;
-  --font-sans:  'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  --text-xs:   0.75rem;   /* 12 */
-  --text-sm:   0.875rem;  /* 14 */
-  --text-base: 1rem;      /* 16 */
-  --text-lg:   1.125rem;  /* 18 */
-  --text-xl:   1.25rem;   /* 20 */
-  --text-2xl:  1.5rem;    /* 24 */
-  --text-3xl:  1.875rem;  /* 30 */
-  --text-4xl:  2.25rem;   /* 36 */
-
-  --leading-tight:   1.1;
-  --leading-snug:    1.25;
-  --leading-normal:  1.5;
-  --leading-relaxed: 1.625;
-  --tracking-tight:  -0.015em;
-  --tracking-wide:   0.06em;
-
-  /* ─── Spacing ───────────────────────────────────────────────────────────── */
-  --space-1:  4px;
-  --space-2:  8px;
-  --space-3:  12px;
-  --space-4:  16px;
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-8:  32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
-  --space-20: 80px;
-
-  /* ─── Radius ────────────────────────────────────────────────────────────── */
-  --radius-sm:   2px;
-  --radius-md:   0.5rem;    /* 8 — default card */
-  --radius-lg:   0.5rem;    /* 8 — same, semantic alias */
-  --radius-xl:   0.75rem;   /* 12 — larger cards */
-  --radius-card: 4px;       /* Admin UI uses rounded-[4px] on many cards */
-  --radius-pill: 9999px;
-
-  /* ─── Shadow ────────────────────────────────────────────────────────────── */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-focus: 0px 4px 0px -2px var(--brand-primary-60);   /* signature bottom-bar focus */
-
-  /* ─── Layout ────────────────────────────────────────────────────────────── */
-  --sidebar-width: 260px;
-  --sidebar-collapsed-width: 81px;
-  --navbar-height: 56px;
-
-  /* ─── Motion ────────────────────────────────────────────────────────────── */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --dur-fast: 150ms;
-  --dur-med:  250ms;
-  --dur-slow: 400ms;
+  --brand-primary: var(--primary);
+  --brand-primary-dark: var(--primary-hover);
+  --brand-primary-10: color-mix(in oklab, var(--primary) 10%, transparent);
+  --brand-primary-20: color-mix(in oklab, var(--primary) 20%, transparent);
+  --brand-primary-60: color-mix(in oklab, var(--primary) 60%, transparent);
+  --brand-secondary: var(--agent);
+  --brand-secondary-dark: color-mix(in oklab, var(--agent) 85%, black);
+  --brand-secondary-10: color-mix(in oklab, var(--agent) 10%, transparent);
+  --brand-secondary-20: color-mix(in oklab, var(--agent) 20%, transparent);
+  --brand-secondary-60: color-mix(in oklab, var(--agent) 60%, transparent);
+  --brand-mark-dot: var(--mark-dot);
+  --surface: var(--card);
+  --surface-inset: var(--muted);
+  --surface-elevated: var(--popover);
+  --border-light: var(--border);
+  --border-medium: var(--input);
+  --text-primary: var(--foreground);
+  --text-secondary: var(--muted-foreground);
+  --text-tertiary: var(--muted-foreground);
+  --text-heading: var(--foreground);
+  --text-inverse: var(--primary-foreground);
+  --success-light: var(--success-subtle);
+  --warning-light: var(--warning-subtle);
+  --danger: var(--destructive);
+  --danger-light: color-mix(in oklab, var(--destructive) 10%, transparent);
+  --info-light: var(--info-subtle);
+  --pending: var(--warning-foreground);
+  --pending-light: var(--warning-subtle);
+  --accent-violet: var(--chart-4);
+  --accent-patrol: var(--chart-6);
+  --accent-jade: var(--chart-8);
+  --accent-team: var(--agent-team);
+  --accent-ent: var(--agent-enterprise);
+  --font-brand: 'Infra', 'DM Sans', system-ui, sans-serif;
+  --font-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-xs: .75rem; --text-sm: .875rem; --text-base: 1rem;
+  --text-lg: 1.125rem; --text-xl: 1.25rem; --text-2xl: 1.5rem; --text-3xl: 1.875rem; --text-4xl: 2.25rem;
+  --leading-tight: 1.1; --leading-snug: 1.25; --leading-normal: 1.5; --leading-relaxed: 1.625;
+  --tracking-tight: -.015em; --tracking-wide: .06em;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+  --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px; --space-16: 64px; --space-20: 80px;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius); --radius-xl: calc(var(--radius) + 4px);
+  --radius-card: var(--radius-xl); --radius-pill: 9999px;
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / .05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / .1), 0 1px 2px -1px rgb(0 0 0 / .1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / .1), 0 4px 6px -4px rgb(0 0 0 / .1);
+  --shadow-focus: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+  --sidebar-width: 256px; --sidebar-collapsed-width: 48px; --navbar-height: 56px;
+  --gray-50: #f9fafb; --gray-100: #f1f2f4; --gray-200: #e4e6e9; --gray-300: #d8dbdf;
+  --gray-400: #9299a2; --gray-500: #5f6670; --gray-600: #4b5563; --gray-700: #374151; --gray-800: #1f2328; --gray-900: #111318;
+  --ease-out: cubic-bezier(.16, 1, .3, 1); --dur-fast: 150ms; --dur-med: 250ms; --dur-slow: 400ms;
 }
+
 
 /* ──────────────────────────────────────────────────────────────────────────
    Dark theme — charcoal, NOT navy/indigo. Toggle by setting
    `data-theme="dark"` on the <html> or <body> element.
    ────────────────────────────────────────────────────────────────────────── */
 [data-theme="dark"] {
-  --background:        #1a1d21;
-  --surface:           #22262b;
-  --surface-inset:     #1e2125;
-  --surface-elevated:  #282c32;
-  --border:            #3a3f46;
-  --border-light:      #2e3338;
-
-  --gray-50:  #1a1d21;
-  --gray-100: #1e2125;
-  --gray-200: #22262b;
-  --gray-300: #2e3338;
-  --gray-400: #4a4f56;
-  --gray-500: #8b9098;
-  --gray-600: #a8adb5;
-  --gray-700: #c8ccd2;
-  --gray-800: #e0e3e7;
-  --gray-900: #f3f4f6;
-
-  --text-primary:   #e8eaed;
-  --text-secondary: #9aa0a8;
-  --text-tertiary:  #6b7078;
-  --text-heading:   #e0e3e7;
-  --text-inverse:   #1a1d21;
-
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+  --gray-50: #1a1d21; --gray-100: #1e2125; --gray-200: #2a2e34; --gray-300: #33383f;
+  --gray-400: #6b7078; --gray-500: #9aa0a8; --gray-600: #a8adb5; --gray-700: #c8ccd2; --gray-800: #e0e3e7; --gray-900: #e8eaed;
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / .3);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / .35), 0 1px 2px -1px rgb(0 0 0 / .3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / .4), 0 2px 4px -2px rgb(0 0 0 / .3);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / .4), 0 4px 6px -4px rgb(0 0 0 / .3);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -264,7 +173,7 @@ h3, .h3 {
   background: var(--surface);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-card);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
 }
 .card-xl { border-radius: var(--radius-xl); }
 
@@ -281,18 +190,18 @@ h3, .h3 {
   line-height: 1.6;
 }
 .pill-tint    { background: var(--brand-primary-10); border-color: transparent; color: var(--brand-primary); }
-.pill-success { background: var(--success-light); border-color: transparent; color: var(--success); }
-.pill-warning { background: var(--warning-light); border-color: transparent; color: #8a6d0a; }
+.pill-success { background: var(--success-light); border-color: transparent; color: var(--success-foreground); }
+.pill-warning { background: var(--warning-light); border-color: transparent; color: var(--warning-foreground); }
 .pill-danger  { background: var(--danger-light);  border-color: transparent; color: var(--danger); }
 .pill-pending { background: var(--pending-light); border-color: transparent; color: var(--pending); }
 
-/* Signature bottom-bar focus used on Admin UI inputs */
+/* shadcn input contract: one-pixel input border and a three-pixel focus ring. */
 .input {
   height: 38px;
   width: 100%;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-bottom: 2px solid var(--border);
+  border-color: var(--input);
   border-radius: var(--radius-md);
   padding: 0 12px;
   font: inherit;
@@ -302,7 +211,7 @@ h3, .h3 {
 .input::placeholder { color: var(--text-tertiary); }
 .input:focus {
   outline: none;
-  border-bottom-color: var(--brand-primary);
+  border-color: var(--ring);
   box-shadow: var(--shadow-focus);
 }
 
@@ -335,11 +244,11 @@ h3, .h3 {
 .btn-outline:hover   { background: var(--surface-inset); border-color: var(--gray-400); }
 .btn-ghost           { background: transparent; color: var(--text-primary); }
 .btn-ghost:hover     { background: var(--surface-inset); }
-.btn-secondary {
-  background: var(--brand-secondary);
-  color: var(--text-inverse);
-}
-.btn-secondary:hover { background: var(--brand-secondary-dark); }
+.btn-secondary { background: var(--secondary); color: var(--secondary-foreground); }
+.btn-secondary:hover { background: var(--accent); }
+/* Coral belongs only to an explicit agent-proposal action. */
+.btn-agent { background: var(--agent); color: var(--agent-foreground); }
+.btn-agent:hover { background: var(--brand-secondary-dark); }
 .btn-sm              { height: 30px; padding: 0 12px; font-size: var(--text-xs); }
 .btn-lg              { height: 44px; padding: 0 20px; font-size: var(--text-base); }
 .btn:focus-visible   { outline: none; box-shadow: var(--shadow-focus); }
@@ -388,3 +297,39 @@ h3, .h3 {
 @media (prefers-reduced-motion: reduce) {
   .shimmer { animation: none; -webkit-text-fill-color: currentColor; color: var(--text-tertiary); }
 }
+
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring); outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Production sidebar styling shared by the original design-canvas artboards. */
+.kit-sidebar { width:var(--sidebar-width); flex:none; background:var(--sidebar); border-right:1px solid var(--sidebar-border); display:flex; flex-direction:column; padding:14px 12px; gap:4px; }
+.kit-sidebar.is-collapsed { width:var(--sidebar-collapsed-width); padding:14px 5px; }
+.kit-sidebar-brand { padding:8px 10px 18px; }
+.kit-sidebar.is-collapsed .kit-sidebar-brand { padding:8px 5px 18px; }
+.kit-tenant { display:flex; gap:10px; align-items:center; padding:8px; margin-bottom:12px; }
+.kit-tenant > div { flex:1; }
+.kit-tenant b, .kit-user b { display:block; font-size:12px; font-weight:500; }
+.kit-tenant small, .kit-user small { display:block; font-size:10px; color:var(--muted-foreground); margin-top:2px; }
+.kit-sidebar-nav { flex:1; overflow:auto; min-height:0; }
+.kit-sidebar-nav section { margin-bottom:14px; }
+.kit-nav-label { font-size:11px; font-weight:500; color:var(--muted-foreground); padding:5px 10px; }
+.kit-nav-item, .kit-nav-parent > summary { width:100%; display:flex; align-items:center; gap:10px; padding:8px 10px; border:0; border-radius:var(--radius-sm); background:transparent; color:var(--sidebar-foreground); font:12px var(--font-sans); text-align:left; cursor:pointer; min-height:32px; list-style:none; }
+.kit-nav-parent > summary::-webkit-details-marker { display:none; }
+.kit-nav-parent > summary > svg:last-child { margin-left:auto; }
+.kit-nav-parent[open] > summary > svg:last-child { transform:rotate(90deg); }
+.kit-nav-item:hover, .kit-nav-parent > summary:hover, .kit-nav-item.is-active { background:var(--sidebar-accent); }
+.kit-nav-item.is-active > svg { color:var(--sidebar-primary); }
+.kit-nav-item small { margin-left:auto; padding:1px 5px; background:var(--secondary); border:1px solid var(--border); border-radius:4px; font:10px var(--font-mono); }
+.kit-nav-children { margin:4px 0 4px 17px; padding-left:6px; border-left:1px solid var(--border); }
+.kit-sidebar.is-collapsed .kit-nav-children { margin-left:0; padding-left:0; border:0; }
+.kit-sidebar.is-collapsed .kit-nav-item, .kit-sidebar.is-collapsed summary { padding:8px 10px; }
+.kit-sidebar-footer { border-top:1px solid var(--border); padding-top:10px; position:relative; }
+.kit-user { display:flex; align-items:center; gap:10px; border:0; background:transparent; width:100%; padding:8px 3px; border-radius:var(--radius-md); text-align:left; color:var(--foreground); cursor:pointer; }
+.kit-user:hover { background:var(--sidebar-accent); }
+.kit-user > span:nth-child(2) { flex:1; }
+.kit-upgrade { border:1px solid var(--border); background:var(--card); border-radius:var(--radius); padding:12px; display:flex; flex-direction:column; gap:8px; font-size:12px; }
+.kit-upgrade small { color:var(--muted-foreground); }

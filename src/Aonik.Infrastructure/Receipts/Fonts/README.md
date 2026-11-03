@@ -1,0 +1,1 @@
+DM Sans static TrueType fonts from https://github.com/googlefonts/dm-fonts at revision 4412393b7d2de9fe7a92064c2dce9b5af5d7fd26 (Sans/fonts/ttf), licensed under the included SIL Open Font License. Embedded locally for platform-independent receipt rendering.

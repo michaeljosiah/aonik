@@ -1,12 +1,8 @@
-// 1:1 port of `AgentPortrait` + `PortraitGlyph` from
-// templates/aonik-admin-starterkit/screens/agents-page.jsx.
-//
-// Generative SVG avatar — gradient field tinted with the agent's hue plus
-// one of 8 geometric glyphs. We deliberately avoid photo-real / human
-// imagery for AI agents: each agent gets a distinctive geometric "face"
-// keyed on its name (via deriveAgentColor / deriveAgentGlyph).
+// Built-in agents share generated CGI headshots with the starter kit.
+// Unmapped/custom agents and explicit glyph previews retain the geometric fallback.
 
 import { useId } from 'react';
+import { resolveAgentPortrait } from '@/lib/agentPortraits.generated';
 import type { AgentGlyph } from './agentMeta';
 
 export interface AgentPortraitProps {
@@ -20,6 +16,8 @@ export interface AgentPortraitProps {
   size?: number;
   /** Render the soft inner ring outline (hidden when used inside swatches). */
   ring?: boolean;
+  /** Preview fallback glyphs without replacing the built-in portrait identity. */
+  forceGlyph?: boolean;
 }
 
 // guardrail-ignore: glyph ink drawn on the agent's generated data colour; stays white in both themes.
@@ -112,9 +110,18 @@ export function AgentPortrait({
   glyph,
   size = 64,
   ring = true,
+  forceGlyph = false,
 }: AgentPortraitProps) {
   const idBase = useId().replace(/:/g, '');
   const radius = size * 0.18;
+  const portrait = forceGlyph ? undefined : resolveAgentPortrait(name);
+
+  // SVG <image> also works where portraits are nested inside topology <g> elements.
+  if (portrait) return <svg width={size} height={size} viewBox="0 0 80 80" role="img" aria-label={`${name} AI agent portrait`} style={{flex:'none',display:'block',borderRadius:radius,overflow:'hidden'}}>
+    <defs><clipPath id={`${idBase}-portrait`}><rect width={80} height={80} rx={14.4}/></clipPath></defs>
+    <image href={portrait} width={80} height={80} preserveAspectRatio="xMidYMid slice" clipPath={`url(#${idBase}-portrait)`}/>
+    {ring && <rect x={0.5} y={0.5} width={79} height={79} rx={14.4} fill="none" stroke="var(--border)"/>}
+  </svg>;
 
   return (
     <svg

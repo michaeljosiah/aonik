@@ -17,7 +17,7 @@ internal sealed class GetNotificationSummaryEndpoint : EndpointWithoutRequest<No
     public override void Configure()
     {
         Get("/admin/notifications/summary");
-        Policies("AdminPolicy");
+        Policies("AdminReadPolicy");
         Summary(s =>
         {
             s.Summary = "Get notification summary";

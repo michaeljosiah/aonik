@@ -1,0 +1,141 @@
+/* Generated from src/Aonik.AdminUi/src/index.css. Run node scripts/sync-design.mjs. */
+:root {
+  --radius: 0.625rem;
+
+  --background: #ffffff;
+  --foreground: #1f2328;
+  --card: #ffffff;
+  --card-foreground: #1f2328;
+  --popover: #ffffff;
+  --popover-foreground: #1f2328;
+  --primary: #055a60;
+  --primary-foreground: #ffffff;
+  /* Hover/pressed fill for primary: darker in light mode, lighter in dark
+     mode, so the label keeps its contrast in both (6.5:1 / 9.6:1). */
+  --primary-hover: color-mix(in oklab, var(--primary) 85%, black);
+  --secondary: #f1f2f4;
+  --secondary-foreground: #1f2328;
+  --muted: #f4f5f6;
+  --muted-foreground: #5f6670;
+  --accent: #eef0f2;
+  --accent-foreground: #1f2328;
+  --destructive: #c62828;
+  --destructive-foreground: #ffffff;
+  --border: #e4e6e9;
+  --input: #d8dbdf;
+  --ring: #055a60;
+
+  /* Status trios (Aonik extension): solid fill, text-on-tint, tint. */
+  --success: #2e7d32;
+  --success-foreground: #1b5e20;
+  --success-subtle: #e8f5e9;
+  --warning: #a16207;
+  --warning-foreground: #7a4b00;
+  --warning-subtle: #fff6db;
+  --info: #2256d0;
+  --info-foreground: #1e40af;
+  --info-subtle: #e8effd;
+
+  /* Coral is reserved for applying agent proposals (Button variant="agent"). */
+  --agent: #eb5c37;
+  --agent-foreground: #ffffff;
+
+  --chart-1: #055a60;
+  --chart-2: #3a9ea4;
+  --chart-3: #eb5c37;
+  --chart-4: #7b76b6;
+  --chart-5: #b08400;
+  /* Extended categorical series (workflow step kinds, many-series charts).
+     Every chart hue clears 3:1 on the card in both themes. */
+  --chart-6: #0097a9;
+  --chart-7: #b4741e;
+  --chart-8: #1f7a5e;
+  --chart-9: #a35dac;
+  --chart-10: #c44536;
+
+  /* Brand accents. The mark dot is the single gold accent on the Aonik mark
+     (logo only, never a CTA or status fill); the agent tiers colour team and
+     enterprise agents. Same in both themes. */
+  --mark-dot: #e8a838;
+  --agent-team: #5facbd;
+  --agent-enterprise: #3ab795;
+
+  /* Native date/time picker glyph: inverted on dark surfaces. */
+  --date-indicator-filter: none;
+
+  --sidebar: #f7f8f9;
+  --sidebar-foreground: #1f2328;
+  --sidebar-primary: #055a60;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eceef0;
+  --sidebar-accent-foreground: #1f2328;
+  --sidebar-border: #e4e6e9;
+  --sidebar-ring: #055a60;
+
+  /* Stacking layers (Spec 098 D8). Values keep today's order so nothing
+     re-stacks in P0; they are renumbered once bespoke overlays are gone. */
+  --z-overlay: 100;
+  --z-modal: 110;
+  --z-popover: 130;
+  --z-hover-card: 140;
+  --z-tooltip: 9000;
+  --z-titlebar: 9999;
+}
+
+[data-theme="dark"] {
+  --background: #1a1d21;
+  --foreground: #e8eaed;
+  --card: #202328;
+  --card-foreground: #e8eaed;
+  --popover: #262a2f;
+  --popover-foreground: #e8eaed;
+  --primary: #3a9ea4;
+  --primary-foreground: #0d1f21;
+  --primary-hover: color-mix(in oklab, var(--primary) 85%, white);
+  --secondary: #2a2e34;
+  --secondary-foreground: #e8eaed;
+  --muted: #22262b;
+  --muted-foreground: #9aa0a8;
+  --accent: #2a2e34;
+  --accent-foreground: #e8eaed;
+  --destructive: #f26b6b;
+  --destructive-foreground: #1a1d21;
+  --border: #33383f;
+  --input: #3a3f46;
+  --ring: #3a9ea4;
+
+  --success: #5cbf6a;
+  --success-foreground: #7ee2a8;
+  --success-subtle: #1f3326;
+  --warning: #e0a93a;
+  --warning-foreground: #fcd34d;
+  --warning-subtle: #3a3020;
+  --info: #6b9bff;
+  --info-foreground: #93b4ff;
+  --info-subtle: #1e2a44;
+
+  --agent: #eb5c37;
+  --agent-foreground: #ffffff;
+
+  --chart-1: #3a9ea4;
+  --chart-2: #7cc7cb;
+  --chart-3: #f07a5a;
+  --chart-4: #9d98d4;
+  --chart-5: #e0b23a;
+  --chart-6: #2cc0d2;
+  --chart-7: #dc9a4a;
+  --chart-8: #4fc39e;
+  --chart-9: #c688cf;
+  --chart-10: #e8776a;
+
+  --date-indicator-filter: invert(1) brightness(1.1);
+
+  --sidebar: #1e2125;
+  --sidebar-foreground: #e8eaed;
+  --sidebar-primary: #3a9ea4;
+  --sidebar-primary-foreground: #0d1f21;
+  --sidebar-accent: #2a2e34;
+  --sidebar-accent-foreground: #e8eaed;
+  --sidebar-border: #33383f;
+  --sidebar-ring: #3a9ea4;
+}

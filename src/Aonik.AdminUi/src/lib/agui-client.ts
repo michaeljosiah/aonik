@@ -104,6 +104,8 @@ export interface TextMessageStartEvent extends BaseEvent {
   type: 'TEXT_MESSAGE_START';
   messageId: string;
   role: string;
+  /** Author identity emitted by the server after agent resolution. */
+  agentName?: string;
 }
 
 export interface TextMessageContentEvent extends BaseEvent {

@@ -1,0 +1,19 @@
+{
+  "checks": [
+    "bounced row action only",
+    "original saved contact loaded",
+    "cancellation is read-only",
+    "invalid email blocked",
+    "update confirmation resets after edit",
+    "stale email conflict and reload",
+    "changed since send warning",
+    "save does not send",
+    "resend reloads corrected contact",
+    "fresh recipient selection and send confirmation",
+    "new send reference",
+    "captured tenant and permissions",
+    "read-only actions hidden",
+    "light/dark screenshots"
+  ],
+  "contactUpdates": 2
+}

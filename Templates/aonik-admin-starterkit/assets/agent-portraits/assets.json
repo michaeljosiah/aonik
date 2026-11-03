@@ -1,0 +1,113 @@
+{
+  "generator": "Built-in image_gen",
+  "generatedOn": "2026-11-02",
+  "registeredAgents": [
+    "finance-agent",
+    "platform-agent",
+    "commerce-agent",
+    "pf-compass-planner",
+    "financial-life-graph-agent",
+    "personal-finance-agent",
+    "pf-classify",
+    "pf-forecast",
+    "pf-insights"
+  ],
+  "portraits": [
+    {
+      "id": "aonik",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "af0eb06c9773376fe5e09d2f0efcabb9116c89c5649863665c62b92d505761c7"
+    },
+    {
+      "id": "finance",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "de9f7b11af48f03e4075ce345ab0ce76740fe5ebc6c9fae483f9713766398d1d"
+    },
+    {
+      "id": "platform",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f54a96c989a623dca924cb2aeb7299a3d346438ad2d93d81de25e87400dbc94b"
+    },
+    {
+      "id": "commerce",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "28b7c0f1819d0f17dbdcfb784f3f1f3f828af2cc6c70c1dcbe81b1e39a0975dc"
+    },
+    {
+      "id": "personal-finance",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "7eeb28302e8fb309be07b7c6bc19531bf6234cc3b1cb1e3e78b71780c7b47a9d"
+    },
+    {
+      "id": "classify",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "b08b5fd07bb6a692fe47f55359bf5c16260f1be03ad8d5914798969c8bf57054"
+    },
+    {
+      "id": "forecast",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "c13adae70fd5d84e3e2194e83cecaa56d01e9517e74da8fb3ff55096f59e74dc"
+    },
+    {
+      "id": "insights",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f04ca4f805d4e7513d3c48ae4ba29597bbed670a3f3df6cca686125734cfeee9"
+    },
+    {
+      "id": "life-graph",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "8bfd13cae99c36b8d002f5d7cc61e565e87c7a49f6b44dfa98cd06f8518539d3"
+    },
+    {
+      "id": "compass",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "575a14f1e62e87247f0455fbf9d591f884bdb19769adc985e3ed99b4b16bd59e"
+    },
+    {
+      "id": "ledger",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "05c1c26b3bcc42aceb6ac4fa9974646ccf5c6cccdce1daf97bc5952ec2878384"
+    },
+    {
+      "id": "billing",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "d6b846740afc8b077dc3486308d46fab95853198a5b64202fca25b5958a1883e"
+    },
+    {
+      "id": "fx",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "f480891b3709d8100300b24c4cbf4800e582ef00a882ebe95274b53ddc56223a"
+    },
+    {
+      "id": "compliance",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "7266a4c1b872a8ebff2fac2427b14f07034b7e5fb07abe8201d9fed8414e7903"
+    },
+    {
+      "id": "close",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "b365858443f6b92d46147460a198b9de9379b16a7a239cf499302f993a2c2820"
+    },
+    {
+      "id": "dunning",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "d0e1846343c028dda665c9baa536bdda72a52cee32352ae28d93fb265cd102c0"
+    }
+  ]
+}

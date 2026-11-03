@@ -17,7 +17,7 @@ internal sealed class MarkAllNotificationsReadEndpoint : EndpointWithoutRequest<
     public override void Configure()
     {
         Post("/admin/notifications/read-all");
-        Policies("AdminPolicy");
+        Policies("AdminReadPolicy");
         Summary(s =>
         {
             s.Summary = "Mark all notifications as read";

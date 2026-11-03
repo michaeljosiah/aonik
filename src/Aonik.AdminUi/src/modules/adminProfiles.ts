@@ -1,4 +1,5 @@
 import type { NavigationSection, NavItem } from '@/types';
+import { getGroupMenuIcon, getScreenMenuIcon } from '@/lib/menuIcons';
 import type { AdminModule, AdminScreenDefinition, ModuleRouteConfig, RuntimeModuleManifest } from './types';
 
 export interface AdminProfileScreen {
@@ -176,7 +177,7 @@ export function resolveAdminProfile(
   const navItem = (id: string): NavItem[] => {
     const screen = visible.get(id);
     if (!screen || manifest.disabledNavItems?.includes(id)) return [];
-    return [{ id, label: labels.get(id)!, href: screen.route.path, icon: screen.definition.icon ?? 'dashboard' }];
+    return [{ id, label: labels.get(id)!, href: screen.route.path, icon: getScreenMenuIcon(id, profile.id) ?? screen.definition.icon ?? 'dashboard' }];
   };
   const navigation: NavigationSection[] = profile.navigation.flatMap((section) => {
     if (manifest.disabledNavItems?.includes(section.id)) return [];
@@ -184,7 +185,7 @@ export function resolveAdminProfile(
       if ('screen' in item) return navItem(item.screen);
       if (manifest.disabledNavItems?.includes(item.id)) return [];
       const children = item.items.flatMap((child) => navItem(child.screen));
-      return children.length ? [{ id: item.id, label: item.label, icon: 'stack', children }] : [];
+      return children.length ? [{ id: item.id, label: item.label, icon: getGroupMenuIcon(item.id) ?? 'stack', children }] : [];
     });
     return items.length ? [{ id: section.id, label: section.label, items }] : [];
   });

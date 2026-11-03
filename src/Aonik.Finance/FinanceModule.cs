@@ -89,7 +89,9 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Contracts.Services.Payments.IStripeWebhookService, Services.Payments.StripeWebhookService>();
         // Saves payout destinations and stitches the customer→recipient party graph
         // (relationship edge + Beneficiary role) via the cross-module IPartyService seam.
-        services.AddScoped<Contracts.Services.Payments.IPayoutBeneficiaryService, Services.Payments.PayoutBeneficiaryService>();
+        services.AddScoped<Services.Payments.PayoutBeneficiaryService>();
+        services.AddScoped<Contracts.Services.Payments.IPayoutBeneficiaryService>(provider => provider.GetRequiredService<Services.Payments.PayoutBeneficiaryService>());
+        services.AddScoped<Contracts.Services.Payments.IOperatorPayoutBeneficiaryService>(provider => provider.GetRequiredService<Services.Payments.PayoutBeneficiaryService>());
         // Spec 008 — customer-facing recipient surface (CRUD + photo) projected over the
         // payout-beneficiary party graph. A façade: no recipient table of its own.
         services.AddScoped<Contracts.Services.Payments.IRecipientService, Services.Payments.RecipientService>();
@@ -179,7 +181,12 @@ public sealed class FinanceModule : IModule
         // Payabo B2C send-money orchestration: quote → confirm (lock → debit → connector →
         // transmission) → settle on partner webhook, over the shipped order / pricing / ledger /
         // payout / transmission / webhook primitives.
-        services.AddScoped<Contracts.Services.Remittance.IRemittanceOrderService, Services.Remittance.RemittanceOrderService>();
+        services.AddScoped<Services.Remittance.RemittanceOrderService>();
+        services.AddScoped<Contracts.Services.Remittance.IRemittanceReceiptService, Services.Remittance.RemittanceReceiptService>();
+        services.Configure<Services.Remittance.ReceiptEmailDeliveryOptions>(configuration.GetSection("ReceiptEmailDelivery"));
+        services.AddScoped<Contracts.Services.Remittance.IReceiptEmailDeliveryReceiver, Services.Remittance.ReceiptEmailDeliveryReceiver>();
+        services.AddScoped<Contracts.Services.Remittance.IRemittanceOrderService>(provider => provider.GetRequiredService<Services.Remittance.RemittanceOrderService>());
+        services.AddScoped<Contracts.Services.Remittance.IOperatorRemittanceService>(provider => provider.GetRequiredService<Services.Remittance.RemittanceOrderService>());
 
         // Partners
         services.AddScoped<Contracts.Services.Partners.IPartnerAdminService, Services.Partners.PartnerAdminService>();

@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "automatic history refresh after send",
+    "masked historical recipients",
+    "UTC request and outcome times",
+    "four honest send-status labels",
+    "failure clears stale rows",
+    "empty history",
+    "refresh retries without sending",
+    "next/previous server pages",
+    "captured tenant context",
+    "read-only staff history",
+    "light/dark captures"
+  ],
+  "historyReads": 22,
+  "emailRequests": 7
+}

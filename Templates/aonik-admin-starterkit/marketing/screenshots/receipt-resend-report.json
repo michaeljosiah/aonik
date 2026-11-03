@@ -1,0 +1,16 @@
+{
+  "checks": [
+    "history row opens recipient confirmation",
+    "masked recipient is not guessed",
+    "cancellation does not send",
+    "saved recipient and checkbox both required",
+    "new send reference for another copy",
+    "history refresh after resend",
+    "uncertain historical rows disabled",
+    "pending tab request prevents another copy",
+    "lost resend status check without another email",
+    "read-only actions hidden",
+    "light/dark captures"
+  ],
+  "emailRequests": 7
+}

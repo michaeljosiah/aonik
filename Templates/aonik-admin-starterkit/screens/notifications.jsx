@@ -1,7 +1,9 @@
 // Notifications screen — header tabs, filter rail, grouped feed.
 // Sources: System, Agents, Mentions, Approvals, Billing.
 
-function NotifIcon({ kind, color }) {
+function NotifIcon({ kind, color, agentName }) {
+  const portrait = agentName && globalThis.AonikAgentPortraits.resolve(agentName);
+  if (portrait) return <img src={portrait} alt={`${agentName} · AI agent`} data-agent-portrait={agentName} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flex: 'none', border: '1px solid var(--border)' }}/>;
   const iconByKind = {
     system:   'cog',
     agent:    'sparkles',
@@ -37,7 +39,7 @@ function NotifCard({ n }) {
         width: 6, height: 6, borderRadius: 999, background: 'var(--brand-secondary)',
       }}/>}
 
-      <NotifIcon kind={n.kind} color={n.color}/>
+      <NotifIcon kind={n.kind} color={n.color} agentName={n.agentName}/>
 
       <div style={{ minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -100,7 +102,7 @@ function ScreenNotifications() {
       kind: 'approval', color: 'var(--brand-secondary)', unread: true,
       title: 'Billing Agent · approval needed',
       tag: { label: 'Above policy', tone: 'pending', dot: true },
-      source: 'Agent · billing-001',
+      source: 'AI agent · Billing', agentName: 'billing-agent',
       body: 'Wants to apply £74,200 from Wise inbound to INV-2058 (Northstar). Amount exceeds the £50K auto-apply ceiling.',
       diff: [
         { t: 'add', text: 'Cr  4000 Revenue · Freight · NGN  £74,200.00' },
@@ -129,7 +131,7 @@ function ScreenNotifications() {
       kind: 'agent', color: 'var(--brand-primary)', unread: true,
       title: 'Insights Agent · weekly summary ready',
       tag: { label: 'fresh', tone: 'tint' },
-      source: 'agent · insights-002',
+      source: 'AI agent · Insights', agentName: 'insights-agent',
       body: 'Fuel category trending 14% over budget; NGN exposure doubled QoQ; receivables aging improving. 3 recommendations queued.',
       actions: [
         { label: 'Open summary', kind: 'primary' },
@@ -329,7 +331,7 @@ function ScreenNotifications() {
           marginBottom: 14,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <Avatar name="B" size={20} color="var(--brand-primary-10)" textColor="var(--brand-primary)"/>
+            <img src={globalThis.AonikAgentPortraits.resolve('billing-agent')} alt="Billing · AI agent" style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}/>
             <span style={{ fontSize: 11, fontWeight: 600 }}>Billing Agent</span>
             <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 9.5, color: 'var(--text-tertiary)' }}>just now</span>
           </div>

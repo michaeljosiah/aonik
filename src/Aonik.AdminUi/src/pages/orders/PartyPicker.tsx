@@ -37,6 +37,8 @@ export interface PartyPickerProps {
   placeholder?: string;
   /** Pre-loaded option for the current value, so the trigger renders a name on first paint. */
   preloaded?: PartyPickerOption | null;
+  /** Selection-only financial workflows must not expose unrelated party mutations. */
+  allowCreate?: boolean;
 }
 
 function toOption(item: CustomerListItem): PartyPickerOption {
@@ -80,13 +82,16 @@ function PartyTagPill({ tier, fallback }: { tier: string | null; fallback: strin
   );
 }
 
+const noExcludedParties: string[] = [];
+
 export function PartyPicker({
   label,
   value,
   onChange,
-  excludeIds = [],
+  excludeIds = noExcludedParties,
   placeholder = 'Select party',
   preloaded,
+  allowCreate = true,
 }: PartyPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -282,7 +287,7 @@ export function PartyPicker({
                       </button>
                     ))}
                 </div>
-                <div className="border-t border-border px-3 py-2">
+                {allowCreate && <div className="border-t border-border px-3 py-2">
                   <Button
                     type="button"
                     variant="ghost"
@@ -297,7 +302,7 @@ export function PartyPicker({
                     <Plus className="h-3 w-3" />
                     Add new party
                   </Button>
-                </div>
+                </div>}
               </>
             ) : (
               <div className="space-y-3 px-3.5 py-3">

@@ -1,4 +1,4 @@
-// Aonik Admin — production shell with flyout nav, bottom user profile, full TopBar
+// Aonik Admin — production shell with inline nav, bottom user profile, full TopBar
 
 // ─── Nav model ─────────────────────────────────────────────────────────
 // Orders is the universal "verb" primitive — any line item can ride on it
@@ -303,222 +303,40 @@ function ProfileMenuPopover({ anchorRect, onClose, onSelect }) {
   );
 }
 
+// shadcn sidebar anatomy: 16rem expanded, 3rem rail and inline collapsible groups.
 function AonikSidebar({ active = 'myspace', collapsed = false, showUpgrade = false, onProfileSelect, profileMenuOpen = false }) {
-  const [openId, setOpenId] = React.useState(null);
-  const [openRect, setOpenRect] = React.useState(null);
   const [profileOpen, setProfileOpen] = React.useState(profileMenuOpen);
   const [profileRect, setProfileRect] = React.useState(null);
   const profileTileRef = React.useRef(null);
-
-  // Allow demo artboards to force the popover open by passing profileMenuOpen=true.
-  // We measure the tile after layout so the popover anchors correctly.
   React.useEffect(() => {
     if (profileMenuOpen && profileTileRef.current) {
       setProfileRect(profileTileRef.current.getBoundingClientRect());
       setProfileOpen(true);
     }
   }, [profileMenuOpen]);
-
-  const findActive = () => {
-    for (const g of SIDEBAR_NAV) for (const i of g.items) {
-      if (i.id === active) return { parent: null, child: null };
-      if (i.children) for (const c of i.children) if (c.id === active) return { parent: i.id, child: c.id };
-    }
-    return {};
+  const containsActive = item => item.id === active || item.children?.some(containsActive);
+  const renderItem = item => {
+    const selected = item.id === active;
+    if (item.children?.length) return (
+      <details key={item.id} open={containsActive(item) || undefined} className="kit-nav-parent">
+        <summary title={item.label}><Icon name={window.AonikMenuIcons.legacyItem(item.id)} size={16}/>{!collapsed && <><span>{item.label}</span><Icon name="chevron" size={12}/></>}</summary>
+        <div className="kit-nav-children">{item.children.map(renderItem)}</div>
+      </details>
+    );
+    return <button type="button" key={item.id} className={'kit-nav-item' + (selected ? ' is-active' : '')} aria-current={selected ? 'page' : undefined} title={item.label}>
+      <Icon name={window.AonikMenuIcons.legacyItem(item.id)} size={16}/>{!collapsed && <><span>{item.label}</span>{item.badge != null && <small>{item.badge}</small>}</>}
+    </button>;
   };
-  const loc = findActive();
-  const w = collapsed ? 62 : 240;
-  const isActiveChild = id => loc.child === id;
-
   return (
-    <aside style={{
-      width: w, flex: 'none', position: 'relative',
-      background: 'var(--surface-inset)',
-      borderRight: '1px solid var(--border-light)',
-      display: 'flex', flexDirection: 'column',
-      padding: collapsed ? '14px 8px' : '14px 12px', gap: 4,
-      transition: 'width 180ms ease',
-    }}>
-      {/* brand */}
-      <div style={{ padding: '8px 10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        {collapsed ? <AonikMark size={22}/> : <AonikWordmark size={19}/>}
-        {!collapsed && <span className="hover-halo"><Icon name="chevron" size={14}/></span>}
-      </div>
-
-      {/* workspace switcher */}
-      {!collapsed && (
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '7px 10px', borderRadius: 8,
-          background: 'var(--surface)', border: '1px solid var(--border-light)',
-          marginBottom: 12,
-        }}>
-          <Avatar name="Primrose Logistics" size={24} color="#055a60" textColor="#fff"/>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Primrose Logistics</div>
-            <div style={{ fontSize: 10, color: 'var(--text-secondary)' }}>Prod · NGN · USD · GBP</div>
-          </div>
-          <Icon name="chevdown" size={12} color="var(--text-tertiary)"/>
-        </div>
-      )}
-
-      {/* search */}
-      {!collapsed && (
-        <div style={{ position: 'relative', marginBottom: 8 }}>
-          <span style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }}>
-            <Icon name="search" size={14}/>
-          </span>
-          <input className="input" placeholder="Search or ask…" style={{ paddingLeft: 32, height: 32, fontSize: 13, background: 'var(--surface)' }}/>
-          <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-tertiary)', background: 'var(--surface-inset)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border-light)' }}>⌘K</span>
-        </div>
-      )}
-
-      {/* nav */}
-      <div style={{ overflowY: 'auto', flex: 1, marginTop: 4 }}>
-        {SIDEBAR_NAV.map(group => (
-          <div key={group.group} style={{ marginBottom: 10 }}>
-            {!collapsed && (
-              <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase',
-                color: 'var(--text-tertiary)', padding: '6px 10px 4px' }}>{group.group}</div>
-            )}
-            {group.items.map(item => {
-              const hasChildren = item.children && item.children.length;
-              const isActive = item.id === active || loc.parent === item.id;
-              const isOpen = openId === item.id;
-              return (
-                <div key={item.id} style={{ position: 'relative' }}>
-                  <div
-                    onClick={e => {
-                      if (hasChildren) {
-                        if (isOpen) {
-                          setOpenId(null);
-                        } else {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setOpenId(item.id);
-                          setOpenRect(rect);
-                        }
-                      }
-                    }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 10,
-                      padding: collapsed ? '9px 0' : '7px 10px',
-                      justifyContent: collapsed ? 'center' : 'flex-start',
-                      borderRadius: 8, cursor: 'pointer',
-                      background: (isActive || isOpen) ? 'var(--surface)' : 'transparent',
-                      border: (isActive || isOpen) ? '1px solid var(--border-light)' : '1px solid transparent',
-                      color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                      fontSize: 13, fontWeight: isActive ? 500 : 400,
-                      boxShadow: (isActive || isOpen) ? '0 1px 2px 0 rgb(0 0 0 / 0.04)' : 'none',
-                      transition: 'background 120ms ease, border-color 120ms ease',
-                    }}
-                    onMouseEnter={e => { if (!isActive && !isOpen) e.currentTarget.style.background = 'rgba(0,0,0,0.03)'; }}
-                    onMouseLeave={e => { if (!isActive && !isOpen) e.currentTarget.style.background = 'transparent'; }}
-                  >
-                    <Icon name={item.icon} size={16} color={isActive ? 'var(--brand-primary)' : 'var(--text-secondary)'}/>
-                    {!collapsed && <span style={{ flex: 1 }}>{item.label}</span>}
-                    {!collapsed && item.badge != null && (
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600,
-                        padding: '1px 6px', borderRadius: 999, background: 'var(--brand-secondary)', color: '#fff' }}>{item.badge}</span>
-                    )}
-                    {!collapsed && hasChildren && (
-                      <Icon name="chevron" size={11} color={isOpen ? 'var(--brand-primary)' : 'var(--text-tertiary)'}/>
-                    )}
-                    {/* Collapsed-mode indicator dot if there are children */}
-                    {collapsed && hasChildren && (
-                      <span style={{ position: 'absolute', bottom: 4, right: 6, width: 4, height: 4, borderRadius: 999,
-                        background: isActive ? 'var(--brand-primary)' : 'var(--text-tertiary)' }}/>
-                    )}
-                  </div>
-                  {hasChildren && isOpen && (
-                    <NavPopover
-                      parent={item}
-                      isActiveChild={isActiveChild}
-                      anchorRect={openRect}
-                      onClose={() => setOpenId(null)}
-                      onSelect={() => {}}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-
-      {/* upgrade strip — only on free tier */}
-      {showUpgrade && !collapsed && (
-        <div style={{
-          marginTop: 8, padding: '10px 12px',
-          background: 'linear-gradient(135deg, var(--brand-primary) 0%, #077278 100%)',
-          color: '#fff', borderRadius: 10, cursor: 'pointer',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <Icon name="sparkles" size={12} color="#fff"/>
-            <span style={{ fontSize: 11.5, fontWeight: 600 }}>Launch plan · free</span>
-            <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.85 }}>168 / 200</span>
-          </div>
-          <div style={{ height: 4, background: 'rgba(255,255,255,0.22)', borderRadius: 999, overflow: 'hidden', marginBottom: 8 }}>
-            <div style={{ width: '84%', height: '100%', background: '#fff', borderRadius: 999 }}/>
-          </div>
-          <div style={{ fontSize: 10.5, opacity: 0.9, lineHeight: 1.4 }}>AI messages running low. Upgrade for 50× more.</div>
-          <button style={{
-            marginTop: 8, width: '100%', padding: '5px 8px',
-            background: '#fff', color: 'var(--brand-primary)',
-            border: 'none', borderRadius: 6, fontSize: 11.5, fontWeight: 600,
-            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          }}>Upgrade plan <Icon name="arrowright" size={11}/></button>
-        </div>
-      )}
-
-      {/* bottom user profile — click opens Account / Notifications / Theme / Sign out */}
-      <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: 10, marginTop: 4, position: 'relative' }}>
-        {collapsed ? (
-          <div
-            ref={profileTileRef}
-            onClick={e => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setProfileRect(rect);
-              setProfileOpen(o => !o);
-            }}
-            style={{ display: 'flex', justifyContent: 'center', padding: '4px 0', cursor: 'pointer' }}
-          >
-            <Avatar name="Oliver Chen" size={30} color="#7b76b6" textColor="#fff"/>
-          </div>
-        ) : (
-          <div
-            ref={profileTileRef}
-            onClick={e => {
-              const rect = e.currentTarget.getBoundingClientRect();
-              setProfileRect(rect);
-              setProfileOpen(o => !o);
-            }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '8px 8px', borderRadius: 8, cursor: 'pointer',
-              background: profileOpen ? 'var(--brand-primary-10)' : 'var(--surface)',
-              border: profileOpen ? '1px solid var(--brand-primary)' : '1px solid var(--border-light)',
-              transition: 'background 120ms ease, border-color 120ms ease',
-            }}>
-            <div style={{ position: 'relative' }}>
-              <Avatar name="Oliver Chen" size={32} color="#7b76b6" textColor="#fff"/>
-              <span style={{ position: 'absolute', bottom: -1, right: -1, width: 10, height: 10, borderRadius: 999, background: 'var(--success)', border: '2px solid var(--surface)' }}/>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Oliver Chen</div>
-              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>oliver@primrose.co</div>
-            </div>
-            <Icon name={profileOpen ? 'chevup' : 'chevdown'} size={12} color="var(--text-tertiary)"/>
-          </div>
-        )}
-
-        {profileOpen && (
-          <ProfileMenuPopover
-            anchorRect={profileRect}
-            onClose={() => setProfileOpen(false)}
-            onSelect={id => onProfileSelect?.(id)}
-          />
-        )}
-      </div>
+    <aside className={'kit-sidebar' + (collapsed ? ' is-collapsed' : '')}>
+      <div className="kit-sidebar-brand">{collapsed ? <AonikMark size={24}/> : <AonikWordmark size={20}/>}</div>
+      {!collapsed && <div className="kit-tenant"><Avatar name="Primrose Ltd" size={28}/><div><b>Primrose Ltd</b><small>Business workspace</small></div><Icon name="chevdown" size={12}/></div>}
+      {!collapsed && <input className="input" aria-label="Search design navigation" placeholder="Search or ask…" style={{height:32,fontSize:12,marginBottom:14}}/>}
+      <nav className="kit-sidebar-nav" aria-label="Design kit navigation">{SIDEBAR_NAV.map(group => <section key={group.group}>{!collapsed && <div className="kit-nav-label">{group.group}</div>}{group.items.map(renderItem)}</section>)}</nav>
+      {showUpgrade && !collapsed && <div className="kit-upgrade"><b>Launch plan</b><small>168 / 200 AI messages used</small><button className="btn btn-outline btn-sm">Upgrade plan</button></div>}
+      <div className="kit-sidebar-footer"><button ref={profileTileRef} type="button" className="kit-user" aria-label="Open user menu" onClick={e => { setProfileRect(e.currentTarget.getBoundingClientRect()); setProfileOpen(value => !value); }}>
+        <Avatar name="Oliver Chen" size={30}/>{!collapsed && <><span><b>Oliver Chen</b><small>Workspace administrator</small></span><Icon name="chevdown" size={12}/></>}
+      </button>{profileOpen && <ProfileMenuPopover anchorRect={profileRect} onClose={() => setProfileOpen(false)} onSelect={id => onProfileSelect?.(id)}/>}</div>
     </aside>
   );
 }
@@ -609,7 +427,7 @@ function AgentRail({ messages, proposals = [], thinking = false, children }) {
           background: 'linear-gradient(135deg, var(--brand-primary) 0%, #077278 100%)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
         }}>
-          <Icon name="sparkles" size={16}/>
+          <img src={globalThis.AonikAgentPortraits.resolve('aonik')} alt="AONIK · AI assistant" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }}/>
         </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>Ask Aonik</div>
@@ -671,7 +489,7 @@ function ProposalCard({ agent = 'Billing', confidence = 0.94, summary, diff, rea
       display: 'flex', flexDirection: 'column', gap: 10,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <Avatar name={agent} size={22} color="var(--brand-primary-10)" textColor="var(--brand-primary)"/>
+        {globalThis.AonikAgentPortraits.resolve(agent) ? <img src={globalThis.AonikAgentPortraits.resolve(agent)} alt={`${agent} · AI agent`} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }}/> : <Avatar name={agent} size={22} color="var(--brand-primary-10)" textColor="var(--brand-primary)"/>}
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-primary)' }}>{agent} Agent</span>
         <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)' }}>conf · {confidence.toFixed(2)}</span>
       </div>
@@ -687,7 +505,7 @@ function ProposalCard({ agent = 'Billing', confidence = 0.94, summary, diff, rea
       )}
       {reason && <div style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{reason}</div>}
       <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-        <button className="btn btn-secondary btn-sm">Apply</button>
+        <button className="btn btn-agent btn-sm">Apply</button>
         <button className="btn btn-outline btn-sm">Review</button>
         <button className="btn btn-ghost btn-sm">Dismiss</button>
       </div>

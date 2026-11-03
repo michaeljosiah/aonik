@@ -312,7 +312,7 @@ app.MapPlaygroundScenarioGenerate("/ai/playground/scenarios/generate")
     .RequireCors(CorsConfiguration.PolicyName);
 
 app.MapAdminNotificationStreaming("/admin/notifications/stream")
-    .RequireAuthorization("AdminPolicy")
+    .RequireAuthorization("AdminReadPolicy")
     .RequireCors(CorsConfiguration.PolicyName);
 
 // Voice WebSocket — Payabo mobile real-time voice mode.

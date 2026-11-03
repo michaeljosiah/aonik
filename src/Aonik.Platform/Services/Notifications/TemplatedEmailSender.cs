@@ -33,6 +33,13 @@ internal sealed class TemplatedEmailSender(
             new RenderNotificationTemplateRequest(message.TemplateName, "Email", model), cancellationToken);
 
         // Failure must reach the durable event dispatcher so its existing retry policy applies.
-        await sender.SendAsync(new EmailMessage(message.To, rendered.Subject, rendered.Body), cancellationToken);
+        try
+        {
+            await sender.SendAsync(new EmailMessage(message.To, rendered.Subject, rendered.Body, Attachments: message.Attachments, TrackingId: message.TrackingId), cancellationToken);
+        }
+        catch (MessagingNotConfiguredException ex)
+        {
+            throw new EmailDeliveryNotStartedException(ex.Message);
+        }
     }
 }

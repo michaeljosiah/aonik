@@ -6,6 +6,8 @@ import { parseAdminProfile, resolveAdminProfile, validateAdminProfile } from './
 import { readFileSync } from 'node:fs';
 import { adminProfiles, resolveCurrentAdminProfile, isProfilePathVisible } from './profileCatalog';
 import { resolveProfilePanels } from './profilePanels';
+import { getMenuIconPath, getScreenMenuIcon } from '@/lib/menuIcons';
+import type { NavItem } from '@/types';
 
 // ---------------------------------------------------------------------------
 // Route ownership against the REAL registry (Spec 097 §10.1, acceptance 6).
@@ -89,6 +91,90 @@ describe('registry route ownership', () => {
     registry = getModules();
   }, 60_000);
 
+  it('maps every registered screen to a renderable shared menu icon', () => {
+    for (const module of registry) {
+      for (const route of module.routes) {
+        if (!route.screen) continue;
+        const icon = getScreenMenuIcon(route.screen.id, 'general');
+        expect(icon, route.screen.id).toBeDefined();
+        expect(getMenuIconPath(icon!), route.screen.id).toBeTruthy();
+      }
+    }
+  });
+
+  it.each(['base', 'simi', 'food-commerce', 'arke-kids', 'remittance'])('uses shared icons throughout the resolved %s navigation', (businessType) => {
+    const permissions = registry.flatMap(module => module.routes.flatMap(route => {
+      const rule = route.screen?.permissions;
+      return rule && !('authenticatedAdmin' in rule) ? [...(rule.allOf ?? []), ...(rule.anyOf ?? [])] : [];
+    }));
+    const profile = resolveCurrentAdminProfile(registry, { ...manifestWithout(), businessType, permissions });
+    expect(profile).not.toBeNull();
+    const checkItems = (items: NavItem[]) => {
+      for (const item of items) {
+        expect(item.icon, item.id).toMatch(/^menu-/);
+        expect(getMenuIconPath(item.icon), item.id).toBeTruthy();
+        if (item.children) checkItems(item.children);
+      }
+    };
+    profile!.navigation.forEach(section => checkItems(section.items));
+    const commerce = profile!.navigation.flatMap(section => section.items).flatMap(item => item.children ?? [item]);
+    const menu = commerce.find(item => item.id === 'commerce.products');
+    if (businessType === 'food-commerce') expect(menu).toMatchObject({ label: 'Menu', icon: 'menu-menu' });
+    if (businessType === 'base' || businessType === 'simi') expect(menu?.icon).toBe('menu-products');
+  });
+
+  it('keeps general product icons for host administrators viewing a food-commerce tenant', () => {
+    const manifest = manifestWithout();
+    const profile = resolveCurrentAdminProfile(registry, { ...manifest, businessType: 'food-commerce', allowedPolicies: [...manifest.allowedPolicies!, 'PlatformAdmin'] });
+    const products = profile!.navigation.flatMap(section => section.items).flatMap(item => item.children ?? [item]).find(item => item.id === 'commerce.products');
+    expect(products).toMatchObject({ label: 'Products', icon: 'menu-products' });
+  });
+
+  it('resolves the Remittance profile with operational detail routes and no unrelated product routes', () => {
+    const manifest = { ...manifestWithout(), businessType: 'remittance', permissions: ['Catalog.Read', 'Ledger.Read', 'Users.Read', 'Roles.Read', 'Permissions.Read'] };
+    const profile = resolveCurrentAdminProfile(registry, manifest)!;
+    expect(profile.landingPath).toBe('/orders/activity');
+    expect(profile.navigation.map(section => section.label)).toEqual(['Money movement', 'Network & treasury', 'Administration']);
+    expect(profile.navigation[0].items[0]).toMatchObject({ label: 'Transfer orders', icon: 'menu-transfer-orders' });
+    for (const path of ['/orders', '/customers/customer-id', '/catalog/partners/partner-id', '/compliance/documents', '/compliance/documents/document-id', '/access/users/user-id', '/ai/agents/finance-agent', '/ledger/accounts', '/ledger/journal-entries']) {
+      expect(isProfilePathVisible(registry, profile, path), path).toBe(true);
+    }
+    for (const path of ['/orders/bill-payments/new', '/orders/bill-payments/order-id', '/billing/invoices', '/commerce', '/accounts', '/tenants']) {
+      expect(isProfilePathVisible(registry, profile, path), path).toBe(false);
+    }
+  });
+
+  it('keeps Remittance permissions, policies, module overrides and host audience authoritative', () => {
+    const manifest = { ...manifestWithout(), businessType: 'remittance', permissions: [] };
+    const restricted = resolveCurrentAdminProfile(registry, manifest)!;
+    expect(isProfilePathVisible(registry, restricted, '/catalog/partners')).toBe(false);
+    expect(isProfilePathVisible(registry, restricted, '/ledger')).toBe(false);
+    expect(isProfilePathVisible(registry, restricted, '/access/users')).toBe(false);
+    const withoutFinance = resolveCurrentAdminProfile(registry, { ...manifest, enabledModules: manifest.enabledModules.filter(id => id !== 'finance') })!;
+    expect(withoutFinance.navigation.some(section => section.id === 'network')).toBe(false);
+    expect(withoutFinance.landingPath).toBe('/customers');
+    const withoutDocuments = resolveCurrentAdminProfile(registry, { ...manifest, enabledModules: manifest.enabledModules.filter(id => id !== 'documents') })!;
+    expect(isProfilePathVisible(registry, withoutDocuments, '/compliance')).toBe(false);
+    expect(isProfilePathVisible(registry, withoutDocuments, '/compliance/documents')).toBe(false);
+    const withoutPolicy = resolveCurrentAdminProfile(registry, { ...manifest, permissions: ['Catalog.Read'], allowedPolicies: ['AdminUserPolicy'] })!;
+    expect(isProfilePathVisible(registry, withoutPolicy, '/catalog/partners')).toBe(false);
+    const host = resolveCurrentAdminProfile(registry, { ...manifest, allowedPolicies: [...manifest.allowedPolicies!, 'PlatformAdmin'] })!;
+    expect(host.labels.get('finance.orders')).toBe('All orders');
+    expect(isProfilePathVisible(registry, host, '/commerce')).toBe(true);
+  });
+
+  it('gates transfer creation and detail independently, including the static new route', () => {
+    const base = { ...manifestWithout(), businessType: 'remittance', allowedPolicies: ['AdminUserPolicy', 'AdminReadPolicy'], permissions: ['Payment.Read'] };
+    const reader = resolveCurrentAdminProfile(registry, base);
+    expect(isProfilePathVisible(registry, reader, '/orders/transfers/order-id')).toBe(true);
+    expect(isProfilePathVisible(registry, reader, '/orders/transfers/new')).toBe(false);
+    const writer = resolveCurrentAdminProfile(registry, { ...base, permissions: ['Payment.Read', 'Payment.Create', 'Customers.Read'], allowedPolicies: [...base.allowedPolicies, 'AdminWritePolicy'] });
+    expect(isProfilePathVisible(registry, writer, '/orders/transfers/new')).toBe(true);
+    expect(writer!.navigation[0].items.some(item => item.id === 'finance.transfer-new')).toBe(true);
+    expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...base, enabledModules: base.enabledModules.filter(id => id !== 'finance') }), '/orders/transfers/order-id')).toBe(false);
+    expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...base, businessType: 'food-commerce' }), '/orders/transfers/order-id')).toBe(false);
+  });
+
   it.each(['base', 'food-commerce'])('exposes discount management through the %s profile and Commerce module', (businessType) => {
     const manifest = { ...manifestWithout(), businessType };
     const profile = resolveCurrentAdminProfile(registry, manifest);
@@ -96,6 +182,16 @@ describe('registry route ownership', () => {
     expect(JSON.stringify(profile?.navigation)).toContain('/commerce/discounts');
     expect(pathRequiresBackendModule(registry, 'commerce', '/commerce/discounts')).toBe(true);
     expect(resolveDisabledModuleForPath(registry, manifestWithout('commerce'), '/commerce/discounts')).toMatchObject({ backendModuleId: 'commerce' });
+  });
+
+  it('exposes beneficiary management only through the right profile, module, policy and read permissions', () => {
+    const base = { ...manifestWithout(), businessType: 'remittance', allowedPolicies: ['AdminUserPolicy', 'AdminReadPolicy'], permissions: ['Payment.Read', 'Customers.Read'] };
+    const reader = resolveCurrentAdminProfile(registry, base);
+    expect(isProfilePathVisible(registry, reader, '/remittance/beneficiaries')).toBe(true);
+    expect(reader!.navigation[0].items.some(item => item.id === 'finance.beneficiaries')).toBe(true);
+    for (const changes of [{ permissions: ['Payment.Read'] }, { allowedPolicies: ['AdminUserPolicy'] }, { enabledModules: base.enabledModules.filter(id => id !== 'finance') }, { businessType: 'food-commerce' }]) {
+      expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...base, ...changes }), '/remittance/beneficiaries')).toBe(false);
+    }
   });
 
   it('validates the food-commerce JSON against actual classified screens', () => {

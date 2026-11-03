@@ -68,6 +68,7 @@ public class ChatThreadManagerTests
                         Id = Guid.NewGuid(),
                         Role = "assistant",
                         Content = "Hi there",
+                        AgentName = "personal-finance-agent",
                         SortOrder = 2,
                         CreatedAt = now,
                     },
@@ -100,10 +101,12 @@ public class ChatThreadManagerTests
         first.Source.Should().Be("db");
         first.Messages.Should().NotBeNull();
         first.Messages!.Select(m => m.Content).Should().Equal("Hello", "Hi there", "Need a budget");
+        first.Messages.Single(m => m.Role == "assistant").Name.Should().Be("personal-finance-agent");
 
         second.Source.Should().Be("cache");
         second.Messages.Should().NotBeNull();
         second.Messages!.Select(m => m.Content).Should().Equal("Hello", "Hi there", "Need a budget", "What should I cut?");
+        second.Messages.Single(m => m.Role == "assistant").Name.Should().Be("personal-finance-agent");
 
         chatThreadService.GetThreadCallCount.Should().Be(1);
     }

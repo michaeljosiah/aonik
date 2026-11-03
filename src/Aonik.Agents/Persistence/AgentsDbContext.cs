@@ -27,6 +27,10 @@ internal class AgentsDbContext : AonikDbContextBase
     public DbSet<TenantHttpTool> TenantHttpTools { get; set; } = null!;
 
     public DbSet<ChatThread> ChatThreads { get; set; } = null!;
+    public DbSet<ChatRoom> ChatRooms { get; set; } = null!;
+    public DbSet<ChatRoomMember> ChatRoomMembers { get; set; } = null!;
+    public DbSet<ChatRoomMessage> ChatRoomMessages { get; set; } = null!;
+    public DbSet<ChatRoomTurn> ChatRoomTurns { get; set; } = null!;
     public DbSet<ChatThreadMessage> ChatThreadMessages { get; set; } = null!;
     public DbSet<ConversationSummary> ConversationSummaries { get; set; } = null!;
     public DbSet<PlaygroundScenario> PlaygroundScenarios { get; set; } = null!;
@@ -82,6 +86,10 @@ internal class AgentsDbContext : AonikDbContextBase
         MapTable<TenantMcpServer>(modelBuilder, "TenantMcpServers");
         MapTable<TenantHttpTool>(modelBuilder, "TenantHttpTools");
         MapTable<ChatThread>(modelBuilder, "ChatThreads");
+        MapTable<ChatRoom>(modelBuilder, "ChatRooms");
+        MapTable<ChatRoomMember>(modelBuilder, "ChatRoomMembers");
+        MapTable<ChatRoomMessage>(modelBuilder, "ChatRoomMessages");
+        MapTable<ChatRoomTurn>(modelBuilder, "ChatRoomTurns");
         MapTable<ChatThreadMessage>(modelBuilder, "ChatThreadMessages");
 
         MapTable<PlaygroundScenario>(modelBuilder, "PlaygroundScenarios");

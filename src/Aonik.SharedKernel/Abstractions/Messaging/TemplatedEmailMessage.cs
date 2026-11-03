@@ -5,4 +5,6 @@ namespace Aonik.SharedKernel.Abstractions.Messaging;
 public record TemplatedEmailMessage(
     string TemplateName,
     string To,
-    IReadOnlyDictionary<string, object?> Model);
+    IReadOnlyDictionary<string, object?> Model,
+    IReadOnlyList<EmailAttachment>? Attachments = null,
+    Guid? TrackingId = null);

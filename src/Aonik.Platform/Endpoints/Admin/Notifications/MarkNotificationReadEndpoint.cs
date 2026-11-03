@@ -17,7 +17,7 @@ internal sealed class MarkNotificationReadEndpoint : EndpointWithoutRequest<Noti
     public override void Configure()
     {
         Post("/admin/notifications/{id}/read");
-        Policies("AdminPolicy");
+        Policies("AdminReadPolicy");
         Summary(s =>
         {
             s.Summary = "Mark notification as read";

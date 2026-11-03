@@ -18,6 +18,7 @@ import { AlertCircle, Calendar, Filter, Loader2, Plus, RefreshCw, Sparkles } fro
 import { toast } from 'sonner';
 
 import { Card, KpiTile, ProposalCard } from '@/components/layout/aonik';
+import { AonikCommentary } from '@/components/ai/AonikCommentary';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -251,10 +252,10 @@ export function MySpacePage() {
           <h1 className="mt-1.5 text-[26px] font-bold tracking-tight text-foreground">
             {greeting}
           </h1>
-          <p className="mt-1 text-[13px] text-muted-foreground">
+          <AonikCommentary>
             {proposalsWaiting} proposal{proposalsWaiting === 1 ? '' : 's'} waiting · {unpaidInvoiceCount} invoice
             {unpaidInvoiceCount === 1 ? '' : 's'} unpaid · cash position updated {cashFreshness}
-          </p>
+          </AonikCommentary>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <Button type="button" variant="outline" size="sm" title="Filter by date range">
@@ -732,7 +733,7 @@ function AgentProposalsCard({
           {proposals.map((p) => (
             <ProposalCard
               key={p.id}
-              agent={p.agentDomain || p.agentName}
+              agent={p.agentName || p.agentDomain}
               confidence={p.confidence}
               summary={p.summary}
               reason={p.reason ?? undefined}

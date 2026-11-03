@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Aonik.Finance.Contracts.Models.Remittance;
 using Aonik.Finance.Contracts.Services.Partners.Connectors;
 using Aonik.Finance.Contracts.Services.Pricing;
+using Aonik.Finance.Contracts.Services.Payments;
 using Aonik.Finance.Contracts.Services.Remittance;
 using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.Partners;
@@ -39,7 +40,7 @@ namespace Aonik.Finance.Services.Remittance;
 /// the quote and post the customer debit BEFORE any external connector call, and never hold a SQL
 /// transaction open across that call.
 /// </summary>
-internal sealed class RemittanceOrderService : IRemittanceOrderService
+internal sealed class RemittanceOrderService : IRemittanceOrderService, IOperatorRemittanceService
 {
     private const string RemittanceOrderType = "Remittance";
     private const string RemittanceQuoteType = "Remittance";
@@ -58,6 +59,8 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
     // supported destination methods for a corridor.
     private static readonly string[] CandidateDestinationMethods = { "Bank", "MobileMoney", "Wallet" };
 
+    private readonly IPermissionService _permissionService;
+    private readonly IPayoutBeneficiaryService _beneficiaryService;
     private readonly FinanceDbContext _db;
     private readonly IPricingService _pricingService;
     private readonly IPartnerConnectorResolver _connectorResolver;
@@ -85,8 +88,12 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         ISettingProvider settingProvider,
         IClock clock,
         IModuleGate moduleGate,
-        ILogger<RemittanceOrderService> logger)
+        ILogger<RemittanceOrderService> logger,
+        IPermissionService permissionService,
+        IPayoutBeneficiaryService beneficiaryService)
     {
+        _permissionService = permissionService;
+        _beneficiaryService = beneficiaryService;
         _db = db;
         _pricingService = pricingService;
         _connectorResolver = connectorResolver;
@@ -108,10 +115,20 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         CancellationToken cancellationToken = default)
     {
         ValidateQuoteRequest(request);
-
-        var tenantId = _tenantProvider.GetCurrentTenantId();
         await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, cancellationToken);
+        return await QuoteCoreAsync(request, cancellationToken);
+    }
 
+    public async Task<RemittanceQuoteResponse> QuoteForCustomerAsync(RemittanceQuoteRequest request, CancellationToken cancellationToken = default)
+    {
+        await EnsureOperatorPermissionAsync("Payment.Create", cancellationToken);
+        ValidateQuoteRequest(request);
+        await EnsureTenantCustomerAsync(request.CustomerPartyId, cancellationToken);
+        return await QuoteCoreAsync(request, cancellationToken);
+    }
+
+    private async Task<RemittanceQuoteResponse> QuoteCoreAsync(RemittanceQuoteRequest request, CancellationToken cancellationToken)
+    {
         var originCountry = Normalize(request.OriginCountry);
         var destinationCountry = Normalize(request.DestinationCountry);
         var originCurrency = Normalize(request.OriginCurrency);
@@ -172,6 +189,52 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         string? idempotencyKey,
         CancellationToken cancellationToken = default)
     {
+        await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, cancellationToken);
+        return await ConfirmCoreAsync(request, idempotencyKey, cancellationToken);
+    }
+
+    public async Task<RemittanceOrderResponse> ConfirmForCustomerAsync(ConfirmRemittanceRequest request, string idempotencyKey, bool confirmExecution, CancellationToken cancellationToken = default)
+    {
+        await EnsureOperatorPermissionAsync("Payment.Create", cancellationToken);
+        await EnsureOperatorPermissionAsync("Payment.Capture", cancellationToken);
+        if (!confirmExecution) throw new ArgumentException("Explicit transfer execution confirmation is required.", nameof(confirmExecution));
+        await EnsureTenantCustomerAsync(request.CustomerPartyId, cancellationToken);
+        ArgumentException.ThrowIfNullOrWhiteSpace(idempotencyKey);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var previous = await _db.Orders.AsNoTracking().FirstOrDefaultAsync(order =>
+            order.TenantId == tenantId && order.OrderType == RemittanceOrderType && order.IdempotencyKey == idempotencyKey.Trim(), cancellationToken);
+        if (previous is not null)
+        {
+            var details = JsonSerializer.Deserialize<RemittanceOrderDetails>(previous.ProvenanceJson);
+            if (previous.PayerPartyId != request.CustomerPartyId || details is null ||
+                details.PricingQuoteId != request.PricingQuoteId || details.DestinationExternalAccountId != request.DestinationExternalAccountId ||
+                details.PurposeCode != request.PurposeCode || details.Narration != request.Narration ||
+                (!string.IsNullOrWhiteSpace(request.ProviderCode) && !string.Equals(details.ProviderCode, request.ProviderCode, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidStateException("Idempotency key is already bound to another transfer request.");
+        }
+        else
+        {
+            var quote = await _db.PricingQuotes.AsNoTracking().FirstOrDefaultAsync(quote => quote.Id == request.PricingQuoteId, cancellationToken);
+            if (quote is not null && quote.CustomerId != request.CustomerPartyId)
+                throw new InvalidStateException("Pricing quote does not belong to the requested customer.");
+        }
+        try
+        {
+            return await ConfirmCoreAsync(request, idempotencyKey, cancellationToken);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidStateException or NotFoundException)
+        {
+            // Only an authoritative no-order result releases the editor's uncertain-send journal.
+            // Once an order exists, even a rejection can require an idempotent recovery attempt.
+            var started = await _db.Orders.AsNoTracking().AnyAsync(order => order.TenantId == tenantId &&
+                order.OrderType == RemittanceOrderType && order.IdempotencyKey == idempotencyKey.Trim(), cancellationToken);
+            if (!started) throw new RemittanceNotStartedException(ex.Message, ex);
+            throw;
+        }
+    }
+
+    private async Task<RemittanceOrderResponse> ConfirmCoreAsync(ConfirmRemittanceRequest request, string? idempotencyKey, CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(idempotencyKey))
         {
             throw new ArgumentException("An Idempotency-Key is required to confirm a remittance.", nameof(idempotencyKey));
@@ -184,9 +247,7 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         activity?.SetTag(FinanceActivitySource.StageTag, MoneyActionStages.Confirm);
         activity?.SetTag(FinanceActivitySource.TenantIdTag, tenantId);
 
-        // Authorization first — before any idempotency replay — so a different user who guesses the key
-        // and a victim's party id can neither confirm nor read another customer's remittance.
-        await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, cancellationToken);
+        // Both entry points authorise before reaching this shared, idempotent execution driver.
 
         // Idempotency: replaying the same key resumes the existing order. Scope by the caller's customer
         // party (already verified above), NOT just the tenant-wide key — the unique idempotency index
@@ -516,6 +577,36 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
         return await BuildResponseAsync(order, cancellationToken);
     }
 
+    public async Task<RemittanceOrderResponse?> GetForOperatorAsync(Guid orderId, CancellationToken cancellationToken = default)
+    {
+        await EnsureOperatorPermissionAsync("Payment.Read", cancellationToken);
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        var order = await _db.Orders.Include(order => order.Items)
+            .FirstOrDefaultAsync(order => order.Id == orderId && order.TenantId == tenantId && order.OrderType == RemittanceOrderType, cancellationToken);
+        return order is null ? null : await BuildResponseAsync(order, cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<PayoutBeneficiaryResponse>> ListDestinationsForCustomerAsync(Guid customerPartyId, CancellationToken cancellationToken = default)
+    {
+        await EnsureOperatorPermissionAsync("Payment.Read", cancellationToken);
+        await EnsureTenantCustomerAsync(customerPartyId, cancellationToken);
+        return await _beneficiaryService.ListBeneficiariesAsync(customerPartyId, cancellationToken);
+    }
+
+    private async Task EnsureOperatorPermissionAsync(string permission, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserProvider.GetCurrentUserId();
+        if (!userId.HasValue || userId == Guid.Empty || !await _permissionService.HasPermissionAsync(userId.Value, permission, cancellationToken))
+            throw new PermissionDeniedException(permission);
+    }
+
+    private async Task EnsureTenantCustomerAsync(Guid partyId, CancellationToken cancellationToken)
+    {
+        var tenantId = _tenantProvider.GetCurrentTenantId();
+        if (!await _db.Parties.AsNoTracking().AnyAsync(party => party.Id == partyId && party.TenantId == tenantId, cancellationToken))
+            throw new NotFoundException("Customer not found.");
+    }
+
     // ── Webhook settlement ─────────────────────────────────────────────────────
     public async Task ProcessWebhookAsync(
         PartnerWebhookEnvelope envelope,
@@ -792,9 +883,12 @@ internal sealed class RemittanceOrderService : IRemittanceOrderService
     private async Task DispatchRemittanceAsync(
         Order order, OrderItem item, Payout payout, RemittanceOrderDetails details, CancellationToken cancellationToken)
     {
-        var account = await _db.ExternalPayoutAccounts
+        // A saved destination can be removed after this order was confirmed. Its immutable
+        // provider binding must remain available to resume that existing order only.
+        var account = await _db.ExternalPayoutAccounts.IgnoreQueryFilters()
             .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == details.DestinationExternalAccountId, cancellationToken)
+            .FirstOrDefaultAsync(a => a.Id == details.DestinationExternalAccountId &&
+                a.TenantId == order.TenantId && a.CustomerPartyId == order.PayerPartyId, cancellationToken)
             ?? throw new NotFoundException("Destination payout account no longer exists; cannot dispatch.");
 
         var connector = await ResolveBoundPayoutConnectorAsync(payout.ConnectorId, details.ProviderCode, cancellationToken);
