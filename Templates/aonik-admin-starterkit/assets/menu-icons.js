@@ -2,6 +2,23 @@
 // Shared by the native showcase, the React design canvas and the SVG asset generator.
 (() => {
   const paths = {
+    "family": '<circle cx="8" cy="6" r="3"/><circle cx="17" cy="8" r="2"/><path d="M2 21v-5a6 6 0 0 1 12 0v5m2-7a5 5 0 0 1 6 5v2"/>',
+    "children": '<circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2M9 7h.01M15 7h.01m-5 3c1 1 3 1 4 0M12 4l2-2"/>',
+    "worlds": '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-5 5-5 13 0 18 5-5 5-13 0-18M5 7h14M5 17h14"/>',
+    "editions": '<path d="M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3zM12 6v16M6 9h3m-3 4h3m6-4h3m-3 4h3"/>',
+    "auto-story": '<path d="M4 5h6l2 2 2-2h6v15h-6l-2 2-2-2H4zM12 7v15M18 2v5m-2.5-2.5h5"/>',
+    "credits": '<ellipse cx="10" cy="6" rx="7" ry="3"/><path d="M3 6v5c0 2 3 3 7 3m7-8v4M3 11v5c0 2 3 3 7 3"/><circle cx="17" cy="17" r="5"/><path d="M17 14v6m-2-3h4"/>',
+    "print": '<path d="M6 8V3h12v5M6 17H3V8h18v9h-3M6 13h12v9H6zM17 11h.01M9 17h6m-6 3h4"/>',
+    "submissions": '<path d="M5 3h10l4 4v14H5zM14 3v5h5M12 17V10m-3 3 3-3 3 3"/>',
+    "catalogue": '<rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/><path d="M6 7h1m-1 4h1m10-4h1m-1 4h1M3 17h7m4 0h7"/>',
+    "release": '<path d="M5 21V3m0 1h14l-3 5 3 5H5"/><path d="m10 8 2 2 3-4"/>',
+    "community": '<circle cx="7" cy="7" r="3"/><path d="M1 21v-3a6 6 0 0 1 10-4M14 3h9v9h-5l-4 3V3zM17 6h3m-3 3h3M15 21h6"/>',
+
+    support: '<path d="M4 13v-3a8 8 0 0 1 16 0v3M4 12H2v7h4v-7zM20 12h2v7h-4v-7zM20 19a3 3 0 0 1-3 3h-4"/>',
+    email: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    inbox: '<path d="m5 4-3 10v6h20v-6L19 4zM2 14h6l2 3h4l2-3h6"/>',
+    knowledge: '<path d="M12 5C9 3 5 3 2 4v15c3-1 7-1 10 1 3-2 7-2 10-1V4c-3-1-7-1-10 1zM12 5v15M5 8h3m-3 4h3m8-4h3m-3 4h3"/>',
+    search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/>',
     home: '<path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9"/>',
     workspace: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 8h18M9 8v13"/>',
     overview: '<rect x="3" y="3" width="7" height="10" rx="1.5"/><rect x="14" y="3" width="7" height="6" rx="1.5"/><rect x="3" y="17" width="7" height="4" rx="1.5"/><rect x="14" y="13" width="7" height="8" rx="1.5"/>',
@@ -171,7 +188,26 @@
   assign('workflows', 'ai.workflows ai.workflow-detail');
   assign('extensions', 'ai.extensions');
 
-  const groups = { 'bill-payments':'bill-payments', remittances:'remittances', billing:'billing', commerce:'commerce', team:'team', content:'content-blocks', 'ai-agents':'agents', observability:'observability', 'host-settings':'settings' };
+  assign('overview','arke.overview');
+  assign('family','arke.families');
+  assign('children','arke.children');
+  assign('policies','arke.consent');
+  assign('worlds','arke.worlds');
+  assign('editions','arke.editions');
+  assign('jobs','arke.generation');
+  assign('auto-story','arke.auto-stories');
+  assign('compliance','arke.safety');
+  assign('billing','arke.subscriptions');
+  assign('categories','arke.plans');
+  assign('credits','arke.credits');
+  assign('print','arke.print');
+  assign('submissions','arke.submissions');
+  assign('catalogue','arke.catalogue');
+  assign('release','arke.releases');
+  assign('community','arke.community');
+  assign('support','arke.support');
+  assign('usage','arke.reports');
+  const groups = { 'arke-people':'family', 'arke-worlds':'worlds', 'arke-production':'jobs', 'arke-billing':'billing', 'arke-orders':'print', 'arke-publishing':'catalogue', 'arke-service':'support',  'bill-payments':'bill-payments', remittances:'remittances', billing:'billing', commerce:'commerce', team:'team', content:'content-blocks', 'ai-agents':'agents', observability:'observability', 'host-settings':'settings' };
   const businessOverrides = {
     'food-commerce': { 'commerce.products':'menu', 'commerce.product-detail':'menu', 'commerce.content':'menu-content', 'commerce.orders':'food-orders', 'commerce.order-detail':'food-orders' },
     remittance: { 'finance.orders':'transfer-orders', 'finance.orders-root':'transfer-orders', 'finance.order-edit':'transfer-orders' }

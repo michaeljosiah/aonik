@@ -1,0 +1,48 @@
+{
+  "checks": [
+    "real Admin UI mounts",
+    "Arke profile and shared tools visible",
+    "connection states explicit",
+    "no simulated production customer data",
+    "family navigation works",
+    "no writes or runtime exceptions"
+  ],
+  "requests": [
+    {
+      "route": "/bootstrap/status",
+      "method": "GET"
+    },
+    {
+      "route": "/host/me/tenants",
+      "method": "GET"
+    },
+    {
+      "route": "/admin/manifest",
+      "method": "GET"
+    },
+    {
+      "route": "/admin/notifications/stream",
+      "method": "GET"
+    },
+    {
+      "route": "/admin/notifications",
+      "method": "GET"
+    },
+    {
+      "route": "/admin/notifications/summary",
+      "method": "GET"
+    },
+    {
+      "route": "/ai/agents/configurations",
+      "method": "GET"
+    },
+    {
+      "route": "/admin/notifications",
+      "method": "GET"
+    },
+    {
+      "route": "/admin/notifications/summary",
+      "method": "GET"
+    }
+  ]
+}

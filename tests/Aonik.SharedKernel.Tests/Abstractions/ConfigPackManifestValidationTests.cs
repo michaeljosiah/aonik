@@ -71,11 +71,29 @@ public class ConfigPackManifestValidationTests
     }
 
     [Fact]
+    public void Get_Should_LoadArkeWorldsPack_WithoutPublishingDraftOffersOrOverridingAgents()
+    {
+        // Arrange / Act
+        var pack = _source.Get(" ARKE-WORLDS ");
+
+        // Assert
+        pack.Should().NotBeNull();
+        pack!.BusinessType.Should().Be("arke-worlds");
+        pack.DisplayName.Should().Be("Arke Worlds");
+        pack.Modules.Should().BeEquivalentTo(new[] { ModuleIds.Workspaces, ModuleIds.Groups,
+            ModuleIds.Subscriptions, ModuleIds.Finance, ModuleIds.Documents, ModuleIds.Ai, ModuleIds.Agents });
+        pack.Settings.Should().ContainSingle().Which.Key.Should().Be("Branding.AgentDisplayName");
+        pack.Settings["Branding.AgentDisplayName"].Should().Be("AONIK");
+        pack.ReferenceData.Should().BeEmpty("commercial proposals must not become live prices or entitlements");
+        pack.Agents.Should().BeEmpty("model routing remains authoritative");
+    }
+
+    [Fact]
     public void ListBusinessTypes_Should_LoadEveryShippedPack_When_EachIsValidated()
     {
         var types = _source.ListBusinessTypes();
 
-        types.Should().Contain(new[] { "base", "food-commerce", "simi", "remittance" });
+        types.Should().Contain(new[] { "base", "food-commerce", "simi", "remittance", "arke-worlds" });
 
         foreach (var type in types)
         {

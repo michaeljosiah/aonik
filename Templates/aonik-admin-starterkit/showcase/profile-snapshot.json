@@ -4,7 +4,8 @@
     "simi": "general",
     "food-commerce": "food-commerce",
     "arke-kids": "arke-kids",
-    "remittance": "remittance"
+    "remittance": "remittance",
+    "arke-worlds": "arke-worlds"
   },
   "profiles": {
     "general": {
@@ -688,6 +689,231 @@
           ]
         }
       ]
+    },
+    "arke-worlds": {
+      "id": "arke-worlds",
+      "landingPage": "arke.overview",
+      "screens": {
+        "workspace": {},
+        "customers": {},
+        "customer-detail": {},
+        "finance.orders-root": {},
+        "finance.orders": {},
+        "finance.invoices": {},
+        "finance.invoice-new": {},
+        "finance.invoice-detail": {},
+        "finance.ledger": {},
+        "finance.ledger-accounts": {},
+        "finance.journal-entries": {},
+        "documents": {},
+        "document-new": {},
+        "document-detail": {},
+        "access.users": {},
+        "access.user-detail": {},
+        "access.roles": {},
+        "access.permissions": {},
+        "ai.chat": {},
+        "ai.chat-agent": {},
+        "ai.agents": {},
+        "ai.agent-detail": {},
+        "ai.tasks": {},
+        "ai.usage": {},
+        "ai.traces": {},
+        "ai.trace-detail": {},
+        "approvals": {},
+        "settings": {},
+        "settings.modules": {},
+        "settings.audit-logs": {},
+        "arke.overview": {},
+        "arke.families": {},
+        "arke.children": {},
+        "arke.consent": {},
+        "arke.worlds": {},
+        "arke.editions": {},
+        "arke.generation": {},
+        "arke.auto-stories": {},
+        "arke.safety": {},
+        "arke.subscriptions": {},
+        "arke.plans": {},
+        "arke.credits": {},
+        "arke.print": {},
+        "arke.submissions": {},
+        "arke.catalogue": {},
+        "arke.releases": {},
+        "arke.community": {},
+        "arke.support": {},
+        "arke.reports": {}
+      },
+      "navigation": [
+        {
+          "id": "arke-workspace",
+          "label": "Workspace",
+          "items": [
+            {
+              "screen": "arke.overview"
+            }
+          ]
+        },
+        {
+          "id": "arke-people",
+          "label": "People",
+          "items": [
+            {
+              "screen": "customers"
+            },
+            {
+              "screen": "arke.families"
+            },
+            {
+              "screen": "arke.children"
+            },
+            {
+              "screen": "arke.consent"
+            }
+          ]
+        },
+        {
+          "id": "arke-worlds",
+          "label": "Worlds & stories",
+          "items": [
+            {
+              "screen": "arke.worlds"
+            },
+            {
+              "screen": "arke.editions"
+            }
+          ]
+        },
+        {
+          "id": "arke-production",
+          "label": "Production",
+          "items": [
+            {
+              "screen": "arke.generation"
+            },
+            {
+              "screen": "arke.auto-stories"
+            },
+            {
+              "screen": "arke.safety"
+            },
+            {
+              "screen": "approvals"
+            }
+          ]
+        },
+        {
+          "id": "arke-billing",
+          "label": "Billing",
+          "items": [
+            {
+              "screen": "arke.subscriptions"
+            },
+            {
+              "screen": "arke.plans"
+            },
+            {
+              "screen": "arke.credits"
+            },
+            {
+              "screen": "finance.invoices"
+            },
+            {
+              "screen": "finance.ledger"
+            }
+          ]
+        },
+        {
+          "id": "arke-orders",
+          "label": "Orders & print",
+          "items": [
+            {
+              "screen": "finance.orders"
+            },
+            {
+              "screen": "arke.print"
+            }
+          ]
+        },
+        {
+          "id": "arke-publishing",
+          "label": "Publishing",
+          "items": [
+            {
+              "screen": "arke.submissions"
+            },
+            {
+              "screen": "arke.catalogue"
+            },
+            {
+              "screen": "arke.releases"
+            },
+            {
+              "screen": "arke.community"
+            }
+          ]
+        },
+        {
+          "id": "arke-service",
+          "label": "Service & reporting",
+          "items": [
+            {
+              "screen": "arke.support"
+            },
+            {
+              "screen": "arke.reports"
+            }
+          ]
+        },
+        {
+          "id": "arke-administration",
+          "label": "Administration",
+          "items": [
+            {
+              "id": "team",
+              "label": "Team",
+              "items": [
+                {
+                  "screen": "access.users"
+                },
+                {
+                  "screen": "access.roles"
+                },
+                {
+                  "screen": "access.permissions"
+                }
+              ]
+            },
+            {
+              "id": "ai-agents",
+              "label": "AI & agents",
+              "items": [
+                {
+                  "screen": "ai.agents"
+                },
+                {
+                  "screen": "ai.tasks"
+                },
+                {
+                  "screen": "ai.usage"
+                },
+                {
+                  "screen": "ai.traces"
+                }
+              ]
+            },
+            {
+              "screen": "documents"
+            },
+            {
+              "screen": "settings"
+            },
+            {
+              "screen": "settings.audit-logs"
+            }
+          ]
+        }
+      ]
     }
   },
   "packs": {
@@ -784,6 +1010,25 @@
       ],
       "settings": {
         "Branding.AgentDisplayName": "Remittance"
+      },
+      "agents": [],
+      "referenceData": []
+    },
+    "arke-worlds": {
+      "businessType": "arke-worlds",
+      "version": 1,
+      "displayName": "Arke Worlds",
+      "modules": [
+        "workspaces",
+        "groups",
+        "subscriptions",
+        "finance",
+        "documents",
+        "ai",
+        "agents"
+      ],
+      "settings": {
+        "Branding.AgentDisplayName": "AONIK"
       },
       "agents": [],
       "referenceData": []
@@ -2145,6 +2390,245 @@
       "requires": [
         "agents"
       ]
+    },
+    "arke.overview": {
+      "id": "arke.overview",
+      "label": "Overview",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-overview",
+      "path": "/arke/overview",
+      "requires": []
+    },
+    "arke.families": {
+      "id": "arke.families",
+      "label": "Families",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-family",
+      "path": "/arke/families",
+      "requires": [
+        "groups"
+      ]
+    },
+    "arke.children": {
+      "id": "arke.children",
+      "label": "Child profiles",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-children",
+      "path": "/arke/children",
+      "requires": [
+        "groups"
+      ]
+    },
+    "arke.consent": {
+      "id": "arke.consent",
+      "label": "Consent & privacy",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-policies",
+      "path": "/arke/consent",
+      "requires": [
+        "groups"
+      ]
+    },
+    "arke.worlds": {
+      "id": "arke.worlds",
+      "label": "Worlds",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-worlds",
+      "path": "/arke/worlds",
+      "requires": [
+        "workspaces"
+      ]
+    },
+    "arke.editions": {
+      "id": "arke.editions",
+      "label": "Story library",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-editions",
+      "path": "/arke/editions",
+      "requires": [
+        "workspaces"
+      ]
+    },
+    "arke.generation": {
+      "id": "arke.generation",
+      "label": "Generation jobs",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-jobs",
+      "path": "/arke/generation",
+      "requires": [
+        "workspaces"
+      ]
+    },
+    "arke.auto-stories": {
+      "id": "arke.auto-stories",
+      "label": "Monthly stories",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-auto-story",
+      "path": "/arke/auto-stories",
+      "requires": [
+        "workspaces",
+        "subscriptions"
+      ]
+    },
+    "arke.safety": {
+      "id": "arke.safety",
+      "label": "Safety review",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-compliance",
+      "path": "/arke/safety",
+      "requires": [
+        "workspaces"
+      ]
+    },
+    "arke.subscriptions": {
+      "id": "arke.subscriptions",
+      "label": "Subscriptions",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-billing",
+      "path": "/arke/subscriptions",
+      "requires": [
+        "subscriptions"
+      ]
+    },
+    "arke.plans": {
+      "id": "arke.plans",
+      "label": "Plans & entitlements",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-categories",
+      "path": "/arke/plans",
+      "requires": [
+        "subscriptions"
+      ]
+    },
+    "arke.credits": {
+      "id": "arke.credits",
+      "label": "Credits & usage",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-credits",
+      "path": "/arke/credits",
+      "requires": [
+        "subscriptions"
+      ]
+    },
+    "arke.print": {
+      "id": "arke.print",
+      "label": "Print & fulfilment",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-print",
+      "path": "/arke/print",
+      "requires": [
+        "workspaces",
+        "subscriptions"
+      ]
+    },
+    "arke.submissions": {
+      "id": "arke.submissions",
+      "label": "Creator submissions",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-submissions",
+      "path": "/arke/submissions",
+      "requires": [
+        "workspaces"
+      ]
+    },
+    "arke.catalogue": {
+      "id": "arke.catalogue",
+      "label": "Player catalogue",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-catalogue",
+      "path": "/arke/catalogue",
+      "requires": [
+        "workspaces"
+      ]
+    },
+    "arke.releases": {
+      "id": "arke.releases",
+      "label": "Release readiness",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-release",
+      "path": "/arke/releases",
+      "requires": []
+    },
+    "arke.community": {
+      "id": "arke.community",
+      "label": "Community & campaigns",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-community",
+      "path": "/arke/community",
+      "requires": []
+    },
+    "arke.support": {
+      "id": "arke.support",
+      "label": "Support inbox",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-support",
+      "path": "/arke/support",
+      "requires": []
+    },
+    "arke.reports": {
+      "id": "arke.reports",
+      "label": "Reports",
+      "permissions": {
+        "authenticatedAdmin": true
+      },
+      "policy": "AdminPolicy",
+      "icon": "menu-usage",
+      "path": "/arke/reports",
+      "requires": []
     }
   }
 }

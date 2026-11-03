@@ -39,6 +39,17 @@ export const businesses = {
     attention: [['Payment follow-up','12 non-terminal orders are awaiting payment.','warning'], ['Menu content','2 menu items have content awaiting review.','info'], ['Cart window','18 open carts in the demo window; 2 have selection drift.','warning']],
     agent: { name: 'Kitchen Agent', title: 'A little less admin. More kitchen.', text: 'Two menu descriptions are ready for review. I have prepared suggested edits with the original item references.', run: 'RUN-DEMO-3042', action: 'Review suggestions' }
   },
+  'arke-worlds': {
+    name:'Arke Worlds', tenant:'Arke Worlds', initials:'A', profile:'arke-worlds',
+    modules:['workspaces','groups','subscriptions','finance','documents','ai','agents'], scene:'arke.overview',
+    description:'Installed Arke Worlds pack · Native end-to-end designs in arke-worlds.html · Staff integration states are explicit.',
+    subtitle:'One operating workspace for Kids, Studio and Player.',
+    metrics:[['Registered customers','3','','Fictional adult contacts'],['Active customers','2','','Example family accounts'],['AI runs this month','2','','Illustrative operations'],['Awaiting approval','3','','Delivery, safety and editorial reviews']],
+    chart:{title:'Example activity',value:'3 accounts',note:'Illustrative records, not live adoption evidence',series:[1,1,2,2,2,3,3],labels:['Mon','Tue','Wed','Thu','Fri','Sat','Sun']},
+    table:{title:'Arke operations',note:'Fictional workflow references. Open arke-worlds.html for the complete editable workspace.',columns:['Reference','Product','Work','Owner','State'],rows:[['JOB-101','Kids','Resume saved delivery','Operations','Review required'],['SAFE-102','Kids','Held narration output','Safety reviewer','Review required'],['SUBM-201','Studio / Player','Exact-edition review','Editorial','Review required']]},
+    attention:[['Commercial offer','September reference and proposed v3 terms require a decision.','warning'],['Private family data','Child profiles stay inside guardian and staff scope.','info'],['Publication boundary','Only reviewed public packages enter Player.','info']],
+    agent:{name:'AONIK',title:'Keep the whole operation connected.',text:'Review delivery, safety and exact-package publication separately. Financial and child-access changes require the owning service and policy.',run:'RUN-DEMO-AW',action:'Review operations'}
+  },
   'arke-kids': {
     name: 'Arke Kids', tenant: 'Arke Kids', initials: 'A', profile: 'arke-kids',
     modules: ['ai','agents'], scene: 'customers',

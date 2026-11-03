@@ -102,7 +102,7 @@ describe('registry route ownership', () => {
     }
   });
 
-  it.each(['base', 'simi', 'food-commerce', 'arke-kids', 'remittance'])('uses shared icons throughout the resolved %s navigation', (businessType) => {
+  it.each(['base', 'simi', 'food-commerce', 'arke-kids', 'remittance', 'arke-worlds'])('uses shared icons throughout the resolved %s navigation', (businessType) => {
     const permissions = registry.flatMap(module => module.routes.flatMap(route => {
       const rule = route.screen?.permissions;
       return rule && !('authenticatedAdmin' in rule) ? [...(rule.allOf ?? []), ...(rule.anyOf ?? [])] : [];
@@ -192,6 +192,23 @@ describe('registry route ownership', () => {
     for (const changes of [{ permissions: ['Payment.Read'] }, { allowedPolicies: ['AdminUserPolicy'] }, { enabledModules: base.enabledModules.filter(id => id !== 'finance') }, { businessType: 'food-commerce' }]) {
       expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...base, ...changes }), '/remittance/beneficiaries')).toBe(false);
     }
+  });
+
+  it('resolves Arke Worlds while retaining module, permission, policy and legacy profile boundaries', () => {
+    const manifest = { ...manifestWithout(), businessType: 'arke-worlds', permissions: ['Invoice.Read', 'Ledger.Read', 'Customers.Read'] };
+    const result = resolveCurrentAdminProfile(registry, manifest)!;
+    expect(result.landingPath).toBe('/arke/overview');
+    for (const path of ['/arke/families','/arke/children','/arke/worlds','/arke/editions','/arke/generation','/arke/auto-stories','/arke/safety','/arke/subscriptions','/arke/plans','/arke/credits','/arke/print','/arke/submissions','/arke/catalogue','/arke/releases','/arke/community','/arke/support','/arke/reports','/customers','/billing/invoices','/ledger']) {
+      expect(isProfilePathVisible(registry, result, path), path).toBe(true);
+    }
+    expect(isProfilePathVisible(registry, result, '/commerce/production')).toBe(false);
+    expect(isProfilePathVisible(registry, result, '/orders/transfers/new')).toBe(false);
+    const noWorkspace = { ...manifest, enabledModules: manifest.enabledModules.filter(id => id !== 'workspaces') };
+    expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, noWorkspace), '/arke/worlds')).toBe(false);
+    const readOnly = { ...manifest, allowedPolicies: ['AdminUserPolicy'] };
+    expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, readOnly), '/arke/families')).toBe(false);
+    expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, readOnly), '/customers')).toBe(true);
+    expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...manifest, businessType: 'arke-kids' }), '/arke/overview')).toBe(false);
   });
 
   it('validates the food-commerce JSON against actual classified screens', () => {

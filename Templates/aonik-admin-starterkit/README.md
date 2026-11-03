@@ -47,6 +47,32 @@ The source is `screens/ai-chat.jsx` with scoped styles in `design-system/chat.cs
 
 Run `node Templates/aonik-admin-starterkit/scripts/verify-chat-artboards.mjs` to check the interactions and generate twelve clean light/dark marketing captures, twelve canvas previews and `chat-design-report.json`. Clean previews are available at `chat.html?capture=1&scene=collaboration&theme=light` (also `slideout`, `permissions`, `proposal-review`, `notifications`, `mentions`, and `theme=dark`).
 
+## Editable support designs
+
+Open `support.html` for four native editable artboards: an email inbox, customer conversation, AI-assisted reply review and an escalation queue. They also appear in the main canvas under **Support · Customer conversations**, with eight light/dark marketing scenes and additional confirmation-state/canvas exports in the gallery.
+
+The shared AONIK portrait represents the copilot. Search, product queues, case selection, internal notes, triage review, editable drafts, recipient confirmation and operational handoffs work locally with fictional data. These are design concepts; no mailbox, email sender, model or support API is connected.
+
+Source: `screens/support.jsx` and `design-system/support.css`. New Support, Email, Inbox, Knowledge and Search vectors extend the canonical icon library and its generated application copy. Run `node Templates/aonik-admin-starterkit/scripts/verify-support-artboards.mjs` from the repository root to verify the local interactions and regenerate twenty exports. See `docs/features/support-designs.md` for behavior and implementation boundaries.
+
+## Arke Worlds business workspace
+
+Open `arke-worlds.html` for 28 native editable artboards and `marketing/arke-worlds.html` for their light/dark review gallery. The new `arke-worlds` installed pack and Admin UI profile support the Arke portfolio, with Kids first and Studio/Player lenses. Existing `arke-kids` tenants are retained. Main application Arke-specific routes show truthful connection states; shared customer, finance, document and AI tools keep their existing behavior.
+
+Designs cover families and guardian consent, child aliases, persistent worlds, edition review, recoverable generation, monthly stories, versioned offers, subscriptions and credits, print intent, support, reports, private creator submissions, exact-package publication and launch/community operations. Proposed v3 prices and readiness dates are not live promises. See `docs/features/arke-worlds-business-type.md` for the source decisions and service boundaries.
+
+Run `node Templates/aonik-admin-starterkit/scripts/verify-arke-worlds.mjs` for connected workflow checks and 64 light/dark exports, then `scripts/build-arke-review.mjs` to refresh the gallery. `sync-design.mjs` also checks the shared workspace catalogue and installed profile snapshot.
+
+## Simplified Food Business designs
+
+For a local preview, run `python scripts/serve-designs.py --port 4173` from the starter-kit directory, then open `http://127.0.0.1:4173/food-business.html`. The server also exposes linked feature documentation under `/docs/`.
+
+Open `food-business.html` for forty-one native editable views, replacing the twenty-four Commerce/Make/Storefront artboards and adding packing plus connected customer and finance views. The eight primary areas are **Overview, Customers, Orders, Kitchen, Stock & purchasing, Finance, Shop, Reports**. The AONIK shell includes a selected-business panel, record search, notifications, chat and workspace settings. Owner/kitchen role previews illustrate navigation scope, not production authorization. Customer → order → invoice → payment → ledger links preserve record identity. Customer detail restores the shared Overview, Orders, Commerce, Finance, Insights, Documents and Activity tabs, including scoped notes, delivery preferences, financial subviews and file previews. The main canvas retains the original artboard IDs. Record drawers carry the operational detail, and each page has one primary action.
+
+`marketing/food-business.html` is the focused review gallery, with all light/dark exports and three original-versus-revised comparisons. The main marketing gallery now points its Food Business cards at these revised designs. Existing installed business-profile snapshots and the live application remain unchanged.
+
+Source: `screens/food-business-data.js`, `screens/food-business-views.jsx`, `screens/food-business-records.jsx`, `screens/food-customer-detail.jsx`, `screens/food-business.jsx` and `design-system/food-business.css`. Run `node Templates/aonik-admin-starterkit/scripts/verify-food-business.mjs` to verify all forty-one artboards, connected local review flows and one hundred and six theme exports. Run `node Templates/aonik-admin-starterkit/scripts/build-food-review.mjs` after editing the scene inventory to regenerate the review gallery. See `docs/features/food-business-designs.md` for the navigation map and preserved constraints.
+
 ## Production design alignment
 
 `src/Aonik.AdminUi/src/index.css` owns the design tokens. This kit mirrors its shadcn semantic contract: white light surfaces, charcoal dark surfaces, teal primary controls (`#055a60` / `#3a9ea4`), neutral secondary controls, input borders and focus rings, status foreground/tint pairs, and a 10px base radius. Coral is reserved for explicit agent-proposal controls. DM Sans is the interface face, JetBrains Mono is for IDs and figures, and Infra is for branding.
@@ -145,7 +171,7 @@ The pack declares Finance, AI, Agents and Documents, with Platform/Ordering reso
 
 ## Menu icon library
 
-Open `menu-icons.html` to inspect the 92 SVG menu icons at 32px and 16px in light or dark. The icon library also opens directly from a local file. Each glyph uses a 24px viewBox, 1.75px strokes, rounded caps and joins, and `currentColor`, so it inherits the neutral/teal menu state in either theme.
+Open `menu-icons.html` to inspect the 110 SVG menu icons at 32px and 16px in light or dark. The icon library also opens directly from a local file. Each glyph uses a 24px viewBox, 1.75px strokes, rounded caps and joins, and `currentColor`, so it inherits the neutral/teal menu state in either theme.
 
 - `assets/menu-icons.js` is the shared source: vector paths, explicit screen/group mappings, domain-specific overrides and legacy menu mappings.
 
@@ -167,7 +193,7 @@ node Templates/aonik-admin-starterkit/scripts/build-menu-icons.mjs --check
 
 ```
 
-The generator checks all 103 registered screens, all five business configurations and 75 menu entries across the two canvas shells. The capture script checks the rendered menu mappings and SVG geometry, refreshes the 16 business screenshots, and saves `marketing/screenshots/menu-icons-light@2x.png` and `menu-icons-dark@2x.png` as additional 3200 × 3600 contact sheets. Standalone SVGs carry a title; inline menu SVGs are hidden from assistive technology because the adjacent menu label supplies their accessible name.
+The generator checks all 122 registered screens, all six business configurations and 75 menu entries across the two canvas shells. The capture script checks the rendered menu mappings and SVG geometry, refreshes the 16 business screenshots, and saves `marketing/screenshots/menu-icons-light@2x.png` and `menu-icons-dark@2x.png` as additional 3200 × 3600 contact sheets. Standalone SVGs carry a title; inline menu SVGs are hidden from assistive technology because the adjacent menu label supplies their accessible name.
 
 The generator also writes `src/Aonik.AdminUi/src/lib/menuIcons.generated.ts`, containing the exact same paths and mappings as the kit. Production builds consume that local TypeScript file and do not load the template, a browser global or external SVG URLs. `menu-` references distinguish the new menu family from legacy icons used elsewhere. Unmapped extension screens can still use their registered icon; all current built-in screens and profile groups have explicit shared mappings. This integration changes presentation only and preserves the existing module, permission, policy and audience filters.
 

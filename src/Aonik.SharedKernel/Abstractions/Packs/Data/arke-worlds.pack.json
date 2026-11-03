@@ -1,0 +1,19 @@
+{
+  "businessType": "arke-worlds",
+  "version": 1,
+  "displayName": "Arke Worlds",
+  "modules": [
+    "workspaces",
+    "groups",
+    "subscriptions",
+    "finance",
+    "documents",
+    "ai",
+    "agents"
+  ],
+  "settings": {
+    "Branding.AgentDisplayName": "AONIK"
+  },
+  "agents": [],
+  "referenceData": []
+}

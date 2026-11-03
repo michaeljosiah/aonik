@@ -15,13 +15,13 @@ const blocks = [':root', '[data-theme="dark"]'].map(selector => {
 const tokenOutput = `/* Generated from src/Aonik.AdminUi/src/index.css. Run node scripts/sync-design.mjs. */\n${blocks.join('\n\n')}\n`;
 
 const profiles = {};
-for (const id of ['general', 'food-commerce', 'arke-kids', 'remittance']) {
+for (const id of ['general', 'food-commerce', 'arke-kids', 'remittance', 'arke-worlds']) {
   profiles[id] = JSON.parse(await read(`src/Aonik.AdminUi/src/config/admin-profiles/${id}.json`));
 }
 const catalog = await read('src/Aonik.AdminUi/src/modules/profileCatalog.ts');
 const businessTypes = vm.runInNewContext(`(${catalog.match(/adminProfileBusinessTypes[^=]*=\s*({[\s\S]*?});/)[1]})`);
 const packs = {};
-for (const id of ['base', 'simi', 'food-commerce', 'remittance']) {
+for (const id of ['base', 'simi', 'food-commerce', 'remittance', 'arke-worlds']) {
   packs[id] = JSON.parse(await read(`src/Aonik.SharedKernel/Abstractions/Packs/Data/${id}.pack.json`));
 }
 const moduleIdsSource = await read('src/Aonik.SharedKernel/Modules/ModuleIds.cs');
@@ -35,7 +35,7 @@ if (moduleCatalog.length !== Object.keys(moduleIds).length || moduleCatalog.some
 const screens = {};
 // Registered screen metadata is a literal object; evaluate only that literal in an empty context.
 // Keep this deliberately strict: a changed registry shape must fail rather than silently omit a screen.
-for (const module of ['core', 'platform', 'finance', 'commerce', 'agent-command-center', 'agent-extensions']) {
+for (const module of ['core', 'platform', 'finance', 'commerce', 'agent-command-center', 'agent-extensions', 'arke-worlds']) {
   const source = await read(`src/Aonik.AdminUi/src/modules/${module}/index.ts`);
   const exportBlock = source.slice(source.indexOf('export const '));
   const declaredRequires = exportBlock.match(/\brequires:\s*(\[[^\]]*\])/);
@@ -63,7 +63,8 @@ for (const profile of Object.values(profiles)) {
   }
 }
 const snapshot = JSON.stringify({ businessTypes, profiles, packs, moduleCatalog, screens }, null, 2) + '\n';
-const outputs = [['design-system/semantic-tokens.css', tokenOutput], ['showcase/profile-snapshot.json', snapshot]];
+const arkeCatalog = '// Generated from the Admin UI Arke Worlds workspace catalogue.\nconst ARKE_CATALOG = ' + JSON.stringify(JSON.parse(await read('src/Aonik.AdminUi/src/config/arke-worlds-workspace.json')),null,2) + ';\n';
+const outputs = [['design-system/semantic-tokens.css', tokenOutput], ['showcase/profile-snapshot.json', snapshot], ['screens/arke-worlds-catalog.js', arkeCatalog]];
 for (const [name, content] of outputs) {
   const target = path.join(kit, name);
   if (process.argv.includes('--check')) {
