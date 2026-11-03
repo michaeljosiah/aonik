@@ -439,6 +439,15 @@ nul
 !apps/**/assets/**/*.png
 !apps/**/public/**/*.png
 !apps/**/src/**/*.png
+# Generated CGI headshots are canonical/application assets, not stray screenshots.
+!Templates/aonik-admin-starterkit/assets/agent-portraits/*.png
+!src/Aonik.AdminUi/public/images/agents/cgi-*.png
+# Reviewed marketing exports are deliverables referenced by the gallery.
+!Templates/aonik-admin-starterkit/marketing/screenshots/*.png
+
+# Local verification logs, browser exports and receipt rendering scratch files.
+/tmp/
+/output/
 
 # App_Data folders - ignore contents but keep the folder structure
 **/App_Data/*

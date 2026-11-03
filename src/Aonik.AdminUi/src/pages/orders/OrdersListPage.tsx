@@ -33,6 +33,7 @@ import {
   type DataTableAction,
 } from '@/components/ui/data-table';
 import { Button } from '@/components/ui/button';
+import { AonikTemplateIcon } from '@/components/layout/aonik/AonikTemplateIcon';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { orderService, type ListOrdersParams } from '@/services/orderService';
 import type { OrderListItem, PagedResult } from '@/types';
@@ -77,6 +78,7 @@ const STATUS_TONE: Record<string, PillTone> = {
 const FILTER_TABS: FilterBarTab[] = [
   { value: 'all', label: 'All' },
   { value: 'type:BillPayment', label: 'Bill payments' },
+  { value: 'type:Remittance', label: 'Transfers' },
   { value: 'status:Submitted', label: 'Submitted' },
   { value: 'status:PendingCompliance', label: 'Pending compliance' },
   { value: 'status:Failed', label: 'Failed' },
@@ -108,7 +110,7 @@ const STAT_BUCKETS: OrderStatBucket[] = [
 
 export function OrdersListPage() {
   const navigate = useNavigate();
-  const { isPathVisible } = useModules();
+  const { isPathVisible, isScreenVisible } = useModules();
 
   const [orders, setOrders] = useState<OrderListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -312,17 +314,16 @@ export function OrdersListPage() {
     },
   ];
 
-  const rowActions = (order: OrderListItem): DataTableAction[] => [
-    {
-      label: 'View order',
-      onClick: () => {
-        if (order.orderType === 'BillPayment') {
-          navigate(`/orders/bill-payments/${order.orderId}`);
-        }
-      },
-      disabled: order.orderType !== 'BillPayment',
-    },
-  ];
+  const detailPath = (order: OrderListItem): string | null => {
+    const path = order.orderType === 'Remittance' ? `/orders/transfers/${order.orderId}`
+      : order.orderType === 'BillPayment' ? `/orders/bill-payments/${order.orderId}` : null;
+    return path && isPathVisible(path) ? path : null;
+  };
+  const rowActions = (order: OrderListItem): DataTableAction[] => [{
+    label: 'View order',
+    onClick: () => { const path = detailPath(order); if (path) navigate(path); },
+    disabled: !detailPath(order),
+  }];
 
   // ─── Header counts ────────────────────────────────────────────────────
 
@@ -341,6 +342,7 @@ export function OrdersListPage() {
               <RefreshCw className={'h-3 w-3 ' + (statsLoading ? 'animate-spin' : '')} />
               Refresh
             </Button>
+            {isPathVisible('/orders/transfers/new') && <Button size="sm" onClick={() => navigate('/orders/transfers/new')}><AonikTemplateIcon name="menu-transfer-orders" size={16} />New transfer</Button>}
             {isPathVisible('/orders/bill-payments/new') && <Button size="sm" onClick={() => navigate('/orders/bill-payments/new')}>
               <Plus className="h-3 w-3" />
               New bill payment
@@ -397,7 +399,7 @@ export function OrdersListPage() {
       )}
 
       <FilterBar
-        tabs={FILTER_TABS}
+        tabs={FILTER_TABS.filter(tab => (tab.value !== 'type:BillPayment' || isScreenVisible('finance.order-edit')) && (tab.value !== 'type:Remittance' || isScreenVisible('finance.transfer-detail')))}
         active={activeTab}
         onTabChange={setActiveTab}
         search={searchQuery}
@@ -422,9 +424,8 @@ export function OrdersListPage() {
           rowActions={(o) => <DataTableRowActions actions={rowActions(o)} />}
           rowActionsPosition="end"
           onRowClick={(order) => {
-            if (order.orderType === 'BillPayment') {
-              navigate(`/orders/bill-payments/${order.orderId}`);
-            }
+            const path = detailPath(order);
+            if (path) navigate(path);
           }}
         />
         <DataTablePagination

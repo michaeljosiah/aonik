@@ -10,6 +10,8 @@ using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 using FluentAssertions;
+using Moq;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Aonik.Application.Tests.Agents.Approval;
 
@@ -50,9 +52,9 @@ public class ToolApprovalServiceTests
 
         public Task<ToolApprovalRequest?> FindConsumableApprovedAsync(
             Guid tenantId, Guid? requestingUserId, string toolName, string argsHash, DateTime nowUtc,
-            CancellationToken cancellationToken = default) =>
+            CancellationToken cancellationToken = default, string? threadId = null) =>
             Task.FromResult(Requests
-                .Where(r => r.TenantId == tenantId
+                .Where(r => r.TenantId == tenantId && r.ThreadId == threadId
                     && r.RequestingUserId == requestingUserId
                     && r.ToolName == toolName
                     && r.ArgsHash == argsHash
@@ -182,8 +184,8 @@ public class ToolApprovalServiceTests
         public TestCurrentUserProvider User { get; } = new(Guid.NewGuid());
         public TestClock Clock { get; } = new(new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc));
 
-        public ToolApprovalService Build() =>
-            new(RequestStore, ProposalStore, ApprovalService, Policy, Tenant, User, Clock);
+        public ToolApprovalService Build(ChatRoomInvocationGuard? room = null, IChatRoomApprovalAuthority? authority = null) =>
+            new(RequestStore, ProposalStore, ApprovalService, Policy, Tenant, User, Clock, room, authority);
     }
 
     private static ToolGateContext Low(IDictionary<string, object?>? args = null) =>
@@ -217,6 +219,51 @@ public class ToolApprovalServiceTests
             ApprovedAt: null,
             PayloadJson: "{}",
             CreatedAt: DateTime.UtcNow);
+
+    [Fact]
+    public async Task RoomApproval_ShouldNotBeConsumableFromAnotherRoomOrPrivateChat()
+    {
+        var f = new Fixture();
+        var firstRoom = new ChatRoomInvocationGuard(Mock.Of<IServiceScopeFactory>()) { RoomId = Guid.NewGuid(), AiRunId = Guid.NewGuid() };
+        var secondRoom = new ChatRoomInvocationGuard(Mock.Of<IServiceScopeFactory>()) { RoomId = Guid.NewGuid(), AiRunId = Guid.NewGuid() };
+        var first = f.Build(firstRoom);
+        var pending = await first.GateAsync(Medium());
+        var approved = f.RequestStore.Requests.Single(request => request.Id == pending.ApprovalRequestId);
+        approved.Status = ToolApprovalRequestStatus.Approved;
+        (await f.Build(secondRoom).GateAsync(Medium())).Decision.Should().Be(ToolGateDecision.PendingApproval);
+        (await f.Build().GateAsync(Medium())).Decision.Should().Be(ToolGateDecision.PendingApproval);
+        approved.ConsumedAt.Should().BeNull();
+        (await first.GateAsync(Medium())).Decision.Should().Be(ToolGateDecision.ApprovedInline);
+        approved.ConsumedAt.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GlobalDecision_ShouldRefuseRevokedRoomAuthorityBeforeAnyProposalExecution()
+    {
+        var f = new Fixture();
+        var authority = new Mock<IChatRoomApprovalAuthority>();
+        authority.Setup(value => value.CanDecideAsync(It.IsAny<Guid?>(), It.IsAny<CancellationToken>())).ReturnsAsync(false);
+        var context = new ChatRoomInvocationGuard(Mock.Of<IServiceScopeFactory>()) { RoomId = Guid.NewGuid(), AiRunId = Guid.NewGuid() };
+        var service = f.Build(context, authority.Object);
+        var outcome = await service.GateAsync(High());
+        var decision = await service.DecideAsync(outcome.ApprovalRequestId!.Value, new(ToolApprovalDecisionType.Approve));
+        decision.Outcome.Should().Be(ToolApprovalDecisionOutcome.Forbidden);
+        f.ApprovalService.ApprovedProposalIds.Should().BeEmpty();
+        f.RequestStore.Requests.Single().Status.Should().Be(ToolApprovalRequestStatus.Pending);
+    }
+
+    [Fact]
+    public async Task RoomMutations_ShouldCorrelateApprovalAndDurableProposalToTheAuditedTurn()
+    {
+        var f = new Fixture();
+        var roomId = Guid.NewGuid(); var aiRunId = Guid.NewGuid();
+        var roomContext = new ChatRoomInvocationGuard(Mock.Of<IServiceScopeFactory>()) { RoomId = roomId, AiRunId = aiRunId };
+        var service = f.Build(roomContext);
+        (await service.GateAsync(Medium())).Decision.Should().Be(ToolGateDecision.PendingApproval);
+        (await service.GateAsync(High())).Decision.Should().Be(ToolGateDecision.Queued);
+        f.RequestStore.Requests.Should().HaveCount(2).And.OnlyContain(request => request.AiRunId == aiRunId && request.ThreadId == roomId.ToString());
+        f.ProposalStore.Created.Should().ContainSingle().Which.AiRunId.Should().Be(aiRunId);
+    }
 
     // ----- GateAsync: tier routing ------------------------------------------------------------
 

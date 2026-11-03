@@ -13,8 +13,8 @@ namespace Aonik.Agents.Services;
 /// </summary>
 internal static class AguiStreamEvents
 {
-    public static object TextMessageStart(string messageId) =>
-        new { type = "TEXT_MESSAGE_START", messageId, role = "assistant" };
+    public static object TextMessageStart(string messageId, string? agentName = null) =>
+        new { type = "TEXT_MESSAGE_START", messageId, role = "assistant", agentName };
 
     public static object TextMessageContent(string messageId, string delta) =>
         new { type = "TEXT_MESSAGE_CONTENT", messageId, delta };

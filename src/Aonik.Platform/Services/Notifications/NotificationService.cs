@@ -254,7 +254,7 @@ internal sealed class NotificationService : INotificationService
 
         var response = MapResponse(notification);
         await _realtimePublisher.PublishAsync(new NotificationRealtimeEvent("NOTIFICATION_CREATED", response, 1), cancellationToken);
-        await SendPushNotificationsAsync([notification], cancellationToken);
+        if (request.SendPush) await SendPushNotificationsAsync([notification], cancellationToken);
         return response;
     }
 

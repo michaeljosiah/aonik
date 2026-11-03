@@ -106,7 +106,7 @@ export interface ServerApprovalChatMessage {
 
 export type ChatMessage =
   | { type: 'user'; id: string; content: string }
-  | { type: 'assistant'; id: string; content: string; toolCalls?: ChatToolCall[] }
+  | { type: 'assistant'; id: string; content: string; agentName?: string; toolCalls?: ChatToolCall[] }
   | { type: 'tool-result'; id: string; toolCallId: string; toolCallName: string; content: string; error?: string }
   | { type: 'step'; id: string; stepName: string; status: 'started' | 'finished' }
   | { type: 'reasoning'; id: string; content: string }
@@ -535,6 +535,9 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
 
           onTextMessageStart: (event) => {
             adoptAssistantMessageId(event.messageId);
+            setMessages((previous) => previous.map((message) => message.type === 'assistant' && message.id === event.messageId
+              ? { ...message, agentName: typeof event.agentName === 'string' ? event.agentName : message.agentName }
+              : message));
           },
 
           onTextMessageContent: (event) => {
@@ -1059,6 +1062,7 @@ function threadMessageToChatMessage(message: ThreadMessageDto): ChatMessage | nu
         type: 'assistant',
         id: message.id,
         content: message.content,
+        agentName: message.agentName,
         toolCalls: parseStoredToolCalls(message.toolCallsJson),
       };
     default:
@@ -1178,6 +1182,7 @@ function buildAguiMessages(
           id: message.id,
           role: 'assistant',
           content: message.content || undefined,
+          name: message.agentName,
         };
 
         if (message.toolCalls && message.toolCalls.length > 0) {
@@ -1234,6 +1239,7 @@ function aguiMessageToChatMessage(message: Message): ChatMessage | null {
         type: 'assistant',
         id: message.id,
         content: message.content ?? '',
+        agentName: message.name,
         toolCalls: message.toolCalls?.map((toolCall) =>
           hydrateToolCallMetadata({
             toolCallId: toolCall.id,

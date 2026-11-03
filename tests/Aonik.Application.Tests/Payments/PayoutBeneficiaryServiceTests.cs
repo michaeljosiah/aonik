@@ -11,6 +11,7 @@ using Aonik.TestSupport.Multitenancy;
 
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 
 namespace Aonik.Application.Tests.Payments;
 
@@ -47,7 +48,7 @@ public class PayoutBeneficiaryServiceTests
         Guid tenantId,
         FakePartyService partyService,
         IPartnerPayoutConnector? connector = null,
-        Guid? userId = null)
+        Guid? userId = null, IPermissionService? permissions = null)
         => new(
             context,
             partyService,
@@ -55,7 +56,8 @@ public class PayoutBeneficiaryServiceTests
             new TestCurrentUserProvider(userId ?? CallerUserId),
             new SinglePayoutConnectorResolver(connector ?? new RecordingPayoutConnector()),
             new Spec042NoopConnectorFactory(),
-            new TestClock());
+            new TestClock(),
+            permissions ?? Moq.Mock.Of<IPermissionService>());
 
     private static void SeedCaller(FinanceDbContext context, Guid tenantId, Guid partyId, Guid? userId = null)
         => context.UserParties.Add(new UserPartyReadModel
@@ -335,6 +337,132 @@ public class PayoutBeneficiaryServiceTests
             .Should().ThrowAsync<InvalidOperationException>();
     }
 
+    private static IPermissionService OperatorPermissions(params string[] permissions)
+    {
+        var mock = new Moq.Mock<IPermissionService>();
+        mock.Setup(service => service.HasPermissionAsync(Moq.It.IsAny<Guid>(), Moq.It.IsAny<string>(), Moq.It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid _, string permission, CancellationToken _) => permissions.Contains(permission));
+        return mock.Object;
+    }
+
+    private static Guid SeedOperatorCustomer(FinanceDbContext db, Guid tenantId, FakePartyService parties)
+    {
+        var id = parties.SeedParty("Sending customer");
+        db.Parties.Add(new PartyReadModel { Id = id, TenantId = tenantId, DisplayName = "Sending customer" });
+        return id;
+    }
+
+    [Theory]
+    [InlineData("Bank")]
+    [InlineData("MobileMoney")]
+    [InlineData("Wallet")]
+    public async Task OperatorRegistration_Should_UseSharedVerificationWithoutImpersonation_AndReturnOnlyMaskedRails(string rail)
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        var parties = new FakePartyService();
+        var customerId = SeedOperatorCustomer(db, tenantId, parties);
+        await db.SaveChangesAsync();
+        var connector = new RecordingPayoutConnector();
+        var service = CreateService(db, tenantId, parties, connector, permissions: OperatorPermissions("Payment.Create", "Customers.Write", "Payment.Read", "Customers.Read"));
+        var request = new VerifyPayoutBeneficiaryRequest(customerId, rail, "NGN", "NG", "Recipient", AccountNumber: "0690000040", BankCode: "044", MobileNetwork: "MTN", Msisdn: "+2348000000040", WalletId: "wallet-0000040");
+
+        // Act
+        var first = await service.RegisterForCustomerAsync(request);
+        var replay = await service.RegisterForCustomerAsync(request);
+        var list = await service.ListForCustomerAsync(customerId);
+
+        // Assert
+        first.IsVerified.Should().BeTrue();
+        first.MaskedAccountIdentifier.Should().Be("****0040");
+        replay.ExternalPayoutAccountId.Should().Be(first.ExternalPayoutAccountId);
+        connector.RegisterCalls.Should().Be(1);
+        db.UserParties.Should().BeEmpty();
+        list.Beneficiaries.Should().ContainSingle().Which.Destination.Should().BeEquivalentTo(first);
+        var serialized = System.Text.Json.JsonSerializer.Serialize(list);
+        serialized.Should().NotContain("0690000040").And.NotContain("+2348000000040").And.NotContain("wallet-0000040").And.NotContain("rcb_test");
+        await service.Invoking(service => service.VerifyAndRegisterBeneficiaryAsync(request)).Should().ThrowAsync<UnauthorizedAccessException>();
+    }
+
+    [Theory]
+    [InlineData("Payment.Create")]
+    [InlineData("Customers.Write")]
+    public async Task OperatorRegistration_Should_DenyMissingPermission_BeforePartnerCalls(string permission)
+    {
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        var parties = new FakePartyService();
+        var customer = SeedOperatorCustomer(db, tenantId, parties);
+        await db.SaveChangesAsync();
+        var connector = new RecordingPayoutConnector();
+        var service = CreateService(db, tenantId, parties, connector, permissions: OperatorPermissions(permission));
+        var request = new VerifyPayoutBeneficiaryRequest(customer, "Bank", "NGN", "NG", "Name", AccountNumber: "0690000040", BankCode: "044");
+
+        await service.Invoking(service => service.RegisterForCustomerAsync(request)).Should().ThrowAsync<PermissionDeniedException>();
+        await service.Invoking(service => service.RemoveDestinationAsync(customer, Guid.NewGuid())).Should().ThrowAsync<PermissionDeniedException>();
+        await service.Invoking(service => service.UpdateNotesAsync(customer, Guid.NewGuid(), "notes")).Should().ThrowAsync<PermissionDeniedException>();
+        connector.RegisterCalls.Should().Be(0);
+        db.ExternalPayoutAccounts.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task OperatorManagement_Should_DenyForeignCustomersAndRecipientParties_BeforePartnerCalls()
+    {
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        var parties = new FakePartyService();
+        var customer = SeedOperatorCustomer(db, tenantId, parties);
+        var foreign = parties.SeedParty("Foreign party");
+        db.Parties.Add(new PartyReadModel { Id = foreign, TenantId = Guid.NewGuid(), DisplayName = "Foreign party" });
+        await db.SaveChangesAsync();
+        var connector = new RecordingPayoutConnector();
+        var service = CreateService(db, tenantId, parties, connector, permissions: OperatorPermissions("Payment.Create", "Customers.Write", "Payment.Read", "Customers.Read"));
+        var request = new VerifyPayoutBeneficiaryRequest(customer, "Bank", "NGN", "NG", "Name", AccountNumber: "0690000040", BankCode: "044", BeneficiaryPartyId: foreign);
+
+        await service.Invoking(service => service.RegisterForCustomerAsync(request)).Should().ThrowAsync<NotFoundException>();
+        await service.Invoking(service => service.RegisterForCustomerAsync(request with { CustomerPartyId = foreign, BeneficiaryPartyId = null })).Should().ThrowAsync<NotFoundException>();
+        await service.Invoking(service => service.ListForCustomerAsync(foreign)).Should().ThrowAsync<NotFoundException>();
+        await service.Invoking(service => service.RemoveDestinationAsync(foreign, Guid.NewGuid())).Should().ThrowAsync<NotFoundException>();
+        connector.RegisterCalls.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task OperatorManagement_Should_EditOnlyCustomerScopedNotes_AndSoftRemoveOnlyOneDestination()
+    {
+        var tenantId = Guid.NewGuid();
+        using var db = CreateDbContext(tenantId);
+        var parties = new FakePartyService();
+        var customer = SeedOperatorCustomer(db, tenantId, parties);
+        var other = SeedOperatorCustomer(db, tenantId, parties);
+        var recipient = parties.SeedParty("Shared recipient");
+        var service = CreateService(db, tenantId, parties, permissions: OperatorPermissions("Payment.Create", "Customers.Write", "Payment.Read", "Customers.Read"));
+        var request = new SavePayoutBeneficiaryRequest(customer, "Bank", "Name", "NGN", "****0040", BeneficiaryPartyId: recipient);
+        var first = await service.SaveBeneficiaryAsync(request);
+        var second = await service.SaveBeneficiaryAsync(request with { MaskedAccountIdentifier = "****1122" });
+        var otherCustomer = await service.SaveBeneficiaryAsync(request with { CustomerPartyId = other });
+        await db.SaveChangesAsync();
+
+        await service.UpdateNotesAsync(customer, recipient, "  Monthly family support  ");
+        (await service.ListForCustomerAsync(customer)).Beneficiaries.Should().OnlyContain(item => item.Notes == "Monthly family support");
+        (await service.ListForCustomerAsync(other)).Beneficiaries.Should().OnlyContain(item => item.Notes == null);
+        await service.UpdateNotesAsync(customer, recipient, "");
+        (await service.ListForCustomerAsync(customer)).Beneficiaries.Should().OnlyContain(item => item.Notes == null);
+        await service.Invoking(service => service.UpdateNotesAsync(customer, recipient, new string('x', 1025))).Should().ThrowAsync<ArgumentException>();
+        await service.RemoveDestinationAsync(other, first.ExternalPayoutAccountId);
+        (await db.ExternalPayoutAccounts.CountAsync()).Should().Be(3);
+        await service.RemoveDestinationAsync(customer, first.ExternalPayoutAccountId);
+        await service.RemoveDestinationAsync(customer, first.ExternalPayoutAccountId);
+
+        (await service.ListForCustomerAsync(customer)).Beneficiaries.Should().ContainSingle().Which.Destination.ExternalPayoutAccountId.Should().Be(second.ExternalPayoutAccountId);
+        (await service.ListForCustomerAsync(other)).Beneficiaries.Should().ContainSingle().Which.Destination.ExternalPayoutAccountId.Should().Be(otherCustomer.ExternalPayoutAccountId);
+        var deleted = await db.ExternalPayoutAccounts.IgnoreQueryFilters().SingleAsync(account => account.Id == first.ExternalPayoutAccountId);
+        deleted.IsDeleted.Should().BeTrue();
+        deleted.DeletedBy.Should().Be(CallerUserId);
+        deleted.DeletedAt.Should().NotBeNull();
+        parties.Relationships.Should().HaveCount(2);
+    }
+
     /// <summary>
     /// Stateful in-memory <see cref="IPartyService"/>: stores parties, relationship edges, and role
     /// assignments so tests can assert what the service wrote across the seam. Mirrors the real
@@ -343,6 +471,8 @@ public class PayoutBeneficiaryServiceTests
     /// </summary>
     private sealed class FakePartyService : IPartyService
     {
+        private readonly Dictionary<(Guid, Guid, string), Guid> _edgeIds = new();
+        private readonly Dictionary<Guid, string?> _notes = new();
         private readonly Dictionary<Guid, PartyResponse> _parties = new();
 
         public List<(Guid From, Guid To, string Type)> Relationships { get; } = new();
@@ -376,7 +506,9 @@ public class PayoutBeneficiaryServiceTests
         public Task<PartyRelationshipResponse> CreateRelationshipAsync(CreatePartyRelationshipRequest request, CancellationToken cancellationToken = default)
         {
             Relationships.Add((request.FromPartyId, request.ToPartyId, request.RelationshipTypeCode));
-            return Task.FromResult(BuildRelationship(request.FromPartyId, request.ToPartyId, request.RelationshipTypeCode));
+            var edge = BuildRelationship(request.FromPartyId, request.ToPartyId, request.RelationshipTypeCode);
+            _notes[edge.RelationshipId] = request.Notes;
+            return Task.FromResult(edge with { Notes = request.Notes });
         }
 
         public Task<IReadOnlyList<PartyRelationshipResponse>> GetRelationshipsAsync(Guid partyId, CancellationToken cancellationToken = default)
@@ -412,18 +544,27 @@ public class PayoutBeneficiaryServiceTests
             => Task.FromResult(new PartyPhotoUrls(partyId, null, null, null, null));
 
         public Task<bool> UpdateRelationshipAsync(Guid relationshipId, string? relationshipTypeCode = null, string? notes = null, bool? isActive = null, CancellationToken cancellationToken = default)
-            => Task.FromResult(true);
+        {
+            if (!_edgeIds.ContainsValue(relationshipId)) return Task.FromResult(false);
+            if (notes is not null) _notes[relationshipId] = string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
+            return Task.FromResult(true);
+        }
 
         private PartyRelationshipResponse BuildRelationship(Guid fromPartyId, Guid toPartyId, string typeCode)
-            => new(
-                Guid.NewGuid(),
+        {
+            var key = (fromPartyId, toPartyId, typeCode);
+            if (!_edgeIds.TryGetValue(key, out var id)) _edgeIds[key] = id = Guid.NewGuid();
+            return new(
+                id,
                 fromPartyId,
                 _parties.TryGetValue(fromPartyId, out var from) ? from.DisplayName : string.Empty,
                 toPartyId,
                 _parties.TryGetValue(toPartyId, out var to) ? to.DisplayName : string.Empty,
                 typeCode,
                 typeCode,
-                true);
+                true,
+                _notes.GetValueOrDefault(id));
+        }
     }
 
     private sealed class RecordingPayoutConnector : IPartnerPayoutConnector
@@ -439,7 +580,7 @@ public class PayoutBeneficiaryServiceTests
         public IReadOnlyCollection<PartnerConnectorCapability> Capabilities { get; } = new[]
         {
             new PartnerConnectorCapability(
-                PartnerServiceCategory.Payout, new[] { "NG" }, new[] { "NGN" }, new[] { "Bank", "MobileMoney" })
+                PartnerServiceCategory.Payout, new[] { "NG" }, new[] { "NGN" }, new[] { "Bank", "MobileMoney", "Wallet" })
         };
 
         public Task<PayoutInitiationResult> InitiatePayoutAsync(PayoutInstruction instruction, CancellationToken cancellationToken = default)

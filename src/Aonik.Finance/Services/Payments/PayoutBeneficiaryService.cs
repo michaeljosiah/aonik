@@ -21,7 +21,7 @@ namespace Aonik.Finance.Services.Payments;
 /// own context. Each party-seam call persists independently (separate module DbContext), so this
 /// service makes them idempotent rather than relying on a shared transaction.
 /// </summary>
-internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
+internal sealed partial class PayoutBeneficiaryService : IPayoutBeneficiaryService, IOperatorPayoutBeneficiaryService
 {
     /// <summary>The recipient's Beneficiary role is scoped to the owning customer.</summary>
     private const string CustomerContextType = "Customer";
@@ -33,6 +33,7 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
     private readonly IPartnerConnectorResolver _connectorResolver;
     private readonly Services.Partners.Connectors.IPartnerConnectorFactory _connectorFactory;
     private readonly IClock _clock;
+    private readonly IPermissionService _permissionService;
 
     public PayoutBeneficiaryService(
         FinanceDbContext dbContext,
@@ -41,7 +42,8 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
         ICurrentUserProvider currentUserProvider,
         IPartnerConnectorResolver connectorResolver,
         Services.Partners.Connectors.IPartnerConnectorFactory connectorFactory,
-        IClock clock)
+        IClock clock,
+        IPermissionService permissionService)
     {
         _dbContext = dbContext;
         _partyService = partyService;
@@ -50,6 +52,7 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
         _connectorResolver = connectorResolver;
         _connectorFactory = connectorFactory;
         _clock = clock;
+        _permissionService = permissionService;
     }
 
     public async Task<PayoutBeneficiaryResponse> SaveBeneficiaryAsync(
@@ -156,6 +159,13 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
 
         await EnsureCallerOwnsPartyAsync(request.CustomerPartyId, cancellationToken);
 
+        return await RegisterCoreAsync(request, cancellationToken);
+    }
+
+    private async Task<PayoutBeneficiaryResponse> RegisterCoreAsync(
+        VerifyPayoutBeneficiaryRequest request, CancellationToken cancellationToken)
+    {
+
         var destinationType = NormalizeRail(request.DestinationType);
         var currency = NormalizeRequired(request.Currency, nameof(request.Currency)).ToUpperInvariant();
         var country = NormalizeRequired(request.Country, nameof(request.Country)).ToUpperInvariant();
@@ -261,7 +271,7 @@ internal sealed class PayoutBeneficiaryService : IPayoutBeneficiaryService
         // Outgoing edges from this customer identify the recipient parties they own. A party can have
         // more than one edge (e.g. Recipient + a kinship type); keep the first for display purposes.
         var recipientsByPartyId = relationships
-            .Where(relationship => relationship.FromPartyId == customerPartyId)
+            .Where(relationship => relationship.FromPartyId == customerPartyId && relationship.IsActive)
             .GroupBy(relationship => relationship.ToPartyId)
             .ToDictionary(group => group.Key, group => group.First());
 

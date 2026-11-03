@@ -1,14 +1,17 @@
+import arkeWorldsJson from '@/config/admin-profiles/arke-worlds.json';
 import generalJson from '@/config/admin-profiles/general.json';
 import foodCommerceJson from '@/config/admin-profiles/food-commerce.json';
 import arkeKidsJson from '@/config/admin-profiles/arke-kids.json';
+import remittanceJson from '@/config/admin-profiles/remittance.json';
 import { parseAdminProfile, resolveAdminProfile, selectAdminProfile } from './adminProfiles';
 import type { ResolvedAdminProfile } from './adminProfiles';
 import type { AdminModule, RuntimeModuleManifest } from './types';
 import { matchesRoutePath } from './enablement';
 
-export const adminProfiles = [generalJson, foodCommerceJson, arkeKidsJson].map(parseAdminProfile);
+export const adminProfiles = [generalJson, foodCommerceJson, arkeKidsJson, remittanceJson, arkeWorldsJson].map(parseAdminProfile);
 export const adminProfileBusinessTypes: Readonly<Record<string, string>> = {
   base: 'general', simi: 'general', 'food-commerce': 'food-commerce', 'arke-kids': 'arke-kids',
+  remittance: 'remittance', 'arke-worlds': 'arke-worlds',
 };
 
 export function resolveCurrentAdminProfile(modules: AdminModule[], manifest: RuntimeModuleManifest | null) {

@@ -1,0 +1,27 @@
+{
+  "checks": [
+    "4 native editable support artboards",
+    "8 clean scene exports",
+    "4 confirmation-state exports",
+    "8 editable canvas captures",
+    "light/dark semantic tokens",
+    "approved AONIK portrait and canonical SVG icons",
+    "search and business filters",
+    "case-specific drafts without cross-customer context",
+    "reviewed triage suggestions",
+    "internal team notes",
+    "editable reply with empty-draft guard",
+    "recipient and exact-content confirmation",
+    "queue state without claiming delivery",
+    "linked sources distinguish funding from payout",
+    "reviewed operational handoffs",
+    "focused and main canvas registrations",
+    "no application API calls or runtime exceptions"
+  ],
+  "scenes": [
+    "inbox",
+    "conversation",
+    "reply-review",
+    "escalations"
+  ]
+}

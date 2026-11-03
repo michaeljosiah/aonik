@@ -84,6 +84,21 @@ public sealed class CliApplicationTests
         writer.ToString().Should().Contain("base");
         writer.ToString().Should().Contain("food-commerce");
         writer.ToString().Should().Contain("simi");
+        writer.ToString().Should().Contain("remittance");
+    }
+
+    [Fact]
+    public async Task RunAsync_ShouldShowRemittancePack_Offline()
+    {
+        // Arrange
+        var application = CreateApplication(out var writer);
+
+        // Act
+        var exitCode = await application.RunAsync(["packs", "show", "remittance", "--output", "json"]);
+
+        // Assert
+        exitCode.Should().Be(0);
+        writer.ToString().Should().Contain("remittance").And.Contain("finance").And.Contain("documents");
     }
 
     [Fact]

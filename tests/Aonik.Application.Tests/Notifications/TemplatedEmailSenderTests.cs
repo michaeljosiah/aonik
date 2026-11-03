@@ -285,6 +285,30 @@ public sealed class TemplatedEmailSenderTests
         => new(new DbContextOptionsBuilder<PlatformDbContext>()
             .UseInMemoryDatabase($"TemplatedEmail_{Guid.NewGuid()}").Options, new TestTenantProvider(_tenantId));
 
+    [Fact]
+    public async Task TransferReceipt_Should_EscapeCustomerValues_AndPassPdfToTransport()
+    {
+        await using var context = CreateContext();
+        await SeedAsync(context);
+        var transport = new RecordingEmailSender();
+        var attachment = new EmailAttachment("receipt.pdf", "application/pdf", [37, 80, 68, 70]);
+        var trackingId = Guid.NewGuid();
+        await CreateSender(context, transport).SendAsync(new(TransactionalEmailTemplateNames.RemittanceReceipt,
+            "customer@example.test", new Dictionary<string, object?>
+            {
+                ["customer_name"] = "Nadia <script>", ["order_number"] = "REM<42>", ["status"] = "Transmitted",
+                ["status_description"] = "This does not confirm recipient payment as completed.",
+                ["send_amount"] = "GBP 250.00", ["fees"] = "GBP 3.50", ["total_debit"] = "GBP 253.50",
+                ["recipient_amount"] = "NGN 500,000.00", ["destination"] = "•••• 4821"
+            }, [attachment], TrackingId: trackingId));
+
+        var sent = transport.Messages.Should().ContainSingle().Which;
+        sent.Body.Should().Contain("Nadia &lt;script&gt;").And.Contain("REM&lt;42&gt;")
+            .And.Contain("GBP 253.50").And.Contain("does not confirm recipient payment").And.NotContain("<script>");
+        sent.Attachments.Should().ContainSingle().Which.Should().BeSameAs(attachment);
+        sent.TrackingId.Should().Be(trackingId);
+    }
+
     private static Task SeedAsync(PlatformDbContext context)
         => new NotificationTemplateSeedService(context, NullLogger<NotificationTemplateSeedService>.Instance).SeedAsync();
 

@@ -1,0 +1,11 @@
+{
+  "businessType": "remittance",
+  "version": 1,
+  "displayName": "Remittance",
+  "modules": ["finance", "ai", "agents", "documents"],
+  "settings": {
+    "Branding.AgentDisplayName": "Remittance"
+  },
+  "agents": [],
+  "referenceData": []
+}

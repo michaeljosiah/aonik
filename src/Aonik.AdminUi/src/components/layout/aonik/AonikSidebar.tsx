@@ -19,7 +19,6 @@ import {
   CheckIcon,
   ChevronRightIcon,
   ChevronsUpDownIcon,
-  LayoutIcon,
   LogOutIcon,
   MonitorIcon,
   MoonIcon,
@@ -359,7 +358,7 @@ function WorkspaceNavItemRow({ item, collapsed }: { item: NavItem; collapsed: bo
         {collapsed ? <RailTooltip label={item.label}>{trigger}</RailTooltip> : trigger}
         <DropdownMenuContent side="right" align="start" sideOffset={8} className="min-w-60">
           <DropdownMenuItem onSelect={() => navigate('/workspace')}>
-            <LayoutIcon />
+            <AonikTemplateIcon name="menu-workspace" size={16} />
             Open workspace
           </DropdownMenuItem>
           {templates.length > 0 && (
@@ -384,7 +383,7 @@ function WorkspaceNavItemRow({ item, collapsed }: { item: NavItem; collapsed: bo
               <DropdownMenuLabel className="text-xs text-muted-foreground">Saved layouts</DropdownMenuLabel>
               {layouts.map((layout) => (
                 <DropdownMenuItem key={layout.id} onSelect={() => navigate(`/workspace?layout=${layout.id}`)}>
-                  <LayoutIcon />
+                  <AonikTemplateIcon name="menu-workspace" size={16} />
                   <span className="truncate">{layout.name}</span>
                   {layout.isDefault && (
                     <Badge variant="outline" className="ml-auto">

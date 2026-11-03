@@ -28,7 +28,7 @@ internal interface IToolApprovalRequestStore
         string toolName,
         string argsHash,
         DateTime nowUtc,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default, string? threadId = null);
 
     /// <summary>Persists pending changes to tracked request rows.</summary>
     Task SaveChangesAsync(CancellationToken cancellationToken = default);

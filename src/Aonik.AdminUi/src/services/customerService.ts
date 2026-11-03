@@ -1,5 +1,6 @@
 import apiClient from '@/lib/api';
 import { api } from '@/lib/api';
+import type { AxiosRequestConfig } from 'axios';
 import type {
   CreateCustomerRequest,
   CreateCustomerResponse,
@@ -37,8 +38,8 @@ export const customerService = {
   listDomains: async (): Promise<CustomerRegistryDomainsResponse> => {
     return api.get<CustomerRegistryDomainsResponse>('/admin/customers/domains');
   },
-  get: async (partyId: string): Promise<CustomerDetail> => {
-    return api.get<CustomerDetail>(`/admin/customers/${partyId}`);
+  get: async (partyId: string, context?: AxiosRequestConfig): Promise<CustomerDetail> => {
+    return api.get<CustomerDetail>(`/admin/customers/${encodeURIComponent(partyId)}`, context);
   },
   getStats: async (partyId: string): Promise<CustomerStats> => {
     return api.get<CustomerStats>(`/admin/customers/${partyId}/stats`);

@@ -10,6 +10,7 @@ import { commerceModule } from './commerce';
 import { platformModule } from './platform';
 import { agentCommandCenterModule } from './agent-command-center';
 import { agentExtensionsModule } from './agent-extensions';
+import { arkeWorldsModule } from './arke-worlds';
 
 // ---------------------------------------------------------------------------
 // Build-time module registry
@@ -23,6 +24,7 @@ const allModules: AdminModule[] = [
   financeModule,
   commerceModule,
   platformModule,
+  arkeWorldsModule,
 ];
 
 /**

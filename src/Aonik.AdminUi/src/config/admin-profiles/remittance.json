@@ -1,0 +1,88 @@
+{
+  "id": "remittance",
+  "landingPage": "finance.orders",
+  "screens": {
+    "home": {},
+    "workspace": {},
+    "finance.orders-root": { "label": "Transfer orders" },
+    "finance.orders": { "label": "Transfer orders" },
+    "finance.beneficiaries": {},
+    "finance.transfer-new": {},
+    "finance.transfer-detail": {},
+    "customers": {},
+    "customer-detail": {},
+    "approvals": {},
+    "finance.countries": {},
+    "finance.partners": {},
+    "finance.partner-detail": {},
+    "settings.fx-rates": {},
+    "finance.ledger": {},
+    "finance.ledger-accounts": {},
+    "finance.journal-entries": {},
+    "compliance": {},
+    "documents": {},
+    "document-new": {},
+    "document-detail": {},
+    "access.users": {},
+    "access.user-detail": {},
+    "access.roles": {},
+    "access.permissions": {},
+    "ai.chat": {},
+    "ai.chat-agent": {},
+    "ai.agents": {},
+    "ai.agent-detail": {},
+    "ai.tasks": {},
+    "ai.usage": {},
+    "settings": {},
+    "settings.modules": {}
+  },
+  "navigation": [
+    {
+      "id": "transfers",
+      "label": "Money movement",
+      "items": [
+        { "screen": "finance.orders" },
+        { "screen": "finance.transfer-new" },
+        { "screen": "finance.beneficiaries" },
+        { "screen": "customers" },
+        { "screen": "approvals" }
+      ]
+    },
+    {
+      "id": "network",
+      "label": "Network & treasury",
+      "items": [
+        { "screen": "finance.countries" },
+        { "screen": "finance.partners" },
+        { "screen": "settings.fx-rates" },
+        { "screen": "finance.ledger" }
+      ]
+    },
+    {
+      "id": "administration",
+      "label": "Administration",
+      "items": [
+        { "screen": "compliance" },
+        {
+          "id": "team",
+          "label": "Team",
+          "items": [
+            { "screen": "access.users" },
+            { "screen": "access.roles" },
+            { "screen": "access.permissions" }
+          ]
+        },
+        {
+          "id": "ai-agents",
+          "label": "AI & Agents",
+          "items": [
+            { "screen": "ai.agents" },
+            { "screen": "ai.tasks" },
+            { "screen": "ai.usage" }
+          ]
+        },
+        { "screen": "settings" }
+      ]
+    }
+  ]
+}

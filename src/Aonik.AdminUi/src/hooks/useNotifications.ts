@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/auth';
 import {
@@ -11,6 +11,7 @@ interface NotificationState {
   notifications: AdminNotification[];
   unreadCount: number;
   loading: boolean;
+  loadedScope?: string;
 }
 
 const InitialState: NotificationState = {
@@ -19,12 +20,15 @@ const InitialState: NotificationState = {
   loading: true,
 };
 
-export function useNotifications(enabled = true) {
+export function useNotifications(enabled = true, contextKey = '') {
   const { isAuthenticated, getAccessToken } = useAuth();
+  const scope = JSON.stringify([contextKey, isAuthenticated, enabled]);
+  const currentScope = useRef(scope);
+  useLayoutEffect(() => { currentScope.current = scope; return () => { currentScope.current = ''; }; }, [scope]);
   const [state, setState] = useState<NotificationState>(InitialState);
 
-  const loadNotifications = useCallback(async () => {
-    setState((current) => ({ ...current, loading: true }));
+  const loadNotifications = useCallback(async (showLoading = true) => {
+    if (!isAuthenticated || !enabled) return;
 
     try {
       const [notifications, summary] = await Promise.all([
@@ -32,24 +36,28 @@ export function useNotifications(enabled = true) {
         notificationService.getSummary(),
       ]);
 
+      if (currentScope.current !== scope) return;
       setState({
+        loadedScope: scope,
         notifications,
         unreadCount: summary.unreadCount,
         loading: false,
       });
     } catch (error) {
+      if (currentScope.current !== scope) return;
       console.error('Failed to load notifications:', error);
-      toast.error('Failed to load notifications');
-      setState((current) => ({ ...current, loading: false }));
+      if (showLoading) toast.error('Failed to load notifications');
+      setState((current) => ({ ...(current.loadedScope === scope ? current : InitialState), loadedScope: scope, loading: false }));
     }
-  }, []);
+  }, [scope, isAuthenticated, enabled]);
 
   useEffect(() => {
     if (!isAuthenticated || !enabled) {
-      setState(InitialState);
       return;
     }
 
+    // The callback updates state asynchronously from HTTP responses.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadNotifications();
 
     const abortController = new AbortController();
@@ -62,7 +70,7 @@ export function useNotifications(enabled = true) {
             getAccessToken,
             signal: abortController.signal,
             onEvent: (event) => {
-              setState((current) => applyStreamEvent(current, event));
+              if (active && currentScope.current === scope) setState((current) => ({ ...applyStreamEvent(current.loadedScope === scope ? current : InitialState, event), loadedScope: scope }));
             },
           });
 
@@ -79,28 +87,37 @@ export function useNotifications(enabled = true) {
     };
 
     void connect();
+    // Worker notifications use a different process from the API's in-memory SSE publisher.
+    // Reconcile persisted state even while the SSE connection remains healthy.
+    const reconcile = () => { if (document.visibilityState === 'visible') void loadNotifications(false); };
+    const interval = window.setInterval(reconcile, 10000);
+    window.addEventListener('focus', reconcile);
+    document.addEventListener('visibilitychange', reconcile);
 
     return () => {
       active = false;
       abortController.abort();
+      clearInterval(interval);
+      window.removeEventListener('focus', reconcile);
+      document.removeEventListener('visibilitychange', reconcile);
     };
-  }, [getAccessToken, isAuthenticated, loadNotifications, enabled]);
+  }, [getAccessToken, isAuthenticated, loadNotifications, enabled, scope]);
 
   const markRead = useCallback(async (notificationId: string) => {
     const notification = await notificationService.markRead(notificationId);
-    setState((current) => applyNotificationChange(current, notification, 0));
+    if (currentScope.current === scope) setState((current) => applyNotificationChange(current, notification, 0));
     return notification;
-  }, []);
+  }, [scope]);
 
   const dismiss = useCallback(async (notificationId: string) => {
     const notification = await notificationService.dismiss(notificationId);
-    setState((current) => applyNotificationChange(current, notification, 0));
+    if (currentScope.current === scope) setState((current) => applyNotificationChange(current, notification, 0));
     return notification;
-  }, []);
+  }, [scope]);
 
   const markAllRead = useCallback(async () => {
     const result = await notificationService.markAllRead();
-    if (result.affectedCount <= 0) {
+    if (currentScope.current !== scope || result.affectedCount <= 0) {
       return result;
     }
 
@@ -116,12 +133,13 @@ export function useNotifications(enabled = true) {
     }));
 
     return result;
-  }, []);
+  }, [scope]);
 
+  const visible = state.loadedScope === scope ? state : InitialState;
   return {
-    notifications: state.notifications,
-    unreadCount: state.unreadCount,
-    loading: state.loading,
+    notifications: visible.notifications,
+    unreadCount: visible.unreadCount,
+    loading: visible.loading,
     refresh: loadNotifications,
     markRead,
     dismiss,

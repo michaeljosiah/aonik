@@ -31,6 +31,22 @@ describe('streamAguiChat frontend tool reruns', () => {
     vi.restoreAllMocks();
   });
 
+  it('delivers the server-resolved author with streamed assistant messages', async () => {
+    vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(createSseResponse([
+      { type: 'TEXT_MESSAGE_START', messageId: 'a1', role: 'assistant', agentName: 'master-orchestrator' },
+      { type: 'TEXT_MESSAGE_CONTENT', messageId: 'a1', delta: 'Here is your workspace brief.' },
+      { type: 'TEXT_MESSAGE_END', messageId: 'a1' },
+      { type: 'RUN_FINISHED', threadId: 't1', runId: 'r1' },
+    ])));
+    const onTextMessageStart = vi.fn();
+    await streamAguiChat({
+      input: { threadId: 't1', runId: 'r1', messages: [{ id: 'u1', role: 'user', content: 'Show my brief.' }] },
+      callbacks: { onTextMessageStart },
+      getAccessToken: async () => null,
+    });
+    expect(onTextMessageStart).toHaveBeenCalledWith(expect.objectContaining({ agentName: 'master-orchestrator', messageId: 'a1' }));
+  });
+
   it('emits synthetic tool results for client-side tools and reruns with the appended history', async () => {
     const frontendTools = new Map<string, FrontendToolRegistration>([
       [

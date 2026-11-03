@@ -1,0 +1,28 @@
+{
+  "checks": [
+    "two human browser clients",
+    "live shared message updates",
+    "scoped agent response and avatar",
+    "requester-only approval actions",
+    "explicit approval confirmation",
+    "guarded medium continuation",
+    "history acknowledgement before invitation",
+    "participant updates across clients",
+    "observer read-only composer",
+    "revoked-member history cleared",
+    "decoded portraits",
+    "light/dark production captures",
+    "mobile participant drawer",
+    "persisted worker notifications reconcile without SSE",
+    "human and agent inbox identity",
+    "mention and unread filters",
+    "read failure recovery",
+    "older message page and focus",
+    "read, dismiss and mark-all actions",
+    "four production notification captures",
+    "light and dark use distinct application theme tokens"
+  ],
+  "sent": 3,
+  "decisions": 1,
+  "invites": 1
+}

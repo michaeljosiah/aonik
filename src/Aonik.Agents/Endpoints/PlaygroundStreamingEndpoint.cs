@@ -252,7 +252,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                         case TextContent textContent when !string.IsNullOrEmpty(textContent.Text):
                             if (!messageStarted)
                             {
-                                await WriteSseEventAsync(response, AguiStreamEvents.TextMessageStart(messageId), cancellationToken);
+                                await WriteSseEventAsync(response, AguiStreamEvents.TextMessageStart(messageId, agent.Name), cancellationToken);
                                 messageStarted = true;
                             }
 

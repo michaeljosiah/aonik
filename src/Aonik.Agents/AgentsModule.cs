@@ -5,6 +5,7 @@ using Aonik.Agents.Workflows;
 using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Agents.Approval;
+using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Modules;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -189,6 +190,12 @@ public sealed class AgentsModule : IModule
         // Chat thread persistence — manages persisted threads and messages.
         // Scoped because it depends on AgentsDbContext and tenant/user providers.
         services.AddScoped<IChatThreadService, ChatThreadService>();
+        services.AddScoped<IChatRoomService, Services.ChatRoomService>();
+        services.AddScoped<Services.ChatRoomInvocationGuard>();
+        services.AddScoped<IAgentMutationGuard>(provider => provider.GetRequiredService<Services.ChatRoomInvocationGuard>());
+        services.AddScoped<IChatRoomAgentRunner, Services.ChatRoomAgentRunner>();
+        services.AddScoped<IChatRoomApprovalAuthority, Services.ChatRoomApprovalAuthority>();
+        services.AddEventHandlersFromAssembly(typeof(AgentsModule).Assembly);
 
         // Thread title generator — uses IChatClient to summarise the first user message.
         // Scoped because it depends on IChatClient (scoped from AiModule).

@@ -159,6 +159,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
         long? timeToFirstTokenMs = null;
         long? requestToFirstTokenSseMs = null;
         var assistantText = string.Empty;
+        string? resolvedAgentName = null;
 
         chatActivity?.SetTag("aonik.chat.run_id", runId);
         chatActivity?.SetTag("aonik.agent.name", input.AgentId ?? "orchestrator");
@@ -231,6 +232,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
             var agentContext = await agentContextTask;
             var agent = agentContext.Agent;
+            resolvedAgentName = agent.Name;
             requestToAgentReadyMs = requestStopwatch.ElapsedMilliseconds;
             userBriefCacheStatus = agentContext.UserBriefCacheStatus;
             userBriefDurationMs = agentContext.UserBriefDurationMs;
@@ -481,7 +483,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 TenantId: capturedTenantId,
                 UserId: capturedUserId,
                 AssistantText: capturedText,
-                AgentId: input.AgentId,
+                AgentId: resolvedAgentName ?? input.AgentId,
                 InputTokens: inputTokens,
                 OutputTokens: outputTokens,
                 LatencyMs: latencyMs,

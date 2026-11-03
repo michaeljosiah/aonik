@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { AgentAvatar } from '@/components/ai/AgentAvatar';
+import { agentDisplayName } from '@/lib/agentIdentity';
 
 export type ProposalDiffLine = {
   type: 'add' | 'rm' | 'ctx';
@@ -29,16 +31,6 @@ export interface ProposalCardProps {
   /** When provided, shows the Dismiss action. */
   onDismiss?: () => void;
   className?: string;
-}
-
-function agentInitials(agent: string): string {
-  return agent
-    .split(' ')
-    .map((w) => w[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
 }
 
 const diffLineClass: Record<ProposalDiffLine['type'], string> = {
@@ -76,10 +68,8 @@ export function ProposalCard({
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-[10px] font-semibold text-primary">
-          {agentInitials(agent)}
-        </span>
-        <span className="text-sm font-medium">{agent} agent</span>
+        <AgentAvatar name={agent} className="size-7" />
+        <span className="text-sm font-medium">{agentDisplayName(agent)} <span className="text-xs text-muted-foreground">AI agent</span></span>
         <Badge variant="outline" className="ml-auto font-mono tabular-nums" title="Agent confidence">
           {Math.round(confidence * 100)}% confident
         </Badge>

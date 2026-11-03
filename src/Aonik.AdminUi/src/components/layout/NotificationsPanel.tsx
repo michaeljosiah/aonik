@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react';
 import {
   AlertTriangle,
+  AtSign,
   Bell,
   CheckCheck,
   CheckCircle2,
   Database,
   Info,
   Loader2,
+  MessageSquare,
   Sparkles,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +18,10 @@ import { Sheet, SheetBody, SheetContent, SheetHeader } from '@/components/ui/she
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { AgentAvatar } from '@/components/ai/AgentAvatar';
+import { agentDisplayName, notificationAgentName } from '@/lib/agentIdentity';
+import { chatNotificationContext, isChatNotification } from '@/lib/chatNotifications';
+import { HumanAvatar } from '@/components/ai/HumanAvatar';
 import type { AdminNotification } from '@/services/notificationService';
 
 interface NotificationsPanelProps {
@@ -54,10 +60,12 @@ export function NotificationsPanel({
   const navigate = useNavigate();
   const [pendingIds, setPendingIds] = useState<string[]>([]);
   const [markAllPending, setMarkAllPending] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [actionError, setActionError] = useState('');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'mentions' | 'chat'>('all');
 
   const visible = useMemo(
-    () => (filter === 'unread' ? notifications.filter((n) => n.status === 'Unread') : notifications),
+    () => notifications.filter(item => filter === 'all' || (filter === 'unread' && item.status === 'Unread')
+      || (filter === 'mentions' && item.type === 'chat.mention') || (filter === 'chat' && isChatNotification(item))),
     [notifications, filter],
   );
 
@@ -75,27 +83,38 @@ export function NotificationsPanel({
   }, [visible]);
 
   const handleMarkRead = async (notificationId: string) => {
+    setActionError('');
     setPendingIds((current) => [...current, notificationId]);
     try {
       await onMarkRead(notificationId);
+      return true;
+    } catch {
+      setActionError('Could not mark this notification read. Please try again.');
+      return false;
     } finally {
       setPendingIds((current) => current.filter((id) => id !== notificationId));
     }
   };
 
   const handleDismiss = async (notificationId: string) => {
+    setActionError('');
     setPendingIds((current) => [...current, notificationId]);
     try {
       await onDismiss(notificationId);
+    } catch {
+      setActionError('Could not dismiss this notification. Please try again.');
     } finally {
       setPendingIds((current) => current.filter((id) => id !== notificationId));
     }
   };
 
   const handleMarkAllRead = async () => {
+    setActionError('');
     setMarkAllPending(true);
     try {
       await onMarkAllRead();
+    } catch {
+      setActionError('Could not mark notifications read. Please try again.');
     } finally {
       setMarkAllPending(false);
     }
@@ -103,7 +122,7 @@ export function NotificationsPanel({
 
   const handleAction = async (notification: AdminNotification) => {
     if (notification.status === 'Unread') {
-      await handleMarkRead(notification.id);
+      if (!await handleMarkRead(notification.id)) return;
     }
 
     if (notification.actionUrl) {
@@ -118,10 +137,10 @@ export function NotificationsPanel({
         <SheetHeader
           icon={<Bell />}
           title="Notifications"
-          subtitle={`${unreadCount} unread from agents, jobs and system workflows`}
+          subtitle={`${unreadCount} unread from people, agents and workflows`}
         />
 
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3">
           <Tabs value={filter} onValueChange={(v) => setFilter(v as 'all' | 'unread')}>
             <TabsList>
               <TabsTrigger value="all">All</TabsTrigger>
@@ -131,6 +150,8 @@ export function NotificationsPanel({
                   <span className="font-mono text-xs tabular-nums text-muted-foreground">{unreadCount}</span>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="mentions">Mentions</TabsTrigger>
+              <TabsTrigger value="chat">Chat</TabsTrigger>
             </TabsList>
           </Tabs>
           <Button
@@ -144,6 +165,7 @@ export function NotificationsPanel({
           </Button>
         </div>
 
+        {actionError && <p role="alert" className="border-b bg-destructive/10 px-4 py-3 text-xs text-destructive">{actionError}</p>}
         <SheetBody className="gap-6 p-2">
           {loading && notifications.length === 0 ? (
             <div className="flex flex-col gap-2 p-2" aria-label="Loading notifications">
@@ -161,7 +183,7 @@ export function NotificationsPanel({
                   {filter === 'unread' ? 'You are all caught up' : 'No notifications yet'}
                 </EmptyTitle>
                 <EmptyDescription>
-                  Agent messages and system events appear here as they happen.
+                  {filter === 'mentions' ? 'Mentions from shared rooms appear here.' : filter === 'chat' ? 'New shared-room messages appear here.' : 'Messages, mentions and system events appear here as they happen.'}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -178,21 +200,25 @@ export function NotificationsPanel({
                     const severity = severityConfig[item.severity] ?? severityConfig.Info;
                     const SourceIcon = sourceIcons[item.source] ?? severity.icon;
                     const unread = item.status === 'Unread';
+                    const agentName = notificationAgentName(item);
+                    const chat = chatNotificationContext(item);
+                    const ChatIcon = item.type === 'chat.mention' ? AtSign : MessageSquare;
 
                     return (
                       <article
                         key={item.id}
+                        data-notification-id={item.id}
                         className={cn(
                           'relative flex gap-3 rounded-lg p-3 transition-colors hover:bg-accent/60',
                           unread && 'bg-muted/60',
                         )}
                       >
-                        <div className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">
+                        {agentName ? <AgentAvatar name={agentName} /> : chat?.human ? <HumanAvatar name={chat.authorName} /> : <div className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">
                           <SourceIcon className={cn('size-4', severity.tone)} />
-                        </div>
+                        </div>}
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span className="truncate font-medium">{formatSourceLabel(item.source)}</span>
+                            <span className="truncate font-medium">{agentName ? `${agentDisplayName(agentName)} · AI agent` : chat?.human ? `${chat.authorName} · Human` : formatSourceLabel(item.source)}</span>
                             <span className="shrink-0">{formatRelativeTime(item.createdAt)}</span>
                             {pending ? (
                               <Loader2 className="ml-auto size-3.5 shrink-0 animate-spin" />
@@ -201,11 +227,12 @@ export function NotificationsPanel({
                             ) : null}
                           </div>
                           <h4 className="text-sm font-medium">{item.title}</h4>
+                          {isChatNotification(item) ? <span className="inline-flex items-center gap-1.5 text-xs text-primary"><ChatIcon className="size-3.5 shrink-0" />{item.type === 'chat.mention' ? 'Mention' : 'New message'}{chat && <span className="truncate text-muted-foreground">· {chat.roomTitle}</span>}</span> : agentName && <span className={cn('inline-flex items-center gap-1 text-xs', severity.tone)}><severity.icon className="size-3" />{item.severity}</span>}
                           <p className="whitespace-pre-wrap text-xs leading-5 text-muted-foreground">{item.body}</p>
                           <div className="mt-1 flex items-center gap-1">
                             {item.actionUrl && (
                               <Button size="sm" variant="outline" disabled={pending} onClick={() => void handleAction(item)}>
-                                Open
+                                {isChatNotification(item) ? 'Open message' : 'Open'}
                               </Button>
                             )}
                             {unread && (

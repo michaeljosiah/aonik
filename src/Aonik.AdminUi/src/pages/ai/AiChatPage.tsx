@@ -5,7 +5,9 @@
 // File renamed to `AiChatPage` so the surface matches what it actually is.
 
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
+import { useModules } from '@/modules/useModules';
+import { CollaborativeChatPage } from './rooms/CollaborativeChatPage';
 import {
   BookOpenText,
   Loader2,
@@ -22,6 +24,7 @@ import { useAuth } from '@/auth/useAuth';
 import { AiAgentSelector, type AiAgentSelectorItem } from '@/components/ai/AiAgentSelector';
 import { AiChatComposer } from '@/components/ai/AiChatComposer';
 import { ChatMessageList } from '@/components/ai/ChatMessageList';
+import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import {
   Conversation,
   ConversationContent,
@@ -67,6 +70,16 @@ function getGreeting(name?: string) {
 }
 
 export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) {
+  const [search, setSearch] = useSearchParams();
+  const { contextKey, allowsPolicy } = useModules();
+  if (search.get('view') === 'rooms' && allowsPolicy('AdminReadPolicy')) {
+    return <CollaborativeChatPage key={contextKey} onOpenPrivate={() => setSearch({})} />;
+  }
+  return <PrivateAiChatPage agentId={agentId} agents={agents} onSelectAgent={onSelectAgent}
+    onOpenRooms={allowsPolicy('AdminReadPolicy') ? () => setSearch({ view: 'rooms' }) : undefined} />;
+}
+
+function PrivateAiChatPage({ agentId, agents, onSelectAgent, onOpenRooms }: AiChatPageProps & { onOpenRooms?: () => void }) {
   const params = useParams<{ agentId?: string }>();
   const [query, setQuery] = useState('');
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
@@ -110,7 +123,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
   }, [agentId, onSelectAgent, params.agentId]);
 
   const agentLabel = useMemo(() => {
-    if (!effectiveAgentId) return 'AONIK Orchestrator';
+    if (!effectiveAgentId) return 'AONIK';
     return effectiveAgentId
       .replace(/-agent$/, '')
       .replace(/-/g, ' ')
@@ -193,9 +206,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
       <aside className="flex w-72 shrink-0 flex-col border-r border-border bg-sidebar">
         <div className="flex h-[50px] items-center gap-2 border-b border-border px-4">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="grid h-7 w-7 place-items-center rounded-md bg-card border border-border">
-              <span className="text-xs font-semibold text-foreground">A</span>
-            </div>
+            <AgentAvatar name="aonik" className="size-7" />
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold text-foreground">AONIK AI</div>
             </div>
@@ -208,6 +219,7 @@ export function AiChatPage({ agentId, agents, onSelectAgent }: AiChatPageProps) 
         </div>
 
         <div className="flex-1 p-4">
+          {onOpenRooms && <Button variant="outline" size="sm" className="mb-4 w-full" onClick={onOpenRooms}>People & agents · Shared rooms</Button>}
           <button
             className="flex h-10 w-full items-center gap-2 rounded-md border border-border bg-card px-3 text-sm text-foreground shadow-sm transition-colors hover:bg-accent"
             type="button"

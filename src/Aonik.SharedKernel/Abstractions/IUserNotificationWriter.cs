@@ -12,7 +12,9 @@ public record UserNotificationWriteRequest(
     string? CorrelationId,
     Guid? AiRunId,
     string? MetadataJson,
-    string Channel = "InApp");
+    string Channel = "InApp",
+    string? IdempotencyKey = null,
+    bool SendPush = true);
 
 public interface IUserNotificationWriter
 {

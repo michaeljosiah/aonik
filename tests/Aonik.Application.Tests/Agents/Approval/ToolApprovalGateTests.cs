@@ -4,6 +4,8 @@ using Aonik.SharedKernel.Agents.Approval;
 using FluentAssertions;
 
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace Aonik.Application.Tests.Agents.Approval;
 
@@ -113,6 +115,24 @@ public class ToolApprovalGateTests
     }
 
     private static Dictionary<string, ToolClassification> Empty() => new(StringComparer.Ordinal);
+
+    [Fact]
+    public async Task GatedMutation_ShouldValidateExecutionAuthorityBeforeAnyInnerCall()
+    {
+        var calls = 0;
+        var guard = new Mock<IAgentMutationGuard>();
+        guard.Setup(value => value.ValidateAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("Room access revoked"));
+        using var provider = new ServiceCollection().AddSingleton(guard.Object).BuildServiceProvider();
+        var tool = AIFunctionFactory.Create(() => { calls++; return "changed"; }, "stub_update_state");
+        var gate = CreateGate(new Dictionary<string, ToolClassification>
+        {
+            ["stub_update_state"] = ToolClassification.Mutating(new ToolApprovalOptions(ToolApprovalTier.Low, "Update state"))
+        }, out _);
+        var gated = (AIFunction)gate.Gate(tool, provider);
+        Func<Task> act = async () => { await gated.InvokeAsync(new AIFunctionArguments()); };
+        await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("Room access revoked");
+        calls.Should().Be(0);
+    }
 
     [Fact]
     public void Gate_Should_PassToolThroughUnchanged_When_UnclassifiedAndReadLooking()

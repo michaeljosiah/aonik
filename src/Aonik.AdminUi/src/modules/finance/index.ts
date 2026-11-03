@@ -1,3 +1,4 @@
+import { BeneficiariesPage } from '@/pages/remittance/BeneficiariesPage';
 import type { AdminModule, ModuleRouteConfig } from '../types';
 import type { NavigationSection } from '@/types';
 import type { WorkspacePanelConfig, WorkspaceTemplate } from '@/workspace/types';
@@ -9,6 +10,7 @@ import {
 import {
   OrdersListPage,
   BillPaymentOrderFormPage,
+  TransferOrderPage,
 } from '@/pages/orders';
 import {
   LedgerOverviewPage,
@@ -117,6 +119,9 @@ const routes: ModuleRouteConfig[] = [
   { screen: { id: "finance.orders", label: "All orders", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "receipt" }, path: '/orders/activity', element: OrdersListPage },
   { screen: { id: "finance.order-new", label: "New order", permissions: {"authenticatedAdmin": true}, policy: "AdminUserWritePolicy", icon: "receipt" }, path: '/orders/bill-payments/new', element: BillPaymentOrderFormPage },
   { screen: { id: "finance.order-edit", label: "Order", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "receipt" }, path: '/orders/bill-payments/:orderId', element: BillPaymentOrderFormPage, isDynamic: true },
+  { screen: { id: 'finance.beneficiaries', label: 'Beneficiaries', permissions: { allOf: ['Payment.Read', 'Customers.Read'] }, policy: 'AdminReadPolicy', icon: 'menu-beneficiaries' }, path: '/remittance/beneficiaries', element: BeneficiariesPage },
+  { screen: { id: 'finance.transfer-new', label: 'New transfer', permissions: { allOf: ['Payment.Create', 'Payment.Read', 'Customers.Read'] }, policy: 'AdminWritePolicy', icon: 'menu-transfer-orders' }, path: '/orders/transfers/new', element: TransferOrderPage },
+  { screen: { id: 'finance.transfer-detail', label: 'Transfer details', permissions: { allOf: ['Payment.Read'] }, policy: 'AdminReadPolicy', icon: 'menu-transfer-orders' }, path: '/orders/transfers/:orderId', element: TransferOrderPage, isDynamic: true },
   { screen: { id: "finance.invoices", label: "Invoices", permissions: {"allOf": ["Invoice.Read"]}, policy: "AdminUserPolicy", icon: "book" }, path: '/billing/invoices', element: InvoicesListPage },
   { screen: { id: "finance.invoice-new", label: "New invoice", permissions: {"allOf": ["Invoice.Create"]}, policy: "AdminUserWritePolicy", icon: "book" }, path: '/billing/invoices/new', element: InvoiceFormPage },
   { screen: { id: "finance.invoice-detail", label: "Invoice", permissions: {"allOf": ["Invoice.Read"]}, policy: "AdminUserPolicy", icon: "book" }, path: '/billing/invoices/:id', element: InvoiceFormPage, isDynamic: true },
@@ -193,8 +198,10 @@ const workspaceTemplates: WorkspaceTemplate[] = [
 // Breadcrumbs
 // ---------------------------------------------------------------------------
 const breadcrumbs = [
+  { pathPrefix: '/remittance/beneficiaries', trail: ['Beneficiaries'] },
   { pathPrefix: '/accounts', trail: ['Accounts'] },
   { pathPrefix: '/orders/bill-payments', trail: [{ label: 'Orders', href: '/orders' }, 'Bill Payments'] },
+  { pathPrefix: '/orders/transfers', trail: [{ label: 'Transfer orders', href: '/orders/activity' }, 'Transfer'] },
   { pathPrefix: '/orders', trail: ['Orders'] },
   { pathPrefix: '/ledger', trail: ['Accounting'] },
   { pathPrefix: '/catalog', trail: ['Catalog'] },

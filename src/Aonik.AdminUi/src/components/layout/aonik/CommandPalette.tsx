@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpenIcon, MoonIcon, SettingsIcon, SparklesIcon, SunIcon } from 'lucide-react';
+import { BookOpenIcon, MoonIcon, SparklesIcon, SunIcon } from 'lucide-react';
 
 import {
   CommandDialog,
@@ -117,7 +117,7 @@ export function CommandPalette({ open, onOpenChange, onAskAonik, shortcutLabel }
             Switch to {resolvedTheme === 'dark' ? 'light' : 'dark'} theme
           </CommandItem>
           {isPathVisible('/settings') && <CommandItem value="action-settings" keywords={['settings', 'preferences']} onSelect={() => run(() => navigate('/settings'))}>
-            <SettingsIcon />
+            <AonikTemplateIcon name="menu-settings" size={16} />
             Open settings
           </CommandItem>}
           <CommandItem value="action-guides" keywords={['help', 'guides', 'docs']} onSelect={() => run(() => navigate('/setup-guides'))}>

@@ -1,3 +1,4 @@
+using Moq;
 using Aonik.Platform.Contracts.Models.Notifications;
 using Aonik.Platform.Contracts.Services.Notifications;
 using Aonik.Platform.Entities.Notifications;
@@ -13,6 +14,22 @@ namespace Aonik.Application.Tests.Notifications;
 
 public class NotificationServiceTests
 {
+    [Fact]
+    public async Task InAppOnlyWriter_ShouldPreserveDedupeAndNeverSendPush()
+    {
+        var tenant = Guid.NewGuid(); var user = Guid.NewGuid(); var clock = new TestClock(DateTime.UtcNow);
+        using var db = CreateDbContext(tenant, user, clock);
+        db.NotificationDevices.Add(new NotificationDevice { TenantId = tenant, UserId = user, Provider = "FCM", Platform = "Android", DeviceToken = "fictional-token" });
+        await db.SaveChangesAsync();
+        var push = new Mock<IPushNotificationSender>();
+        var writer = new UserNotificationWriter(CreateService(db, tenant, user, clock, push.Object));
+        var request = new UserNotificationWriteRequest(tenant, user, "chat.message", "Agent", "New message", "Open the shared room.", "Info", "/ai/chat?view=rooms", null, null, "{}", IdempotencyKey: "chat-test-1", SendPush: false);
+        await writer.WriteForUserAsync(request); await writer.WriteForUserAsync(request);
+        (await db.Notifications.CountAsync()).Should().Be(1);
+        (await db.Notifications.SingleAsync()).IdempotencyKey.Should().Be("chat-test-1");
+        push.Invocations.Should().BeEmpty();
+    }
+
     [Fact]
     public async Task CreateForUserAsync_ShouldPersistUnreadNotification()
     {
@@ -306,7 +323,8 @@ public class NotificationServiceTests
         PlatformDbContext context,
         Guid tenantId,
         Guid userId,
-        IClock clock)
+        IClock clock,
+        IPushNotificationSender? pushSender = null)
     {
         return new NotificationService(
             context,
@@ -314,7 +332,7 @@ public class NotificationServiceTests
             new TestTenantProvider(tenantId),
             new TestCurrentUserProvider(userId),
             new NotificationRealtimePublisher(),
-            new TestPushNotificationSender(),
+            pushSender ?? new TestPushNotificationSender(),
             clock);
     }
 

@@ -1,0 +1,17 @@
+{
+  "checks": [
+    "saved recipients only",
+    "explicit confirmation",
+    "shared communication icon",
+    "light/dark screenshots",
+    "lost-response journal survives reload without raw email",
+    "status check does not resend",
+    "captured tenant and stable reference",
+    "no browser-supplied PDF or amounts",
+    "provider rejection feedback",
+    "changed saved address reuses the original unreserved reference",
+    "no saved email state",
+    "read-only action hidden"
+  ],
+  "emailRequests": 7
+}

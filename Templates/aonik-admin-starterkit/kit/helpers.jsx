@@ -194,7 +194,7 @@ function InlineProposal({ agent, summary, confidence, indent = 126 }) {
         borderRadius: 8, padding: '10px 14px',
         display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <Avatar name={agent} size={22} color="var(--brand-primary-10)" textColor="var(--brand-primary)"/>
+        {globalThis.AonikAgentPortraits.resolve(agent) ? <img src={globalThis.AonikAgentPortraits.resolve(agent)} alt={`${agent} · AI agent`} style={{ width: 22, height: 22, borderRadius: '50%', objectFit: 'cover' }}/> : <Avatar name={agent} size={22} color="var(--brand-primary-10)" textColor="var(--brand-primary)"/>}
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 12, color: 'var(--text-primary)' }}>
             <b>{agent} Agent</b> proposes: {summary}

@@ -16,9 +16,10 @@ import {
 import {
   Message,
   MessageContent,
-  MessageAvatar,
 } from '@/components/ai-elements';
 import { Badge } from '@/components/ui/badge';
+import { AgentAvatar } from './AgentAvatar';
+import { agentDisplayName } from '@/lib/agentIdentity';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -83,12 +84,13 @@ export function ChatMessageList({
           case 'assistant':
             return (
               <div key={m.id} className="flex items-start">
-                <MessageAvatar />
+                <AgentAvatar name={m.agentName} className="mr-2 mt-2" />
                 <Message from="assistant">
+                  <div className="pt-1 text-xs font-medium text-muted-foreground">{agentDisplayName(m.agentName)} <span className="ml-1 text-[10px]">AI agent</span></div>
                   {/* Text content — rendered as markdown */}
                   {m.content ? (
                     <MessageContent from="assistant">
-                      <Markdown text={m.content} />
+                      <ChatMarkdown text={m.content} />
                     </MessageContent>
                   ) : isStreaming && !m.toolCalls?.length ? (
                     <MessageContent from="assistant">
@@ -347,7 +349,7 @@ function ToolCallCard({ toolCall }: { toolCall: ChatToolCall }) {
  * Renders markdown text as formatted HTML using react-markdown + remark-gfm.
  * Tailored for chat-sized messages: compact spacing, inline-friendly.
  */
-function Markdown({ text }: { text: string }) {
+export function ChatMarkdown({ text }: { text: string }) {
   return (
     <div className="chat-markdown">
     <ReactMarkdown

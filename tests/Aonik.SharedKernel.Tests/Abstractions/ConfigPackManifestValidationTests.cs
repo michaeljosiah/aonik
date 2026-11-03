@@ -7,7 +7,7 @@ namespace Aonik.SharedKernel.Tests.Abstractions;
 
 /// <summary>
 /// Spec 097 §13: a config pack's <c>modules</c> list is made of canonical catalogue ids, validated on
-/// load. The three shipped packs must load with the revised lists, and an unknown (or legacy
+/// load. The shipped packs must load with canonical lists, and an unknown (or legacy
 /// PascalCase) id must fail the pack loudly, naming the pack and the id.
 /// </summary>
 public class ConfigPackManifestValidationTests
@@ -54,11 +54,46 @@ public class ConfigPackManifestValidationTests
     }
 
     [Fact]
+    public void Get_Should_LoadRemittancePack_WithoutSampleDataOrPinnedAgents()
+    {
+        // Arrange / Act
+        var pack = _source.Get(" REMITTANCE ");
+
+        // Assert
+        pack.Should().NotBeNull();
+        pack!.BusinessType.Should().Be("remittance");
+        pack.DisplayName.Should().Be("Remittance");
+        pack.Version.Should().Be(1);
+        pack.Modules.Should().BeEquivalentTo(new[] { ModuleIds.Finance, ModuleIds.Ai, ModuleIds.Agents, ModuleIds.Documents });
+        pack.Settings.Should().Contain("Branding.AgentDisplayName", "Remittance");
+        pack.Agents.Should().BeEmpty("the pack must not invent a Remittance domain agent or pin a model");
+        pack.ReferenceData.Should().BeEmpty("live corridors, partners and rates require operator configuration");
+    }
+
+    [Fact]
+    public void Get_Should_LoadArkeWorldsPack_WithoutPublishingDraftOffersOrOverridingAgents()
+    {
+        // Arrange / Act
+        var pack = _source.Get(" ARKE-WORLDS ");
+
+        // Assert
+        pack.Should().NotBeNull();
+        pack!.BusinessType.Should().Be("arke-worlds");
+        pack.DisplayName.Should().Be("Arke Worlds");
+        pack.Modules.Should().BeEquivalentTo(new[] { ModuleIds.Workspaces, ModuleIds.Groups,
+            ModuleIds.Subscriptions, ModuleIds.Finance, ModuleIds.Documents, ModuleIds.Ai, ModuleIds.Agents });
+        pack.Settings.Should().ContainSingle().Which.Key.Should().Be("Branding.AgentDisplayName");
+        pack.Settings["Branding.AgentDisplayName"].Should().Be("AONIK");
+        pack.ReferenceData.Should().BeEmpty("commercial proposals must not become live prices or entitlements");
+        pack.Agents.Should().BeEmpty("model routing remains authoritative");
+    }
+
+    [Fact]
     public void ListBusinessTypes_Should_LoadEveryShippedPack_When_EachIsValidated()
     {
         var types = _source.ListBusinessTypes();
 
-        types.Should().Contain(new[] { "base", "food-commerce", "simi" });
+        types.Should().Contain(new[] { "base", "food-commerce", "simi", "remittance", "arke-worlds" });
 
         foreach (var type in types)
         {

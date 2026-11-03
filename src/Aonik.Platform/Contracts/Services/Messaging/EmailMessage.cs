@@ -5,4 +5,6 @@ public record EmailMessage(
     string Subject,
     string Body,
     bool IsHtml = true,
-    string? From = null);
+    string? From = null,
+    IReadOnlyList<Aonik.SharedKernel.Abstractions.Messaging.EmailAttachment>? Attachments = null,
+    Guid? TrackingId = null);

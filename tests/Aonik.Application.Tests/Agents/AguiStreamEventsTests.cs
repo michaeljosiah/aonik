@@ -29,6 +29,11 @@ public class AguiStreamEventsTests
             .Should().Be("""{"type":"TEXT_MESSAGE_START","messageId":"m1","role":"assistant"}""");
 
     [Fact]
+    public void TextMessageStart_IncludesResolvedAgentIdentity_WhenProvided() =>
+        Json(AguiStreamEvents.TextMessageStart("m1", "master-orchestrator"))
+            .Should().Be("""{"type":"TEXT_MESSAGE_START","messageId":"m1","role":"assistant","agentName":"master-orchestrator"}""");
+
+    [Fact]
     public void TextMessageContent_HasExactShape() =>
         Json(AguiStreamEvents.TextMessageContent("m1", "hi"))
             .Should().Be("""{"type":"TEXT_MESSAGE_CONTENT","messageId":"m1","delta":"hi"}""");

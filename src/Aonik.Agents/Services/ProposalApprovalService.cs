@@ -21,6 +21,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
     private readonly IProposalRejectionDispatcher _rejectionDispatcher;
     private readonly IAuditLogWriter? _auditLogWriter;
     private readonly ICorrelationContext? _correlationContext;
+    private readonly IChatRoomApprovalAuthority? _roomApprovalAuthority;
 
     /// <param name="auditLogWriter">
     /// Optional: records a proposal that could not execute because its handler's module is off for
@@ -34,7 +35,8 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         IProposalDispatcher dispatcher,
         IProposalRejectionDispatcher rejectionDispatcher,
         IAuditLogWriter? auditLogWriter = null,
-        ICorrelationContext? correlationContext = null)
+        ICorrelationContext? correlationContext = null,
+        IChatRoomApprovalAuthority? roomApprovalAuthority = null)
     {
         _dbContext = dbContext;
         _currentUserProvider = currentUserProvider;
@@ -43,6 +45,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         _rejectionDispatcher = rejectionDispatcher;
         _auditLogWriter = auditLogWriter;
         _correlationContext = correlationContext;
+        _roomApprovalAuthority = roomApprovalAuthority;
     }
 
     public async Task<ProposalDetailResponse?> GetByIdAsync(Guid proposalId, CancellationToken ct = default)
@@ -106,6 +109,9 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
     {
         var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p => p.Id == proposalId, ct)
             ?? throw new KeyNotFoundException($"Proposal {proposalId} not found.");
+
+        if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
+            throw new PermissionDeniedException("ChatRoom.Approval", "Current room access does not permit deciding this proposal.");
 
         if (proposal.Status != ProposalStatus.Proposed)
         {
@@ -202,6 +208,9 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
     {
         var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p => p.Id == proposalId, ct)
             ?? throw new KeyNotFoundException($"Proposal {proposalId} not found.");
+
+        if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
+            throw new PermissionDeniedException("ChatRoom.Approval", "Current room access does not permit deciding this proposal.");
 
         if (proposal.Status != ProposalStatus.Proposed)
         {

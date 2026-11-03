@@ -312,7 +312,7 @@ function TopoCanvas({ agent, nodes, lens, selId, onSelect, onReset, height = 560
   return (
     <div style={{
       position: 'relative', height, borderRadius: 16, overflow: 'hidden',
-      backgroundColor: 'var(--surface-canvas, #f3f5f8)',
+      backgroundColor: 'var(--muted)',
       border: '1px solid var(--border-light)',
       backgroundImage: 'radial-gradient(circle, rgba(20,25,30,0.05) 1px, transparent 1px)',
       backgroundSize: '24px 24px',
@@ -575,7 +575,7 @@ function ScreenAgentDetailBlend() {
   };
 
   return (
-    <div style={{ position: 'relative', height: '100%', overflow: 'hidden', background: 'var(--surface-canvas, #f7f8fa)' }}>
+    <div style={{ position: 'relative', height: '100%', overflow: 'hidden', background: 'var(--muted)' }}>
       <style>{ADX_CSS}</style>
       <div style={{ height: '100%', overflow: 'auto' }}>
         <div style={{ maxWidth: 1240, margin: '0 auto', padding: '28px 32px 48px' }}>

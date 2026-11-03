@@ -124,7 +124,8 @@ public record PartyRelationshipResponse(
     string ToPartyName,
     string RelationshipTypeCode,
     string RelationshipTypeName,
-    bool IsActive);
+    bool IsActive,
+    string? Notes = null);
 
 public record RelatedPartyResponse(
     PartyResponse Party,

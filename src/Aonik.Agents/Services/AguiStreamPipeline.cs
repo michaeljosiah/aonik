@@ -105,7 +105,7 @@ internal sealed class AguiStreamPipeline : IAguiStreamPipeline
                                 {
                                     ["elapsed_ms"] = timeToFirstTokenMs.Value,
                                 }));
-                            await WriteSseEventAsync(writer, AguiStreamEvents.TextMessageStart(messageId), cancellationToken);
+                            await WriteSseEventAsync(writer, AguiStreamEvents.TextMessageStart(messageId, input.Agent.Name), cancellationToken);
                             messageStarted = true;
                         }
 

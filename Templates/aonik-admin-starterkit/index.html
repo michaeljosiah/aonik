@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=1600"/>
 <title>Aonik · Admin UI</title>
 <link rel="stylesheet" href="tokens.css"/>
+<link rel="stylesheet" href="design-system/remittance-operations.css"/>
+<link rel="stylesheet" href="design-system/chat.css"/>
+<link rel="stylesheet" href="design-system/support.css"/>
+<link rel="stylesheet" href="design-system/food-business.css"/>
 <style>
-  html, body, #root { margin: 0; padding: 0; height: 100%; background: #f0eee9; }
+  html, body, #root { margin: 0; padding: 0; height: 100%; background: var(--muted); }
   body { font-family: var(--font-sans); }
   /* Scope: every artboard gives its AppShell a 100% height & local background */
   .aonik-frame {
@@ -23,22 +27,8 @@
     0%, 100% { opacity: 1; }
     50%      { opacity: 0.4; }
   }
-  [data-theme="dark"] {
-    --background: #1a1d21;
-    --surface: #21252a;
-    --surface-inset: #1d2024;
-    --border-light: #2d3239;
-    --border-medium: #3a4049;
-    --text-primary: #e8eaec;
-    --text-secondary: #9ba3ad;
-    --text-tertiary: #6e7680;
-    --brand-primary-10: #055a6030;
-    --gray-200: #2d3239;
-    --gray-400: #5a6069;
-    --gray-500: #8a9099;
-  }
 </style>
-</head>
+<link rel="stylesheet" href="design-system/arke-worlds.css"></head>
 <body>
 <div id="root"></div>
 
@@ -51,6 +41,8 @@
 <script type="text/babel" src="tweaks-panel.jsx"></script>
 
 <!-- Core kit -->
+<script src="assets/menu-icons.js"></script>
+<script src="assets/agent-portraits.js"></script>
 <script type="text/babel" src="kit/components.jsx"></script>
 <script type="text/babel" src="kit/icons-extra.jsx"></script>
 <script type="text/babel" src="kit/helpers.jsx"></script>
@@ -86,6 +78,11 @@
 <script type="text/babel" src="screens/invoice-detail.jsx"></script>
 <script type="text/babel" src="screens/order-monitor.jsx"></script>
 <script type="text/babel" src="screens/ai-chat.jsx"></script>
+<script type="text/babel" src="screens/support.jsx"></script>
+<script src="screens/food-business-data.js"></script>
+<script type="text/babel" src="screens/food-business-views.jsx"></script>
+<script type="text/babel" src="screens/food-customer-detail.jsx"></script><script type="text/babel" src="screens/food-business-records.jsx"></script><script type="text/babel" src="screens/food-business.jsx"></script>
+<script src="screens/arke-worlds-catalog.js"></script><script src="screens/arke-worlds-data.js"></script><script type="text/babel" src="screens/arke-worlds.jsx"></script>
 <script type="text/babel" src="screens/settings.jsx"></script>
 <script type="text/babel" src="screens/billers.jsx?v=3"></script>
 <script type="text/babel" src="screens/commerce-catalog.jsx?v=3"></script>
@@ -108,6 +105,7 @@
 <script type="text/babel" src="screens/commerce-production.jsx?v=1"></script>
 <script type="text/babel" src="screens/commerce-margin.jsx?v=1"></script>
 <script type="text/babel" src="screens/remittances.jsx"></script>
+<script type="text/babel" src="screens/remittance-operations.jsx"></script>
 <script type="text/babel" src="screens/approvals.jsx"></script>
 <script type="text/babel" src="screens/tenant-signup.jsx"></script>
 <script type="text/babel" src="screens/account.jsx"></script>
@@ -282,10 +280,10 @@ function App() {
   React.useEffect(() => {
     const html = document.documentElement;
     html.dataset.theme = t.theme;
-    const a = ACCENTS[t.accent] || ACCENTS.teal;
-    html.style.setProperty('--brand-primary', a.primary);
-    html.style.setProperty('--brand-primary-60', a.p60);
-    html.style.setProperty('--brand-primary-10', a.p10);
+    const a = t.accent === 'teal' ? null : (ACCENTS[t.accent] || ACCENTS.teal);
+    for (const [key, value] of [['--brand-primary', a?.primary], ['--brand-primary-60', a?.p60], ['--brand-primary-10', a?.p10]]) {
+      if (value) html.style.setProperty(key, value); else html.style.removeProperty(key);
+    }
 
     // Density → row-height CSS var
     const densities = { compact: 36, regular: 44, comfy: 52 };
@@ -313,7 +311,12 @@ function App() {
 
   return (
     <>
+      <a href="showcase.html" style={{position:"fixed",top:12,right:20,zIndex:10000}} className="btn btn-primary">Business showcases ↗</a>
       <DesignCanvas title="Aonik · Admin UI" subtitle="Agents propose. Systems apply.">
+
+        <DCSection id="remittance-operations" title="Remittance · Operations & receipts" subtitle="Editable product designs · transfer editor, beneficiaries, receipt send, history, delivery, customer email review, resend and recovery · all data and interactions are fictional">
+          {remittanceArtboards(W, H, t.sidebarCollapsed)}
+        </DCSection>
 
         <DCSection id="core" title="Core workspaces" subtitle="The three surfaces every operator lives in">
           <DCArtboard id="loading" label="First-load splash · Aonik mark with tint-rise loader" width={W} height={H}>
@@ -438,13 +441,12 @@ function App() {
           </DCArtboard>
         </DCSection>
 
-        <DCSection id="ai-chat" title="AI Chat surfaces" subtitle="Slide-out drawer · full-page workspace">
-          <DCArtboard id="ai-chat-slideout" label="AI Chat · slide-out drawer with agent picker" width={W} height={H}>
-            {mkShell('myspace', ['My Space'], ScreenAiChatSlideout)}
-          </DCArtboard>
-          <DCArtboard id="ai-chat-fullpage" label="AI Chat · full page · threads + greeting + composer" width={W} height={H}>
-            {mkShell('playground', ['AI', 'Chat'], ScreenAiChatFullPage)}
-          </DCArtboard>
+        <DCSection id="ai-chat" title="Chat · People & agents" subtitle="Contextual slide-out · permission cards · collaborative rooms · human proposal review · notifications & mentions">
+          {chatArtboards(W,H)}
+        </DCSection>
+
+        <DCSection id="support" title="Support · Customer conversations" subtitle="Email inbox · AONIK copilot · grounded reply review · operational handoffs">
+          {supportArtboards(W,H)}
         </DCSection>
 
         <DCSection id="settings" title="Settings" subtitle="Landing · platform tabs · payment gateways · TTS">
@@ -614,88 +616,19 @@ function App() {
           </DCArtboard>
         </DCSection>
 
-        <DCSection id="commerce" title="Commerce · Spec 042" subtitle="Aonik.Commerce retail module — catalog, build-your-own boxes, inventory, carts, orders, discounts">
-          <DCArtboard id="commerce-products" label="Commerce · Products · catalog (rail + KPIs + Kind/status filters + grid/list) + product editor drawer (variants · pricing · media · BYO-box builder)" width={W} height={H}>
-            {mkShell('cm-catalog', ['Commerce', 'Catalog', 'Products'], ScreenCommerceProducts)}
-          </DCArtboard>
-          <DCArtboard id="commerce-categories" label="Commerce · Categories · parent/child product category tree" width={W} height={H}>
-            {mkShell('cm-catalog', ['Commerce', 'Catalog', 'Categories'], ScreenCommerceCategories)}
-          </DCArtboard>
-          <DCArtboard id="commerce-inventory" label="Commerce · Inventory · stock by variant + location · set-on-hand · reservations/holds + TTL sweep · bundle buildability" width={W} height={H}>
-            {mkShell('cm-inventory', ['Commerce', 'Inventory'], ScreenCommerceInventory)}
-          </DCArtboard>
-          <DCArtboard id="commerce-carts" label="Commerce · Carts · open/abandoned/guest carts + box selections + recovery" width={W} height={H}>
-            {mkShell('cm-orders', ['Commerce', 'Carts'], ScreenCommerceCarts)}
-          </DCArtboard>
-          <DCArtboard id="commerce-orders" label="Commerce · Orders · ProductPurchase orders + lifecycle stepper + charge summary (subtotal/discount/tax/total)" width={W} height={H}>
-            {mkShell('cm-orders', ['Commerce', 'Orders'], ScreenCommerceOrders)}
-          </DCArtboard>
-          <DCArtboard id="commerce-discounts" label="Commerce · Discounts · coupons (percentage/fixed, expiry, redemption limits) + tax-calculator seam" width={W} height={H}>
-            {mkShell('cm-discounts', ['Commerce', 'Discounts'], ScreenCommerceDiscounts)}
-          </DCArtboard>
-          <DCArtboard id="commerce-overview" label="Commerce · Overview · KPIs + revenue trend + recent orders + top products + needs-attention + maker-ops tiles" width={W} height={H}>
-            {mkShell('cm-overview', ['Commerce', 'Overview'], ScreenCommerceOverview)}
-          </DCArtboard>
+        <DCSection id="commerce" title="Food business · Day to day" subtitle="A clear daily overview, customer orders and packing.">
+          {foodArtboards(W,H,['today','customers','orders','finance'])}
         </DCSection>
 
-        <DCSection id="commerce-make" title="Commerce · Make · Specs 050–057" subtitle="The operations manager's day: plan, source, receive, produce, price — every status and rule mirrors the landed maker-operations services">
-          <DCArtboard id="cm-ingredients" label="Ingredients · raw-material master · effective-dated cost history + scheduled reprice · stock & reorder points" width={W} height={H}>
-            {mkShell('cm-ingredients', ['Commerce', 'Make', 'Ingredients'], ScreenCommerceIngredients)}
-          </DCArtboard>
-          <DCArtboard id="cm-recipes" label="Recipes · components per yield + per-portion standard cost · 40-portion explosion preview · no-recipe diagnostics" width={W} height={H}>
-            {mkShell('cm-recipes', ['Commerce', 'Make', 'Recipes'], ScreenCommerceRecipes)}
-          </DCArtboard>
-          <DCArtboard id="cm-lowstock" label="Low stock · active alerts (Open+Acknowledged = one set) · Ordered/Resolved links · order-from-shortfall" width={W} height={H}>
-            {mkShell('cm-lowstock', ['Commerce', 'Make', 'Low stock'], ScreenCommerceLowStock)}
-          </DCArtboard>
-          <DCArtboard id="cm-suppliers" label="Suppliers · pack economics (₦28,000 / 25 kg ⇒ ₦1,120/kg) · cheapest-per-ingredient · GBP currency guard" width={W} height={H}>
-            {mkShell('cm-suppliers', ['Commerce', 'Make', 'Suppliers'], ScreenCommerceSuppliers)}
-          </DCArtboard>
-          <DCArtboard id="cm-pos" label="Purchase orders · Draft→Pending→Complete/Cancelled · partial receipt = progress bar, never a status · from-shortfall create" width={W} height={H}>
-            {mkShell('cm-pos', ['Commerce', 'Make', 'Purchase orders'], ScreenCommercePurchaseOrders)}
-          </DCArtboard>
-          <DCArtboard id="cm-receipt" label="Goods receipt · claim-first receive · short-receipt keeps the alert · over-receipt rejection · idempotent retry" width={W} height={H}>
-            {mkShell('cm-pos', ['Commerce', 'Make', 'Purchase orders', 'Receive'], ScreenCommerceGoodsReceipt)}
-          </DCArtboard>
-          <DCArtboard id="cm-prod-sheet" label="Production sheet · windowed ProductPurchase demand · bundle-expanded · no-recipe surfaced" width={W} height={H}>
-            {mkShell('cm-planning', ['Commerce', 'Make', 'Planning', 'Production sheet'], ScreenCommerceProductionSheet)}
-          </DCArtboard>
-          <DCArtboard id="cm-prep-list" label="Prep list · required vs available (OnHand − Reserved) vs shortfall (10/8/5 ⇒ 3) · pack-rounded suggestions" width={W} height={H}>
-            {mkShell('cm-planning', ['Commerce', 'Make', 'Planning', 'Prep list'], ScreenCommercePrepList)}
-          </DCArtboard>
-          <DCArtboard id="cm-prod-orders" label="Production orders · Planned→Released→InProgress→Completed · release = all-or-nothing snapshot consumption" width={W} height={H}>
-            {mkShell('cm-production', ['Commerce', 'Make', 'Production'], ScreenCommerceProductionOrders)}
-          </DCArtboard>
-          <DCArtboard id="cm-kitchen-sheet" label="Kitchen sheet · printable · per-dish prep + merged totals · frozen at creation, matches Release exactly" width={W} height={H}>
-            {mkShell('cm-production', ['Commerce', 'Make', 'Production', 'Kitchen sheet'], ScreenCommerceKitchenSheet)}
-          </DCArtboard>
-          <DCArtboard id="cm-margin" label="Margin report · honest aggregate (unknown-COGS surfaced & excluded, never zeroed) · inline target editing" width={W} height={H}>
-            {mkShell('cm-margin', ['Commerce', 'Make', 'Margin'], ScreenCommerceMargin)}
-          </DCArtboard>
+        <DCSection id="commerce-make" title="Food business · Kitchen & stock" subtitle="Plan, cook, receive and buy — with details shown when needed.">
+          {foodArtboards(W,H,['kitchen','stock'])}
         </DCSection>
 
-        <DCSection id="commerce-storefront" title="Commerce · Storefront · Specs 066–072" subtitle="The shop window, run as data — AbbysTable's Tuesday: personalisation, food content, box pricing, the delivery promise, merchandising, config. A second demo tenant beside the Spec 042 wellness shop; each section is internally consistent, and on a live deployment every surface reads one catalog">
-          <DCArtboard id="cs-options" label="Personalisation · option groups + signed-delta choices + recommended default · default-move consequence card · per-product narrowing drawer" width={W} height={H}>
-            {mkShell('cs-options', ['Commerce', 'Storefront', 'Personalisation'], ScreenStorefrontOptions)}
-          </DCArtboard>
-          <DCArtboard id="cs-content" label="Food content · the label as the customer reads it · exact-authored-or-withheld · review queue + combination variants + coverage gaps" width={W} height={H}>
-            {mkShell('cs-content', ['Commerce', 'Storefront', 'Food content'], ScreenStorefrontContent)}
-          </DCArtboard>
-          <DCArtboard id="cs-boxplan" label="Box plans · price curve (formula vs presets) · marginal grow costs · authored savings, never computed" width={W} height={H}>
-            {mkShell('cs-boxplan', ['Commerce', 'Storefront', 'Box plans'], ScreenStorefrontBoxPlan)}
-          </DCArtboard>
-          <DCArtboard id="cs-delivery" label="Delivery · fulfilment calendar editor · month grid (delivery days / blackouts / the promise) · honest no-promise state" width={W} height={H}>
-            {mkShell('cs-delivery', ['Commerce', 'Storefront', 'Delivery'], ScreenStorefrontDelivery)}
-          </DCArtboard>
-          <DCArtboard id="cs-merch" label="Merchandising · ranked collections + storefront rail preview + staged drafts · facet groups (Tag / Attribute / Range bands)" width={W} height={H}>
-            {mkShell('cs-merch', ['Commerce', 'Storefront', 'Merchandising'], ScreenStorefrontMerch)}
-          </DCArtboard>
-          <DCArtboard id="cs-config" label="Storefront config · the tunables document ↔ what the customer sees (label badge, £10→Free delivery, Step 1 presets)" width={W} height={H}>
-            {mkShell('cs-config', ['Commerce', 'Storefront', 'Config'], ScreenStorefrontConfig)}
-          </DCArtboard>
+        <DCSection id="commerce-storefront" title="Food business · Shop & reports" subtitle="A simpler menu, safer labels, clear delivery and honest margins.">
+          {foodArtboards(W,H,['shop','reports'])}
         </DCSection>
 
-      </DesignCanvas>
+      <DCSection id="arke-worlds-operations" title="Arke Worlds · Operations" subtitle="Arke Kids first, with Studio and Player workflows.">{arkeWorldsArtboards(W,H)}</DCSection></DesignCanvas>
 
       <RunDrawer job={openJob} onClose={() => setOpenJob(null)} onAction={() => {}} agentLayer={true}/>
 

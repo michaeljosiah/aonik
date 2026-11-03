@@ -1,15 +1,13 @@
 // Agents page — built-in AI agents roster with card layout + slide-out edit panel.
 // Two layout modes: 'card' (rich tiles, default) and 'grid' (denser list).
 //
-// Profile images are inline SVG portraits — each agent gets a distinctive,
-// generative composition built from geometric forms tinted with the agent's hue.
-// Avoids photo-realistic / human imagery for AI agents (which would feel wrong)
-// while still giving each agent a unique recognizable "face".
+// Built-in agents use the shared generated CGI portrait catalog.
+// Unmapped agents and glyph swatches retain their geometric fallback.
 
 // ─── Agent data ─────────────────────────────────────────────────────
 const AGENT_LIST = [
   {
-    id: 'orch', name: 'Orchestrator', glyph: 'orbital',
+    id: 'orch', name: 'AONIK', glyph: 'orbital',
     color: '#055a60', tagline: 'Routes traffic across every agent',
     description: 'Top-level conductor. Decides which domain agent handles each request, holds policies, escalates to humans when confidence drops.',
     model: 'claude-opus-4',  temp: 0.2,
@@ -88,13 +86,15 @@ const STATE_DOT = {
   paused:  { c: 'var(--warning)',     t: 'Paused' },
 };
 
-// ─── Profile portrait (inline SVG, generative, per-glyph) ──────────
+// ─── Profile portrait (CGI headshot with SVG fallback) ──────────
 // Each agent renders an 80x80 (or scalable) avatar:
 //   - Tinted gradient field background from agent.color
 //   - A unique geometric composition keyed on `glyph`
 //   - Soft inner ring
 //
-function AgentPortrait({ agent, size = 64, ring = true }) {
+function AgentPortrait({ agent, size = 64, ring = true, forceGlyph = false }) {
+  const portrait=forceGlyph?undefined:(window.AonikAgentPortraits?.resolve(agent.id)||window.AonikAgentPortraits?.resolve(agent.name));
+  if(portrait)return <svg width={size} height={size} viewBox="0 0 80 80" role="img" aria-label={agent.name+' AI agent portrait'} style={{flex:'none',display:'block',borderRadius:size*.18,overflow:'hidden'}}><defs><clipPath id={'cgi-'+agent.id+'-'+size}><rect width="80" height="80" rx="14.4"/></clipPath></defs><image href={portrait} width="80" height="80" preserveAspectRatio="xMidYMid slice" clipPath={'url(#cgi-'+agent.id+'-'+size+')'}/>{ring && <rect x=".5" y=".5" width="79" height="79" rx="14.4" fill="none" stroke="var(--border)"/>}</svg>;
   const c = agent.color;
   const id = `pt-${agent.id}`;
   return (
@@ -434,10 +434,10 @@ function EditIdentity({ agent }) {
           <AgentPortrait agent={agent} size={72}/>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, color: 'var(--text-primary)', fontWeight: 500 }}>
-              Style · <span style={{ color: 'var(--brand-primary)', textTransform: 'capitalize' }}>{agent.glyph}</span>
+              Style · <span style={{ color: 'var(--brand-primary)' }}>CGI portrait / glyph fallback</span>
             </span>
             <span style={{ fontSize: 11, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-              Each agent gets a deterministic glyph portrait. Re-roll, pick a glyph, or upload a custom mark.
+              Built-in agents use shared CGI portraits. The glyphs below preview the fallback for unmapped agents.
             </span>
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
               <button className="btn btn-outline btn-sm" style={{ height: 26, padding: '0 10px', fontSize: 11 }}>
@@ -457,7 +457,7 @@ function EditIdentity({ agent }) {
               cursor: 'pointer', borderRadius: 8, padding: 2,
               border: `1.5px solid ${g === agent.glyph ? 'var(--brand-primary)' : 'transparent'}`,
             }}>
-              <AgentPortrait agent={{ ...agent, glyph: g }} size={42} ring={false}/>
+              <AgentPortrait agent={{ ...agent, glyph: g }} size={42} ring={false} forceGlyph/>
             </div>
           ))}
         </div>

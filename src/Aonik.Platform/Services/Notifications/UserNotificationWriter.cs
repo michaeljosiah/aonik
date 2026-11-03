@@ -28,7 +28,9 @@ internal sealed class UserNotificationWriter : IUserNotificationWriter
                 request.CorrelationId,
                 request.AiRunId,
                 request.MetadataJson,
-                request.Channel),
+                request.Channel,
+                request.IdempotencyKey,
+                request.SendPush),
             cancellationToken);
     }
 }

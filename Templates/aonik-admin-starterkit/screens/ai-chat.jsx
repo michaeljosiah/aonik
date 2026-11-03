@@ -1,478 +1,99 @@
-// AI Chat — slide-out drawer + full-page mock matching the codebase
-// Mirrors AiChatPanel.tsx (slide-out) and AiChatMock.tsx (full page)
-
-const AGENTS = [
-  { id: 'orch',       name: 'AONIK Orchestrator', desc: 'Routes to all domain agents', initial: 'A', color: '#055a60' },
-  { id: 'billing',    name: 'Billing Agent',      desc: 'Invoices · matching · dunning', initial: 'B', color: '#eb5c37' },
-  { id: 'ledger',     name: 'Ledger Agent',       desc: 'Journals · close · reconciliation', initial: 'L', color: '#3ab795' },
-  { id: 'fx',         name: 'FX Agent',           desc: 'Cross-border · hedging · rates', initial: 'F', color: '#7b76b6' },
-  { id: 'compliance', name: 'Compliance Agent',   desc: 'KYC/KYB · sanctions · audits', initial: 'C', color: '#0097a9' },
-  { id: 'insights',   name: 'Insights Agent',     desc: 'Budgets · forecasts · variance', initial: 'I', color: '#5facbd' },
+// Native editable prototypes. Fictional conversations and local interactions only.
+// Implementation references: AiChatPanel, AiChatPage, chatSupport and Spec 032.
+const CHAT_DESIGN_SCENES = [
+  ['slideout','Slide-out chat · contextual response and one-time permission'],
+  ['permissions','Permission cards · scoped access and explicit decisions'],
+  ['collaboration','Collaborative chat · two humans and three domain agents'],
+  ['proposal-review','Human review · durable proposal and queued execution'],
+  ['notifications','Chat notifications · human mentions and agent messages'],
+  ['mentions','Mentions · unread inbox and linked message'],
 ];
-
-// ───────────── Agent picker dropdown ─────────────
-function AgentPicker({ value, onChange, anchor = 'bottom-left', dark = false }) {
-  const [open, setOpen] = React.useState(false);
-  const ref = React.useRef(null);
-  const sel = AGENTS.find(a => a.id === value) || AGENTS[0];
-
-  React.useEffect(() => {
-    if (!open) return;
-    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [open]);
-
-  const triggerStyle = dark ? {
-    background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.2)',
-  } : {
-    background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border-light)',
-  };
-
-  return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button onClick={() => setOpen(o => !o)} style={{
-        ...triggerStyle, display: 'inline-flex', alignItems: 'center', gap: 8,
-        padding: '5px 10px 5px 6px', borderRadius: 8, fontSize: 12.5,
-        cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500,
-      }}>
-        <span style={{
-          width: 22, height: 22, borderRadius: '50%', background: sel.color, color: '#fff',
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 11, fontWeight: 700,
-        }}>{sel.initial}</span>
-        <span style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{sel.name}</span>
-        <Icon name="chevron" size={12} color={dark ? '#fff' : 'var(--text-secondary)'}/>
-      </button>
-      {open && (
-        <div style={{
-          position: 'absolute', zIndex: 50, marginTop: 6,
-          [anchor.includes('right') ? 'right' : 'left']: 0,
-          width: 300, background: 'var(--surface)', border: '1px solid var(--border-light)',
-          borderRadius: 10, padding: 6,
-          boxShadow: '0 12px 32px -8px rgb(0 0 0 / 0.18), 0 0 0 1px rgb(0 0 0 / 0.02)',
-        }}>
-          <div style={{ padding: '6px 10px 8px', borderBottom: '1px solid var(--border-light)', marginBottom: 4,
-            fontSize: 10, letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: 'var(--text-tertiary)', fontWeight: 600 }}>Switch agent</div>
-          {AGENTS.map(a => {
-            const active = a.id === value;
-            return (
-              <div key={a.id} onClick={() => { onChange?.(a.id); setOpen(false); }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
-                  background: active ? 'var(--brand-primary-10)' : 'transparent',
-                }}>
-                <span style={{
-                  width: 28, height: 28, borderRadius: '50%', background: a.color, color: '#fff',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 12, fontWeight: 700, flex: 'none',
-                }}>{a.initial}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: active ? 600 : 500, color: 'var(--text-primary)' }}>{a.name}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.desc}</div>
-                </div>
-                {active && <Icon name="check" size={13} color="var(--brand-primary)"/>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+const CHAT_PEOPLE = {
+  oliver:{id:'oliver',name:'Oliver Reed',initials:'OR',kind:'Human',role:'Operations',scope:'Can request actions',icon:'customers'},
+  maria:{id:'maria',name:'Maria Gomez',initials:'MG',kind:'Human',role:'Finance lead',scope:'Can approve payment proposals',icon:'customers'},
+  billing:{id:'billing',name:'Billing Agent',kind:'Agent',role:'Billing',scope:'Read invoices and propose collections actions',icon:'invoices'},
+  ledger:{id:'ledger',name:'Ledger Agent',kind:'Agent',role:'Ledger',scope:'Read ledger evidence and reconcile references',icon:'ledger'},
+  compliance:{id:'compliance',name:'Compliance Agent',kind:'Agent',role:'Compliance',scope:'Read screening and policy evidence',icon:'policies'},
+  sam:{id:'sam',name:'Sam Chen',initials:'SC',kind:'Human',role:'Observer',scope:'Can read and participate',icon:'customers'},
+};
+const CHAT_THREADS = [
+  {id:'collections',title:'November collections review',detail:'Maria, Oliver + 3 agents',shared:true},
+  {id:'invoice',title:'Northstar invoice question',detail:'Only you and Billing Agent',shared:false},
+  {id:'forecast',title:'November cash forecast',detail:'Only you and Billing Agent',shared:false},
+];
+function ChatIcon({name,size=18}) {
+  const path=AonikMenuIcons.paths[name];if(!path)throw Error('Missing shared chat icon: '+name);
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" data-icon={'menu-'+name} dangerouslySetInnerHTML={{__html:path}}/>;
+}
+function ChatButton({children,icon,onClick,primary=false,agent=false,disabled=false,label}) {
+  return <button type="button" className={'cc-button '+(primary?'cc-primary':agent?'cc-agent-action':'')} onClick={onClick} disabled={disabled} aria-label={label}>{icon && <ChatIcon name={icon} size={15}/>} {children}</button>;
+}
+function ChatAvatar({actor,small=false}) {const portrait=actor.kind==='Agent'?window.AonikAgentPortraits?.resolve(actor.id):undefined;return <span title={actor.name} className={'cc-avatar '+(actor.kind==='Agent'?'cc-avatar-agent ':'')+(small?'cc-small':'')}>{portrait?<img src={portrait} alt={actor.name+' AI agent'} data-agent-portrait={actor.id}/>:actor.kind==='Agent'?<ChatIcon name={actor.icon} size={small?14:17}/>:actor.initials}</span>;}
+function ChatBadge({children,tone=''}) {return <span className={'cc-badge '+(tone?'cc-'+tone:'')}>{children}</span>;}
+function ChatMessage({actor,time,children,onReply}) {return <article className="cc-message" data-author={actor.id} data-author-kind={actor.kind}><ChatAvatar actor={actor}/><div className="cc-message-content"><header><strong>{actor.name}</strong><ChatBadge>{actor.kind}</ChatBadge><time>{time}</time>{onReply && <button className="cc-text-action cc-reply" onClick={()=>onReply(actor)}>Reply</button>}</header><div className="cc-message-body">{children}</div></div></article>;}
+function ChatComposer({shared=false,target,onSent,id}) {
+  const [draft,setDraft]=React.useState('');const [recipient,setRecipient]=React.useState('room');
+  React.useEffect(()=>{if(target)setDraft('@'+target.name+' ');},[target]);
+  return <div className="cc-composer-wrap"><div className="cc-composer"><textarea aria-label={shared?'Message the shared room':'Message Billing Agent'} rows={2} value={draft} onChange={e=>setDraft(e.target.value)} placeholder={shared?'Message the room, or @mention a person or agent…':'Ask about this invoice…'}/><div className="cc-composer-actions"><label className="cc-recipient"><ChatIcon name={shared?'customers':'agents'} size={14}/><select aria-label="Message audience" value={recipient} onChange={e=>setRecipient(e.target.value)}><option value="room">{shared?'Everyone in this room':'Billing Agent'}</option>{shared && <option value="billing">Ask Billing Agent · visible to everyone</option>}</select></label><ChatButton primary icon="communication" disabled={!draft.trim()} onClick={()=>{onSent(draft.trim(),recipient);setDraft('');}}>Send message</ChatButton></div></div><p className="cc-composer-note">{shared?'Shared with this room’s participants. Agent actions follow workspace permissions.':'Only you and Billing Agent can view this conversation.'}</p></div>;
+}
+function ChatPermissionCard({state,onDecision,actor=CHAT_PEOPLE.oliver}) {
+  return <section className="cc-permission-card" aria-label="Draft invoice permission request"><header><ChatIcon name="approvals"/><div><strong>Create a draft invoice</strong><small>Billing Agent requests your permission</small></div><ChatBadge tone={state==='pending'?'warning':state==='approved'?'success':''}>{state==='pending'?'Needs approval':state==='approved'?'Approved once':'Declined'}</ChatBadge></header><div className="cc-card-body"><p>Prepare November platform services for <strong>Northstar Retail</strong>.</p><dl className="cc-key-values"><div><dt>Draft total</dt><dd>GBP 5,500.00</dd></div><div><dt>Effect</dt><dd>One draft · customer not notified</dd></div></dl><details><summary>View request details</summary><dl className="cc-request-details"><div><dt>Tool</dt><dd>finance_create_invoice</dd></div><div><dt>Scope</dt><dd>Current workspace · Northstar Retail</dd></div><div><dt>Approval</dt><dd>This exact request, once</dd></div><div><dt>Request / run</dt><dd>TAR-1086 · AR-1086</dd></div></dl></details>{state==='pending'?<div className="cc-card-actions"><ChatButton onClick={()=>onDecision('rejected')}>Decline</ChatButton><ChatButton agent icon="approvals" onClick={()=>onDecision('approved')}>Approve once</ChatButton></div>:<div role="status" className="cc-decision"><ChatIcon name="audit" size={15}/>{state==='approved'?actor.name+' approved · draft INV-2059 created.':actor.name+' declined · no draft created.'}</div>}</div></section>;
+}
+function ChatAccessCard({expanded=false}) {return <section className="cc-access-card" aria-label="Agent access scope"><div className="cc-access-title"><ChatIcon name="authentication" size={16}/><strong>Page context & permissions</strong><ChatBadge>Read only</ChatBadge></div><p>Billing Agent can read invoices and customer references in this workspace.</p><details open={expanded || undefined}><summary>Review access</summary><div className="cc-access-scopes"><span><ChatIcon name="invoices" size={14}/> Invoices · Read</span><span><ChatIcon name="customers" size={14}/> Customers · Read</span><span><ChatIcon name="policies" size={14}/> Draft changes require approval</span></div></details></section>;}
+function ChatProposalCard({stage,onReview}) {return <section className="cc-proposal-card" aria-label="Payment capture proposal"><header><ChatIcon name="policies"/><div><strong>Capture an authorized payment</strong><small>Billing Agent · proposed action</small></div><ChatBadge tone={stage==='Approved'?'success':stage==='Pending'?'warning':''}>{stage==='Approved'?'Approved · queued':stage==='Rejected'?'Rejected':'Human approval required'}</ChatBadge></header><div className="cc-card-body"><div className="cc-proposal-amount">GBP 4,250.00 <span>Northstar Retail · INV-2048</span></div><p>Capture funding for order ORD-2048 using payment intent PI-3029.</p><div className="cc-proposal-footer"><span><ChatIcon name="audit" size={14}/> PR-1086 · AR-1092</span><ChatButton icon="approvals" onClick={onReview}>Review proposal</ChatButton></div></div></section>;}
+function ChatNavigation({active,onSelect,actor}) {return <nav className="cc-app-nav" aria-label="Application navigation"><AonikMark size={25}/><span className="cc-workspace-avatar" title="Northstar Finance">NF</span>{[['overview','Overview'],['invoices','Invoices'],['customers','Customers'],['approvals','Approvals'],['ledger','Ledger'],['chat','Chat'],['agents','Agents']].map(([icon,name])=><button key={icon} aria-label={name} title={name} className={active===icon?'is-active':''} onClick={()=>onSelect(icon)}><ChatIcon name={icon}/></button>)}<div className="cc-nav-bottom"><button aria-label="Settings" onClick={()=>onSelect('settings')}><ChatIcon name="settings"/></button><ChatAvatar actor={actor} small/></div></nav>;}
+function ChatInvoiceContext({onOpen}) {return <div className="cc-invoice-page"><header><div><div className="cc-eyebrow">BILLING & COLLECTIONS</div><h1>Invoice INV-2048</h1><p>Northstar Retail · Monthly platform services</p></div><ChatBadge tone="warning">Overdue · 8 days</ChatBadge></header><div className="cc-invoice-metrics"><section><small>Invoice total</small><strong>GBP 5,500.00</strong></section><section><small>Payments applied</small><strong>GBP 1,250.00</strong></section><section><small>Outstanding</small><strong>GBP 4,250.00</strong></section></div><section className="cc-context-card"><h2>Invoice details</h2><dl className="cc-key-values">{[['Customer','Northstar Retail'],['Issued','16 Oct 2026'],['Due date','25 Oct 2026'],['Currency','GBP · British Pound'],['Order reference','ORD-2048']].map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl><table><thead><tr><th>Description</th><th>Amount</th></tr></thead><tbody><tr><td>October platform services</td><td>GBP 5,500.00</td></tr><tr><td>Payment applied · JRN-8821</td><td>− GBP 1,250.00</td></tr></tbody></table></section><section className="cc-context-card"><h2>Recent activity</h2><div className="cc-activity-row"><ChatIcon name="audit"/><div><strong>Partial payment reconciled</strong><p>Ledger evidence JRN-8821 · 28 Oct, 14:18 UTC</p></div></div><div className="cc-activity-row"><ChatIcon name="communication"/><div><strong>Invoice delivered to customer</strong><p>Notification recorded · 16 Oct, 10:04 UTC</p></div></div></section><ChatButton icon="chat" onClick={onOpen}>Ask about this invoice</ChatButton></div>;}
+function ChatParticipants({members,active,onSelect,onInvite,stage}) {
+  const person=CHAT_PEOPLE[active];
+  return <aside className="cc-participants" aria-label="Room participants and context"><div className="cc-panel-title"><h2>In this room</h2><button className="cc-text-action" onClick={onInvite}>Invite</button></div><p className="cc-muted cc-participant-count">{members.filter(id=>CHAT_PEOPLE[id].kind==='Human').length} people · 3 agents</p><div className="cc-member-list">{members.map(id=>{const actor=CHAT_PEOPLE[id];return <button key={id} className={'cc-member '+(active===id?'is-selected':'')} onClick={()=>onSelect(id)} aria-label={'View '+actor.name+' permissions'}><ChatAvatar actor={actor} small/><span><strong>{actor.name}</strong><small>{actor.kind} · {actor.role}</small></span>{actor.kind==='Human' && <span className="cc-presence" title="Online"/>}</button>;})}</div><section className="cc-member-access"><div className="cc-access-title"><ChatIcon name="policies" size={15}/><strong>{person.kind==='Agent'?'Agent permissions':'Participant role'}</strong></div><p><strong>{person.name}</strong></p><p>{person.scope}. {person.kind==='Agent'?'Cannot approve financial actions.':''}</p><ChatBadge>{person.kind==='Agent'?'Scoped domain tools':person.id==='maria'?'Finance approver':'Room participant'}</ChatBadge></section><section className="cc-room-context"><h2>Linked context</h2>{[['invoices','INV-2048','Northstar Retail · GBP 4,250 due'],['orders','ORD-2048','Business intent'],['ledger','JRN-8821','Partial payment · GBP 1,250'],['approvals','PR-1086',stage==='Pending'?'Awaiting human approval':stage==='Approved'?'Approved · awaiting execution':'Rejected']].map(([icon,ref,desc])=><div className="cc-linked-record" key={ref}><ChatIcon name={icon} size={16}/><div><strong>{ref}</strong><small>{desc}</small></div></div>)}</section><p className="cc-room-privacy"><ChatIcon name="authentication" size={14}/> Private workspace room. Access follows participant and domain permissions.</p></aside>;
+}
+function ScreenChatDesign({scene='slideout'}) {
+  return ['notifications','mentions'].includes(scene) ? <ScreenChatNotifications scene={scene}/> : <ScreenChatConversationDesign scene={scene}/>;
+}
+function ScreenChatConversationDesign({scene='slideout'}) {
+  const [surface,setSurface]=React.useState(['collaboration','proposal-review'].includes(scene)?'room':'drawer');
+  const [drawerOpen,setDrawerOpen]=React.useState(true),[permission,setPermission]=React.useState('pending');
+  const [modal,setModal]=React.useState(scene==='proposal-review'?'proposal':''),[stage,setStage]=React.useState('Pending');
+  const [confirmed,setConfirmed]=React.useState(false),[activeMember,setActiveMember]=React.useState('billing');
+  const [members,setMembers]=React.useState(['oliver','maria','billing','ledger','compliance']);
+  const [inviteChecked,setInviteChecked]=React.useState(false),[search,setSearch]=React.useState(''),[thread,setThread]=React.useState('collections');
+  const [sent,setSent]=React.useState({}),[reply,setReply]=React.useState(null),[notice,setNotice]=React.useState('');
+  const current=CHAT_PEOPLE[scene==='proposal-review'?'maria':'oliver'];
+  const isShared=thread==='collections';
+  const messageScope=surface==='drawer'?'drawer':thread;
+  const openInvite=kind=>{setInviteChecked(false);setModal(kind);};
+  const append=(text,audience)=>setSent(rooms=>({...rooms,[messageScope]:[...(rooms[messageScope]||[]),{id:'local-'+((rooms[messageScope]||[]).length+1),text,audience}]}));
+  const navigate=icon=>{if(icon==='chat')setSurface('room');else if(icon==='invoices')setSurface('drawer');else setNotice('Selected '+icon+' navigation in this design.');};
+  const reviewProposal=()=>{setConfirmed(false);setModal('proposal');};
+  const decide=decision=>{if(current.id!=='maria' || stage!=='Pending' || (decision==='Approved' && !confirmed))return;setStage(decision);setModal('');setNotice(decision==='Approved'?'Maria approved PR-1086. Execution is queued; no capture or ledger posting is confirmed.':'Maria rejected PR-1086. No execution was requested.');};
+  return <div className="chat-design" data-chat-scene={scene}><ChatNavigation active={surface==='room'?'chat':'invoices'} onSelect={navigate} actor={current}/><div className="cc-app-body"><div className="cc-app-topbar"><span>Northstar Finance <span className="cc-topbar-divider">/</span> {surface==='room'?'Chat':'Billing / Invoices'}</span><div><ChatBadge>Workspace</ChatBadge><button className="cc-text-action" onClick={()=>{setSurface('drawer');setDrawerOpen(true);}}><ChatIcon name="chat" size={16}/> Ask AONIK</button></div></div>{notice && <div className="cc-notice" role="status">{notice}<button aria-label="Dismiss notification" onClick={()=>setNotice('')}>×</button></div>}
+  {surface==='drawer'?<div className={'cc-drawer-layout '+(!drawerOpen?'cc-drawer-closed':'')}><ChatInvoiceContext onOpen={()=>setDrawerOpen(true)}/>{drawerOpen && <aside className="cc-drawer" aria-label="Slide-out chat panel"><header className="cc-drawer-header"><div className="cc-assistant-brand"><ChatAvatar actor={CHAT_PEOPLE.billing}/><div><strong>Ask AONIK</strong><small>Billing Agent · Private to you</small></div></div><div className="cc-header-actions"><ChatButton icon="workspace" label="Open a team room" onClick={()=>openInvite('share')}/><button className="cc-close" aria-label="Close chat panel" onClick={()=>setDrawerOpen(false)}>×</button></div></header><div className="cc-page-context"><ChatIcon name="invoices" size={15}/><span>Using page context <strong>INV-2048</strong></span><ChatBadge>Read only</ChatBadge></div><div className="cc-drawer-messages"><ChatMessage actor={current} time="09:42"><p>Why is this invoice still outstanding? And prepare November’s draft for the same customer.</p></ChatMessage><ChatMessage actor={CHAT_PEOPLE.billing} time="09:42"><p><strong>GBP 4,250 remains due.</strong> A GBP 1,250 payment was applied against the GBP 5,500 invoice. The remaining balance is 8 days overdue.</p><div className="cc-evidence"><ChatIcon name="audit" size={14}/> Invoice INV-2048 · ledger JRN-8821</div><p>I can prepare November’s draft for your review.</p></ChatMessage>{scene==='permissions' && <ChatAccessCard expanded/>}<ChatPermissionCard state={permission} onDecision={setPermission} actor={current}/>{scene!=='permissions' && <ChatAccessCard/>}{(sent[messageScope]||[]).map(m=><ChatMessage key={m.id} actor={current} time="Now"><p>{m.text}</p></ChatMessage>)}</div><ChatComposer id={scene} onSent={append}/></aside>}</div>:<div className={'cc-room-layout '+(!isShared?'cc-private-layout':'')}><aside className="cc-thread-sidebar"><div className="cc-thread-heading"><h1>Chat</h1><ChatButton label="Create a shared room" onClick={()=>openInvite('share')}>+</ChatButton></div><label className="cc-search"><ChatIcon name="chat" size={15}/><input aria-label="Search conversations" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search conversations"/></label>{[true,false].map(shared=><section key={String(shared)}><h2>{shared?'Shared rooms':'Private conversations'}</h2>{CHAT_THREADS.filter(t=>t.shared===shared && t.title.toLowerCase().includes(search.toLowerCase())).map(t=><button className={'cc-thread '+(thread===t.id?'is-active':'')} key={t.id} onClick={()=>{setThread(t.id);setReply(null);}}><strong>{t.title}</strong><small>{t.detail}</small>{thread===t.id && t.shared && <ChatBadge tone="warning">{stage==='Pending'?'1 approval':stage==='Approved'?'Execution queued':'Proposal rejected'}</ChatBadge>}</button>)}</section>)}<div className="cc-thread-bottom"><ChatIcon name="authentication" size={15}/><span>Private conversations stay private until you choose to share context.</span></div></aside><section className="cc-conversation"><header className="cc-room-header"><div><h1>{CHAT_THREADS.find(t=>t.id===thread)?.title}</h1><p>{isShared?'Shared room · Billing & collections':'Private conversation · Only you and Billing Agent'}</p></div>{isShared && <div className="cc-room-header-people"><div className="cc-avatar-stack">{members.slice(0,5).map(id=><ChatAvatar key={id} actor={CHAT_PEOPLE[id]} small/>)}</div><ChatButton icon="customers" onClick={()=>openInvite('invite')}>Invite</ChatButton></div>}</header><div className="cc-room-messages" aria-label="Conversation messages"><div className="cc-day-divider">2 November 2026 <span>· All times UTC</span></div><ChatMessage actor={isShared?CHAT_PEOPLE.oliver:current} time="09:42" onReply={setReply}><p>{isShared?'@Billing Agent, which overdue invoices should we focus on? @Ledger Agent, check the payment evidence.':'Please summarize the invoice and its ledger evidence.'}</p></ChatMessage><ChatMessage actor={CHAT_PEOPLE.billing} time="09:43" onReply={setReply}><p>Three invoices need attention. Northstar Retail is the first priority.</p><div className="cc-response-metrics"><div><small>Overdue balance</small><strong>GBP 13,750</strong></div><div><small>Invoices</small><strong>3</strong></div><div><small>First priority</small><strong>Northstar Retail</strong></div></div><div className="cc-evidence"><ChatIcon name="invoices" size={13}/> INV-2048 · INV-2051 · INV-2054 <span>AR-1089</span></div></ChatMessage>{isShared && <><ChatMessage actor={CHAT_PEOPLE.maria} time="09:44" onReply={setReply}><p>Focus on Northstar. Prepare a capture proposal for the authorized funding. I’ll review it before anything moves.</p></ChatMessage><ChatMessage actor={CHAT_PEOPLE.ledger} time="09:45" onReply={setReply}><p>The GBP 1,250 partial payment is posted in <strong>JRN-8821</strong>. The remaining receivable is <strong>GBP 4,250</strong>.</p><div className="cc-evidence"><ChatIcon name="ledger" size={13}/> Ledger evidence verified <span>AR-1090</span></div></ChatMessage><ChatMessage actor={CHAT_PEOPLE.compliance} time="09:46" onReply={setReply}><p><strong>PI-3029</strong> has recorded customer authorization. A finance approver must review the proposed capture.</p><div className="cc-evidence"><ChatIcon name="policies" size={13}/> Policy checks complete <span>AR-1091</span></div></ChatMessage><ChatMessage actor={CHAT_PEOPLE.billing} time="09:47" onReply={setReply}><ChatProposalCard stage={stage} onReview={reviewProposal}/></ChatMessage></>}{(sent[messageScope]||[]).map(m=><ChatMessage key={m.id} actor={current} time="Now" onReply={setReply}><p>{m.text}</p>{m.audience==='billing' && <small className="cc-muted">Addressed to Billing Agent · visible to the room</small>}</ChatMessage>)}</div><ChatComposer key={thread} shared={isShared} target={reply} onSent={append}/></section>{isShared && <ChatParticipants members={members} active={activeMember} onSelect={setActiveMember} onInvite={()=>openInvite('invite')} stage={stage}/>}</div>}</div>
+  {modal && <div className="cc-modal-backdrop"><section className="cc-dialog" role="dialog" aria-modal="true" aria-label={modal==='proposal'?'Review payment proposal':modal==='share'?'Start a shared room':'Invite a teammate'}><button className="cc-close cc-dialog-close" aria-label="Close dialog" onClick={()=>setModal('')}>×</button>{modal==='proposal'?<><div className="cc-dialog-icon"><ChatIcon name="approvals" size={22}/></div><ChatBadge tone="warning">High risk · Human approval</ChatBadge><h2>Review payment proposal</h2><p className="cc-muted">Approve the exact proposed action. The system executes it separately after approval.</p><dl className="cc-proposal-details">{[['Action','Capture payment'],['Amount','GBP 4,250.00'],['Customer / invoice','Northstar Retail · INV-2048'],['Order / funding','ORD-2048 · PI-3029'],['Proposal / AI run','PR-1086 · AR-1092'],['Required approver','Finance lead · Maria Gomez'],['Current status',stage==='Pending'?'Awaiting approval':stage==='Approved'?'Approved · awaiting execution':'Rejected']].map(([key,value])=><div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl><div className="cc-access-card"><ChatIcon name="authentication" size={16}/><p>{current.id==='maria'?'Reviewing as Maria Gomez, Finance lead. Approval queues execution; payment and ledger results appear after execution.':'Viewing as Oliver Reed. Operations can request this action; Maria Gomez must approve it.'}</p></div>{current.id==='maria' && stage==='Pending' && <label className="cc-confirm"><input type="checkbox" aria-label="Confirm exact payment proposal" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>I have reviewed the amount, customer, order and authorized funding.</label>}<div className="cc-dialog-actions"><ChatButton onClick={()=>setModal('')}>Close</ChatButton>{stage==='Pending' && <><ChatButton disabled={current.id!=='maria'} onClick={()=>decide('Rejected')}>Reject proposal</ChatButton><ChatButton agent icon="approvals" disabled={current.id!=='maria' || !confirmed} onClick={()=>decide('Approved')}>Approve proposal</ChatButton></>}</div></>:<><ChatIcon name="customers" size={24}/><h2>{modal==='share'?'Start a shared room':'Invite a teammate'}</h2><p className="cc-muted">{modal==='share'?'Choose the audience before sharing context. Your private conversation stays private.':'New participants can read the room’s existing conversation. Their workspace permissions still apply.'}</p>{modal==='share'?<><div className="cc-selected-context"><ChatIcon name="invoices"/><div><strong>Share invoice reference INV-2048</strong><p>No private chat messages are copied.</p></div></div><div className="cc-invite-members">{['oliver','maria','billing','ledger','compliance'].map(id=><div key={id}><ChatAvatar actor={CHAT_PEOPLE[id]} small/><span>{CHAT_PEOPLE[id].name}<small>{CHAT_PEOPLE[id].kind} · {CHAT_PEOPLE[id].role}</small></span></div>)}</div><label className="cc-confirm"><input type="checkbox" aria-label="Confirm shared room audience" checked={inviteChecked} onChange={e=>setInviteChecked(e.target.checked)}/>Share this invoice reference with these participants.</label></>:<label className="cc-invite-choice"><input type="checkbox" aria-label="Select Sam Chen" checked={inviteChecked} disabled={members.includes('sam')} onChange={e=>setInviteChecked(e.target.checked)}/><ChatAvatar actor={CHAT_PEOPLE.sam}/><span><strong>Sam Chen</strong><small>{members.includes('sam')?'Already in this room':'Observer · can read and participate'}</small></span></label>}<div className="cc-dialog-actions"><ChatButton onClick={()=>setModal('')}>Cancel</ChatButton><ChatButton primary icon="customers" disabled={!inviteChecked || (modal==='invite' && members.includes('sam'))} onClick={()=>{if(modal==='invite'){setMembers([...members,'sam']);setNotice('Sam Chen joined as an Observer.');}else{setSurface('room');setThread('collections');setNotice('Shared room opened with INV-2048. Private messages were not copied.');}setModal('');setInviteChecked(false);}}>{modal==='share'?'Create shared room':'Invite teammate'}</ChatButton></div></>}</section></div>}
+  </div>;
 }
 
-// ───────────── Slide-out drawer (AI Chat panel) ─────────────
-function ScreenAiChatSlideout() {
-  const [agent, setAgent] = React.useState('orch');
-  const sel = AGENTS.find(a => a.id === agent);
-
-  return (
-    <div style={{ position: 'relative', height: '100%', overflow: 'hidden' }}>
-      {/* Backdrop: faux page underneath */}
-      <FauxPagePlayground/>
-
-      {/* Slide-out panel pinned to right edge */}
-      <aside style={{
-        position: 'absolute', top: 0, right: 0, bottom: 0,
-        width: 480, background: 'var(--surface)',
-        borderLeft: '1px solid var(--border-light)',
-        boxShadow: '-12px 0 32px -8px rgb(0 0 0 / 0.18)',
-        display: 'flex', flexDirection: 'column',
-      }}>
-        {/* Header (teal, matches AiChatPanel.tsx) */}
-        <div style={{
-          height: 50, padding: '0 14px',
-          background: 'var(--brand-primary)', color: '#fff',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          flex: 'none',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 28, height: 28, background: 'rgba(255,255,255,0.15)', borderRadius: 4,
-              display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700 }}>A</div>
-            <span style={{ fontSize: 14, fontWeight: 600 }}>AONIK AI</span>
-            <span style={{ height: 18, width: 1, background: 'rgba(255,255,255,0.25)', margin: '0 4px' }}/>
-            <AgentPicker value={agent} onChange={setAgent} dark/>
-          </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <span style={{ width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, cursor: 'pointer' }}>
-              <Icon name="arrowright" size={14} color="#fff"/>
-            </span>
-            <span style={{ width: 28, height: 28, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, cursor: 'pointer' }}>
-              <Icon name="x" size={14} color="#fff"/>
-            </span>
-          </div>
-        </div>
-
-        {/* Conversation */}
-        <div style={{ flex: 1, overflow: 'auto', background: 'var(--surface-inset)', padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <DrawerMsg who="user">Where is April spend going? Anything to flag?</DrawerMsg>
-          <DrawerMsg who="agent" agent={sel}>
-            Looking at the categories now — fuel is trending high. Pulling the breakdown.
-          </DrawerMsg>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 38 }}>
-            <ToolCallBadge name="get_budget" ms="84ms"/>
-            <ToolCallBadge name="aggregate_spending_by_category" ms="142ms"/>
-          </div>
-          <DrawerMsg who="agent" agent={sel}>
-            Fuel is at <b>107%</b> of plan with 8 days left. Warehousing on track. Want me to draft a budget alert?
-          </DrawerMsg>
-          <div style={{ paddingLeft: 38 }}>
-            <ToolCardPie
-              title="April spend · GBP" totalSpent={42180} currency="GBP"
-              categories={[
-                { name: 'Fuel · fleet', amount: 19200, percentage: 46 },
-                { name: 'Warehousing',   amount: 10100, percentage: 24 },
-                { name: 'Contractors',   amount:  8420, percentage: 20 },
-                { name: 'Insurance',     amount:  3960, percentage:  9 },
-                { name: 'Other',         amount:   500, percentage:  1 },
-              ]}/>
-          </div>
-          <div style={{ paddingLeft: 38 }}>
-            <ToolCardConfirm
-              action="Schedule fuel alert at £18K"
-              description="Notify Maria when fuel category reaches 95% of next month's budget."
-              severity="low"/>
-          </div>
-        </div>
-
-        {/* Composer */}
-        <div style={{ padding: 12, borderTop: '1px solid var(--border-light)', background: 'var(--surface)', flex: 'none' }}>
-          <div style={{ background: 'var(--surface-inset)', border: '1px solid var(--border-light)', borderRadius: 10, padding: '10px 12px' }}>
-            <textarea rows={2} placeholder="Ask me anything…"
-              style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', resize: 'none', fontSize: 13, fontFamily: 'inherit', color: 'var(--text-primary)', padding: 0 }}/>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-              <div style={{ display: 'flex', gap: 4 }}>
-                <span style={{ width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, cursor: 'pointer' }}>
-                  <Icon name="link" size={13} color="var(--text-tertiary)"/>
-                </span>
-                <span style={{ width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, cursor: 'pointer' }}>
-                  <Icon name="globe" size={13} color="var(--text-tertiary)"/>
-                </span>
-              </div>
-              <button className="btn btn-primary btn-sm"><Icon name="send" size={12}/> Send</button>
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: 'var(--text-tertiary)' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success, #1f7a5e)' }}/>
-              AG-UI connected
-            </span>
-            <span>Agent: {sel.name}</span>
-          </div>
-        </div>
-      </aside>
-    </div>
-  );
+const CHAT_NOTIFICATION_ACTORS = {
+  aonik:{id:'aonik',name:'AONIK',kind:'Agent',role:'Main assistant',icon:'agents'},
+  finance:{id:'finance',name:'Finance Agent',kind:'Agent',role:'Finance',icon:'ledger'},
+  maria:CHAT_PEOPLE.maria,
+  oliver:CHAT_PEOPLE.oliver,
+  sam:CHAT_PEOPLE.sam,
+};
+const CHAT_NOTIFICATION_ITEMS = [
+  {id:'mention-maria',actor:'maria',kind:'mention',room:'November collections review',time:'just now',title:'You were mentioned in a shared room',unread:true},
+  {id:'message-aonik',actor:'aonik',kind:'message',room:'November collections review',time:'2m ago',title:'New message in a shared room',unread:true},
+  {id:'message-finance',actor:'finance',kind:'message',room:'November collections review',time:'4m ago',title:'New message in a shared room',unread:true},
+  {id:'mention-oliver',actor:'sam',kind:'mention',room:'Transfer operations',time:'18m ago',title:'You were mentioned in a shared room',unread:false},
+];
+function ScreenChatNotifications({scene='notifications'}) {
+  const [items,setItems]=React.useState(CHAT_NOTIFICATION_ITEMS.map(item=>({...item}))),[filter,setFilter]=React.useState(scene==='mentions'?'mentions':'all'),[open,setOpen]=React.useState(true),[target,setTarget]=React.useState(''),[status,setStatus]=React.useState('');
+  const unread=items.filter(item=>item.unread).length;
+  const visible=items.filter(item=>filter==='all'||filter==='chat'||(filter==='unread'&&item.unread)||(filter==='mentions'&&item.kind==='mention'));
+  const read=id=>setItems(items=>items.map(item=>item.id===id?{...item,unread:false}:item));
+  return <div className="chat-design cc-notification-design" data-chat-scene={scene}><ChatNavigation active="chat" onSelect={()=>{}} actor={CHAT_PEOPLE.oliver}/><div className="cc-app-body"><div className="cc-app-topbar"><span>Northstar Finance <span className="cc-topbar-divider">/</span> Chat / Shared rooms</span><button className="cc-button" aria-label="Open chat notifications" onClick={()=>setOpen(true)}><ChatIcon name="notifications" size={17}/>Notifications <ChatBadge>{unread}</ChatBadge></button></div><div className="cc-room-layout"><aside className="cc-thread-sidebar"><div className="cc-thread-heading"><h1>Chat</h1><ChatIcon name="chat"/></div><label className="cc-search"><ChatIcon name="chat" size={15}/><input placeholder="Search conversations" aria-label="Search design rooms"/></label><h2>Shared rooms</h2><button className="cc-thread is-active"><strong>November collections review</strong><small>Oliver, Maria · AONIK, Finance</small><ChatBadge>2 people · 2 agents</ChatBadge></button><button className="cc-thread"><strong>Transfer operations</strong><small>Oliver, Sam · Finance Agent</small></button><div className="cc-thread-bottom"><ChatIcon name="authentication" size={15}/><span>Room membership controls access. Notification links never grant access.</span></div></aside><section className="cc-conversation"><header className="cc-room-header"><div><h1>{target==='mention-oliver'?'Transfer operations':'November collections review'}</h1><p>Shared room · All participants can read this conversation</p></div><div className="cc-avatar-stack">{['oliver','maria','aonik','finance'].map(id=><ChatAvatar key={id} actor={CHAT_NOTIFICATION_ACTORS[id]} small/>)}</div></header>{status&&<div className="cc-notice" role="status">{status}</div>}<div className="cc-room-messages"><div className="cc-day-divider">3 November 2026 <span>· All times UTC</span></div><ChatMessage actor={CHAT_PEOPLE.oliver} time="09:40"><p>Please check the invoice references before proposing any changes.</p></ChatMessage>{[['message-finance','finance','09:41','The shared invoice references are ready for review. Any changes will require your confirmation.'],['message-aonik','aonik','09:43','The team has identified the next review steps. Maria is checking the customer; Finance is reviewing the invoice references.'],['mention-maria','maria','09:45','@Oliver Reed, can you review the customer reference before we ask Finance to prepare a draft?'],['mention-oliver','sam','09:28','@Oliver Reed, please review the transfer references in this room.']].filter(([id])=>target==='mention-oliver'?id==='mention-oliver':id!=='mention-oliver').map(([id,actor,time,text])=><div key={id} className={target===id?'cc-notification-target':''} data-linked-design-message={id}>{target===id&&<p className="cc-target-label"><ChatIcon name="chat" size={13}/>Message opened from notification</p>}<ChatMessage actor={CHAT_NOTIFICATION_ACTORS[actor]} time={time}><p>{text}</p></ChatMessage></div>)}</div><ChatComposer shared id={scene} onSent={()=>setStatus('Design message only · no live notification sent.')}/></section></div></div>{open&&<><div className="cc-inbox-scrim"/><aside className="cc-inbox" aria-label="Collaborative chat notifications"><header className="cc-inbox-header"><div className="cc-inbox-title"><ChatIcon name="notifications" size={20}/><div><h2>Notifications</h2><p>{unread} unread from people, agents and workflows</p></div></div><button className="cc-close" aria-label="Close notifications" onClick={()=>setOpen(false)}>×</button></header><div className="cc-inbox-tools"><div className="cc-inbox-tabs">{['all','unread','mentions','chat'].map(id=><button key={id} className={filter===id?'is-active':''} onClick={()=>setFilter(id)}>{id[0].toUpperCase()+id.slice(1)}</button>)}</div><button className="cc-text-action" disabled={!unread} onClick={()=>{setItems(items=>items.map(item=>({...item,unread:false})));setStatus('All notifications marked read.');}}><ChatIcon name="audit" size={14}/>Mark all read</button></div><div className="cc-inbox-list"><h3>Today</h3>{visible.length===0&&<p className="cc-inbox-empty">You are all caught up.</p>}{visible.map(item=>{const actor=CHAT_NOTIFICATION_ACTORS[item.actor];return <article className={'cc-inbox-item '+(item.unread?'is-unread':'')} key={item.id} data-design-notification={item.id}><ChatAvatar actor={actor}/><div className="cc-inbox-item-body"><div className="cc-inbox-byline"><strong>{actor.name} · {actor.kind==='Agent'?'AI agent':'Human'}</strong><time>{item.time}</time>{item.unread&&<i aria-label="Unread"/>}</div><h4>{item.title}</h4><p className="cc-inbox-kind"><ChatIcon name={item.kind==='mention'?'customers':'chat'} size={13}/>{item.kind==='mention'?'Mention':'New message'}<span>· {item.room}</span></p><p>Open the room to read the message. Access follows current room membership.</p><div className="cc-inbox-actions"><ChatButton onClick={()=>{read(item.id);setTarget(item.id);setOpen(false);setStatus('Message opened from notification.');}}>Open message</ChatButton>{item.unread&&<button className="cc-text-action" onClick={()=>read(item.id)}>Mark read</button>}<button className="cc-text-action" onClick={()=>setItems(items=>items.filter(value=>value.id!==item.id))}>Dismiss</button></div></div></article>;})}<footer className="cc-inbox-footer"><ChatIcon name="authentication" size={15}/><span>Message content stays in the room. These in-app alerts do not send email or mobile push.</span></footer></div></aside></>}</div>;
 }
 
-function DrawerMsg({ who, agent, children }) {
-  const isUser = who === 'user';
-  return (
-    <div style={{ display: 'flex', gap: 10, flexDirection: isUser ? 'row-reverse' : 'row', alignItems: 'flex-start' }}>
-      {isUser
-        ? <Avatar name="Oliver" size={28} color="#7b76b6" textColor="#fff"/>
-        : <span style={{ width: 28, height: 28, borderRadius: '50%', background: agent?.color || 'var(--brand-primary)', color: '#fff',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, flex: 'none' }}>{agent?.initial || 'A'}</span>}
-      <div style={{
-        maxWidth: 360, padding: '10px 14px', fontSize: 13, lineHeight: 1.5,
-        background: isUser ? 'var(--brand-primary)' : 'var(--surface)',
-        color: isUser ? '#fff' : 'var(--text-primary)',
-        border: isUser ? 'none' : '1px solid var(--border-light)',
-        borderRadius: isUser ? '12px 12px 4px 12px' : '12px 12px 12px 4px',
-      }}>{children}</div>
-    </div>
-  );
-}
-
-// Faux page that the drawer covers — gives the slide-out spatial context
-function FauxPagePlayground() {
-  return (
-    <div style={{ position: 'absolute', inset: 0, padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 16, opacity: 0.55, pointerEvents: 'none' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <div style={{ fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-tertiary)' }}>My Space</div>
-          <div style={{ fontSize: 24, fontWeight: 600, color: 'var(--text-primary)', marginTop: 4 }}>Good afternoon, Oliver.</div>
-          <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>Here's what's open across your finance ops today.</div>
-        </div>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
-        {['Cash', 'Receivables', 'Payables', 'Net runway'].map((k, i) => (
-          <div key={k} style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, padding: 16, height: 96 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-tertiary)' }}>{k}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border-light)', borderRadius: 10, height: 280 }}/>
-    </div>
-  );
-}
-
-// ───────────── Full-page chat ─────────────
-function ScreenAiChatFullPage() {
-  const [agent, setAgent] = React.useState('orch');
-  const [activeThread, setActiveThread] = React.useState('t-1');
-  const [showEmpty, setShowEmpty] = React.useState(false);
-  const sel = AGENTS.find(a => a.id === agent);
-
-  const threads = [
-    { id: 't-1', title: 'April spend variance review',     when: 'Today',     active: true },
-    { id: 't-2', title: 'Match Wise inbound to INV-2058',   when: 'Today' },
-    { id: 't-3', title: 'Hedging strategy for NGN exposure', when: 'Yesterday' },
-    { id: 't-4', title: 'Q1 close checklist',                when: '2 days ago' },
-    { id: 't-5', title: 'New customer KYB — Northstar',      when: '3 days ago' },
-    { id: 't-6', title: 'Fuel category overrun — fleet',     when: '5 days ago' },
-    { id: 't-7', title: 'Reconcile Zenith Bank feed',        when: '1 week ago' },
-    { id: 't-8', title: 'Draft budget alert thresholds',     when: '1 week ago' },
-  ];
-
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', height: '100%' }}>
-      {/* Threads sidebar */}
-      <aside style={{
-        borderRight: '1px solid var(--border-light)',
-        background: 'var(--surface-inset)',
-        display: 'flex', flexDirection: 'column', minHeight: 0,
-      }}>
-        <div style={{ height: 50, padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-light)' }}>
-          <div style={{ width: 26, height: 26, borderRadius: 4, background: 'var(--surface)', border: '1px solid var(--border-light)',
-            display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, color: 'var(--text-primary)' }}>A</div>
-          <div style={{ marginLeft: 10, fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>AONIK AI</div>
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-            <span className="hover-halo"><Icon name="more" size={14} color="var(--text-tertiary)"/></span>
-          </div>
-        </div>
-
-        <div style={{ padding: 14 }}>
-          <button onClick={() => setShowEmpty(true)} style={{
-            width: '100%', height: 38, display: 'flex', alignItems: 'center', gap: 8,
-            padding: '0 12px', borderRadius: 6, fontSize: 13,
-            background: 'var(--surface)', border: '1px solid var(--border-light)',
-            color: 'var(--text-primary)', cursor: 'pointer',
-          }}>
-            <Icon name="plus" size={14} color="var(--text-secondary)"/> New chat
-          </button>
-
-          <div style={{ position: 'relative', marginTop: 12 }}>
-            <span style={{ position: 'absolute', left: 10, top: 11 }}><Icon name="search" size={13} color="var(--text-tertiary)"/></span>
-            <input className="input" placeholder="Search chats" style={{ paddingLeft: 30, height: 36, fontSize: 12.5, width: '100%' }}/>
-          </div>
-
-          <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 10, letterSpacing: '0.1em', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: 6, padding: '0 4px' }}>Chats</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {threads.map(t => {
-                const active = !showEmpty && activeThread === t.id;
-                return (
-                  <div key={t.id}
-                    onClick={() => { setActiveThread(t.id); setShowEmpty(false); }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
-                      background: active ? 'var(--brand-primary-10)' : 'transparent',
-                    }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontSize: 12.5, fontWeight: active ? 600 : 500,
-                        color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}>{t.title}</div>
-                      <div style={{ fontSize: 10.5, color: 'var(--text-tertiary)', marginTop: 1 }}>{t.when}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Chat surface */}
-      <section style={{ display: 'flex', flexDirection: 'column', minWidth: 0, minHeight: 0, background: 'var(--surface)' }}>
-        {/* Topbar */}
-        <div style={{ height: 50, padding: '0 16px', display: 'flex', alignItems: 'center', borderBottom: '1px solid var(--border-light)' }}>
-          <span className="hover-halo" style={{ marginRight: 6 }}><Icon name="plus" size={14} color="var(--text-secondary)"/></span>
-          <AgentPicker value={agent} onChange={setAgent}/>
-          <div style={{ flex: 1, textAlign: 'center', fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 16px' }}>
-            {showEmpty ? 'New conversation' : threads.find(t => t.id === activeThread)?.title}
-          </div>
-          <div style={{ display: 'flex', gap: 4 }}>
-            <span className="hover-halo"><Icon name="star" size={13} color="var(--text-secondary)"/></span>
-            <span className="hover-halo"><Icon name="download" size={13} color="var(--text-secondary)"/></span>
-            <span className="hover-halo"><Icon name="more" size={14} color="var(--text-secondary)"/></span>
-          </div>
-        </div>
-
-        {/* Body */}
-        {showEmpty
-          ? <FullPageEmpty agent={sel}/>
-          : <FullPageThread agent={sel}/>}
-
-        {/* Composer */}
-        {!showEmpty && (
-          <div style={{ borderTop: '1px solid var(--border-light)', background: 'var(--surface)', padding: '14px 0' }}>
-            <div style={{ maxWidth: 880, margin: '0 auto', padding: '0 24px' }}>
-              <FullChatComposer/>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontSize: 11, color: 'var(--text-tertiary)' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--success, #1f7a5e)' }}/>
-                  Connected via AG-UI protocol
-                </span>
-                <span>Agent: {sel.name}</span>
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function FullPageEmpty({ agent }) {
-  const prompts = [
-    { icon: 'sparkles', text: 'Summarize the latest platform activity and flag anything that needs attention.' },
-    { icon: 'book',     text: 'Find the most useful dashboards, agents, and docs for my current workspace.' },
-    { icon: 'zap',      text: 'Help me plan the next steps for billing, collections, and reconciliation.' },
-  ];
-  return (
-    <div style={{ flex: 1, overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48 }}>
-      <div style={{ width: '100%', maxWidth: 820, display: 'flex', flexDirection: 'column', gap: 28, alignItems: 'center' }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 28, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
-            Good afternoon, Oliver.
-          </div>
-          <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginTop: 6, maxWidth: 540, marginLeft: 'auto', marginRight: 'auto' }}>
-            Ask anything about your workspace, agents, data products, or platform operations.
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14, width: '100%', maxWidth: 720 }}>
-          {prompts.map((p, i) => (
-            <div key={i} style={{
-              background: 'var(--surface-inset)', borderRadius: 10, padding: 14,
-              border: '1px solid var(--border-light)',
-              minHeight: 160, display: 'flex', flexDirection: 'column', gap: 14,
-              cursor: 'pointer',
-            }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: '50%',
-                background: 'var(--surface)', border: '1px solid var(--border-light)',
-                display: 'grid', placeItems: 'center',
-              }}>
-                <Icon name={p.icon} size={16} color="var(--text-secondary)"/>
-              </div>
-              <div style={{ fontSize: 14, color: 'var(--text-primary)', lineHeight: 1.45 }}>{p.text}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ width: '100%', maxWidth: 720 }}>
-          <FullChatComposer center/>
-        </div>
-
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-secondary)', cursor: 'pointer' }}>
-          <Icon name="search" size={12}/> Browse prompts
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FullPageThread({ agent }) {
-  return (
-    <div style={{ flex: 1, overflow: 'auto', padding: '24px 32px', display: 'flex', justifyContent: 'center', minHeight: 0, background: 'var(--background)' }}>
-      <div style={{ width: '100%', maxWidth: 880, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <DrawerMsg who="user">Walk me through April spend variance — anything I should approve or push back on?</DrawerMsg>
-
-        <DrawerMsg who="agent" agent={agent}>
-          Pulling the budget vs actuals now. Three categories are off plan.
-        </DrawerMsg>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingLeft: 38 }}>
-          <ToolCallBadge name="get_budget"                  ms="84ms"/>
-          <ToolCallBadge name="aggregate_spending_by_category" ms="142ms"/>
-          <ToolCallBadge name="forecast_month_end"           ms="318ms"/>
-        </div>
-
-        <DrawerMsg who="agent" agent={agent}>
-          Fuel will land ~12% over plan — tracking pace is unsustainable for the rest of the month. Warehousing on track. Contractors trending under by 40%. Want a fuel cap or just an alert?
-        </DrawerMsg>
-
-        <div style={{ paddingLeft: 38, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <ToolCardBudget
-            period="April 2026"
-            totalBudget={60000} totalSpent={42180} currency="GBP"
-            categories={[
-              { name: 'Fuel · fleet',    budgeted: 18000, spent: 19200, status: 'over' },
-              { name: 'Contractors',     budgeted: 14000, spent:  8420, status: 'under' },
-              { name: 'Warehousing',     budgeted: 12000, spent: 10100, status: 'on_track' },
-              { name: 'Insurance',       budgeted:  8000, spent:  3960, status: 'under' },
-              { name: 'Software',        budgeted:  4000, spent:   500, status: 'under' },
-            ]}/>
-          <ToolCardOptions
-            question="Which response should I prepare?"
-            options={[
-              { label: 'Hard fuel cap at £18K', description: 'Block PO submissions above the line until next cycle' },
-              { label: 'Soft alert at 95%',     description: 'Notify Maria — no automatic restriction' },
-              { label: 'Reforecast & approve',  description: 'Bump April fuel budget by £4K and document rationale' },
-            ]}/>
-        </div>
-
-        <DrawerMsg who="user">Soft alert at 95%. Schedule it for next month too.</DrawerMsg>
-
-        <DrawerMsg who="agent" agent={agent}>
-          Done. I'll set up the alert and add it to your monthly cadence. Confirm before I write?
-        </DrawerMsg>
-        <div style={{ paddingLeft: 38 }}>
-          <ToolCardConfirm
-            action="Schedule fuel alert at 95% threshold"
-            description="Notify Maria when fuel spend reaches 95% of monthly budget. Active May 2026 onward."
-            severity="low"/>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FullChatComposer({ center }) {
-  return (
-    <div style={{
-      background: 'var(--surface-inset)', border: '1px solid var(--border-light)', borderRadius: 14,
-      padding: '12px 14px',
-      boxShadow: center ? '0 4px 18px -4px rgb(0 0 0 / 0.06)' : 'none',
-    }}>
-      <textarea rows={center ? 3 : 2} placeholder="Ask anything…"
-        style={{ width: '100%', border: 'none', background: 'transparent', outline: 'none', resize: 'none', fontSize: 14, fontFamily: 'inherit', color: 'var(--text-primary)', padding: 0 }}/>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button className="btn btn-ghost btn-sm"><Icon name="link" size={12}/> Attach</button>
-          <button className="btn btn-ghost btn-sm"><Icon name="layers" size={12}/> Tools</button>
-          <button className="btn btn-ghost btn-sm"><Icon name="globe" size={12}/> Voice</button>
-        </div>
-        <button className="btn btn-primary btn-sm"><Icon name="send" size={12}/> Send</button>
-      </div>
-    </div>
-  );
-}
-
-Object.assign(window, { ScreenAiChatSlideout, ScreenAiChatFullPage, AgentPicker });
+function ScreenAiChatSlideout(){return <ScreenChatDesign scene="slideout"/>;}
+function ScreenAiChatFullPage(){return <ScreenChatDesign scene="collaboration"/>;}
+function chatArtboards(width=1480,height=1100){return CHAT_DESIGN_SCENES.map(([id,label])=><DCArtboard key={id} id={'ai-chat-'+(id==='collaboration'?'fullpage':id)} label={'Chat · '+label} width={width} height={Math.max(height,1100)}><div className="aonik-frame"><ScreenChatDesign scene={id}/></div></DCArtboard>);}
+Object.assign(window,{CHAT_DESIGN_SCENES,CHAT_PEOPLE,ScreenChatDesign,ScreenAiChatSlideout,ScreenAiChatFullPage,chatArtboards});

@@ -58,8 +58,9 @@ const initialCurrencies: { code: string; name: string }[] = [
 // TODO: source these from the installed pack manifests via an API rather than hard-coding.
 const businessTypes: { value: string; label: string }[] = [
   { value: 'base', label: 'Base (generic)' },
-  { value: 'simi', label: 'Simi — personal finance keeper' },
+  { value: 'simi', label: 'Personal Finance' },
   { value: 'food-commerce', label: 'Food commerce' },
+  { value: 'remittance', label: 'Remittance' },
 ];
 
 export function CreateTenantPage() {

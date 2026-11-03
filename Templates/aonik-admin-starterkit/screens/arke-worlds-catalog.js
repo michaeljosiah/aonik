@@ -1,0 +1,261 @@
+// Generated from the Admin UI Arke Worlds workspace catalogue.
+const ARKE_CATALOG = [
+  {
+    "id": "arke.overview",
+    "key": "overview",
+    "label": "Overview",
+    "area": "overview",
+    "icon": "overview",
+    "path": "/arke/overview",
+    "requires": [],
+    "description": "An operating view across Arke Kids, Studio and Player.",
+    "boundary": "Choose a product, then review its delivery, customer and service priorities.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.families",
+    "key": "families",
+    "label": "Families",
+    "area": "people",
+    "icon": "family",
+    "path": "/arke/families",
+    "requires": [
+      "groups"
+    ],
+    "description": "Adult account holders, family membership and child-profile ownership.",
+    "boundary": "Review guardians, invitations, roles and family access before changing membership.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.children",
+    "key": "children",
+    "label": "Child profiles",
+    "area": "people",
+    "icon": "children",
+    "path": "/arke/children",
+    "requires": [
+      "groups"
+    ],
+    "description": "Child aliases, age bands, linked worlds and programme eligibility.",
+    "boundary": "Use minimal child information; guardian authority and consent remain explicit.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.consent",
+    "key": "consent",
+    "label": "Consent & privacy",
+    "area": "people",
+    "icon": "policies",
+    "path": "/arke/consent",
+    "requires": [
+      "groups"
+    ],
+    "description": "Guardian permissions, consent history, export and deletion requests.",
+    "boundary": "Separate story creation, voice rights, public sharing and marketing permissions.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.worlds",
+    "key": "worlds",
+    "label": "Worlds",
+    "area": "worlds",
+    "icon": "worlds",
+    "path": "/arke/worlds",
+    "requires": [
+      "workspaces"
+    ],
+    "description": "Persistent worlds, owners, revisions and storage health.",
+    "boundary": "Creators keep control of canon and revisions; private world content is not a public edition.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.editions",
+    "key": "editions",
+    "label": "Story library",
+    "area": "worlds",
+    "icon": "editions",
+    "path": "/arke/editions",
+    "requires": [
+      "workspaces"
+    ],
+    "description": "Reviewed digital editions, manuscript, illustrations and narration.",
+    "boundary": "Check the complete output before release; a completed job alone is insufficient.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.generation",
+    "key": "generation",
+    "label": "Generation jobs",
+    "area": "production",
+    "icon": "jobs",
+    "path": "/arke/generation",
+    "requires": [
+      "workspaces"
+    ],
+    "description": "Durable generation, usage reservations, completion and recovery.",
+    "boundary": "Resume filing or export without repeating paid generation; financial effects use shared services.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.auto-stories",
+    "key": "auto-stories",
+    "label": "Monthly stories",
+    "area": "production",
+    "icon": "auto-story",
+    "path": "/arke/auto-stories",
+    "requires": [
+      "workspaces",
+      "subscriptions"
+    ],
+    "description": "Per-child monthly episodes, continuity plans and parent controls.",
+    "boundary": "The entitlement and recurrence service must be configured against an approved offer.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.safety",
+    "key": "safety",
+    "label": "Safety review",
+    "area": "production",
+    "icon": "compliance",
+    "path": "/arke/safety",
+    "requires": [
+      "workspaces"
+    ],
+    "description": "Content checks, held outputs, rights evidence and human decisions.",
+    "boundary": "Safety review and guardian consent are separate requirements; unqualified media remains held.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.subscriptions",
+    "key": "subscriptions",
+    "label": "Subscriptions",
+    "area": "billing",
+    "icon": "billing",
+    "path": "/arke/subscriptions",
+    "requires": [
+      "subscriptions"
+    ],
+    "description": "Household subscriptions, billing periods and cancellation state.",
+    "boundary": "A subscription controls service access; it does not grant editorial permission or publish a story.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.plans",
+    "key": "plans",
+    "label": "Plans & entitlements",
+    "area": "billing",
+    "icon": "categories",
+    "path": "/arke/plans",
+    "requires": [
+      "subscriptions"
+    ],
+    "description": "Versioned offers, product limits, monthly stories and print benefits.",
+    "boundary": "Resolve the competing pricing proposals before publishing an offer or migrating existing families.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.credits",
+    "key": "credits",
+    "label": "Credits & usage",
+    "area": "billing",
+    "icon": "credits",
+    "path": "/arke/credits",
+    "requires": [
+      "subscriptions"
+    ],
+    "description": "Subscription and purchased balances, reservations and recorded consumption.",
+    "boundary": "Keep balances distinct, consume subscription credits first and reconcile every material adjustment.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.print",
+    "key": "print",
+    "label": "Print & fulfilment",
+    "area": "orders",
+    "icon": "print",
+    "path": "/arke/print",
+    "requires": [
+      "workspaces",
+      "subscriptions"
+    ],
+    "description": "Edition selection, print eligibility, proof approval and delivery.",
+    "boundary": "Print orders bind to an approved edition; included redemptions and paid upgrades remain distinct.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.submissions",
+    "key": "submissions",
+    "label": "Creator submissions",
+    "area": "publishing",
+    "icon": "submissions",
+    "path": "/arke/submissions",
+    "requires": [
+      "workspaces"
+    ],
+    "description": "Private finished-edition intake, review, rights and change requests.",
+    "boundary": "Intake contains the selected public package, not editable worlds, private canon or credentials.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.catalogue",
+    "key": "catalogue",
+    "label": "Player catalogue",
+    "area": "publishing",
+    "icon": "catalogue",
+    "path": "/arke/catalogue",
+    "requires": [
+      "workspaces"
+    ],
+    "description": "Immutable approved editions, publication handoff and withdrawal.",
+    "boundary": "Approval binds to exact package bytes. Player readers do not need creator accounts.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.releases",
+    "key": "releases",
+    "label": "Release readiness",
+    "area": "publishing",
+    "icon": "release",
+    "path": "/arke/releases",
+    "requires": [],
+    "description": "Exact-build qualification, beta cohorts and launch evidence.",
+    "boundary": "A planned date does not establish readiness; work protection and completed outputs are gates.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.community",
+    "key": "community",
+    "label": "Community & campaigns",
+    "area": "publishing",
+    "icon": "community",
+    "path": "/arke/community",
+    "requires": [],
+    "description": "Creator feedback, channel ownership and permissioned showcases.",
+    "boundary": "Keep child/family operations separate from the adult-creator launch campaign.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.support",
+    "key": "support",
+    "label": "Support inbox",
+    "area": "support",
+    "icon": "support",
+    "path": "/arke/support",
+    "requires": [],
+    "description": "Family and creator cases, delivery questions and escalations.",
+    "boundary": "A shared inbox needs case ownership, verified requester scope and human review of replies.",
+    "status": "integration-required"
+  },
+  {
+    "id": "arke.reports",
+    "key": "reports",
+    "label": "Reports",
+    "area": "reports",
+    "icon": "usage",
+    "path": "/arke/reports",
+    "requires": [],
+    "description": "Activation, retention, monthly stories, delivery and contribution.",
+    "boundary": "Separate observed events from goals; report denominators, currencies and product scope.",
+    "status": "integration-required"
+  }
+];

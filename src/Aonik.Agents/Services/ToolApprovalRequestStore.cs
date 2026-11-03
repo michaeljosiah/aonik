@@ -36,9 +36,9 @@ internal sealed class ToolApprovalRequestStore : IToolApprovalRequestStore
         string toolName,
         string argsHash,
         DateTime nowUtc,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default, string? threadId = null) =>
         _agentsDbContext.ToolApprovalRequests
-            .Where(r => r.TenantId == tenantId
+            .Where(r => r.TenantId == tenantId && r.ThreadId == threadId
                 && r.RequestingUserId == requestingUserId
                 && r.ToolName == toolName
                 && r.ArgsHash == argsHash

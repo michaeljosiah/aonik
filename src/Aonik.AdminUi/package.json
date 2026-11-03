@@ -11,6 +11,10 @@
     "lint": "eslint .",
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:design": "node scripts/check-design-guardrails.mjs",
+    "check:menu-icons": "node ../../Templates/aonik-admin-starterkit/scripts/build-menu-icons.mjs --check",
+    "sync:agent-portraits": "node ../../Templates/aonik-admin-starterkit/scripts/build-agent-portraits.mjs",
+    "check:agent-portraits": "node ../../Templates/aonik-admin-starterkit/scripts/build-agent-portraits.mjs --check",
+    "sync:menu-icons": "node ../../Templates/aonik-admin-starterkit/scripts/build-menu-icons.mjs",
     "preview": "vite preview",
     "test": "vitest run"
   },

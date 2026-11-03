@@ -25,7 +25,7 @@ public sealed class ConfigPackApplierTests
     {
         var source = new ConfigPackSource();
 
-        source.ListBusinessTypes().Should().Contain(new[] { "base", "food-commerce", "simi" });
+        source.ListBusinessTypes().Should().Contain(new[] { "base", "food-commerce", "simi", "remittance" });
 
         var pack = source.Get("food-commerce");
         pack.Should().NotBeNull();
@@ -63,6 +63,31 @@ public sealed class ConfigPackApplierTests
 
         var tenant = await db.Tenants.FirstAsync(t => t.Id == tenantId);
         tenant.AppliedPackVersion.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ApplyAsync_Should_ApplyRemittanceBrandingAndVersion_WithoutDuplicateSettingsOrAgentOverrides()
+    {
+        // Arrange
+        var tenantId = Guid.NewGuid();
+        using var db = NewDbContext(tenantId, out _);
+        SeedTenant(db, tenantId, "remittance");
+        await db.SaveChangesAsync();
+        var agents = new RecordingAgentConfigurationService();
+        var referenceData = new RecordingReferenceDataService();
+        var applier = new ConfigPackApplier(new ConfigPackSource(), db, agents, referenceData, new FakeTenantContext());
+
+        // Act
+        await applier.ApplyAsync(tenantId, "remittance");
+        await applier.ApplyAsync(tenantId, "remittance");
+
+        // Assert
+        var setting = await db.Settings.SingleAsync(s => s.TenantId == tenantId && s.Scope == SettingScope.Tenant);
+        setting.Key.Should().Be("Branding.AgentDisplayName");
+        setting.Value.Should().Be("Remittance");
+        (await db.Tenants.SingleAsync(t => t.Id == tenantId)).AppliedPackVersion.Should().Be(1);
+        agents.Upserts.Should().BeEmpty();
+        referenceData.Upserts.Should().BeEmpty();
     }
 
     [Fact]

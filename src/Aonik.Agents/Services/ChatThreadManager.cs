@@ -174,6 +174,7 @@ public sealed class ChatThreadManager : IChatThreadManager
                             Id = m.Id.ToString("N"),
                             Role = m.Role,
                             Content = m.Content,
+                            Name = m.AgentName,
                         })
                         .ToList();
                 },

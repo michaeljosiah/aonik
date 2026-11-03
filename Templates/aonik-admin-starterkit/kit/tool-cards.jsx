@@ -262,7 +262,7 @@ function ToolCardAutopilot({ agent, action, description, details = [], severity 
         </div>
       )}
       <div style={{ display: 'flex', gap: 6 }}>
-        <button className="btn btn-secondary btn-sm" onClick={onApprove}>Apply</button>
+        <button className="btn btn-agent btn-sm" onClick={onApprove}>Apply</button>
         <button className="btn btn-outline btn-sm">Review</button>
         <button className="btn btn-ghost btn-sm" onClick={onReject}>Dismiss</button>
       </div>

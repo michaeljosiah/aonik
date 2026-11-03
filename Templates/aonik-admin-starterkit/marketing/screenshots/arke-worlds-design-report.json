@@ -1,0 +1,134 @@
+{
+  "scenes": [
+    {
+      "id": "overview",
+      "title": "Overview"
+    },
+    {
+      "id": "families",
+      "title": "Families"
+    },
+    {
+      "id": "children",
+      "title": "Child profiles"
+    },
+    {
+      "id": "consent",
+      "title": "Consent & privacy"
+    },
+    {
+      "id": "worlds",
+      "title": "Worlds"
+    },
+    {
+      "id": "editions",
+      "title": "Story library"
+    },
+    {
+      "id": "generation",
+      "title": "Generation jobs"
+    },
+    {
+      "id": "auto-stories",
+      "title": "Monthly stories"
+    },
+    {
+      "id": "safety",
+      "title": "Safety review"
+    },
+    {
+      "id": "subscriptions",
+      "title": "Subscriptions"
+    },
+    {
+      "id": "plans",
+      "title": "Plans & entitlements"
+    },
+    {
+      "id": "credits",
+      "title": "Credits & usage"
+    },
+    {
+      "id": "print",
+      "title": "Print & fulfilment"
+    },
+    {
+      "id": "submissions",
+      "title": "Creator submissions"
+    },
+    {
+      "id": "catalogue",
+      "title": "Player catalogue"
+    },
+    {
+      "id": "releases",
+      "title": "Release readiness"
+    },
+    {
+      "id": "community",
+      "title": "Community & campaigns"
+    },
+    {
+      "id": "support",
+      "title": "Support inbox"
+    },
+    {
+      "id": "reports",
+      "title": "Reports"
+    },
+    {
+      "id": "customers",
+      "title": "Customers & creators"
+    },
+    {
+      "id": "family",
+      "title": "Family account"
+    },
+    {
+      "id": "world",
+      "title": "World details"
+    },
+    {
+      "id": "edition",
+      "title": "Edition review"
+    },
+    {
+      "id": "job",
+      "title": "Generation details"
+    },
+    {
+      "id": "submission",
+      "title": "Submission review"
+    },
+    {
+      "id": "orders",
+      "title": "Orders"
+    },
+    {
+      "id": "invoice",
+      "title": "Invoice details"
+    },
+    {
+      "id": "settings",
+      "title": "Workspace settings"
+    }
+  ],
+  "checks": [
+    "28 native artboards in light/dark",
+    "one primary page action",
+    "family and product scoping",
+    "world-to-edition identity",
+    "parent and proof checks precede print intent",
+    "no payment or partner execution",
+    "saved delivery recovery leaves usage unchanged",
+    "unresolved commercial offer blocks monthly programme",
+    "per-child monthly slot consumed once without flex credits",
+    "voice qualification and rights cannot be bypassed",
+    "exact-package approval invalidated on change",
+    "separate publish and withdrawal decisions",
+    "editor role omits family and billing operations",
+    "creator product lens excludes private family worlds",
+    "main canvas and four focused artboards",
+    "no API calls or runtime exceptions"
+  ]
+}
