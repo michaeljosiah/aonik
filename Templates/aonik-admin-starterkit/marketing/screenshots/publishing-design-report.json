@@ -1,0 +1,30 @@
+{
+  "scenes": [
+    "queue",
+    "overview",
+    "package",
+    "rights",
+    "history",
+    "approve",
+    "stale",
+    "forbidden",
+    "publication",
+    "publish",
+    "catalogue",
+    "retry",
+    "withdraw",
+    "mirror"
+  ],
+  "checks": [
+    "14 native editable artboards",
+    "28 light/dark screenshots",
+    "exact shared runtime view and icons",
+    "explicit approval checklist",
+    "stale confirmation disabled",
+    "403 hides private material",
+    "keyboard focus reachable",
+    "no horizontal overflow",
+    "full design canvas integrated",
+    "no API requests or runtime exceptions"
+  ]
+}

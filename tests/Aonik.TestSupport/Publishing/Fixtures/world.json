@@ -1,0 +1,66 @@
+{
+  "passed": true,
+  "code": "verified",
+  "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "archiveSha256": "9352b3dbc8c5da7ff88cc5cac0e90d170bfc595311bae00566e0e2c381eae96c",
+  "archiveBytes": 3156,
+  "worldId": "lantern-garden",
+  "edition": "2026-11-03",
+  "fingerprint": "f0c9dec899fac7d5ab328eb3d9ca0947fd4070c7228d4507f263a06a14705224",
+  "kind": "world",
+  "baseFingerprint": null,
+  "partNumber": null,
+  "coverAssetId": "marketing-cover",
+  "assets": [
+    {
+      "id": "book",
+      "path": "book.epub",
+      "mediaType": "application/epub+zip",
+      "byteLength": 2214,
+      "sha256": "d1b529792c18ca64083ce13048cf1691573286b57c3681f2e509fb30eeb7bbc0"
+    },
+    {
+      "id": "marketing-cover",
+      "path": "marketing-cover.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    }
+  ],
+  "presentation": {
+    "schemaVersion": 1,
+    "manifestSha256": "a9deda8a77177a1453cdc6d47114f28c180e29ec0e8b8db4851d8881da11ec3f",
+    "manifest": {
+      "format": "arke-world-package",
+      "schemaVersion": 1,
+      "id": "lantern-garden",
+      "edition": "2026-11-03",
+      "name": "Lantern Garden",
+      "keyArt": "marketing-cover",
+      "productions": [
+        {
+          "id": "story",
+          "title": "Lantern Garden",
+          "book": "book"
+        }
+      ],
+      "assets": {
+        "book": {
+          "path": "book.epub",
+          "mediaType": "application/epub+zip",
+          "byteLength": 2214,
+          "sha256": "d1b529792c18ca64083ce13048cf1691573286b57c3681f2e509fb30eeb7bbc0"
+        },
+        "marketing-cover": {
+          "path": "marketing-cover.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        }
+      }
+    },
+    "details": {
+      "story": {}
+    }
+  }
+}

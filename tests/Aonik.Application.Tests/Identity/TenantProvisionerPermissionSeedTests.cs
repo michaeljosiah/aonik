@@ -94,6 +94,12 @@ public class TenantProvisionerPermissionSeedTests
         var opsKeys = await GrantedKeysAsync(db, "Operations");
         opsKeys.Should().Contain("Users.RevokeSessions");
         opsKeys.Should().NotContain("Users.Delete"); // §13: hard-delete is never auto-granted to Operations
+        opsKeys.Should().NotContain("Publishing.Submit", "staff submission authority is explicitly assigned");
+        opsKeys.Should().NotContain("Publishing.Review", "editorial authority requires explicit assignment");
+        adminKeys.Should().NotContain("Publishing.Review", "tenant administration alone is not editorial authority");
+        (await db.Permissions.AnyAsync(p => p.Key == "Publishing.Review")).Should().BeTrue();
+        (await db.Permissions.AnyAsync(p => p.Key == "Publishing.Submit")).Should().BeTrue(
+            "the explicit permission must be available in the normal role-management catalogue");
     }
 
     private static async Task<HashSet<string>> GrantedKeysAsync(PlatformDbContext db, string roleName)

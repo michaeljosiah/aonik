@@ -1,8 +1,9 @@
 {
   "businessType": "arke-worlds",
-  "version": 1,
+  "version": 2,
   "displayName": "Arke Worlds",
   "modules": [
+    "publishing",
     "workspaces",
     "groups",
     "subscriptions",

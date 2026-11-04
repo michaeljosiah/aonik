@@ -84,6 +84,14 @@ public static class DependencyInjection
     {
         // Core abstractions
         services.AddSingleton<IClock, SystemClock>();
+        services.AddScoped<Aonik.Publishing.Contracts.IPublishingObjectStore, Publishing.PrivatePublicationObjectStore>();
+        services.AddScoped<Aonik.Publishing.Contracts.IPackageVerifier, Publishing.DockerPackageVerifier>();
+        services.AddScoped<Aonik.Publishing.Contracts.IPublicationArtifactStore, Publishing.ImmutablePublicationArtifactStore>();
+        services.AddScoped<Aonik.Publishing.Contracts.ILegacyCatalogueMirror, Publishing.GitHubLegacyCatalogueMirror>();
+        services.AddHttpClient("Publishing.PublicReadback", client => client.Timeout = TimeSpan.FromSeconds(95))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+        services.AddHttpClient("Publishing.GitHubMirror", client => client.Timeout = TimeSpan.FromSeconds(60))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
         services.AddScoped<ICurrentUserContext, HttpContextCurrentUserContext>();
         services.AddScoped<ICurrentUserProvider, HttpContextCurrentUserProvider>();
         services.AddScoped<ICorrelationContext, HttpContextCorrelationContext>();
@@ -488,6 +496,18 @@ public static class DependencyInjection
                 policy.Requirements.Add(new RoleOrPermissionRequirement(
                     ["PersonalUser", "Operations", "ReadOnly"],
                     Array.Empty<string>())));
+
+            options.AddPolicy("PublishingReviewPolicy", policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.Requirements.Add(new PermissionRequirement("Publishing.Review"));
+            });
+            options.AddPolicy("PublishingManagementPolicy", policy =>
+            { policy.RequireAuthenticatedUser(); policy.Requirements.Add(new RoleOrPermissionRequirement(Array.Empty<string>(), ["Publishing.Review", "Publishing.Publish", "Publishing.Withdraw"])); });
+            options.AddPolicy("PublishingPublishPolicy", policy =>
+            { policy.RequireAuthenticatedUser(); policy.Requirements.Add(new PermissionRequirement("Publishing.Publish")); });
+            options.AddPolicy("PublishingWithdrawPolicy", policy =>
+            { policy.RequireAuthenticatedUser(); policy.Requirements.Add(new PermissionRequirement("Publishing.Withdraw")); });
 
             // Composite (AdminPolicy OR UserPolicy)
             options.AddPolicy("AdminUserPolicy", policy =>

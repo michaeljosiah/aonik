@@ -4,15 +4,15 @@
 
 ## Delivered scope
 
-- Installed version-one pack: `src/Aonik.SharedKernel/Abstractions/Packs/Data/arke-worlds.pack.json`.
+- Installed version-two pack: `src/Aonik.SharedKernel/Abstractions/Packs/Data/arke-worlds.pack.json`, including the Publishing module. Version two adds private creator receipt foundations; [Spec 100](../specifications/100.arke-player-publishing.html) and the [delivery record](arke-publishing.md) distinguish this from the planned full publishing workflow.
 - Permission/module/policy-filtered main application profile: `src/Aonik.AdminUi/src/config/admin-profiles/arke-worlds.json`.
 - Nineteen classified Arke-specific destinations plus existing customer, order, invoice, ledger, document, AI, approval and administration routes.
 - Twenty-eight native editable design artboards, a dedicated review gallery, light/dark exports and connected local review flows.
 - Eleven new canonical SVG glyphs, generated into the starter kit and main application icon library.
 
-The installed pack enables Workspaces, Groups, Subscriptions, Finance, Documents, AI and Agents. Dependency closure supplies Ordering and core Platform capabilities. It does not enable Food Commerce, Personal Finance or Voice. It seeds no prices, plan entitlements, sample households, agents, models or publication permissions. `Branding.AgentDisplayName` remains AONIK.
+The installed pack enables Publishing, Workspaces, Groups, Subscriptions, Finance, Documents, AI and Agents. Dependency closure supplies Ordering and core Platform capabilities. It does not enable Food Commerce, Personal Finance or Voice. It seeds no prices, plan entitlements, sample households, agents, models or publication permissions. `Branding.AgentDisplayName` remains AONIK.
 
-Provision a **new** tenant with business type `arke-worlds` through the existing tenant/config-pack workflow. Its landing page is `/arke/overview`. Host administrators retain the general host inventory; the business profile applies to tenant administration. No database migration is needed and no existing tenant has been changed by this work.
+Provision a **new** tenant with business type `arke-worlds` through the existing tenant/config-pack workflow. Its landing page is `/arke/overview`. Host administrators retain the general host inventory; the business profile applies to tenant administration. The original design/profile needed no migration; the Publishing foundation adds canonical receipt/revision tables. Reapply pack v2 through the normal module-management flow for existing tenants, preserving explicit overrides. This change does not modify an existing tenant automatically.
 
 ## Navigation and the user's work
 

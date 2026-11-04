@@ -28,7 +28,7 @@
     50%      { opacity: 0.4; }
   }
 </style>
-<link rel="stylesheet" href="design-system/arke-worlds.css"></head>
+<link rel="stylesheet" href="design-system/arke-worlds.css"><link rel="stylesheet" href="design-system/publishing.css"><link rel="stylesheet" href="design-system/publishing-canvas.css"></head>
 <body>
 <div id="root"></div>
 
@@ -82,7 +82,7 @@
 <script src="screens/food-business-data.js"></script>
 <script type="text/babel" src="screens/food-business-views.jsx"></script>
 <script type="text/babel" src="screens/food-customer-detail.jsx"></script><script type="text/babel" src="screens/food-business-records.jsx"></script><script type="text/babel" src="screens/food-business.jsx"></script>
-<script src="screens/arke-worlds-catalog.js"></script><script src="screens/arke-worlds-data.js"></script><script type="text/babel" src="screens/arke-worlds.jsx"></script>
+<script src="screens/arke-publishing-ui.js"></script><script src="screens/arke-publishing-data.js"></script><script type="text/babel" src="screens/arke-publishing.jsx"></script><script src="screens/arke-worlds-catalog.js"></script><script src="screens/arke-worlds-data.js"></script><script type="text/babel" src="screens/arke-worlds.jsx"></script>
 <script type="text/babel" src="screens/settings.jsx"></script>
 <script type="text/babel" src="screens/billers.jsx?v=3"></script>
 <script type="text/babel" src="screens/commerce-catalog.jsx?v=3"></script>
@@ -628,7 +628,7 @@ function App() {
           {foodArtboards(W,H,['shop','reports'])}
         </DCSection>
 
-      <DCSection id="arke-worlds-operations" title="Arke Worlds · Operations" subtitle="Arke Kids first, with Studio and Player workflows.">{arkeWorldsArtboards(W,H)}</DCSection></DesignCanvas>
+      <DCSection id="arke-worlds-operations" title="Arke Worlds · Operations" subtitle="Arke Kids first, with Studio and Player workflows.">{arkeWorldsArtboards(W,H)}</DCSection><DCSection id="publishing" title="Arke · Editorial & publication" subtitle="Shared application views · Exact approvals, public delivery and recovery.">{arkePublishingArtboards()}</DCSection></DesignCanvas>
 
       <RunDrawer job={openJob} onClose={() => setOpenJob(null)} onAction={() => {}} agentLayer={true}/>
 

@@ -1,0 +1,170 @@
+{
+  "passed": true,
+  "code": "verified",
+  "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "archiveSha256": "b468faf208b88acf090b9c38e845cb810120f42e091594a282fe890069be2a6f",
+  "archiveBytes": 38800,
+  "worldId": "lantern-garden",
+  "edition": "2026-11-03",
+  "fingerprint": "b9e9d89eebc5631c422e28c51dc7702f962ec7e932a6f120af750bae4944d20b",
+  "kind": "world",
+  "baseFingerprint": null,
+  "partNumber": null,
+  "coverAssetId": "marketing-cover",
+  "assets": [
+    {
+      "id": "listening",
+      "path": "listening.json",
+      "mediaType": "application/vnd.arke.listening+json",
+      "byteLength": 793,
+      "sha256": "968abe8df4e253a7f643118799f0fa44a0ef46f99efca5cf4243cc91d339604a"
+    },
+    {
+      "id": "cover",
+      "path": "ledger/cover.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    },
+    {
+      "id": "a01",
+      "path": "ledger/audio/ch01.m4a",
+      "mediaType": "audio/mp4",
+      "byteLength": 15576,
+      "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+    },
+    {
+      "id": "p001",
+      "path": "ledger/pictures/p001.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    },
+    {
+      "id": "p002",
+      "path": "ledger/pictures/p002.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    },
+    {
+      "id": "m001",
+      "path": "ledger/motion/m001.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 3837,
+      "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+    },
+    {
+      "id": "p003",
+      "path": "ledger/pictures/p003.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    },
+    {
+      "id": "a02",
+      "path": "ledger/audio/ch02.m4a",
+      "mediaType": "audio/mp4",
+      "byteLength": 15576,
+      "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+    },
+    {
+      "id": "marketing-cover",
+      "path": "marketing-cover.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    }
+  ],
+  "presentation": {
+    "schemaVersion": 2,
+    "manifestSha256": "da263bef207462a3ee8d828d83519ee00b0f13febc62b1bf3f8305e8524a8345",
+    "manifest": {
+      "format": "arke-world-package",
+      "schemaVersion": 2,
+      "id": "lantern-garden",
+      "edition": "2026-11-03",
+      "name": "Lantern Garden",
+      "keyArt": "marketing-cover",
+      "productions": [
+        {
+          "id": "story",
+          "title": "Lantern Garden",
+          "listening": "listening"
+        }
+      ],
+      "assets": {
+        "listening": {
+          "path": "listening.json",
+          "mediaType": "application/vnd.arke.listening+json",
+          "byteLength": 793,
+          "sha256": "968abe8df4e253a7f643118799f0fa44a0ef46f99efca5cf4243cc91d339604a"
+        },
+        "cover": {
+          "path": "ledger/cover.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        },
+        "a01": {
+          "path": "ledger/audio/ch01.m4a",
+          "mediaType": "audio/mp4",
+          "byteLength": 15576,
+          "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+        },
+        "p001": {
+          "path": "ledger/pictures/p001.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        },
+        "p002": {
+          "path": "ledger/pictures/p002.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        },
+        "m001": {
+          "path": "ledger/motion/m001.mp4",
+          "mediaType": "video/mp4",
+          "byteLength": 3837,
+          "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+        },
+        "p003": {
+          "path": "ledger/pictures/p003.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        },
+        "a02": {
+          "path": "ledger/audio/ch02.m4a",
+          "mediaType": "audio/mp4",
+          "byteLength": 15576,
+          "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+        },
+        "marketing-cover": {
+          "path": "marketing-cover.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        }
+      }
+    },
+    "details": {
+      "story": {
+        "chapters": [
+          {
+            "id": "neap",
+            "number": 1,
+            "title": "Neap"
+          },
+          {
+            "id": "the-rail-book",
+            "number": 2,
+            "title": "The rail book"
+          }
+        ]
+      }
+    }
+  }
+}

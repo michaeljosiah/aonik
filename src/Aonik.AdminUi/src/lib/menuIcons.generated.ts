@@ -233,6 +233,7 @@ export const menuScreenIcons: Readonly<Record<string, MenuIconName>> = {
   "arke.credits": "credits",
   "arke.print": "print",
   "arke.submissions": "submissions",
+  "arke.submission-detail": "submissions",
   "arke.catalogue": "catalogue",
   "arke.releases": "release",
   "arke.community": "community",

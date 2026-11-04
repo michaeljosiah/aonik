@@ -40,8 +40,8 @@ export function ArkeWorkspacePage() {
               <CardDescription>Arke Kids is the first product focus. Studio and Player have their own release, editorial and distribution workflows.</CardDescription>
             </CardHeader>
             <CardContent className="text-sm leading-6 text-muted-foreground">
-              The business type and menu are installed. Arke-specific staff data connections remain to be implemented;
-              these pages do not display simulated customers, jobs, subscriptions or revenue.
+              Assigned staff can review submissions and manage Player releases through Submissions and Player catalogue.
+              Other Arke areas show their connection status until their staff services are available.
               The shared AONIK tools below remain available according to your permissions.
             </CardContent>
           </Card>

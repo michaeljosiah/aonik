@@ -190,11 +190,11 @@ const ARKE_CATALOG = [
     "icon": "submissions",
     "path": "/arke/submissions",
     "requires": [
-      "workspaces"
+      "publishing"
     ],
     "description": "Private finished-edition intake, review, rights and change requests.",
     "boundary": "Intake contains the selected public package, not editable worlds, private canon or credentials.",
-    "status": "integration-required"
+    "status": "api-connected"
   },
   {
     "id": "arke.catalogue",
@@ -204,11 +204,11 @@ const ARKE_CATALOG = [
     "icon": "catalogue",
     "path": "/arke/catalogue",
     "requires": [
-      "workspaces"
+      "publishing"
     ],
     "description": "Immutable approved editions, publication handoff and withdrawal.",
     "boundary": "Approval binds to exact package bytes. Player readers do not need creator accounts.",
-    "status": "integration-required"
+    "status": "api-connected"
   },
   {
     "id": "arke.releases",

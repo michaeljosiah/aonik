@@ -42,6 +42,7 @@
     -->
     <ProjectReference Include="..\Aonik.Documents\Aonik.Documents.csproj" />
     <ProjectReference Include="..\Aonik.Workspaces\Aonik.Workspaces.csproj" />
+    <ProjectReference Include="..\Aonik.Publishing\Aonik.Publishing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

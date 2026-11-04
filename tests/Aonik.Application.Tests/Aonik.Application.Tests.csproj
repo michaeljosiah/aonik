@@ -45,6 +45,10 @@
     <ProjectReference Include="..\..\src\Aonik.Worker\Aonik.Worker.csproj" />
     <ProjectReference Include="..\Aonik.TestSupport\Aonik.TestSupport.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Workspaces\Aonik.Workspaces.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Publishing\Aonik.Publishing.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\Aonik.TestSupport\Publishing\Fixtures\**\*" Link="PublishingFixtures\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

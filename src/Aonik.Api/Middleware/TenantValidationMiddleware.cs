@@ -24,6 +24,9 @@ public class TenantValidationMiddleware
     {
         try
         {
+            if (context.Items[Aonik.Publishing.Services.PublicPublicationRoutes.ResolvedChannelItem] is string channel
+                && Aonik.Publishing.Services.PublicPublicationRoutes.Match(context.Request.Path, context.Request.Method, out var matched) && channel == matched)
+            { await _next(context); return; }
             // Skip health, swagger, scalar, and the anonymous pre-tenant identity
             // endpoints. Two classes are whitelisted here, both safe without a tenant:
             //   • Public settings discovery (GET /v1/settings/auth-provider and

@@ -307,6 +307,33 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<VoiceModeSettingsEntity> VoiceModeSettings { get; set; } = null!;
     public virtual DbSet<ChatSpeechSettingsEntity> ChatSpeechSettings { get; set; } = null!;
 
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationSubmission> PublicationSubmissions { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.SubmissionRevision> SubmissionRevisions { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationUploadSession> PublicationUploadSessions { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationUploadPart> PublicationUploadParts { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationUploadQuota> PublicationUploadQuotas { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationValidationReport> PublicationValidationReports { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationNamespace> PublicationNamespaces { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.EditorialReviewSnapshot> EditorialReviewSnapshots { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.EditorialDecision> EditorialDecisions { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.EditorialPackageAccess> EditorialPackageAccesses { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationOperation> PublicationOperations { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationChannelState> PublicationChannels { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationCatalogueSnapshot> CatalogueSnapshots { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublishedEdition> PublishedEditions { get; set; } = null!;
+    public virtual DbSet<Aonik.Publishing.Entities.PublicationArtifact> PublicationArtifacts { get; set; } = null!;
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        Aonik.Publishing.Persistence.PublishingPersistenceGuard.Validate(ChangeTracker, Database.IsRelational());
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        Aonik.Publishing.Persistence.PublishingPersistenceGuard.Validate(ChangeTracker, Database.IsRelational());
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
     // Transactional outbox / inbox (configured on AonikDbContextBase; this is the
     // canonical migration stream that owns the AnkOutboxMessages/AnkInboxMessages tables)
     public virtual DbSet<OutboxMessage> OutboxMessages { get; set; } = null!;
@@ -379,6 +406,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         // that SQL Server can never later ALTER into a rowversion.
         modelBuilder.ApplyConfigurationsFromAssembly(
             typeof(Aonik.Workspaces.WorkspacesModule).Assembly);
+
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(Aonik.Publishing.PublishingModule).Assembly);
 
         // Configure RowVersion as optimistic concurrency token on all AuditableEntity types
         ConfigureRowVersions(modelBuilder);

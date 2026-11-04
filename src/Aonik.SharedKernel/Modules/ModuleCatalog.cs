@@ -87,6 +87,13 @@ public static class ModuleCatalog
             DependsOn: [ModuleIds.Groups, ModuleIds.Subscriptions],
             SoftDependsOn: []),
         new(
+            ModuleIds.Publishing,
+            "Publishing",
+            "Private creator submissions, editorial review and approved edition distribution.",
+            IsCore: false,
+            DependsOn: [],
+            SoftDependsOn: []),
+        new(
             ModuleIds.PersonalFinance,
             "Personal Finance",
             "Households, personal accounts, transactions, budgets, goals and insights.",

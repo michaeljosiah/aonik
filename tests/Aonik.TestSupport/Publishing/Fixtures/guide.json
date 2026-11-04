@@ -1,0 +1,111 @@
+{
+  "passed": true,
+  "code": "verified",
+  "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "archiveSha256": "5d74b9dad1f73297863f87e7f4b0d31fb60630cb8fc9b327989caa7f8780b50a",
+  "archiveBytes": 19544,
+  "worldId": "undersong",
+  "edition": "2026-10-22",
+  "fingerprint": "a47ed440e0dbd4c08b73fdcaa1e9b438ab2fd643180b5a5beafccdb8076009ab",
+  "kind": "guide",
+  "baseFingerprint": null,
+  "partNumber": null,
+  "coverAssetId": "key-art",
+  "assets": [
+    {
+      "id": "key-art",
+      "path": "marketing-cover.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    },
+    {
+      "id": "guide",
+      "path": "guide/guide.json",
+      "mediaType": "application/vnd.arke.guide+json",
+      "byteLength": 1852,
+      "sha256": "99a2663617e66bb877c4bf325f793f6032c52fb3d0fabc8ee88efe829c54253a"
+    },
+    {
+      "id": "g-maren",
+      "path": "guide/maren-kest.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    },
+    {
+      "id": "g-bray",
+      "path": "guide/bray-half-hitch.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    },
+    {
+      "id": "g-vigil",
+      "path": "guide/the-vigil.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    },
+    {
+      "id": "g-maren-voice",
+      "path": "guide/maren-kest.m4a",
+      "mediaType": "audio/mp4",
+      "byteLength": 15576,
+      "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+    }
+  ],
+  "presentation": {
+    "schemaVersion": 3,
+    "manifestSha256": "2d5f1c7e7f99065a21ac2076a3205a1598cf84071658b0d3cf4b7511c89a1d88",
+    "manifest": {
+      "format": "arke-world-package",
+      "schemaVersion": 3,
+      "id": "undersong",
+      "edition": "2026-10-22",
+      "name": "The Undersong",
+      "keyArt": "key-art",
+      "productions": [],
+      "guide": "guide",
+      "assets": {
+        "key-art": {
+          "path": "marketing-cover.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        },
+        "guide": {
+          "path": "guide/guide.json",
+          "mediaType": "application/vnd.arke.guide+json",
+          "byteLength": 1852,
+          "sha256": "99a2663617e66bb877c4bf325f793f6032c52fb3d0fabc8ee88efe829c54253a"
+        },
+        "g-maren": {
+          "path": "guide/maren-kest.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        },
+        "g-bray": {
+          "path": "guide/bray-half-hitch.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        },
+        "g-vigil": {
+          "path": "guide/the-vigil.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        },
+        "g-maren-voice": {
+          "path": "guide/maren-kest.m4a",
+          "mediaType": "audio/mp4",
+          "byteLength": 15576,
+          "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+        }
+      }
+    },
+    "details": {}
+  }
+}
