@@ -1,5 +1,6 @@
 using Aonik.Groups;
 using Aonik.Workspaces;
+using Aonik.Publishing;
 using Aonik.Infrastructure;
 using Aonik.Infrastructure.BackgroundJobs;
 using Aonik.Infrastructure.Messaging.Outbox;
@@ -30,6 +31,8 @@ builder.Services.AddPlatformModule(builder.Configuration);
 builder.Services.AddFinanceModule(builder.Configuration);
 builder.Services.AddGroupsModule(builder.Configuration);
 builder.Services.AddWorkspacesModule(builder.Configuration);
+builder.Services.AddPublishingModule(builder.Configuration);
+builder.Services.AddHostedService<PublicationUploadMaintenanceService>();
 builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);

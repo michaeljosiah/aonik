@@ -1,0 +1,162 @@
+{
+  "passed": true,
+  "code": "verified",
+  "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "archiveSha256": "276047d64389024f033993e7f2421d19b2c49d702956952ad7ef2647c6fc8b59",
+  "archiveBytes": 27828,
+  "worldId": "the-undersong",
+  "edition": "2026-10-28",
+  "fingerprint": "adf60d1aa917d48dcb5aebff85348638428fb98d68d98275328a9a60ca034668",
+  "kind": "story",
+  "baseFingerprint": null,
+  "partNumber": null,
+  "coverAssetId": "cover",
+  "assets": [
+    {
+      "id": "story",
+      "path": "ring-once/story.json",
+      "mediaType": "application/vnd.arke.story+json",
+      "byteLength": 1615,
+      "sha256": "50474e9d5249205758d1f672442d19c9db7adf21d6a2b047719a24f1ca27e865"
+    },
+    {
+      "id": "cover",
+      "path": "marketing-cover.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    },
+    {
+      "id": "cover-tall",
+      "path": "ring-once/cover-tall.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    },
+    {
+      "id": "lw-quarter",
+      "path": "low-water/clips/sc_quarter.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 3837,
+      "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+    },
+    {
+      "id": "lw-causeway",
+      "path": "low-water/clips/sc_causeway.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 3837,
+      "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+    },
+    {
+      "id": "lw-towers",
+      "path": "low-water/clips/sc_towers.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 3837,
+      "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+    },
+    {
+      "id": "lw-vigil",
+      "path": "low-water/clips/sc_vigil.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 3837,
+      "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+    },
+    {
+      "id": "lw-pier",
+      "path": "low-water/clips/sc_pier.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 3837,
+      "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+    },
+    {
+      "id": "lw-bell",
+      "path": "low-water/clips/sc_bell.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 3837,
+      "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+    }
+  ],
+  "presentation": {
+    "schemaVersion": 6,
+    "manifestSha256": "a113520aab6f8aef2e0f3a734a01ec4b7fe87d45272f54b05d760af200763e8e",
+    "manifest": {
+      "format": "arke-world-package",
+      "schemaVersion": 6,
+      "id": "the-undersong",
+      "edition": "2026-10-28",
+      "name": "The Undersong",
+      "logline": "A drowned god still sings beneath the harbour of Saltmouth.",
+      "productions": [
+        {
+          "id": "ring-once",
+          "title": "Ring Once",
+          "picture": "cover",
+          "tall": "cover-tall",
+          "story": "story"
+        }
+      ],
+      "alone": true,
+      "assets": {
+        "story": {
+          "path": "ring-once/story.json",
+          "mediaType": "application/vnd.arke.story+json",
+          "byteLength": 1615,
+          "sha256": "50474e9d5249205758d1f672442d19c9db7adf21d6a2b047719a24f1ca27e865"
+        },
+        "cover": {
+          "path": "marketing-cover.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        },
+        "cover-tall": {
+          "path": "ring-once/cover-tall.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        },
+        "lw-quarter": {
+          "path": "low-water/clips/sc_quarter.mp4",
+          "mediaType": "video/mp4",
+          "byteLength": 3837,
+          "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+        },
+        "lw-causeway": {
+          "path": "low-water/clips/sc_causeway.mp4",
+          "mediaType": "video/mp4",
+          "byteLength": 3837,
+          "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+        },
+        "lw-towers": {
+          "path": "low-water/clips/sc_towers.mp4",
+          "mediaType": "video/mp4",
+          "byteLength": 3837,
+          "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+        },
+        "lw-vigil": {
+          "path": "low-water/clips/sc_vigil.mp4",
+          "mediaType": "video/mp4",
+          "byteLength": 3837,
+          "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+        },
+        "lw-pier": {
+          "path": "low-water/clips/sc_pier.mp4",
+          "mediaType": "video/mp4",
+          "byteLength": 3837,
+          "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+        },
+        "lw-bell": {
+          "path": "low-water/clips/sc_bell.mp4",
+          "mediaType": "video/mp4",
+          "byteLength": 3837,
+          "sha256": "f6f9f04f7d8cc5ef8be1ccc5a0c9cd786ba56700cb0834549e123cc5077a5f83"
+        }
+      }
+    },
+    "details": {
+      "ring-once": {
+        "storyVersion": 1
+      }
+    }
+  }
+}

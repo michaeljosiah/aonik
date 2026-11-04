@@ -1,0 +1,109 @@
+{
+  "passed": true,
+  "code": "verified",
+  "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "archiveSha256": "fa788f6805bd27a16012600b25888f5f6171c68827186af1666723ee6fbad2b1",
+  "archiveBytes": 49854,
+  "worldId": "the-undersong",
+  "edition": "2026-10-24",
+  "fingerprint": "4f353c4aaaad243aab30829c8cafe1a7cd126d5154b7a9511823a4d315a78690",
+  "kind": "production",
+  "baseFingerprint": null,
+  "partNumber": null,
+  "coverAssetId": "cover",
+  "assets": [
+    {
+      "id": "music",
+      "path": "songs-of-the-drowned-quarter/music.json",
+      "mediaType": "application/vnd.arke.music+json",
+      "byteLength": 816,
+      "sha256": "cd3458b05e9ce317fb5e00d5d3996cf6abb32e8183980145b7d245514a50cce2"
+    },
+    {
+      "id": "cover",
+      "path": "marketing-cover.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    },
+    {
+      "id": "a-drowned-verse",
+      "path": "songs-of-the-drowned-quarter/tracks/the-drowned-verse.m4a",
+      "mediaType": "audio/mp4",
+      "byteLength": 15576,
+      "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+    },
+    {
+      "id": "a-slack-water",
+      "path": "songs-of-the-drowned-quarter/tracks/slack-water.m4a",
+      "mediaType": "audio/mp4",
+      "byteLength": 15576,
+      "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+    },
+    {
+      "id": "a-saltmouth-bells",
+      "path": "songs-of-the-drowned-quarter/tracks/saltmouth-bells.m4a",
+      "mediaType": "audio/mp4",
+      "byteLength": 15576,
+      "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+    }
+  ],
+  "presentation": {
+    "schemaVersion": 5,
+    "manifestSha256": "044fd3346439e7e1df8a672f9c6c76af3b8696b5ede40fce965e531816506315",
+    "manifest": {
+      "format": "arke-world-package",
+      "schemaVersion": 5,
+      "id": "the-undersong",
+      "edition": "2026-10-24",
+      "name": "The Undersong",
+      "logline": "A drowned god still sings beneath the harbour of Saltmouth.",
+      "productions": [
+        {
+          "id": "songs-of-the-drowned-quarter",
+          "title": "Songs of the Drowned Quarter",
+          "picture": "cover",
+          "music": "music"
+        }
+      ],
+      "alone": true,
+      "assets": {
+        "music": {
+          "path": "songs-of-the-drowned-quarter/music.json",
+          "mediaType": "application/vnd.arke.music+json",
+          "byteLength": 816,
+          "sha256": "cd3458b05e9ce317fb5e00d5d3996cf6abb32e8183980145b7d245514a50cce2"
+        },
+        "cover": {
+          "path": "marketing-cover.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        },
+        "a-drowned-verse": {
+          "path": "songs-of-the-drowned-quarter/tracks/the-drowned-verse.m4a",
+          "mediaType": "audio/mp4",
+          "byteLength": 15576,
+          "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+        },
+        "a-slack-water": {
+          "path": "songs-of-the-drowned-quarter/tracks/slack-water.m4a",
+          "mediaType": "audio/mp4",
+          "byteLength": 15576,
+          "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+        },
+        "a-saltmouth-bells": {
+          "path": "songs-of-the-drowned-quarter/tracks/saltmouth-bells.m4a",
+          "mediaType": "audio/mp4",
+          "byteLength": 15576,
+          "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+        }
+      }
+    },
+    "details": {
+      "songs-of-the-drowned-quarter": {
+        "musicKind": "album"
+      }
+    }
+  }
+}

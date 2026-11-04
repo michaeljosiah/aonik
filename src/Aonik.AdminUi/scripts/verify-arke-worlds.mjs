@@ -40,7 +40,7 @@ try{
   });
   const wait=async(expression,label)=>{const start=Date.now();while(!(await evaluate(expression))){if(Date.now()-start>30000)throw Error(label+': '+await evaluate('document.body.innerText.slice(0,1600)')+' '+errors.join(' | '));await new Promise(r=>setTimeout(r,100));}};
   await page('Page.navigate',{url:origin+'/arke/overview'});await wait(`document.body.innerText.includes('One workspace for the Arke portfolio')`,'Arke workspace did not mount');
-  if(!(await evaluate(`document.body.innerText.includes('staff data connections remain to be implemented')&&!!document.querySelector('a[href="/customers"]')&&!!document.querySelector('a[href="/arke/families"]')`)))throw Error('Connection state or shared tools missing');
+  if(!(await evaluate(`document.body.innerText.includes('Assigned staff can review submissions')&&!!document.querySelector('a[href="/customers"]')&&!!document.querySelector('a[href="/arke/families"]')`)))throw Error('Connection state or shared tools missing');
   await mkdir(output,{recursive:true});
   for(const theme of ['light','dark']){await evaluate(`localStorage.setItem('aonik-theme','${theme}');document.documentElement.setAttribute('data-theme','${theme}');true`);await new Promise(r=>setTimeout(r,250));const result=await page('Page.captureScreenshot',{format:'png',captureBeyondViewport:false});await writeFile(path.join(output,'arke-worlds-runtime-overview-'+theme+'@2x.png'),Buffer.from(result.data,'base64'));}
   await evaluate(`document.querySelector('a[href="/arke/families"]').click();true`);await wait(`document.body.innerText.includes('Families is awaiting its staff connection')`,'Family navigation failed');

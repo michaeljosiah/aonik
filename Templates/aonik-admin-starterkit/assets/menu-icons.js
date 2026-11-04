@@ -201,7 +201,7 @@
   assign('categories','arke.plans');
   assign('credits','arke.credits');
   assign('print','arke.print');
-  assign('submissions','arke.submissions');
+  assign('submissions','arke.submissions arke.submission-detail');
   assign('catalogue','arke.catalogue');
   assign('release','arke.releases');
   assign('community','arke.community');

@@ -224,3 +224,12 @@ The same script captures receipt email history in both themes and checks recorde
 Delivery tracking reuses the shared Delivered/Bounced SVGs. The eleventh artboard, Receipt delivery, distinguishes delivered, bounced, awaiting-report and unavailable older sends. See `docs/features/receipt-email-delivery.md` for live Event Grid setup; native artboards use fictional local data.
 
 Bounced receipt rows include **Review email**, using the shared Bounced icon. The twelfth editable artboard lets you correct a saved customer email, confirm the update, then select and confirm the recipient in a separate resend step. These interactions stay local to the artboard. The production verification script also captures `remittance-review-receipt-email-{light,dark}@2x.png` and writes `receipt-email-review-report.json`.
+
+
+## Arke editorial review and publication
+
+Open [`publishing.html`](publishing.html) for fourteen editable artboards, or [`marketing/publishing.html`](marketing/publishing.html) for the review gallery and light/dark exports. The full canvas includes the same artboards. Existing Arke submissions/catalogue scenes now delegate to these views.
+
+The artboards reuse the real Admin UI `PublishingViews.tsx`, its semantic CSS and the actual shared icon renderer. Their DTO-shaped fixture data is fictional and their actions remain local. The real `/arke/submissions`, `/arke/submissions/:id` and `/arke/catalogue` pages use staff APIs without a mock fallback. Channel delivery and named staff permissions default closed.
+
+Regenerate the bundle/styles with `node Templates/aonik-admin-starterkit/scripts/build-publishing-design.mjs`, the gallery with `build-publishing-review.mjs`, and the light/dark exports and checks with `verify-publishing.mjs`. Run paths from the repository root. The corresponding real-app browser check is `node src/Aonik.AdminUi/scripts/verify-publishing.mjs` against mock-auth Vite on port 4176; it intercepts test API responses and performs no backend publication. See [`docs/features/arke-publishing-delivery.md`](../../docs/features/arke-publishing-delivery.md) for staff journeys, endpoint contracts, qualification and recovery.

@@ -1,0 +1,16 @@
+name: aonik_arke_verifier
+publish_to: none
+resolution: workspace
+environment:
+  sdk: ^3.11.1
+dependencies:
+  archive: ^4.5.2
+  crypto: ^3.0.7
+  arke_world:
+    path: ../packages/arke_world
+  arke_media:
+    path: ../packages/arke_media
+  arke_publication:
+    path: ../packages/arke_publication
+dev_dependencies:
+  test: ^1.29.0

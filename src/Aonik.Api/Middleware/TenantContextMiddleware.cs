@@ -25,6 +25,17 @@ public class TenantContextMiddleware
         try
         {
             var path = context.Request.Path;
+            // Only these two exact GET shapes may select a publisher from server configuration.
+            // Caller tenant headers/claims never select public or private publication data.
+            if (Aonik.Publishing.Services.PublicPublicationRoutes.Match(path, context.Request.Method, out var publicChannel))
+            {
+                var publishing = context.RequestServices.GetRequiredService<Microsoft.Extensions.Options.IOptions<Aonik.Publishing.Services.PublishingOptions>>().Value;
+                if (!publishing.Channels.TryGetValue(publicChannel, out var channel) || !channel.PublicCatalogueEnabled || channel.TenantId == Guid.Empty)
+                { context.Response.StatusCode = StatusCodes.Status404NotFound; return; }
+                tenantContext.TenantId = channel.TenantId; tenantContext.ResolutionSource = "public-publication-channel";
+                context.Items[Aonik.Publishing.Services.PublicPublicationRoutes.ResolvedChannelItem] = publicChannel;
+                await _next(context); return;
+            }
 
             if (path.StartsWithSegments("/health") ||
                 path.StartsWithSegments("/alive") ||

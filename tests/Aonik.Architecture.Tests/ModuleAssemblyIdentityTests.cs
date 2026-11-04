@@ -28,6 +28,7 @@ public class ModuleAssemblyIdentityTests
         typeof(Aonik.Subscriptions.SubscriptionsModule).Assembly,
         typeof(Aonik.Groups.GroupsModule).Assembly,
         typeof(Aonik.Workspaces.WorkspacesModule).Assembly,
+        typeof(Aonik.Publishing.PublishingModule).Assembly,
         typeof(Aonik.PersonalFinance.PersonalFinanceModule).Assembly,
         typeof(Aonik.Ai.AiModule).Assembly,
         typeof(Aonik.Agents.AgentsModule).Assembly,
@@ -77,7 +78,7 @@ public class ModuleAssemblyIdentityTests
             .ToList();
 
         implementations.Should().HaveCount(ModuleAssemblies.Count,
-            "each of the twelve module assemblies implements IModule exactly once");
+            "each module assembly implements IModule exactly once");
 
         foreach (var implementation in implementations)
         {

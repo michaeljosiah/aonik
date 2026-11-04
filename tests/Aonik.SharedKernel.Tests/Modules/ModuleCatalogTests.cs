@@ -25,13 +25,13 @@ public class ModuleCatalogTests
     }
 
     [Fact]
-    public void All_Should_ContainExactlyTheTwelveModuleIds()
+    public void All_Should_ContainExactlyTheShippedModuleIds()
     {
         AllIds.Should().BeEquivalentTo(new[]
         {
             ModuleIds.Platform, ModuleIds.Ordering, ModuleIds.Finance, ModuleIds.Commerce,
             ModuleIds.Subscriptions, ModuleIds.Groups, ModuleIds.Workspaces, ModuleIds.PersonalFinance,
-            ModuleIds.Ai, ModuleIds.Agents, ModuleIds.Voice, ModuleIds.Documents,
+            ModuleIds.Ai, ModuleIds.Agents, ModuleIds.Voice, ModuleIds.Documents, ModuleIds.Publishing,
         });
     }
 

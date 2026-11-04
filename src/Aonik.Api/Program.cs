@@ -1,5 +1,6 @@
 using Aonik.Groups;
 using Aonik.Workspaces;
+using Aonik.Publishing;
 using Aonik.Agents;
 using Aonik.Agents.Endpoints;
 using Aonik.Ai;
@@ -39,6 +40,7 @@ builder.Services.AddCommerceModule(builder.Configuration);
 builder.Services.AddSubscriptionsModule(builder.Configuration);
 builder.Services.AddGroupsModule(builder.Configuration);
 builder.Services.AddWorkspacesModule(builder.Configuration);
+builder.Services.AddPublishingModule(builder.Configuration);
 builder.Services.AddPersonalFinanceModule(builder.Configuration);
 builder.Services.AddAiModule(builder.Configuration);
 builder.Services.AddAgentsModule(builder.Configuration);
@@ -68,6 +70,7 @@ builder.Services.AddFastEndpoints(o =>
         typeof(DocumentsModule).Assembly,
         typeof(CommerceModule).Assembly,
         typeof(WorkspacesModule).Assembly,
+        typeof(PublishingModule).Assembly,
         typeof(GroupsModule).Assembly,
         typeof(SubscriptionsModule).Assembly,
     ];

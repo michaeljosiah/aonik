@@ -1,0 +1,181 @@
+{
+  "checks": [
+    "live routed Admin UI with intercepted API responses",
+    "exact revision/digest confirmation",
+    "native dialog focus",
+    "light and dark review",
+    "stable UUID and identical retry body after unknown outcome",
+    "queued is not published",
+    "409 requires reload",
+    "read-only action gates",
+    "canonical provenance visible",
+    "accessible buttons named",
+    "no runtime exceptions"
+  ],
+  "publishingRequests": [
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/publication",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/revisions/c12f1a01-4917-4b4b-9688-2dd757d9aa01/images/key-art",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/decisions",
+      "method": "POST",
+      "body": {
+        "operationId": "62ae8a50-467a-42b7-9347-d0637b228102",
+        "revisionId": "c12f1a01-4917-4b4b-9688-2dd757d9aa01",
+        "reviewDigest": "a1c7e90d2b4f68a9e5c781d049f0e32b6a84d6e751ca9326c01e95e9bc2815fd",
+        "expectedVersion": "example-review-v2",
+        "decision": "approve",
+        "internalReason": "Rights, audience and attribution checked against the exact package.",
+        "creatorMessage": "",
+        "checks": {
+          "distributionRightsReviewed": true,
+          "attributionReviewed": true,
+          "audienceSafetyReviewed": true
+        }
+      }
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/publication",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/publication",
+      "method": "POST",
+      "body": {
+        "operationId": "c5621735-d2ec-4709-b7bd-ec60535d0a31",
+        "revisionId": "c12f1a01-4917-4b4b-9688-2dd757d9aa01",
+        "decisionId": "d12f1a01-4917-4b4b-9688-2dd757d9aa01",
+        "reviewDigest": "a1c7e90d2b4f68a9e5c781d049f0e32b6a84d6e751ca9326c01e95e9bc2815fd",
+        "expectedVersion": "server-approved-v3",
+        "expectedSerial": 53,
+        "expectedBaseFingerprint": null,
+        "expectedSlotFingerprint": null,
+        "confirmBaseReplacement": false,
+        "reason": "Publish the approved edition for the qualified channel."
+      }
+    },
+    {
+      "route": "/publishing/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/publication",
+      "method": "POST",
+      "body": {
+        "operationId": "c5621735-d2ec-4709-b7bd-ec60535d0a31",
+        "revisionId": "c12f1a01-4917-4b4b-9688-2dd757d9aa01",
+        "decisionId": "d12f1a01-4917-4b4b-9688-2dd757d9aa01",
+        "reviewDigest": "a1c7e90d2b4f68a9e5c781d049f0e32b6a84d6e751ca9326c01e95e9bc2815fd",
+        "expectedVersion": "server-approved-v3",
+        "expectedSerial": 53,
+        "expectedBaseFingerprint": null,
+        "expectedSlotFingerprint": null,
+        "confirmBaseReplacement": false,
+        "reason": "Publish the approved edition for the qualified channel."
+      }
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/publication",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels/arke-worlds/catalogue",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/publication",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/revisions/c12f1a01-4917-4b4b-9688-2dd757d9aa01/images/key-art",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/review/submissions/b2981a01-4917-4b4b-9688-2dd757d9aa01/decisions",
+      "method": "POST",
+      "body": {
+        "operationId": "774bb229-183b-4ab2-96f8-99362efd7e72",
+        "revisionId": "c12f1a01-4917-4b4b-9688-2dd757d9aa01",
+        "reviewDigest": "a1c7e90d2b4f68a9e5c781d049f0e32b6a84d6e751ca9326c01e95e9bc2815fd",
+        "expectedVersion": "example-review-v2",
+        "decision": "approve",
+        "internalReason": "Check exact snapshot.",
+        "creatorMessage": "",
+        "checks": {
+          "distributionRightsReviewed": true,
+          "attributionReviewed": true,
+          "audienceSafetyReviewed": true
+        }
+      }
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels",
+      "method": "GET"
+    },
+    {
+      "route": "/publishing/management/channels/arke-worlds/catalogue",
+      "method": "GET"
+    }
+  ]
+}

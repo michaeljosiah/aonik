@@ -22,7 +22,7 @@ import type { NavItem } from '@/types';
 
 function manifestWithout(...disabled: string[]): RuntimeModuleManifest {
   const enabled = ['platform', 'ordering', 'ai', 'agents', 'finance', 'commerce', 'subscriptions',
-    'groups', 'workspaces', 'personal-finance', 'voice', 'documents']
+    'groups', 'workspaces', 'publishing', 'personal-finance', 'voice', 'documents']
     .filter((id) => !disabled.includes(id));
   return { businessType: 'base', permissions: [], allowedPolicies: ['AdminUserPolicy', 'AdminPolicy', 'AdminWritePolicy', 'AdminUserWritePolicy'], enabledModules: enabled, modules: [], featureFlags: {} };
 }
@@ -168,7 +168,7 @@ describe('registry route ownership', () => {
     const reader = resolveCurrentAdminProfile(registry, base);
     expect(isProfilePathVisible(registry, reader, '/orders/transfers/order-id')).toBe(true);
     expect(isProfilePathVisible(registry, reader, '/orders/transfers/new')).toBe(false);
-    const writer = resolveCurrentAdminProfile(registry, { ...base, permissions: ['Payment.Read', 'Payment.Create', 'Customers.Read'], allowedPolicies: [...base.allowedPolicies, 'AdminWritePolicy'] });
+    const writer = resolveCurrentAdminProfile(registry, { ...base, permissions: ['Payment.Read', 'Payment.Create', 'Customers.Read'], allowedPolicies: [...(base.allowedPolicies ?? []), 'AdminWritePolicy'] });
     expect(isProfilePathVisible(registry, writer, '/orders/transfers/new')).toBe(true);
     expect(writer!.navigation[0].items.some(item => item.id === 'finance.transfer-new')).toBe(true);
     expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, { ...base, enabledModules: base.enabledModules.filter(id => id !== 'finance') }), '/orders/transfers/order-id')).toBe(false);
@@ -195,7 +195,8 @@ describe('registry route ownership', () => {
   });
 
   it('resolves Arke Worlds while retaining module, permission, policy and legacy profile boundaries', () => {
-    const manifest = { ...manifestWithout(), businessType: 'arke-worlds', permissions: ['Invoice.Read', 'Ledger.Read', 'Customers.Read'] };
+    const base = manifestWithout();
+    const manifest = { ...base, businessType: 'arke-worlds', allowedPolicies: [...(base.allowedPolicies ?? []), 'PublishingReviewPolicy', 'PublishingManagementPolicy'], permissions: ['Invoice.Read', 'Ledger.Read', 'Customers.Read', 'Publishing.Review'] };
     const result = resolveCurrentAdminProfile(registry, manifest)!;
     expect(result.landingPath).toBe('/arke/overview');
     for (const path of ['/arke/families','/arke/children','/arke/worlds','/arke/editions','/arke/generation','/arke/auto-stories','/arke/safety','/arke/subscriptions','/arke/plans','/arke/credits','/arke/print','/arke/submissions','/arke/catalogue','/arke/releases','/arke/community','/arke/support','/arke/reports','/customers','/billing/invoices','/ledger']) {
@@ -203,8 +204,19 @@ describe('registry route ownership', () => {
     }
     expect(isProfilePathVisible(registry, result, '/commerce/production')).toBe(false);
     expect(isProfilePathVisible(registry, result, '/orders/transfers/new')).toBe(false);
+    expect(isProfilePathVisible(registry, result, '/arke/submissions/11111111-1111-4111-8111-111111111111')).toBe(true);
+    const unassigned = { ...manifest, permissions: ['Invoice.Read', 'Customers.Read'] };
+    for (const path of ['/arke/submissions', '/arke/catalogue']) expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, unassigned), path)).toBe(false);
+    const publisher = { ...manifest, permissions: ['Publishing.Publish'], allowedPolicies: [...(base.allowedPolicies ?? []), 'PublishingManagementPolicy'] };
+    expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, publisher), '/arke/catalogue')).toBe(true);
+    expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, publisher), '/arke/submissions')).toBe(false);
     const noWorkspace = { ...manifest, enabledModules: manifest.enabledModules.filter(id => id !== 'workspaces') };
     expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, noWorkspace), '/arke/worlds')).toBe(false);
+    const noPublishing = { ...manifest, enabledModules: manifest.enabledModules.filter(id => id !== 'publishing') };
+    for (const path of ['/arke/submissions', '/arke/catalogue']) {
+      expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, noPublishing), path)).toBe(false);
+      expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, noWorkspace), path)).toBe(true);
+    }
     const readOnly = { ...manifest, allowedPolicies: ['AdminUserPolicy'] };
     expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, readOnly), '/arke/families')).toBe(false);
     expect(isProfilePathVisible(registry, resolveCurrentAdminProfile(registry, readOnly), '/customers')).toBe(true);

@@ -40,6 +40,7 @@
     <ProjectReference Include="..\..\src\Aonik.Application\Aonik.Application.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Infrastructure\Aonik.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Workspaces\Aonik.Workspaces.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Publishing\Aonik.Publishing.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Subscriptions\Aonik.Subscriptions.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Groups\Aonik.Groups.csproj" />
     <ProjectReference Include="..\..\src\Aonik.PersonalFinance\Aonik.PersonalFinance.csproj" />

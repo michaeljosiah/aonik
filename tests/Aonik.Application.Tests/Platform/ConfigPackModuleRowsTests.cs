@@ -63,6 +63,7 @@ public class ConfigPackModuleRowsTests
         ModuleIds.Commerce,
         ModuleIds.Subscriptions,
         ModuleIds.Workspaces,
+        ModuleIds.Publishing,
     ];
 
     private readonly Guid _tenantId = Guid.NewGuid();
@@ -186,7 +187,7 @@ public class ConfigPackModuleRowsTests
         var applier = NewApplier(new ConfigPackSource(), db);
         string[] expectedOn = [ModuleIds.Platform, ModuleIds.Ordering, ModuleIds.Finance,
             ModuleIds.Subscriptions, ModuleIds.Groups, ModuleIds.Workspaces, ModuleIds.Documents,
-            ModuleIds.Ai, ModuleIds.Agents];
+            ModuleIds.Ai, ModuleIds.Agents, ModuleIds.Publishing];
 
         // Act
         await applier.ApplyModulesAsync(_tenantId, "arke-worlds", initialProvisioning: true);
@@ -195,7 +196,7 @@ public class ConfigPackModuleRowsTests
         var rows = await RowsAsync();
         rows.Should().HaveCount(ModuleCatalog.All.Count);
         rows.Where(row => row.IsEnabled).Select(row => row.ModuleId).Should().BeEquivalentTo(expectedOn);
-        rows.Should().OnlyContain(row => row.Reason == "pack:arke-worlds@v1");
+        rows.Should().OnlyContain(row => row.Reason == "pack:arke-worlds@v2");
         var documents = await db.TenantModules.SingleAsync(row => row.ModuleId == ModuleIds.Documents);
         documents.IsEnabled = false;
         documents.Source = TenantModuleSource.Explicit;

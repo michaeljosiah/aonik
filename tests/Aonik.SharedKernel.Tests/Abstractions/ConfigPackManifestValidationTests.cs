@@ -80,8 +80,9 @@ public class ConfigPackManifestValidationTests
         pack.Should().NotBeNull();
         pack!.BusinessType.Should().Be("arke-worlds");
         pack.DisplayName.Should().Be("Arke Worlds");
+        pack.Version.Should().Be(2);
         pack.Modules.Should().BeEquivalentTo(new[] { ModuleIds.Workspaces, ModuleIds.Groups,
-            ModuleIds.Subscriptions, ModuleIds.Finance, ModuleIds.Documents, ModuleIds.Ai, ModuleIds.Agents });
+            ModuleIds.Subscriptions, ModuleIds.Finance, ModuleIds.Documents, ModuleIds.Ai, ModuleIds.Agents, ModuleIds.Publishing });
         pack.Settings.Should().ContainSingle().Which.Key.Should().Be("Branding.AgentDisplayName");
         pack.Settings["Branding.AgentDisplayName"].Should().Be("AONIK");
         pack.ReferenceData.Should().BeEmpty("commercial proposals must not become live prices or entitlements");

@@ -128,6 +128,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Identity.IPaidAccountAccessService>(sp => sp.GetRequiredService<AccountAccessService>());
         services.AddScoped<IUserProvisioningService, UserProvisioningService>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.ICurrentPartyResolver, Services.Identity.CurrentPartyResolver>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserPartyMembershipReader, Services.Identity.UserPartyMembershipReader>();
         services.AddScoped<IUserProfileService, UserProfileService>();
         services.AddScoped<ICustomerAddressService, CustomerAddressService>();
         services.AddScoped<IUserRoleService, UserRoleService>();

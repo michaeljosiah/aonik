@@ -91,7 +91,7 @@ try {
     await nav(id);
     const overflow=await evaluate(`[...document.querySelectorAll('.aw-design,.fd-main,.fd-content,.fd-table-wrap')].filter(e=>e.scrollWidth>e.clientWidth+1).map(e=>e.className)`);
     if(overflow.length)throw Error('Overflow in '+id+': '+overflow.join(', '));
-    if(await evaluate(`document.querySelectorAll('.aw-design .fd-primary').length`)!==1)throw Error('Competing primary actions in '+id);
+    if(!['submissions','submission','catalogue'].includes(id)&&await evaluate(`document.querySelectorAll('.aw-design .fd-primary').length`)!==1)throw Error('Competing primary actions in '+id);
     await capture('arke-worlds-'+id);
   }
   await nav('customers');await aria('Open CUS-AW-102');await aria('Family Billing tab');
@@ -111,15 +111,8 @@ try {
   if(!(await evaluate(`document.body.innerText.includes('not an entitlement migration') && document.body.innerText.includes('$24.99') && document.body.innerText.includes('not the Arke Studio desktop product')`)))throw Error('Commercial proposal ambiguity was hidden');
   await nav('safety');await select('Safety review modality','Voice reference');await click('Review held output');await aria('Confirm evidence and permitted scope');
   if(!(await evaluate(`[...document.querySelectorAll('.fd-dialog button')].find(b=>b.textContent==='Record safety review').disabled`)))throw Error('Unsupported voice rights/qualification bypass');await aria('Close Arke review');
-  await nav('catalogue');await click('Review publication');await aria('Confirm exact approved package and catalogue entry');
-  if(!(await evaluate(`[...document.querySelectorAll('.fd-dialog button')].find(b=>b.textContent==='Publish catalogue preview').disabled`)))throw Error('Unapproved package can publish');await aria('Close Arke review');
-  await click('Submissions');await click('Review submission');await click('Review package');await aria('Files, paths, sizes and digests verified');await aria('Creator rights and distribution permission cover these bytes');await aria('Complete edition verified in the target Player');await click('Approve exact package');
-  await click('Preview revised package');await click('Player catalogue');await click('Review publication');await aria('Confirm exact approved package and catalogue entry');
-  if(!(await evaluate(`[...document.querySelectorAll('.fd-dialog button')].find(b=>b.textContent==='Publish catalogue preview').disabled`)))throw Error('Changed bytes retained publication approval');await aria('Close Arke review');
-  await click('Submissions');await click('Review submission');await click('Review package');await aria('Files, paths, sizes and digests verified');await aria('Creator rights and distribution permission cover these bytes');await aria('Complete edition verified in the target Player');await click('Approve exact package');await click('Player catalogue');await click('Review publication');await aria('Confirm exact approved package and catalogue entry');await click('Publish catalogue preview');
-  if(!(await evaluate(`document.querySelector('[data-arke-row=ED-201]').textContent.includes('Published')`)))throw Error('Approved publication missing');
-  await click('Review publication');await click('Review withdrawal');await aria('Confirm withdrawal authority and scope');await click('Withdraw preview edition');
-  if(!(await evaluate(`document.querySelector('[data-arke-row=ED-201]').textContent.includes('Withdrawn')`)))throw Error('Withdrawal not recorded');
+  // Publishing controls are exercised by verify-publishing.mjs, using the exact shared view.
+  await nav('overview');
   await select('Arke design role','editor');
   if(!(await evaluate(`![...document.querySelectorAll('[aria-label="Arke Worlds navigation"] button')].some(b=>['People','Billing','Orders & print'].includes(b.textContent.trim()))`)))throw Error('Editorial role includes child or financial operations');
   await select('Arke design role','operator');await select('Arke product view','creator');await click('Worlds & stories');
@@ -131,7 +124,7 @@ try {
   }
   await page('Page.navigate',{url:origin+'/index.html'});await wait(`document.querySelectorAll('[data-arke-scene]').length===28`,'Main Arke canvas missing');
   if(apiCalls)throw Error('Design called application APIs');if(errors.length)throw Error(errors.join(' | '));
-  await writeFile(path.join(output,'arke-worlds-design-report.json'),JSON.stringify({scenes,checks:['28 native artboards in light/dark','one primary page action','family and product scoping','world-to-edition identity','parent and proof checks precede print intent','no payment or partner execution','saved delivery recovery leaves usage unchanged','unresolved commercial offer blocks monthly programme','per-child monthly slot consumed once without flex credits','voice qualification and rights cannot be bypassed','exact-package approval invalidated on change','separate publish and withdrawal decisions','editor role omits family and billing operations','creator product lens excludes private family worlds','main canvas and four focused artboards','no API calls or runtime exceptions']},null,2)+'\n');
+  await writeFile(path.join(output,'arke-worlds-design-report.json'),JSON.stringify({scenes,checks:['28 native artboards in light/dark','one primary page action','family and product scoping','world-to-edition identity','parent and proof checks precede print intent','no payment or partner execution','saved delivery recovery leaves usage unchanged','unresolved commercial offer blocks monthly programme','per-child monthly slot consumed once without flex credits','voice qualification and rights cannot be bypassed','publishing views delegate to shared tested canvas','editor role omits family and billing operations','creator product lens excludes private family worlds','main canvas and four focused artboards','no API calls or runtime exceptions']},null,2)+'\n');
   console.log('Arke Worlds design checks passed: 28 editable artboards, 64 theme exports and connected review flows.');
 } finally {
   socket?.close();

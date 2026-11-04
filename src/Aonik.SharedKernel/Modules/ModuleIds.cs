@@ -15,6 +15,7 @@ public static class ModuleIds
     public const string Subscriptions = "subscriptions";
     public const string Groups = "groups";
     public const string Workspaces = "workspaces";
+    public const string Publishing = "publishing";
     public const string PersonalFinance = "personal-finance";
     public const string Ai = "ai";
     public const string Agents = "agents";

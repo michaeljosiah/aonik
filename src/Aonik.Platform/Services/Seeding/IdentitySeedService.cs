@@ -47,6 +47,10 @@ internal class IdentitySeedService
             new Permission { Key = "Invoice.Delete", Description = "Delete invoices" },
             new Permission { Key = "Invoice.Issue", Description = "Issue draft invoices" },
             new Permission { Key = "Subscription.Manage", Description = "Change what a tenant subscribes to and how it is paid" },
+            new Permission { Key = "Publishing.Submit", Description = "Create private publication submissions for the acting party" },
+            new Permission { Key = "Publishing.Review", Description = "Review publication submissions as an assigned independent editor" },
+            new Permission { Key = "Publishing.Publish", Description = "Release exact approved publication revisions as an assigned publisher" },
+            new Permission { Key = "Publishing.Withdraw", Description = "Hold or withdraw publication entries with an audit reason" },
 
             // Payment permissions
             new Permission { Key = "Payment.Create", Description = "Create payment intents" },

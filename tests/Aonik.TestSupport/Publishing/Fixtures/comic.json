@@ -1,0 +1,122 @@
+{
+  "passed": true,
+  "code": "verified",
+  "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "archiveSha256": "0df7242308500738fc3967333fbf147f91705a2fba8a756f563da37188c567aa",
+  "archiveBytes": 2812,
+  "worldId": "the-undersong",
+  "edition": "2026-10-29",
+  "fingerprint": "bed3bed509f7ca62419453b420e7039325bd8bc8cff2af6b1157795b1f6f915e",
+  "kind": "comic",
+  "baseFingerprint": null,
+  "partNumber": null,
+  "coverAssetId": "cover",
+  "assets": [
+    {
+      "id": "comic",
+      "path": "low-water-drawn/comic.json",
+      "mediaType": "application/vnd.arke.comic+json",
+      "byteLength": 426,
+      "sha256": "94ed26f88d7e3ef1246682e8b2734b93d900c1b69bd2cd1e080de6450f682c10"
+    },
+    {
+      "id": "cover",
+      "path": "marketing-cover.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    },
+    {
+      "id": "p-0001",
+      "path": "low-water-drawn/pages/0001.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    },
+    {
+      "id": "p-0002",
+      "path": "low-water-drawn/pages/0002.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    },
+    {
+      "id": "p-0003",
+      "path": "low-water-drawn/pages/0003.png",
+      "mediaType": "image/png",
+      "byteLength": 68,
+      "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+    },
+    {
+      "id": "p-0004",
+      "path": "low-water-drawn/pages/0004.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 8,
+      "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+    }
+  ],
+  "presentation": {
+    "schemaVersion": 7,
+    "manifestSha256": "4f67f188f9994b143db703f1ae3a3c66ed28ad450633e82dfc2dfbb0497da63c",
+    "manifest": {
+      "format": "arke-world-package",
+      "schemaVersion": 7,
+      "id": "the-undersong",
+      "edition": "2026-10-29",
+      "name": "The Undersong",
+      "logline": "A drowned god still sings beneath the harbour of Saltmouth.",
+      "productions": [
+        {
+          "id": "low-water-drawn",
+          "title": "Low Water, drawn",
+          "picture": "cover",
+          "comic": "comic"
+        }
+      ],
+      "alone": true,
+      "assets": {
+        "comic": {
+          "path": "low-water-drawn/comic.json",
+          "mediaType": "application/vnd.arke.comic+json",
+          "byteLength": 426,
+          "sha256": "94ed26f88d7e3ef1246682e8b2734b93d900c1b69bd2cd1e080de6450f682c10"
+        },
+        "cover": {
+          "path": "marketing-cover.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        },
+        "p-0001": {
+          "path": "low-water-drawn/pages/0001.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        },
+        "p-0002": {
+          "path": "low-water-drawn/pages/0002.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        },
+        "p-0003": {
+          "path": "low-water-drawn/pages/0003.png",
+          "mediaType": "image/png",
+          "byteLength": 68,
+          "sha256": "081b627cac8d3d4e337ee059fcf2696e8e14c3247021f9fab4ed44578bbbc9ec"
+        },
+        "p-0004": {
+          "path": "low-water-drawn/pages/0004.jpg",
+          "mediaType": "image/jpeg",
+          "byteLength": 8,
+          "sha256": "499af7b940c9579b2062696bdabd7b849ac18c9246e6f5abf6c5a52d4de43850"
+        }
+      }
+    },
+    "details": {
+      "low-water-drawn": {
+        "comicVersion": 1
+      }
+    }
+  }
+}

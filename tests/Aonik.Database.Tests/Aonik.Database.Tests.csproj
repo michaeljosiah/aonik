@@ -58,6 +58,11 @@
     <ProjectReference Include="..\Aonik.TestSupport\Aonik.TestSupport.csproj" />
     <ProjectReference Include="..\Aonik.IntegrationTests.Support\Aonik.IntegrationTests.Support.csproj" />
     <ProjectReference Include="..\..\src\Aonik.Workspaces\Aonik.Workspaces.csproj" />
+    <ProjectReference Include="..\..\src\Aonik.Publishing\Aonik.Publishing.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="..\Aonik.Application.Tests\Publishing\PublicationScenario.cs" Link="Publishing\PublicationScenario.cs" />
+    <Content Include="..\Aonik.TestSupport\Publishing\Fixtures\**\*" Link="PublishingFixtures\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
