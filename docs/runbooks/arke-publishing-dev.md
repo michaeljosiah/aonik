@@ -1,0 +1,231 @@
+# Arke publishing dev rehearsal — #403
+
+This record separates deployment from end-to-end qualification. No production
+catalogue migration or public release is authorised by the dev rehearsal.
+
+## Deployed application
+
+On 5 November 2026, release `d05793b5bf1a1c754d4f94e68fb554e54eaba5cb`
+(merged PR #404) passed CI and was deployed with the normal runtime workflow:
+
+- [CI](https://github.com/michaeljosiah/aonik/actions/runs/41925344200)
+- [Deployment preview](https://github.com/michaeljosiah/aonik/actions/runs/42072157634)
+- [Application deployment](https://github.com/michaeljosiah/aonik/actions/runs/42072948960)
+- API: `https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io`
+- Admin: `https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io`
+- Resource group: `rg-aonik-dev-uksouth`; subscription:
+  `336d38e2-bb96-4510-a4c5-5c313139eef9`.
+
+API health and Admin both returned HTTP 200. A read-only SQL inspection confirmed
+the canonical migration stream through `20261104080759_AddPublishingPublicDelivery`.
+The temporary single-client SQL firewall rule used for inspection was removed.
+
+| Image | Immutable digest |
+| --- | --- |
+| `aonik-api` | `sha256:1cabdf1ff6cc1bc37308f2b66a453e004689b732324412bbe0c59785b8c3b752` |
+| `aonik-worker` | `sha256:d6a1438db8cb1b065aa724c58be6d69a38854c98daa04e5094c8455c33dc2cad` |
+| `aonik-adminui` | `sha256:2ce8e938e4e9fe242a7dfd149df5c002b59328ef3a7846fb094b57bdc06e43a7` |
+
+The API's optional AI warm-up reported exhausted provider credits. It did not
+prevent startup and is separate from deterministic package verification.
+
+## Isolated channel
+
+The existing **Arke Kidz** dev tenant is
+`1087cc03-46cc-45fa-9023-f0ce4f7bbdb8`. Its persisted business type was `base`, pack
+version 1, at inspection. Its name alone does not prove that the Arke Worlds pack
+or Publishing module is configured. Apply the current pack/modules using the
+normal authorised tenant administration APIs before admitting creators.
+
+`iac/azure/environments/dev/aca.parameters.json` defines **arke-worlds-dev**.
+Its API and Worker receive identical non-secret publishing settings through the
+dedicated `publishingAppSettings` parameter. The GitHub runtime-setting collector
+cannot overwrite this independent parameter. Intake, namespace admission, review,
+delivery, public catalogue and legacy mirror remain explicitly **disabled** until
+their prerequisites below are proven. No reviewer or publisher is auto-granted.
+
+This is a **new synthetic channel**, with empty v2 baseline at serial 0. It is not
+an import or replacement of the existing production channel. The SHA-256 binds
+the exact baseline string. Do not initialise it using a production Player build
+whose bundled/cached higher serial would mask this feed.
+
+The dedicated storage module provisions two authenticated SMB shares (10 GiB
+quota each), both private at the storage layer. Only AONIK's authorised public
+artifact endpoint can expose delivery objects after approval. Mounts are:
+
+- `/mnt/aonik-publishing-private`: session parts, frozen archives and store marker.
+- `/mnt/aonik-publishing-public`: immutable delivery objects and store marker.
+
+API and Worker use the same shares, paths and UID 1654. Neither is beneath the
+web root or generic blob store. A running Worker replica is required: the SQL
+outbox has no event scaler to wake a zero-replica worker. Storage is billed for
+usage; retaining a Worker replica adds ongoing compute cost.
+
+Storage deployment `publishing-storage-dev` succeeded with account
+`ankpubxkhim4xqiopna`. The configuration was applied with
+`scripts/Configure-ArkeDevPublishing.ps1 -Apply` after its read-only preview.
+API revision `aonik-dev-api--0000374` and Worker revision
+`aonik-dev-worker--0000366` became ready. All 25 publishing settings matched the
+checked-in profile on both apps; Worker minimum replicas is 1. API health remained
+HTTP 200 and the closed anonymous channel returned 404.
+
+An actual UID-1654 Worker shell wrote a synthetic probe to both shares. The API
+read the same SHA-256 (`55c6dee596462bd625eb3b3d502bbdd51d7ac08fa7f23e1a0b0f9a2381d29f4a`),
+renamed the private probe and removed both probes. This environment rejects custom
+SMB mount options (`ContainerAppVolumeMountOptionsNotSupported`); its mounted root
+permissions are `0777`, owned by root. Isolation therefore relies on private
+storage bindings, trusted API/Worker containers and domain access checks, not
+per-tenant POSIX users. No untrusted parser may share these mounts. This smoke
+check does not qualify crash durability, backup restoration or multi-instance races.
+
+Retained quotas are 512 MiB/creator and 2 GiB/tenant; archive cap 128 MiB; at most
+20 creator packages, 200 tenant packages, 10 namespaces/creator and 20 sessions
+per creator/day. Parts plus assembly require at least three times the retained
+quota plus temporary-write headroom. Share quotas are capacity ceilings, not
+evidence of filesystem atomicity, backup or restoration.
+
+## Creator sign-in
+
+Confirmed issuer: `https://aonik.uk.auth0.com/`; API audience:
+`https://api.aonik.com`. The existing deployed management application has only
+`read:users create:users update:users`; it cannot create or modify applications.
+The dashboard required a fresh owner login. Do not expand the API's management
+permissions merely to perform this one-time setup.
+
+Create **Arke Studio Dev** as a public **Native** Auth0 application, with:
+
+- Callback: `http://127.0.0.1:37619/aonik/callback`, exact match.
+- Authorization Code and Refresh Token grants; token endpoint authentication `none`.
+- PKCE, the existing username/password connection, rotating refresh tokens with
+  bounded absolute and idle lifetimes, and API offline access.
+- Scopes `openid profile email offline_access`, API audience above.
+- No client secret in Studio or its configuration. Do not reuse the Admin SPA ID.
+
+Set Studio's host-owned `ARKE_AONIK_CONFIG` file with the API URL, issuer, native
+client ID, audience, scopes, tenant ID, channel key, redirect port, 128 MiB package
+cap and `rightsDeclarationVersion: dev-synthetic-v1`. Use a dev-only synthetic
+distribution statement, explicitly confirmed by the fixture's submitting human.
+The version is not approval of commercial or third-party distribution rights.
+
+[Studio PR #2578](https://github.com/michaeljosiah/ArkeStudio/pull/2578) contains
+the sign-in, frozen edition, resumable upload and receipt implementation. Its
+`docs/development/aonik-publishing.md` describes configuration and recovery.
+
+Two consenting creator identities and an independent reviewer/publisher must
+have active AONIK user/party links. Create/onboard through domain APIs. Record
+IDs privately; do not add passwords, tokens or private rights evidence here.
+Use role management for `Publishing.Review`, `Publishing.Publish` and
+`Publishing.Withdraw`, plus explicit channel reviewer/publisher IDs. TenantAdmin
+alone grants no publishing authority. A creator cannot approve or publish their
+own submission, including through another linked party.
+
+## Verifier runtime — unresolved deployment prerequisite
+
+ACR run `db3` successfully built and tested the pinned Linux verifier:
+
+- Image: `aonikdevacr.azurecr.io/aonik-arke-verifier@sha256:dc81e03d6c13a3281986b9e0e0343add47c5fdcb31a7291597284a551c8ae164`
+- Reader: `27df122566bcdef18126932c15a74112e18b8573`
+- Official Dart SDK base: `dart@sha256:e3ea62cbe54470e5cc4c31cbc85693aa9b0b01723521baf0be634ea3597e1f5d`
+- Build context: pinned reader packages, wrapper and synthetic tests only.
+
+The CLI entry point was excluded by the global .NET `bin/` ignore rule; the
+explicit source exception now makes a clean checkout reproducible.
+
+**The deployed Worker cannot execute this verifier yet.** Its adapter launches
+Docker with a networkless, read-only, non-root container and bounded CPU, memory,
+PIDs, scratch and timeout. The ACA Worker image has neither Docker CLI nor daemon;
+[ACA does not support privileged host access](https://learn.microsoft.com/en-us/azure/container-apps/containers).
+An image build is not evidence that these runtime controls work in dev.
+
+Qualification needs either a dedicated Docker-capable verification host with a
+secure invocation boundary and matching private volume, or a tested remote
+adapter for an isolated service such as
+[custom-container Dynamic Sessions](https://learn.microsoft.com/en-us/azure/container-apps/sessions-custom-container).
+Do not substitute a native parser inside the API/Worker, borrow the AI pool's
+network-enabled execution policy, or manually mark a validation report passed.
+Record actual network denial, resource termination, cleanup after caller death,
+archive identity and report provenance before enabling admission.
+
+## Player and catalogue audit
+
+Read-only audit on 5 November 2026:
+
+| Source | Serial | Worlds |
+| --- | --- | --- |
+| ArkeStudio `arke-player-worlds` hosted release | 49 | 5 |
+| ArkePlayer `origin/main` bundled catalogue | 49 | 5 |
+| Existing local Player checkout | 45 | 5 |
+
+Hosted catalogue SHA-256:
+`6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca`.
+Evidence is in ignored `output/research/403-catalogue-audit/`. Supported release
+baselines and ownership/rights evidence still require qualification; this audit
+does not establish a production import baseline or permission to republish.
+
+[Player #50](https://github.com/michaeljosiah/ArkePlayer/issues/50) is still open.
+Foreground discovery and background notices currently share a hard-coded
+production GitHub URL. A rehearsal build must select the HTTPS dev channel in
+both paths and isolate its bundled baseline, cache and app data from production.
+Keep normal installed libraries/offline playback intact. Do not point production
+phones at the empty test channel or replace the production GitHub catalogue.
+
+## Live acceptance sequence
+
+Record UTC, application/image versions, actor IDs, receipt/revision/operation IDs,
+review digest, archive hash, validation provenance and catalogue serial for every
+case. Screenshots must be from the actual signed-in applications.
+
+1. Native creator sign-in, refresh rotation, cancellation, expiry and sign-out.
+2. No-party denial; second-creator and foreign-tenant access denial.
+3. Freeze a synthetic edition through Studio's existing exporter. Submit its
+   declaration with rights confirmation; interrupt upload; resume only missing
+   parts with the same receipt and operation IDs. Replay identical commands and
+   prove changed hashes/arguments conflict without new public state.
+4. Exact pinned verification to `in-review`; unavailable, timeout, malformed and
+   tampered packages remain held. Prove private paths have no anonymous mapping.
+5. Independent editor requests changes; creator submits a new frozen revision.
+   Prove stale snapshots are rejected. Exercise rejection separately.
+6. Editor inspects actual synthetic rights/material and explicitly approves the
+   exact revision. Publisher separately confirms release. Approval alone must
+   leave the catalogue unchanged.
+7. Force a delivery readback fault, recover with the same durable operation,
+   verify exact public SHA/length/MIME and a single higher-serial catalogue commit.
+8. Dev Player foreground/background/forced refresh, install, part continuity,
+   update and offline reopening. Include story/comic-aware and supported older
+   consumers. Unavailable/invalid/equal/older feeds retain the appropriate cache.
+9. Hold future delivery, then withdraw with a new serial. Retained immutable
+   bytes and previously installed offline copies are not remote-deleted.
+
+## Operations and recovery
+
+- Keep intake closed if verifier capacity, identity setup or storage readiness is
+  unknown. Keep review and delivery separate; an outage must not grant approval.
+- Inspect receipt validation codes and outbox attempts; unavailable verification
+  is held. Resolve the infrastructure cause and use a fresh validated revision
+  where required. Never patch approval, validation or outbox success in SQL.
+- For uncertain delivery, retain the original operation, reviewed revision and
+  expected lineage. Use authorised retry; do not fabricate another public URL.
+  Dead-letter and mirror states are separate from canonical publication.
+- Monitor real private/public free space, pending age, verifier concurrency,
+  failures, outbox dead letters and Worker replicas. Agree measured capacity and
+  cost limits before pilot expansion; no throughput qualification exists yet.
+- Back up SQL and both shares with `.store-id` together. Seven-day share deletion
+  retention is not a backup. Prove a restore in isolation before enabling a pilot.
+- Roll back application images only after schema compatibility review. Roll back
+  public discovery by a **new higher serial**, never by restoring an old feed over
+  the current head. Preserve existing hashes/URLs and publication history.
+- Private manual intake and verified operator publication handoff remain the
+  fallback. No production manual or automated upload is part of this run.
+
+## Validation of this preparation
+
+`dotnet build Aonik.sln --no-restore -m:1 -nr:false` passed with zero errors and
+two existing query-filter analyzer warnings. `dotnet test Aonik.sln --no-build
+-m:1 -nr:false` passed **5,306** tests with **12** existing skips. Bicep compilation
+passed (two existing warnings outside the new storage module). The registry
+image build passed Dart analysis and **22** verifier tests. These are distinct
+from the live acceptance sequence above.
+
+**Readiness:** application and private storage deployed; closed channel settings
+applied; creator authentication, isolated verification and the complete
+Studio → approval → Player rehearsal are not yet proven. #403 stays open.

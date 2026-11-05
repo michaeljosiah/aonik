@@ -57,6 +57,12 @@ param apiAppSettings object = {}
 @description('Optional worker container environment variable overrides (name/value pairs).')
 param workerAppSettings object = {}
 
+@description('Provision dedicated durable publishing shares. This does not enable intake, review or delivery.')
+param publishingStorageEnabled bool = false
+
+@description('Non-secret Publishing__ settings shared identically by API and Worker. Channels default closed.')
+param publishingAppSettings object = {}
+
 @description('Qdrant vector store image reference including tag.')
 param qdrantImage string = 'qdrant/qdrant:latest'
 
@@ -102,11 +108,11 @@ var alertsWebhookServiceUri = 'https://${apiApp.properties.configuration.ingress
 var codeActSessionPoolName = '${namePrefix}-sessions'
 var codeActPoolManagementEndpoint = 'https://${location}.dynamicsessions.io/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/sessionPools/${codeActSessionPoolName}'
 var codeActCallbackBaseUrl = 'https://${apiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
-var apiAdditionalEnvVars = [for setting in items(apiAppSettings): {
+var apiAdditionalEnvVars = [for setting in items(union(apiAppSettings, publishingAppSettings)): {
   name: setting.key
   value: string(setting.value)
 }]
-var workerAdditionalEnvVars = [for setting in items(workerAppSettings): {
+var workerAdditionalEnvVars = [for setting in items(union(workerAppSettings, publishingAppSettings)): {
   name: setting.key
   value: string(setting.value)
 }]
@@ -169,6 +175,35 @@ resource containerAppsEnvironment 'Microsoft.App/managedEnvironments@2024-03-01'
     }
   }
 }
+
+module publishingStorage '../../modules/publishing-storage.bicep' = if (publishingStorageEnabled) {
+  name: 'publishing-storage-${environmentName}'
+  params: {
+    location: location
+    workloadName: workloadName
+    environmentName: environmentName
+    containerAppsEnvironmentName: containerAppsEnvironment.name
+    tags: tags
+  }
+}
+
+var publishingVolumeMounts = publishingStorageEnabled ? [
+  { volumeName: 'publishing-intake', mountPath: '/mnt/aonik-publishing-private' }
+  { volumeName: 'publishing-delivery', mountPath: '/mnt/aonik-publishing-public' }
+] : []
+
+var publishingVolumes = publishingStorageEnabled ? [
+  {
+    name: 'publishing-intake'
+    storageType: 'AzureFile'
+    storageName: publishingStorage!.outputs.intakeMountName
+  }
+  {
+    name: 'publishing-delivery'
+    storageType: 'AzureFile'
+    storageName: publishingStorage!.outputs.deliveryMountName
+  }
+] : []
 
 // ── Qdrant Storage Mounts for Managed Environment ──────────────────
 
@@ -341,6 +376,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'api'
           image: apiImage
+          volumeMounts: publishingVolumeMounts
           env: concat([
             {
               name: 'ASPNETCORE_ENVIRONMENT'
@@ -488,6 +524,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         minReplicas: environmentName == 'prod' ? 2 : environmentName == 'dev' ? 0 : 1
         maxReplicas: environmentName == 'prod' ? 10 : 3
       }
+      volumes: publishingVolumes
     }
   }
 }
@@ -553,6 +590,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'worker'
           image: workerImage
+          volumeMounts: publishingVolumeMounts
           env: concat([
             {
               name: 'DOTNET_ENVIRONMENT'
@@ -586,9 +624,11 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: environmentName == 'prod' ? 2 : environmentName == 'dev' ? 0 : 1
+        // The outbox polls SQL; there is no ingress/scaler to wake a zero-replica Worker.
+        minReplicas: environmentName == 'prod' ? 2 : publishingStorageEnabled ? 1 : environmentName == 'dev' ? 0 : 1
         maxReplicas: environmentName == 'prod' ? 5 : 2
       }
+      volumes: publishingVolumes
     }
   }
 }

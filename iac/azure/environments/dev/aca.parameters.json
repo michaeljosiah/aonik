@@ -35,6 +35,38 @@
     },
     "containerRegistrySku": {
       "value": "Basic"
+    },
+    "publishingStorageEnabled": {
+      "value": true
+    },
+    "publishingAppSettings": {
+      "value": {
+        "Publishing__Intake__PrivateRoot": "/mnt/aonik-publishing-private",
+        "Publishing__Intake__MaxCreatorRetainedBytes": "536870912",
+        "Publishing__Intake__MaxTenantRetainedBytes": "2147483648",
+        "Publishing__Intake__MaxCreatorPackages": "20",
+        "Publishing__Intake__MaxTenantPackages": "200",
+        "Publishing__Intake__MaxCreatorNamespaces": "10",
+        "Publishing__Intake__MaxSessionsPerCreatorPerDay": "20",
+        "Publishing__Delivery__PublicRoot": "/mnt/aonik-publishing-public",
+        "Publishing__Verifier__ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+        "Publishing__Verifier__Image": "aonikdevacr.azurecr.io/aonik-arke-verifier@sha256:dc81e03d6c13a3281986b9e0e0343add47c5fdcb31a7291597284a551c8ae164",
+        "Publishing__Channels__arke-worlds-dev__TenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
+        "Publishing__Channels__arke-worlds-dev__Enabled": "false",
+        "Publishing__Channels__arke-worlds-dev__NamespaceAdmissionEnabled": "false",
+        "Publishing__Channels__arke-worlds-dev__MaxPackageBytes": "134217728",
+        "Publishing__Channels__arke-worlds-dev__RightsDeclarationVersion": "dev-synthetic-v1",
+        "Publishing__Channels__arke-worlds-dev__ReviewEnabled": "false",
+        "Publishing__Channels__arke-worlds-dev__ReviewPolicyVersion": "dev-editorial-v1",
+        "Publishing__Channels__arke-worlds-dev__DeliveryEnabled": "false",
+        "Publishing__Channels__arke-worlds-dev__PublicCatalogueEnabled": "false",
+        "Publishing__Channels__arke-worlds-dev__DeliveryPolicyVersion": "dev-delivery-v1",
+        "Publishing__Channels__arke-worlds-dev__PublicBaseUrl": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io",
+        "Publishing__Channels__arke-worlds-dev__BaselineCatalogueJson": "{\"version\":2,\"serial\":0,\"worlds\":[]}",
+        "Publishing__Channels__arke-worlds-dev__BaselineSha256": "6529459358f418c29144281cb1b1fb10361e5792a0e9caf9abd0525cee68d52e",
+        "Publishing__Channels__arke-worlds-dev__BaselineEvidenceReference": "docs/runbooks/arke-publishing-dev.md#isolated-channel",
+        "Publishing__Channels__arke-worlds-dev__LegacyMirrorEnabled": "false"
+      }
     }
   }
 }
