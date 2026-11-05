@@ -521,7 +521,8 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: environmentName == 'prod' ? 2 : environmentName == 'dev' ? 0 : 1
+        // Studio's bounded requests must not depend on a dev scale-from-zero startup.
+        minReplicas: environmentName == 'prod' ? 2 : publishingStorageEnabled ? 1 : environmentName == 'dev' ? 0 : 1
         maxReplicas: environmentName == 'prod' ? 10 : 3
       }
       volumes: publishingVolumes

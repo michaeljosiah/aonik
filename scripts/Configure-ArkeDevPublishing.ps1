@@ -81,7 +81,7 @@ try {
             $volumes += @{name=$mount.volumeName; storageType='AzureFile'; storageName=$mount.volumeName}
         }
         $template.volumes = $volumes
-        if ($service -eq 'worker') { $template.scale.minReplicas = [Math]::Max(1, [int]$template.scale.minReplicas) }
+        $template.scale.minReplicas = [Math]::Max(1, [int]$template.scale.minReplicas)
         @{name=$name; url=$url; location=$app.location; template=$template; revision=$app.properties.latestReadyRevisionName}
     }
     foreach ($plan in $plans) {

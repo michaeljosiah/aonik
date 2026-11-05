@@ -63,7 +63,8 @@ If a variable is omitted or empty, runtime uses image/application defaults and a
 
 `publishingStorageEnabled` provisions dedicated private intake/delivery SMB
 shares and mounts them at the same absolute paths in API and Worker. It also
-keeps at least one Worker replica running for SQL outbox polling.
+keeps at least one Worker replica running for SQL outbox polling and one API
+replica warm so Studio's bounded requests do not depend on scale-from-zero startup.
 `publishingAppSettings` contains the non-secret `Publishing__` settings applied
 identically to both hosts; the normal API/Worker app-setting collector does not
 replace this parameter. Enabling storage does not enable channel admission or

@@ -59,15 +59,19 @@ artifact endpoint can expose delivery objects after approval. Mounts are:
 API and Worker use the same shares, paths and UID 1654. Neither is beneath the
 web root or generic blob store. A running Worker replica is required: the SQL
 outbox has no event scaler to wake a zero-replica worker. Storage is billed for
-usage; retaining a Worker replica adds ongoing compute cost.
+usage; retaining API/Worker replicas adds ongoing compute cost. A later API
+scale-from-zero health probe exceeded 30 seconds, so rehearsal configuration
+also keeps one API replica warm for Studio's bounded requests.
 
 Storage deployment `publishing-storage-dev` succeeded with account
 `ankpubxkhim4xqiopna`. The configuration was applied with
 `scripts/Configure-ArkeDevPublishing.ps1 -Apply` after its read-only preview.
 API revision `aonik-dev-api--0000374` and Worker revision
-`aonik-dev-worker--0000366` became ready. All 25 publishing settings matched the
-checked-in profile on both apps; Worker minimum replicas is 1. API health remained
-HTTP 200 and the closed anonymous channel returned 404.
+`aonik-dev-worker--0000366` became ready. Keeping the API warm produced revision
+`aonik-dev-api--0000375`, verified Healthy/Running. All 25 publishing settings
+matched the checked-in profile on both apps; API and Worker minimum replicas
+are 1. The final warm API health check returned HTTP 200 and
+`/publishing/channels/arke-worlds-dev/catalogue.json` returned 404.
 
 An actual UID-1654 Worker shell wrote a synthetic probe to both shares. The API
 read the same SHA-256 (`55c6dee596462bd625eb3b3d502bbdd51d7ac08fa7f23e1a0b0f9a2381d29f4a`),
