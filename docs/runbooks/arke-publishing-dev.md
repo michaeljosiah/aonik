@@ -89,7 +89,9 @@ evidence of filesystem atomicity, backup or restoration.
 Confirmed issuer: `https://aonik.uk.auth0.com/`; API audience:
 `https://api.aonik.com`. The existing deployed management application has only
 `read:users create:users update:users`; it cannot create or modify applications.
-The dashboard required a fresh owner login. Do not expand the API's management
+The owner completed the dashboard login in the `aonik` development tenant. The
+**Arke Studio Dev / Native** creation form is prepared; creating the OAuth client
+awaits the browser automation confirmation. Do not expand the API's management
 permissions merely to perform this one-time setup.
 
 Create **Arke Studio Dev** as a public **Native** Auth0 application, with:
