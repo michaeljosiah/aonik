@@ -116,13 +116,26 @@ The managed sender is
 parameter records this non-secret fallback; other environments default to no
 change. Stored tenant/global sender settings keep precedence.
 
-**Not yet connected:** automatic approval review blocked transferring the newly
-created connection credential to GitHub's existing `dev` environment secret
-`ACS_CONNECTION_STRING`, pending explicit owner approval of that destination.
-No credential was transferred or printed. The application still cannot send
-invitations/verification emails. After approval, update that encrypted secret,
-run the normal dev deployment with the sender parameter, and verify actual
-mailbox arrival. Provisioning/verification alone is not email delivery proof.
+On 6 November 2026 the owner explicitly approved the credential destination and
+deployment. The connection was stored in GitHub's protected `dev` environment
+secret `ACS_CONNECTION_STRING` at 20:22 UTC without printing it. The normal
+[deployment preview](https://github.com/michaeljosiah/aonik/actions/runs/42287819287)
+passed. Its `Delete` legend was checked against the actual resource changes:
+zero deletions; four unsupported entries were existing roles in the unchanged
+CodeAct session module. The preview does not expand publishing verifier access.
+The [sender rollout](https://github.com/michaeljosiah/aonik/actions/runs/42288403086)
+uses configuration `f7d0b093` and the already-tested `78be974c` application images.
+Actual mailbox arrival and application verification must be recorded separately
+from provisioning and the Auth0 verification links.
+
+The initial sender rollout reached API revision `0000379`, but the live send
+attempts returned 500: `enableOptionalSecrets` was still false, so the API used
+the template's literal placeholder rather than the configured ACS secret. The
+dev profile now enables the existing Key Vault references. No OTP hashing key
+existed in GitHub or Key Vault; a new 256-bit dev-only key was generated directly
+into protected `VERIFICATION_HASH_KEY` storage without printing or replacing an
+existing key. The earlier undelivered challenges must not be used; request fresh
+codes after this corrected profile is deployed.
 
 ### Previous baseline
 

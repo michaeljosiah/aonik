@@ -23,6 +23,9 @@
     "communicationEmailFromAddress": {
       "value": "DoNotReply@35565aeb-e344-40ed-ac8f-23e16de2f279.azurecomm.net"
     },
+    "enableOptionalSecrets": {
+      "value": true
+    },
     "alertsEnabled": {
       "value": false
     },
