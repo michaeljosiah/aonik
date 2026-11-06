@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.41.2.15936",
-      "templateHash": "13698085498901260636"
+      "templateHash": "16536486906130913509"
     }
   },
   "parameters": {
@@ -67,6 +67,13 @@
         "description": "Azure Communication Services connection string. Passed to Key Vault via the data module."
       }
     },
+    "communicationEmailFromAddress": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Verified ACS email sender used as a runtime fallback until a stored sender is configured."
+      }
+    },
     "verificationHashKey": {
       "type": "securestring",
       "defaultValue": "",
@@ -123,6 +130,20 @@
         "description": "Optional worker container environment variable overrides (name/value pairs)."
       }
     },
+    "publishingStorageEnabled": {
+      "type": "bool",
+      "defaultValue": false,
+      "metadata": {
+        "description": "Provision dedicated durable publishing shares. This does not enable intake, review or delivery."
+      }
+    },
+    "publishingAppSettings": {
+      "type": "object",
+      "defaultValue": {},
+      "metadata": {
+        "description": "Non-secret Publishing__ settings shared identically by API and Worker. Channels default closed."
+      }
+    },
     "qdrantImage": {
       "type": "string",
       "defaultValue": "qdrant/qdrant:latest",
@@ -175,18 +196,18 @@
     "copy": [
       {
         "name": "apiAdditionalEnvVars",
-        "count": "[length(items(parameters('apiAppSettings')))]",
+        "count": "[length(items(union(parameters('apiAppSettings'), parameters('publishingAppSettings'))))]",
         "input": {
-          "name": "[items(parameters('apiAppSettings'))[copyIndex('apiAdditionalEnvVars')].key]",
-          "value": "[string(items(parameters('apiAppSettings'))[copyIndex('apiAdditionalEnvVars')].value)]"
+          "name": "[items(union(parameters('apiAppSettings'), parameters('publishingAppSettings')))[copyIndex('apiAdditionalEnvVars')].key]",
+          "value": "[string(items(union(parameters('apiAppSettings'), parameters('publishingAppSettings')))[copyIndex('apiAdditionalEnvVars')].value)]"
         }
       },
       {
         "name": "workerAdditionalEnvVars",
-        "count": "[length(items(parameters('workerAppSettings')))]",
+        "count": "[length(items(union(parameters('workerAppSettings'), parameters('publishingAppSettings'))))]",
         "input": {
-          "name": "[items(parameters('workerAppSettings'))[copyIndex('workerAdditionalEnvVars')].key]",
-          "value": "[string(items(parameters('workerAppSettings'))[copyIndex('workerAdditionalEnvVars')].value)]"
+          "name": "[items(union(parameters('workerAppSettings'), parameters('publishingAppSettings')))[copyIndex('workerAdditionalEnvVars')].key]",
+          "value": "[string(items(union(parameters('workerAppSettings'), parameters('publishingAppSettings')))[copyIndex('workerAdditionalEnvVars')].value)]"
         }
       }
     ],
@@ -197,7 +218,8 @@
     "apiAppName": "[format('{0}-api', variables('namePrefix'))]",
     "adminUiAppName": "[format('{0}-adminui', variables('namePrefix'))]",
     "codeActSessionPoolName": "[format('{0}-sessions', variables('namePrefix'))]",
-    "codeActPoolManagementEndpoint": "[format('https://{0}.dynamicsessions.io/subscriptions/{1}/resourceGroups/{2}/sessionPools/{3}', parameters('location'), subscription().subscriptionId, resourceGroup().name, variables('codeActSessionPoolName'))]"
+    "codeActPoolManagementEndpoint": "[format('https://{0}.dynamicsessions.io/subscriptions/{1}/resourceGroups/{2}/sessionPools/{3}', parameters('location'), subscription().subscriptionId, resourceGroup().name, variables('codeActSessionPoolName'))]",
+    "publishingVolumeMounts": "[if(parameters('publishingStorageEnabled'), createArray(createObject('volumeName', 'publishing-intake', 'mountPath', '/mnt/aonik-publishing-private'), createObject('volumeName', 'publishing-delivery', 'mountPath', '/mnt/aonik-publishing-public')), createArray())]"
   },
   "resources": [
     {
@@ -316,7 +338,8 @@
             {
               "name": "api",
               "image": "[parameters('apiImage')]",
-              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'Database__AutoMigrate', 'value', 'true'), createObject('name', 'Database__SeedData', 'value', 'true'), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Runtime__AzureContainerApps__Enabled', 'value', 'true'), createObject('name', 'Runtime__AzureContainerApps__EnvironmentName', 'value', parameters('environmentName')), createObject('name', 'Runtime__AzureContainerApps__WorkloadName', 'value', parameters('workloadName')), createObject('name', 'Runtime__AzureContainerApps__SubscriptionId', 'value', subscription().subscriptionId), createObject('name', 'Runtime__AzureContainerApps__ResourceGroupName', 'value', resourceGroup().name), createObject('name', 'Communication__Azure__ConnectionString', 'secretRef', 'acs-connection-string'), createObject('name', 'Verification__HashKey', 'secretRef', 'verification-hash-key'), createObject('name', 'Operations__Alerts__AzureMonitor__SharedSecret', 'secretRef', 'operations-alerts-azure-monitor-shared-secret')), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'Bootstrap__Enabled', 'value', 'true'), createObject('name', 'Bootstrap__SetupSecret', 'secretRef', 'bootstrap-setup-secret'))), createArray(createObject('name', 'Cors__AllowedOrigins__0', 'value', format('https://{0}.{1}', variables('adminUiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain)), createObject('name', 'Cors__AllowDesktopNullOrigin', 'value', 'true'), createObject('name', 'Qdrant__Endpoint', 'value', format('http://{0}', format('{0}-qdrant', variables('namePrefix')))), createObject('name', 'Qdrant__ApiKey', 'secretRef', 'qdrant-api-key'), createObject('name', 'Qdrant__CollectionPrefix', 'value', format('aonik-{0}', parameters('environmentName')))), createArray(createObject('name', 'BlobStorage__Provider', 'value', 'Azure'), createObject('name', 'BlobStorage__Azure__AccountName', 'secretRef', 'blob-storage-account-name'), createObject('name', 'BlobStorage__Azure__AccountKey', 'secretRef', 'blob-storage-account-key'), createObject('name', 'BlobStorage__ProfilePhotos__PublicBaseUrl', 'value', format('{0}profiles', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value)), createObject('name', 'BlobStorage__ContentMedia__PublicBaseUrl', 'value', format('{0}content-media', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value))), createArray(createObject('name', 'AI__CODEACT__ACASESSIONS__POOLMANAGEMENTENDPOINT', 'value', variables('codeActPoolManagementEndpoint')), createObject('name', 'AI__CODEACT__ACASESSIONS__CALLBACKBASEURL', 'value', format('https://{0}.{1}', variables('apiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain)), createObject('name', 'AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID', 'value', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName'))), '2023-01-31').clientId), createObject('name', 'AI__CODEACT__NONCESIGNINGKEY', 'secretRef', 'code-act-nonce-signing-key')), variables('apiAdditionalEnvVars'))]",
+              "volumeMounts": "[variables('publishingVolumeMounts')]",
+              "env": "[concat(createArray(createObject('name', 'ASPNETCORE_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'Database__AutoMigrate', 'value', 'true'), createObject('name', 'Database__SeedData', 'value', 'true'), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Runtime__AzureContainerApps__Enabled', 'value', 'true'), createObject('name', 'Runtime__AzureContainerApps__EnvironmentName', 'value', parameters('environmentName')), createObject('name', 'Runtime__AzureContainerApps__WorkloadName', 'value', parameters('workloadName')), createObject('name', 'Runtime__AzureContainerApps__SubscriptionId', 'value', subscription().subscriptionId), createObject('name', 'Runtime__AzureContainerApps__ResourceGroupName', 'value', resourceGroup().name), createObject('name', 'Communication__Azure__ConnectionString', 'secretRef', 'acs-connection-string'), createObject('name', 'Verification__HashKey', 'secretRef', 'verification-hash-key'), createObject('name', 'Operations__Alerts__AzureMonitor__SharedSecret', 'secretRef', 'operations-alerts-azure-monitor-shared-secret')), if(empty(parameters('communicationEmailFromAddress')), createArray(), createArray(createObject('name', 'Communication__Azure__Email__FromAddress', 'value', parameters('communicationEmailFromAddress')))), if(empty(parameters('bootstrapSetupSecret')), createArray(), createArray(createObject('name', 'Bootstrap__Enabled', 'value', 'true'), createObject('name', 'Bootstrap__SetupSecret', 'secretRef', 'bootstrap-setup-secret'))), createArray(createObject('name', 'Cors__AllowedOrigins__0', 'value', format('https://{0}.{1}', variables('adminUiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain)), createObject('name', 'Cors__AllowDesktopNullOrigin', 'value', 'true'), createObject('name', 'Qdrant__Endpoint', 'value', format('http://{0}', format('{0}-qdrant', variables('namePrefix')))), createObject('name', 'Qdrant__ApiKey', 'secretRef', 'qdrant-api-key'), createObject('name', 'Qdrant__CollectionPrefix', 'value', format('aonik-{0}', parameters('environmentName')))), createArray(createObject('name', 'BlobStorage__Provider', 'value', 'Azure'), createObject('name', 'BlobStorage__Azure__AccountName', 'secretRef', 'blob-storage-account-name'), createObject('name', 'BlobStorage__Azure__AccountKey', 'secretRef', 'blob-storage-account-key'), createObject('name', 'BlobStorage__ProfilePhotos__PublicBaseUrl', 'value', format('{0}profiles', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value)), createObject('name', 'BlobStorage__ContentMedia__PublicBaseUrl', 'value', format('{0}content-media', reference(resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName'))), '2025-04-01').outputs.blobStoragePublicEndpoint.value))), createArray(createObject('name', 'AI__CODEACT__ACASESSIONS__POOLMANAGEMENTENDPOINT', 'value', variables('codeActPoolManagementEndpoint')), createObject('name', 'AI__CODEACT__ACASESSIONS__CALLBACKBASEURL', 'value', format('https://{0}.{1}', variables('apiAppName'), reference(resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))), '2024-03-01').defaultDomain)), createObject('name', 'AI__CODEACT__ACASESSIONS__MANAGEDIDENTITYCLIENTID', 'value', reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-api-pull-id', parameters('workloadName'), parameters('environmentName'))), '2023-01-31').clientId), createObject('name', 'AI__CODEACT__NONCESIGNINGKEY', 'secretRef', 'code-act-nonce-signing-key')), variables('apiAdditionalEnvVars'))]",
               "resources": {
                 "cpu": "[json('0.5')]",
                 "memory": "1Gi"
@@ -324,9 +347,10 @@
             }
           ],
           "scale": {
-            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, if(equals(parameters('environmentName'), 'dev'), 0, 1))]",
+            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, if(parameters('publishingStorageEnabled'), 1, if(equals(parameters('environmentName'), 'dev'), 0, 1)))]",
             "maxReplicas": "[if(equals(parameters('environmentName'), 'prod'), 10, 3)]"
-          }
+          },
+          "volumes": "[if(parameters('publishingStorageEnabled'), createArray(createObject('name', 'publishing-intake', 'storageType', 'AzureFile', 'storageName', reference(resourceId('Microsoft.Resources/deployments', format('publishing-storage-{0}', parameters('environmentName'))), '2025-04-01').outputs.intakeMountName.value), createObject('name', 'publishing-delivery', 'storageType', 'AzureFile', 'storageName', reference(resourceId('Microsoft.Resources/deployments', format('publishing-storage-{0}', parameters('environmentName'))), '2025-04-01').outputs.deliveryMountName.value)), createArray())]"
         }
       },
       "dependsOn": [
@@ -335,6 +359,7 @@
         "[resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName')))]",
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]",
         "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('publishing-storage-{0}', parameters('environmentName')))]",
         "[resourceId('Microsoft.App/containerApps', format('{0}-qdrant', variables('namePrefix')))]"
       ]
     },
@@ -381,6 +406,7 @@
             {
               "name": "worker",
               "image": "[parameters('workerImage')]",
+              "volumeMounts": "[variables('publishingVolumeMounts')]",
               "env": "[concat(createArray(createObject('name', 'DOTNET_ENVIRONMENT', 'value', parameters('environmentName')), createObject('name', 'ConnectionStrings__DefaultConnection', 'secretRef', 'sql-connection'), createObject('name', 'APPLICATIONINSIGHTS_CONNECTION_STRING', 'secretRef', 'app-insights-connection-string'), createObject('name', 'Qdrant__Endpoint', 'value', format('http://{0}', format('{0}-qdrant', variables('namePrefix')))), createObject('name', 'Qdrant__ApiKey', 'secretRef', 'qdrant-api-key'), createObject('name', 'Qdrant__CollectionPrefix', 'value', format('aonik-{0}', parameters('environmentName')))), variables('workerAdditionalEnvVars'))]",
               "resources": {
                 "cpu": "[json('0.5')]",
@@ -389,9 +415,10 @@
             }
           ],
           "scale": {
-            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, if(equals(parameters('environmentName'), 'dev'), 0, 1))]",
+            "minReplicas": "[if(equals(parameters('environmentName'), 'prod'), 2, if(parameters('publishingStorageEnabled'), 1, if(equals(parameters('environmentName'), 'dev'), 0, 1)))]",
             "maxReplicas": "[if(equals(parameters('environmentName'), 'prod'), 5, 2)]"
-          }
+          },
+          "volumes": "[if(parameters('publishingStorageEnabled'), createArray(createObject('name', 'publishing-intake', 'storageType', 'AzureFile', 'storageName', reference(resourceId('Microsoft.Resources/deployments', format('publishing-storage-{0}', parameters('environmentName'))), '2025-04-01').outputs.intakeMountName.value), createObject('name', 'publishing-delivery', 'storageType', 'AzureFile', 'storageName', reference(resourceId('Microsoft.Resources/deployments', format('publishing-storage-{0}', parameters('environmentName'))), '2025-04-01').outputs.deliveryMountName.value)), createArray())]"
         }
       },
       "dependsOn": [
@@ -399,6 +426,7 @@
         "[resourceId('Microsoft.Resources/deployments', format('common-{0}', parameters('environmentName')))]",
         "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]",
         "[resourceId('Microsoft.Resources/deployments', format('data-{0}', parameters('environmentName')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('publishing-storage-{0}', parameters('environmentName')))]",
         "[resourceId('Microsoft.App/containerApps', format('{0}-qdrant', variables('namePrefix')))]",
         "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('{0}-{1}-worker-pull-id', parameters('workloadName'), parameters('environmentName')))]"
       ]
@@ -1813,6 +1841,168 @@
       ]
     },
     {
+      "condition": "[parameters('publishingStorageEnabled')]",
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('publishing-storage-{0}', parameters('environmentName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "workloadName": {
+            "value": "[parameters('workloadName')]"
+          },
+          "environmentName": {
+            "value": "[parameters('environmentName')]"
+          },
+          "containerAppsEnvironmentName": {
+            "value": "[format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName'))]"
+          },
+          "tags": {
+            "value": "[parameters('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.41.2.15936",
+              "templateHash": "15002716651994929353"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure region for the private publishing file shares."
+              }
+            },
+            "workloadName": {
+              "type": "string"
+            },
+            "environmentName": {
+              "type": "string"
+            },
+            "containerAppsEnvironmentName": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {}
+            }
+          },
+          "variables": {
+            "accountName": "[format('ankpub{0}', uniqueString(resourceGroup().id, parameters('workloadName'), parameters('environmentName')))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-05-01",
+              "name": "[variables('accountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "kind": "StorageV2",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "properties": {
+                "minimumTlsVersion": "TLS1_2",
+                "supportsHttpsTrafficOnly": true,
+                "allowBlobPublicAccess": false,
+                "allowSharedKeyAccess": true,
+                "accessTier": "Hot",
+                "encryption": {
+                  "keySource": "Microsoft.Storage",
+                  "requireInfrastructureEncryption": true,
+                  "services": {
+                    "file": {
+                      "enabled": true,
+                      "keyType": "Account"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/fileServices",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', variables('accountName'), 'default')]",
+              "properties": {
+                "shareDeleteRetentionPolicy": {
+                  "enabled": true,
+                  "days": 7
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('accountName'))]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "shares",
+                "count": "[length(createArray('intake', 'delivery'))]"
+              },
+              "type": "Microsoft.Storage/storageAccounts/fileServices/shares",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}/{2}', variables('accountName'), 'default', createArray('intake', 'delivery')[copyIndex()])]",
+              "properties": {
+                "shareQuota": 10,
+                "enabledProtocols": "SMB"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices', variables('accountName'), 'default')]"
+              ]
+            },
+            {
+              "copy": {
+                "name": "mounts",
+                "count": "[length(createArray('intake', 'delivery'))]"
+              },
+              "type": "Microsoft.App/managedEnvironments/storages",
+              "apiVersion": "2024-03-01",
+              "name": "[format('{0}/{1}', parameters('containerAppsEnvironmentName'), format('publishing-{0}', createArray('intake', 'delivery')[copyIndex()]))]",
+              "properties": {
+                "azureFile": {
+                  "accountName": "[variables('accountName')]",
+                  "accountKey": "[listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('accountName')), '2023-05-01').keys[0].value]",
+                  "shareName": "[createArray('intake', 'delivery')[copyIndex()]]",
+                  "accessMode": "ReadWrite"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('accountName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts/fileServices/shares', variables('accountName'), 'default', createArray('intake', 'delivery')[copyIndex()])]"
+              ]
+            }
+          ],
+          "outputs": {
+            "accountName": {
+              "type": "string",
+              "value": "[variables('accountName')]"
+            },
+            "intakeMountName": {
+              "type": "string",
+              "value": "[format('publishing-{0}', createArray('intake', 'delivery')[0])]"
+            },
+            "deliveryMountName": {
+              "type": "string",
+              "value": "[format('publishing-{0}', createArray('intake', 'delivery')[1])]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', format('{0}-{1}-acae', parameters('workloadName'), parameters('environmentName')))]"
+      ]
+    },
+    {
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
       "name": "[format('sessions-{0}', parameters('environmentName'))]",
@@ -2087,7 +2277,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.41.2.15936",
-              "templateHash": "17967348116823943435"
+              "templateHash": "4326849835012585841"
             }
           },
           "parameters": {
@@ -2223,7 +2413,7 @@
                 "criteria": {
                   "allOf": [
                     {
-                      "query": "union isfuzzy=true\n  (AppRequests | project EventTime = TimeGenerated, StatusCode = tostring(ResultCode), ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\n  (requests | project EventTime = timestamp, StatusCode = tostring(resultCode), ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\n| where EventTime > ago(5m)\n| where ResourceId =~ '${apiAppResourceId}' or RoleName =~ '${apiAppName}'\n| where StatusCode startswith '5'\n| summarize FailureCount = count()\n",
+                      "query": "union isfuzzy=true\r\n  (AppRequests | project EventTime = TimeGenerated, StatusCode = tostring(ResultCode), ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\r\n  (requests | project EventTime = timestamp, StatusCode = tostring(resultCode), ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\r\n| where EventTime > ago(5m)\r\n| where ResourceId =~ '${apiAppResourceId}' or RoleName =~ '${apiAppName}'\r\n| where StatusCode startswith '5'\r\n| summarize FailureCount = count()\r\n",
                       "timeAggregation": "Count",
                       "operator": "GreaterThan",
                       "threshold": 5,
@@ -2277,7 +2467,7 @@
                 "criteria": {
                   "allOf": [
                     {
-                      "query": "union isfuzzy=true\n  (AppRequests | project EventTime = TimeGenerated, DurationMs = todouble(DurationMs), ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\n  (requests | project EventTime = timestamp, DurationMs = todouble(duration / 1ms), ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\n| where EventTime > ago(5m)\n| where ResourceId =~ '${apiAppResourceId}' or RoleName =~ '${apiAppName}'\n| where DurationMs > 2000\n| summarize SlowRequestCount = count()\n",
+                      "query": "union isfuzzy=true\r\n  (AppRequests | project EventTime = TimeGenerated, DurationMs = todouble(DurationMs), ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\r\n  (requests | project EventTime = timestamp, DurationMs = todouble(duration / 1ms), ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\r\n| where EventTime > ago(5m)\r\n| where ResourceId =~ '${apiAppResourceId}' or RoleName =~ '${apiAppName}'\r\n| where DurationMs > 2000\r\n| summarize SlowRequestCount = count()\r\n",
                       "timeAggregation": "Count",
                       "operator": "GreaterThan",
                       "threshold": 10,
@@ -2331,7 +2521,7 @@
                 "criteria": {
                   "allOf": [
                     {
-                      "query": "union isfuzzy=true\n  (AppExceptions | project EventTime = TimeGenerated, ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\n  (exceptions | project EventTime = timestamp, ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\n| where EventTime > ago(5m)\n| where ResourceId =~ '${apiAppResourceId}' or RoleName =~ '${apiAppName}'\n| summarize ExceptionCount = count()\n",
+                      "query": "union isfuzzy=true\r\n  (AppExceptions | project EventTime = TimeGenerated, ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\r\n  (exceptions | project EventTime = timestamp, ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\r\n| where EventTime > ago(5m)\r\n| where ResourceId =~ '${apiAppResourceId}' or RoleName =~ '${apiAppName}'\r\n| summarize ExceptionCount = count()\r\n",
                       "timeAggregation": "Count",
                       "operator": "GreaterThan",
                       "threshold": 5,
@@ -2385,7 +2575,7 @@
                 "criteria": {
                   "allOf": [
                     {
-                      "query": "union isfuzzy=true\n  (AppExceptions | project EventTime = TimeGenerated, ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\n  (exceptions | project EventTime = timestamp, ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\n| where EventTime > ago(5m)\n| where ResourceId =~ '${workerAppResourceId}' or RoleName =~ '${workerAppName}'\n| summarize ExceptionCount = count()\n",
+                      "query": "union isfuzzy=true\r\n  (AppExceptions | project EventTime = TimeGenerated, ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\r\n  (exceptions | project EventTime = timestamp, ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\r\n| where EventTime > ago(5m)\r\n| where ResourceId =~ '${workerAppResourceId}' or RoleName =~ '${workerAppName}'\r\n| summarize ExceptionCount = count()\r\n",
                       "timeAggregation": "Count",
                       "operator": "GreaterThan",
                       "threshold": 3,
@@ -2439,7 +2629,7 @@
                 "criteria": {
                   "allOf": [
                     {
-                      "query": "union isfuzzy=true\n  (AppDependencies | project EventTime = TimeGenerated, SuccessValue = tobool(Success), ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\n  (dependencies | project EventTime = timestamp, SuccessValue = tobool(success), ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\n| where EventTime > ago(5m)\n| where ResourceId =~ '${apiAppResourceId}' or RoleName =~ '${apiAppName}'\n| where SuccessValue == false\n| summarize FailureCount = count()\n",
+                      "query": "union isfuzzy=true\r\n  (AppDependencies | project EventTime = TimeGenerated, SuccessValue = tobool(Success), ResourceId = _ResourceId, RoleName = tostring(AppRoleName)),\r\n  (dependencies | project EventTime = timestamp, SuccessValue = tobool(success), ResourceId = _ResourceId, RoleName = tostring(cloud_RoleName))\r\n| where EventTime > ago(5m)\r\n| where ResourceId =~ '${apiAppResourceId}' or RoleName =~ '${apiAppName}'\r\n| where SuccessValue == false\r\n| summarize FailureCount = count()\r\n",
                       "timeAggregation": "Count",
                       "operator": "GreaterThan",
                       "threshold": 5,
@@ -2493,7 +2683,7 @@
                 "criteria": {
                   "allOf": [
                     {
-                      "query": "AzureDiagnostics\n| where TimeGenerated > ago(5m)\n| where ResourceId =~ '${keyVaultResourceId}'\n| where ResultType != 'Success'\n| summarize FailureCount = count()\n",
+                      "query": "AzureDiagnostics\r\n| where TimeGenerated > ago(5m)\r\n| where ResourceId =~ '${keyVaultResourceId}'\r\n| where ResultType != 'Success'\r\n| summarize FailureCount = count()\r\n",
                       "timeAggregation": "Count",
                       "operator": "GreaterThan",
                       "threshold": 0,

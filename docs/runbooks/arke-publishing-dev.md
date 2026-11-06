@@ -5,6 +5,169 @@ catalogue migration or public release is authorised by the dev rehearsal.
 
 ## Deployed application
 
+The latest configuration release `a6dc2e1d50db8e6dfc689c6fd409dfed78029b62`
+passed [preview](https://github.com/michaeljosiah/aonik/actions/runs/42289347838)
+and [deployment](https://github.com/michaeljosiah/aonik/actions/runs/42289777170)
+on 6 November 2026. It retains the tested `78be974c` application images below.
+API revision `0000379` was restarted after its Key Vault secret references were
+updated; the replacement replica became ready before new verification requests.
+Both synthetic creators completed actual mailbox OTP verification at 20:46–20:47
+UTC. Their required onboarding gates pass with no next actions. API health is
+200 and the closed dev catalogue remains 404. See the
+[sanitized account evidence](evidence/arke-creator-email-2026-11-06.json).
+
+The follow-up release `78be974cb7bc8e3f268641289bb598ef657d0682` passed
+[CI](https://github.com/michaeljosiah/aonik/actions/runs/42182358963),
+[image build and scan](https://github.com/michaeljosiah/aonik/actions/runs/42182368248)
+and [deployment](https://github.com/michaeljosiah/aonik/actions/runs/42183901780).
+API `0000378`, Worker `0000369` and Admin UI `0000369` are Running; health is
+200 and the closed catalogue remains 404. The actual reviewer session now leaves
+the optional company wizard through **Skip for now** and reaches the Arke Kidz
+dashboard. No industry/company details or setup-complete flag were invented.
+
+| Application | Immutable digest |
+| --- | --- |
+| API | `sha256:ab433e5b7538a13a5662c1b916ba610d08bf41797664e6a03e271bf6a5f2a4b6` |
+| Worker | `sha256:4f5e9af453d4a9ac52b100f72b694d7388d81e72340373eeb30f55948e982b4b` |
+| Admin UI | `sha256:86e4a31ee124e010a84f6bc85c19c72b6552fbd79397e060e53c27d0bbc5c2a0` |
+
+Recovery release `484c87782b397b636dda2bb98216041fca85ac58` from PR #406 passed
+[CI](https://github.com/michaeljosiah/aonik/actions/runs/42179322706),
+[image build](https://github.com/michaeljosiah/aonik/actions/runs/42179351344),
+[preview](https://github.com/michaeljosiah/aonik/actions/runs/42180760111) and
+[deployment](https://github.com/michaeljosiah/aonik/actions/runs/42181160485).
+API `0000377`, Worker `0000368` and Admin UI `0000368` are Running; health is
+200 and the disabled catalogue is 404. The actual reviewer browser now reaches
+the two-organization picker and selects Arke Kidz without a false session expiry.
+The live body-only registration check returns 403 before identity creation;
+Auth0 confirmed no second identity was created by that rejected request. At that
+point, the first identity was verified but still needed an AONIK invitation/link.
+
+The previously unused tenant's optional company wizard then exposed a separate
+skip loop: its completion callback reloaded into the unfinished wizard. The
+follow-up changes that callback to leave setup in the current session, preserving
+the incomplete flag and progress. No industry/company details are invented.
+Native Studio consent was left unaccepted; tenant invitations use the normal
+authenticated administration path once setup can be postponed.
+
+On **6 November 2026**, the owner approved the protected dev build/deployment
+gates for implementation `2848f9658fff95c45b43f19a2c5063f2b741cfd0` (PR #405,
+merged as `03544392428273583672aad0652e17ea52c8a07f`). The normal workflows passed:
+
+- [Image build](https://github.com/michaeljosiah/aonik/actions/runs/42166936001)
+- [Deployment preview](https://github.com/michaeljosiah/aonik/actions/runs/42177133886)
+- [Deployment](https://github.com/michaeljosiah/aonik/actions/runs/42177516628)
+
+| Application | Ready revision | Immutable digest |
+| --- | --- | --- |
+| API | `aonik-dev-api--0000376` | `sha256:a67535ccdc3cebaf4040bfe7ed69ae093880e11c078edbeb7a4f302b4ca93727` |
+| Worker | `aonik-dev-worker--0000367` | `sha256:e76ca6b6062f92a7ac4e4fb980af4756dbae3b7ef22c3737bedcdf45da1233e7` |
+| Admin UI | `aonik-dev-adminui--0000367` | `sha256:e9c69a68205a64d718eb3770a1bcaddb149d16e9ff460669296644fbe383da65` |
+
+API and Worker are Running with minimum replicas 1. Both select
+`AzureDynamicSessions` and the qualified immutable verifier image/pool described
+below. `/health` returned 200; the still-disabled dev catalogue returned 404.
+This proves rollout, not an actual Worker-managed verification job.
+
+The owner requested two synthetic Mailinator creators and nominated an existing,
+email-verified account as independent reviewer. Registration exposed two defects:
+body-only tenant routing was rejected before the endpoint, and an uninvited
+registration created an Auth0 identity before tenant admission failed. The fix
+checks active tenant/invitation before IdP creation and returns 403. Recover the
+first verified identity through an administrator invitation followed by normal
+sign-in; invite the second address before registration. Never mark email verified
+directly, reset the reviewer's password, or grant access by editing SQL.
+
+Reviewer Auth0 sign-in succeeded, but a stale Admin UI organization selection
+caused `/v1/me` to run against an unrelated tenant before membership discovery.
+The startup-order fix was subsequently deployed and verified as recorded above.
+Registration/session recovery is not end-to-end publishing acceptance.
+
+### Synthetic creator account proof
+
+The nominated reviewer signed in through the normal Admin UI and created both
+invitations in Arke Kidz without assigning elevated roles. Invitation records
+were saved, but their emails were not delivered because dev email configuration
+was incomplete. The first existing Auth0 identity linked on normal sign-in; the
+second used the normal registration endpoint only after its invitation existed.
+
+| Test creator | AONIK user | Party |
+| --- | --- | --- |
+| Synthetic Creator 1 | `a86d992b-872d-4fcd-b88d-0156ee122a5f` | `fcb1f81f-c207-4e34-942a-7183da17ff83` |
+| Synthetic Creator 2 | `194096bc-eb58-40df-885a-bc37ecc04dbf` | `c712335b-ec09-499e-afce-40a9c8d92b6e` |
+
+Both actual Mailinator verification links were followed; Auth0 reports both
+addresses verified. Both then completed code + PKCE sign-in using Studio's real
+`AonikAccount` implementation in an isolated rehearsal harness. `/v1/me` returned
+200 and `Active` for each in tenant `1087cc03-46cc-45fa-9023-f0ce4f7bbdb8`.
+The first `/v1/onboarding/me` snapshots passed `ProfileComplete` but required the
+separate AONIK email OTP. After the corrected email configuration was deployed,
+both `/v1/verifications/email/start` requests returned 200 and both fresh codes
+arrived in the intended Mailinator inboxes from the Azure managed sender.
+`/v1/verifications/email/confirm` returned 200 with `isVerified: true` for each.
+Subsequent `/v1/onboarding/me` snapshots passed both required `EmailVerified`
+and `ProfileComplete` gates, with `nextActions: []`. Phone verification remains
+optional and unsatisfied. Auth0 claims were not used to bypass the application
+OTP gate. The evidence records confirmation and onboarding timestamps without
+credentials or verification codes.
+
+Generated passwords remain DPAPI-encrypted in ignored local evidence. Harness
+tokens are encrypted with process-only keys and were never printed. The harness
+proves the Studio account adapter against dev, not the full desktop publishing
+journey. Synthetic accounts do not establish consent from two real pilot creators.
+Reviewer allowlisting, namespace admission, upload verification, editorial review
+and isolated Player delivery remain separate unqualified steps.
+
+### Dev invitation email prerequisite
+
+The live invitation form reported no sender address. The existing dev ACS secret
+was not a usable ACS connection, and neither accessible subscription contained a
+Communication Services resource. A standalone, incremental deployment from
+`iac/azure/environments/dev/email.bicep` provisioned `aonik-dev-email`, its
+`AzureManagedDomain`, and linked `aonik-dev-acs` in `rg-aonik-dev-uksouth`.
+What-if showed exactly these three creates; deployment `aonik-dev-email-403`
+succeeded. Data location is `UK`, engagement tracking is disabled, and Azure
+reports domain, SPF, DKIM/DKIM2 and DMARC verification as `Verified`.
+
+The managed sender is
+`DoNotReply@35565aeb-e344-40ed-ac8f-23e16de2f279.azurecomm.net`. The dev runtime
+parameter records this non-secret fallback; other environments default to no
+change. Stored tenant/global sender settings keep precedence.
+
+On 6 November 2026 the owner explicitly approved the credential destination and
+deployment. The connection was stored in GitHub's protected `dev` environment
+secret `ACS_CONNECTION_STRING` at 20:22 UTC without printing it. The normal
+[deployment preview](https://github.com/michaeljosiah/aonik/actions/runs/42287819287)
+passed. Its `Delete` legend was checked against the actual resource changes:
+zero deletions; four unsupported entries were existing roles in the unchanged
+CodeAct session module. The preview does not expand publishing verifier access.
+The [sender rollout](https://github.com/michaeljosiah/aonik/actions/runs/42288403086)
+uses configuration `f7d0b093` and the already-tested `78be974c` application images.
+Actual mailbox arrival and application verification must be recorded separately
+from provisioning and the Auth0 verification links.
+
+The initial sender rollout reached API revision `0000379`, but the live send
+attempts returned 500: `enableOptionalSecrets` was still false, so the API used
+the template's literal placeholder rather than the configured ACS secret. The
+dev profile now enables the existing Key Vault references. No OTP hashing key
+existed in GitHub or Key Vault; a new 256-bit dev-only key was generated directly
+into protected `VERIFICATION_HASH_KEY` storage without printing or replacing an
+existing key. The earlier undelivered challenges were discarded.
+
+The corrected profile `a6dc2e1d` passed
+[preview](https://github.com/michaeljosiah/aonik/actions/runs/42289347838) and
+[deployment](https://github.com/michaeljosiah/aonik/actions/runs/42289777170).
+Both `acs-connection-string` and `verification-hash-key` now reference the intended
+dev Key Vault secrets through the API's system identity. The API revision was
+restarted and its old replica retired before requesting fresh codes. Mailbox
+arrival was observed at 20:43:46 and 20:43:50 UTC; the two creator confirmations
+succeeded at 20:46:37 and 20:47:07 UTC. All required onboarding gates then passed.
+This proves fresh verification-email delivery and consumption, not retrospective
+delivery of the earlier invitation messages. The temporary sign-in harness
+sessions were stopped after collecting the sanitized evidence.
+
+### Previous baseline
+
 On 5 November 2026, release `d05793b5bf1a1c754d4f94e68fb554e54eaba5cb`
 (merged PR #404) passed CI and was deployed with the normal runtime workflow:
 
@@ -123,10 +286,13 @@ The profile passed the actual Studio configuration parser. Its proposed syntheti
 distribution statement still requires the submitting human's explicit confirmation
 in Studio; creating this profile does not accept rights or authorise production.
 
-A separate local Electron profile/workspace was opened for the sign-in check.
-Computer-use access to that window timed out. No live creator sign-in, refresh,
-encrypted credential persistence or API-authorised receipt read has been proven.
-The installed Studio workspace was not modified.
+A separate local Electron profile/workspace was opened for the initial sign-in
+check, but computer-use access to that window timed out. The later isolated
+harness proved both creators' live code + PKCE sign-in using Studio's real account
+adapter, authorized profile reads and AONIK email verification. Desktop UI
+sign-in, refresh rotation, persistent credentials and publishing receipt reads
+still need their own acceptance checks. The installed Studio workspace was not
+modified.
 
 [Studio PR #2578](https://github.com/michaeljosiah/ArkeStudio/pull/2578) contains
 the sign-in, frozen edition, resumable upload and receipt implementation. Its
@@ -210,13 +376,12 @@ The CLI runner uses the signed-in dev operator, while deployed applications
 explicitly use their system-assigned managed identity. Temporary operator
 Session Executor access must be removed after the rehearsal.
 
-The application adapter is pushed in `2848f965`. The normal
+The application adapter from `2848f965` passed the protected
 [dev image workflow](https://github.com/michaeljosiah/aonik/actions/runs/42166936001)
-is waiting for the protected `dev` environment review. API/Worker still run
-`d05793b5` and the old closed profile until that build and normal runtime rollout
-complete. Do not work around the review with a direct application image swap.
-After rollout, prove the deployed system-assigned identity path before opening
-intake. The current API is healthy (200) and the dev catalogue remains 404.
+and normal deployment recorded above. Current API/Worker images include it and
+select the closed remote-verifier profile. The actual deployed system-assigned
+identity path still needs a live intake job before opening intake. API health
+is 200 and the dev catalogue remains 404.
 
 These tools do not submit creator material, accept distribution rights, approve
 an edition or expose a catalogue. Keep admission closed until the final runtime,
@@ -309,8 +474,10 @@ passed (two existing warnings outside the new storage module). The registry
 image build passed Dart analysis and **22** verifier tests. These are distinct
 from the live acceptance sequence above.
 
-**Readiness:** baseline application/private storage deployed and channel closed;
-isolated remote verification qualified with synthetic fixtures. Updated adapter
-rollout awaits GitHub's dev review; deployed caller identity, creator sign-in,
-tenant/independent actors and the complete Studio → approval → Player rehearsal
-are still unproven. #403 stays open.
+**Readiness:** updated application/private storage/email configuration deployed
+and channel closed; isolated remote verification qualified with synthetic
+fixtures. Both synthetic creators have active tenant links, live Studio-adapter
+sign-in and completed AONIK email/profile gates. Deployed verifier identity,
+desktop submission, reviewer/channel authority, consenting human pilot actors
+and the complete Studio → approval → Player rehearsal remain unproven. #403
+stays open.
