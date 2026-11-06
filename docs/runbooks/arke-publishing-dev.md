@@ -69,7 +69,7 @@ Storage deployment `publishing-storage-dev` succeeded with account
 API revision `aonik-dev-api--0000374` and Worker revision
 `aonik-dev-worker--0000366` became ready. Keeping the API warm produced revision
 `aonik-dev-api--0000375`, verified Healthy/Running. All 25 publishing settings
-matched the checked-in profile on both apps; API and Worker minimum replicas
+matched the 5 November profile on both apps; API and Worker minimum replicas
 are 1. The final warm API health check returned HTTP 200 and
 `/publishing/channels/arke-worlds-dev/catalogue.json` returned 404.
 
@@ -83,7 +83,7 @@ per-tenant POSIX users. No untrusted parser may share these mounts. This smoke
 check does not qualify crash durability, backup restoration or multi-instance races.
 
 Retained quotas are 512 MiB/creator and 2 GiB/tenant; the initial archive cap was 128 MiB,
-reduced in the 6 November remote-verifier profile to 32 MiB (16 MiB per asset); at most
+reduced in the staged 6 November remote-verifier profile to 32 MiB (16 MiB per asset); at most
 20 creator packages, 200 tenant packages, 10 namespaces/creator and 20 sessions
 per creator/day. Parts plus assembly require at least three times the retained
 quota plus temporary-write headroom. Share quotas are capacity ceilings, not
@@ -188,8 +188,19 @@ part. A separate live probe confirmed UID 65532, blocked public/metadata TCP
 connections, non-writable runtime directories and exactly 64 MiB scratch.
 Azure hides the cgroup mount in this sandbox; cgroup introspection is not
 evidence of its CPU/memory enforcement. The final image adds an independent
-kernel address-space allocation-denial probe. Final-image runtime/abandonment
-checks and API/Worker adapter rollout are still in progress at this checkpoint.
+kernel address-space allocation-denial probe.
+
+**Final-image qualification passed on 6 November at 05:18 UTC.** All seven valid
+types passed through the real adapter; changed archive identity was held with
+`verifier-upload-invalid`, and non-ZIP content was refused by the pinned reader.
+The runtime probe confirmed the same network/UID/scratch restrictions and kernel
+limits (2 GiB address space, 45 CPU seconds, 32 processes, 16 MiB file size), with
+an oversized allocation actually denied. A deliberately abandoned job was
+reclaimed after 160 seconds without caller cleanup; the subsequent active
+session list was empty. The structured [evidence record](evidence/arke-verifier-2026-11-06.json)
+contains image, reader, archive and fingerprint provenance without credentials
+or session identifiers. The temporary operator Session Executor grant was
+removed and its removal confirmed. Only the intended app grants remain.
 
 Run `scripts/Test-ArkeDevVerifier.ps1 -CheckAbandonedJob` to inspect the fixed
 runtime probes and observe reclamation without caller cleanup. Run
@@ -198,6 +209,14 @@ for seven positive packages, changed archive identity and an invalid archive.
 The CLI runner uses the signed-in dev operator, while deployed applications
 explicitly use their system-assigned managed identity. Temporary operator
 Session Executor access must be removed after the rehearsal.
+
+The application adapter is pushed in `2848f965`. The normal
+[dev image workflow](https://github.com/michaeljosiah/aonik/actions/runs/42166936001)
+is waiting for the protected `dev` environment review. API/Worker still run
+`d05793b5` and the old closed profile until that build and normal runtime rollout
+complete. Do not work around the review with a direct application image swap.
+After rollout, prove the deployed system-assigned identity path before opening
+intake. The current API is healthy (200) and the dev catalogue remains 404.
 
 These tools do not submit creator material, accept distribution rights, approve
 an edition or expose a catalogue. Keep admission closed until the final runtime,
@@ -290,6 +309,8 @@ passed (two existing warnings outside the new storage module). The registry
 image build passed Dart analysis and **22** verifier tests. These are distinct
 from the live acceptance sequence above.
 
-**Readiness:** application and private storage deployed; closed channel settings
-applied; creator authentication, isolated verification and the complete
-Studio → approval → Player rehearsal are not yet proven. #403 stays open.
+**Readiness:** baseline application/private storage deployed and channel closed;
+isolated remote verification qualified with synthetic fixtures. Updated adapter
+rollout awaits GitHub's dev review; deployed caller identity, creator sign-in,
+tenant/independent actors and the complete Studio → approval → Player rehearsal
+are still unproven. #403 stays open.
