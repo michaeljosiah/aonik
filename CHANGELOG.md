@@ -12,6 +12,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Added
 
+- **Dev registration email infrastructure (#403):** Added a standalone Azure managed sender template and an optional runtime sender fallback. The dev profile uses the verified managed domain; credentials remain in deployment secret storage and delivery requires live mailbox verification.
+
 - **Arke isolated verifier runtime (#403):** Added a fail-closed Azure Dynamic Sessions adapter, dedicated dev pool/IAM template, sealed package transport and bounded non-root reader processes. Added runtime qualification tools and transport/protocol/isolation tests. The synthetic dev profile is capped at 32 MiB archives and 16 MiB assets; independent review and public release remain separately gated.
 
 - **Arke dev qualification preparation (#403):** Added dedicated private publishing file shares, identical API/Worker channel configuration and a running outbox Worker when publishing storage is provisioned. Added a dev deployment/identity/catalogue audit and live rehearsal runbook; all channel admission/publication switches remain closed until identity, isolated verifier and Player qualification complete. Included the verifier CLI source previously hidden by the global build-output ignore rule.

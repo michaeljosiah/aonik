@@ -29,6 +29,9 @@ param sqlAdminPassword string
 @description('Azure Communication Services connection string. Passed to Key Vault via the data module.')
 param acsConnectionString string = ''
 
+@description('Verified ACS email sender used as a runtime fallback until a stored sender is configured.')
+param communicationEmailFromAddress string = ''
+
 @secure()
 @description('HMAC hash key for the verification service. Passed to Key Vault via the data module.')
 param verificationHashKey string = ''
@@ -429,6 +432,11 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Operations__Alerts__AzureMonitor__SharedSecret'
               secretRef: 'operations-alerts-azure-monitor-shared-secret'
+            }
+          ], empty(communicationEmailFromAddress) ? [] : [
+            {
+              name: 'Communication__Azure__Email__FromAddress'
+              value: communicationEmailFromAddress
             }
           ], empty(bootstrapSetupSecret) ? [] : [
             {

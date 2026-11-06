@@ -5,6 +5,21 @@ catalogue migration or public release is authorised by the dev rehearsal.
 
 ## Deployed application
 
+The follow-up release `78be974cb7bc8e3f268641289bb598ef657d0682` passed
+[CI](https://github.com/michaeljosiah/aonik/actions/runs/42182358963),
+[image build and scan](https://github.com/michaeljosiah/aonik/actions/runs/42182368248)
+and [deployment](https://github.com/michaeljosiah/aonik/actions/runs/42183901780).
+API `0000378`, Worker `0000369` and Admin UI `0000369` are Running; health is
+200 and the closed catalogue remains 404. The actual reviewer session now leaves
+the optional company wizard through **Skip for now** and reaches the Arke Kidz
+dashboard. No industry/company details or setup-complete flag were invented.
+
+| Application | Immutable digest |
+| --- | --- |
+| API | `sha256:ab433e5b7538a13a5662c1b916ba610d08bf41797664e6a03e271bf6a5f2a4b6` |
+| Worker | `sha256:4f5e9af453d4a9ac52b100f72b694d7388d81e72340373eeb30f55948e982b4b` |
+| Admin UI | `sha256:86e4a31ee124e010a84f6bc85c19c72b6552fbd79397e060e53c27d0bbc5c2a0` |
+
 Recovery release `484c87782b397b636dda2bb98216041fca85ac58` from PR #406 passed
 [CI](https://github.com/michaeljosiah/aonik/actions/runs/42179322706),
 [image build](https://github.com/michaeljosiah/aonik/actions/runs/42179351344),
@@ -14,8 +29,8 @@ API `0000377`, Worker `0000368` and Admin UI `0000368` are Running; health is
 200 and the disabled catalogue is 404. The actual reviewer browser now reaches
 the two-organization picker and selects Arke Kidz without a false session expiry.
 The live body-only registration check returns 403 before identity creation;
-Auth0 confirms no second identity was created. The first identity is verified
-but still needs an AONIK invitation/link.
+Auth0 confirmed no second identity was created by that rejected request. At that
+point, the first identity was verified but still needed an AONIK invitation/link.
 
 The previously unused tenant's optional company wizard then exposed a separate
 skip loop: its completion callback reloaded into the unfinished wizard. The
@@ -56,6 +71,58 @@ Reviewer Auth0 sign-in succeeded, but a stale Admin UI organization selection
 caused `/v1/me` to run against an unrelated tenant before membership discovery.
 The startup-order fix was subsequently deployed and verified as recorded above.
 Registration/session recovery is not end-to-end publishing acceptance.
+
+### Synthetic creator account proof
+
+The nominated reviewer signed in through the normal Admin UI and created both
+invitations in Arke Kidz without assigning elevated roles. Invitation records
+were saved, but their emails were not delivered because dev email configuration
+was incomplete. The first existing Auth0 identity linked on normal sign-in; the
+second used the normal registration endpoint only after its invitation existed.
+
+| Test creator | AONIK user | Party |
+| --- | --- | --- |
+| Synthetic Creator 1 | `a86d992b-872d-4fcd-b88d-0156ee122a5f` | `fcb1f81f-c207-4e34-942a-7183da17ff83` |
+| Synthetic Creator 2 | `194096bc-eb58-40df-885a-bc37ecc04dbf` | `c712335b-ec09-499e-afce-40a9c8d92b6e` |
+
+Both actual Mailinator verification links were followed; Auth0 reports both
+addresses verified. Both then completed code + PKCE sign-in using Studio's real
+`AonikAccount` implementation in an isolated rehearsal harness. `/v1/me` returned
+200 and `Active` for each in tenant `1087cc03-46cc-45fa-9023-f0ce4f7bbdb8`.
+`/v1/onboarding/me` returned 200 with `ProfileComplete` satisfied and the separate
+AONIK `EmailVerified` gate still pending. Auth0 verification does not satisfy that
+application OTP gate; it must be completed through actual email delivery.
+
+Generated passwords remain DPAPI-encrypted in ignored local evidence. Harness
+tokens are encrypted with process-only keys and were never printed. The harness
+proves the Studio account adapter against dev, not the full desktop publishing
+journey. Synthetic accounts do not establish consent from two real pilot creators.
+Reviewer allowlisting, namespace admission, upload verification, editorial review
+and isolated Player delivery remain separate unqualified steps.
+
+### Dev invitation email prerequisite
+
+The live invitation form reported no sender address. The existing dev ACS secret
+was not a usable ACS connection, and neither accessible subscription contained a
+Communication Services resource. A standalone, incremental deployment from
+`iac/azure/environments/dev/email.bicep` provisioned `aonik-dev-email`, its
+`AzureManagedDomain`, and linked `aonik-dev-acs` in `rg-aonik-dev-uksouth`.
+What-if showed exactly these three creates; deployment `aonik-dev-email-403`
+succeeded. Data location is `UK`, engagement tracking is disabled, and Azure
+reports domain, SPF, DKIM/DKIM2 and DMARC verification as `Verified`.
+
+The managed sender is
+`DoNotReply@35565aeb-e344-40ed-ac8f-23e16de2f279.azurecomm.net`. The dev runtime
+parameter records this non-secret fallback; other environments default to no
+change. Stored tenant/global sender settings keep precedence.
+
+**Not yet connected:** automatic approval review blocked transferring the newly
+created connection credential to GitHub's existing `dev` environment secret
+`ACS_CONNECTION_STRING`, pending explicit owner approval of that destination.
+No credential was transferred or printed. The application still cannot send
+invitations/verification emails. After approval, update that encrypted secret,
+run the normal dev deployment with the sender parameter, and verify actual
+mailbox arrival. Provisioning/verification alone is not email delivery proof.
 
 ### Previous baseline
 
