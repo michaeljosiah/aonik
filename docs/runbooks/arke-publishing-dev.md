@@ -93,25 +93,39 @@ evidence of filesystem atomicity, backup or restoration.
 Confirmed issuer: `https://aonik.uk.auth0.com/`; API audience:
 `https://api.aonik.com`. The existing deployed management application has only
 `read:users create:users update:users`; it cannot create or modify applications.
-The owner completed the dashboard login in the `aonik` development tenant. The
-**Arke Studio Dev / Native** creation form is prepared; creating the OAuth client
-awaits the browser automation confirmation. Do not expand the API's management
-permissions merely to perform this one-time setup.
+After owner approval, **Arke Studio Dev / Native** was created in the `aonik`
+development tenant on 5 November 2026. Its public client ID is
+`9SfLUjB57WtWEQUNm1twTO7UQRnsUzvY`. The existing API management application's
+permissions were not expanded.
 
-Create **Arke Studio Dev** as a public **Native** Auth0 application, with:
+Saved Auth0 configuration:
 
 - Callback: `http://127.0.0.1:37619/aonik/callback`, exact match.
 - Authorization Code and Refresh Token grants; token endpoint authentication `none`.
-- PKCE, the existing username/password connection, rotating refresh tokens with
-  bounded absolute and idle lifetimes, and API offline access.
+- The existing username/password connection is enabled. Refresh-token rotation
+  is enabled, with an idle lifetime of **86,400 seconds**, maximum lifetime of
+  **604,800 seconds**, and zero overlap. The AONIK API's **Allow Offline Access**
+  setting is enabled. This API-level prerequisite also permits other authorised
+  clients with refresh grants to request offline access; their policies were not
+  changed. Studio's implementation supplies S256 PKCE, state and nonce.
+- Implicit grant disabled; password, client-credentials and device-code grants
+  remain disabled for this native client.
 - Scopes `openid profile email offline_access`, API audience above.
 - No client secret in Studio or its configuration. Do not reuse the Admin SPA ID.
 
-Set Studio's host-owned `ARKE_AONIK_CONFIG` file with the API URL, issuer, native
-client ID, audience, scopes, tenant ID, channel key, redirect port, 128 MiB package
-cap and `rightsDeclarationVersion: dev-synthetic-v1`. Use a dev-only synthetic
-distribution statement, explicitly confirmed by the fixture's submitting human.
-The version is not approval of commercial or third-party distribution rights.
+The non-secret host profile is
+[`iac/azure/environments/dev/arke-studio.json`](../../iac/azure/environments/dev/arke-studio.json).
+Set `ARKE_AONIK_CONFIG` to its absolute path before launching the Studio branch.
+It includes the API URL, issuer, native client ID, audience, scopes, tenant ID,
+channel key, redirect port, 128 MiB cap and `dev-synthetic-v1` declaration version.
+The profile passed the actual Studio configuration parser. Its proposed synthetic
+distribution statement still requires the submitting human's explicit confirmation
+in Studio; creating this profile does not accept rights or authorise production.
+
+A separate local Electron profile/workspace was opened for the sign-in check.
+Computer-use access to that window timed out. No live creator sign-in, refresh,
+encrypted credential persistence or API-authorised receipt read has been proven.
+The installed Studio workspace was not modified.
 
 [Studio PR #2578](https://github.com/michaeljosiah/ArkeStudio/pull/2578) contains
 the sign-in, frozen edition, resumable upload and receipt implementation. Its
