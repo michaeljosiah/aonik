@@ -6,7 +6,7 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
-- **Dev email and verification secrets (#403):** Enable the existing Key Vault references in the dev deployment profile so configured ACS and OTP hashing credentials reach the API instead of the legacy placeholder values.
+- **Dev email and verification secrets (#403):** Enable the existing Key Vault references in the dev deployment profile so configured ACS and OTP hashing credentials reach the API instead of the legacy placeholder values. Deployed successfully; both synthetic creators received and confirmed fresh verification emails and passed all required onboarding gates.
 
 - **Invited creator registration (#403):** Check tenant status and invitation admission before creating an external identity, return a clear forbidden response when admission is missing, and allow the exact registration endpoint to resolve its tenant from the request body. Existing tenant invitation requirements remain enforced.
 - **Organization recovery after sign-in (#403):** Validate the signed-in account's organization memberships before loading tenant setup, so a stale organization selection cannot trigger a false session-expired loop.
@@ -20,7 +20,7 @@ All notable changes to the AONIK project will be documented in this file.
 
 - **Arke dev qualification preparation (#403):** Added dedicated private publishing file shares, identical API/Worker channel configuration and a running outbox Worker when publishing storage is provisioned. Added a dev deployment/identity/catalogue audit and live rehearsal runbook; all channel admission/publication switches remain closed until identity, isolated verifier and Player qualification complete. Included the verifier CLI source previously hidden by the global build-output ignore rule.
 
-- **Arke Studio dev identity configuration (#403):** Registered the dedicated public Native client with an exact loopback callback, code/refresh grants and bounded rotating refresh tokens. Added a non-secret Studio dev profile and recorded the API offline-access prerequisite. Live creator sign-in and the full publishing rehearsal remain unqualified.
+- **Arke Studio dev identity configuration (#403):** Registered the dedicated public Native client with an exact loopback callback, code/refresh grants and bounded rotating refresh tokens. Added a non-secret Studio dev profile and recorded the API offline-access prerequisite. Both synthetic creators completed live code + PKCE sign-in through the Studio account adapter; the full desktop publishing rehearsal remains unqualified.
 
 - **Arke public delivery and staff workspace (#401/#402):** Added immutable public artifacts with exact URL readback, durable fenced delivery/retry operations, append-only Player catalogue snapshots with atomic serial/lineage promotion, withdrawal, holds and optional latest-head GitHub mirror CAS. Connected editorial and catalogue staff screens to named-permission APIs, including private artwork, rights, decision/upload history and exact confirmations. Fourteen editable artboards share the application view/styles/icons, with light/dark exports and browser checks. Added canonical CLI-generated migration, SQL recovery/race coverage and pinned Player catalogue/byte qualification; production enablement remains closed pending #403.
 

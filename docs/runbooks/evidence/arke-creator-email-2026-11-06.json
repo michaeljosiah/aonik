@@ -1,0 +1,75 @@
+{
+  "observedDateUtc": "2026-11-06",
+  "environment": "dev",
+  "tenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
+  "configurationCommit": "a6dc2e1d50db8e6dfc689c6fd409dfed78029b62",
+  "applicationImageTag": "78be974cb7bc8e3f268641289bb598ef657d0682",
+  "previewRun": "https://github.com/michaeljosiah/aonik/actions/runs/42289347838",
+  "deploymentRun": "https://github.com/michaeljosiah/aonik/actions/runs/42289777170",
+  "deploymentConclusion": "success",
+  "apiRevision": "aonik-dev-api--0000379",
+  "apiRestartedAfterSecretUpdate": true,
+  "credentialStorage": {
+    "githubRepository": "michaeljosiah/aonik",
+    "githubEnvironment": "dev",
+    "githubSecretNames": ["ACS_CONNECTION_STRING", "VERIFICATION_HASH_KEY"],
+    "runtimeSecretSource": "dev Key Vault references using the API system identity",
+    "secretValuesIncluded": false
+  },
+  "verification": {
+    "authentication": "Studio AonikAccount Authorization Code + PKCE in isolated harness",
+    "startEndpoint": "POST /v1/verifications/email/start",
+    "confirmEndpoint": "POST /v1/verifications/email/confirm",
+    "onboardingEndpoint": "GET /v1/onboarding/me",
+    "deliveryObservation": "Actual messages in the two intended Mailinator inboxes",
+    "observedSender": "donotreply@35565aeb-e344-40ed-ac8f-23e16de2f279.uk2.azurecomm.net",
+    "codesIncluded": false,
+    "actors": [
+      {
+        "label": "Synthetic Creator 1",
+        "userId": "a86d992b-872d-4fcd-b88d-0156ee122a5f",
+        "partyId": "fcb1f81f-c207-4e34-942a-7183da17ff83",
+        "startStatus": 200,
+        "mailboxReceivedUtc": "2026-11-06T20:43:46Z",
+        "confirmationObservedUtc": "2026-11-06T20:46:37.8832388Z",
+        "confirmationStatus": 200,
+        "isVerified": true,
+        "onboardingObservedUtc": "2026-11-06T20:47:09.3756092Z",
+        "onboardingStatus": 200,
+        "emailVerified": true,
+        "profileComplete": true,
+        "phoneVerified": false,
+        "phoneRequired": false,
+        "nextActions": []
+      },
+      {
+        "label": "Synthetic Creator 2",
+        "userId": "194096bc-eb58-40df-885a-bc37ecc04dbf",
+        "partyId": "c712335b-ec09-499e-afce-40a9c8d92b6e",
+        "startStatus": 200,
+        "mailboxReceivedUtc": "2026-11-06T20:43:50Z",
+        "confirmationObservedUtc": "2026-11-06T20:47:07.3049355Z",
+        "confirmationStatus": 200,
+        "isVerified": true,
+        "onboardingObservedUtc": "2026-11-06T20:47:20.5690793Z",
+        "onboardingStatus": 200,
+        "emailVerified": true,
+        "profileComplete": true,
+        "phoneVerified": false,
+        "phoneRequired": false,
+        "nextActions": []
+      }
+    ]
+  },
+  "finalChecks": {
+    "healthStatus": 200,
+    "closedCatalogueStatus": 404,
+    "publishingEnabledByThisChange": false
+  },
+  "limitations": [
+    "Synthetic accounts do not establish two consenting human pilot creators.",
+    "Earlier undelivered invitation messages were not resent or qualified.",
+    "Harness sign-in is not proof of desktop UI, refresh rotation or durable credential persistence.",
+    "Full Studio submission, Worker identity, editorial review, delivery and Player acceptance remain open under issue 403."
+  ]
+}

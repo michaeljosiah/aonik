@@ -5,6 +5,17 @@ catalogue migration or public release is authorised by the dev rehearsal.
 
 ## Deployed application
 
+The latest configuration release `a6dc2e1d50db8e6dfc689c6fd409dfed78029b62`
+passed [preview](https://github.com/michaeljosiah/aonik/actions/runs/42289347838)
+and [deployment](https://github.com/michaeljosiah/aonik/actions/runs/42289777170)
+on 6 November 2026. It retains the tested `78be974c` application images below.
+API revision `0000379` was restarted after its Key Vault secret references were
+updated; the replacement replica became ready before new verification requests.
+Both synthetic creators completed actual mailbox OTP verification at 20:46–20:47
+UTC. Their required onboarding gates pass with no next actions. API health is
+200 and the closed dev catalogue remains 404. See the
+[sanitized account evidence](evidence/arke-creator-email-2026-11-06.json).
+
 The follow-up release `78be974cb7bc8e3f268641289bb598ef657d0682` passed
 [CI](https://github.com/michaeljosiah/aonik/actions/runs/42182358963),
 [image build and scan](https://github.com/michaeljosiah/aonik/actions/runs/42182368248)
@@ -89,9 +100,16 @@ Both actual Mailinator verification links were followed; Auth0 reports both
 addresses verified. Both then completed code + PKCE sign-in using Studio's real
 `AonikAccount` implementation in an isolated rehearsal harness. `/v1/me` returned
 200 and `Active` for each in tenant `1087cc03-46cc-45fa-9023-f0ce4f7bbdb8`.
-`/v1/onboarding/me` returned 200 with `ProfileComplete` satisfied and the separate
-AONIK `EmailVerified` gate still pending. Auth0 verification does not satisfy that
-application OTP gate; it must be completed through actual email delivery.
+The first `/v1/onboarding/me` snapshots passed `ProfileComplete` but required the
+separate AONIK email OTP. After the corrected email configuration was deployed,
+both `/v1/verifications/email/start` requests returned 200 and both fresh codes
+arrived in the intended Mailinator inboxes from the Azure managed sender.
+`/v1/verifications/email/confirm` returned 200 with `isVerified: true` for each.
+Subsequent `/v1/onboarding/me` snapshots passed both required `EmailVerified`
+and `ProfileComplete` gates, with `nextActions: []`. Phone verification remains
+optional and unsatisfied. Auth0 claims were not used to bypass the application
+OTP gate. The evidence records confirmation and onboarding timestamps without
+credentials or verification codes.
 
 Generated passwords remain DPAPI-encrypted in ignored local evidence. Harness
 tokens are encrypted with process-only keys and were never printed. The harness
@@ -134,8 +152,19 @@ the template's literal placeholder rather than the configured ACS secret. The
 dev profile now enables the existing Key Vault references. No OTP hashing key
 existed in GitHub or Key Vault; a new 256-bit dev-only key was generated directly
 into protected `VERIFICATION_HASH_KEY` storage without printing or replacing an
-existing key. The earlier undelivered challenges must not be used; request fresh
-codes after this corrected profile is deployed.
+existing key. The earlier undelivered challenges were discarded.
+
+The corrected profile `a6dc2e1d` passed
+[preview](https://github.com/michaeljosiah/aonik/actions/runs/42289347838) and
+[deployment](https://github.com/michaeljosiah/aonik/actions/runs/42289777170).
+Both `acs-connection-string` and `verification-hash-key` now reference the intended
+dev Key Vault secrets through the API's system identity. The API revision was
+restarted and its old replica retired before requesting fresh codes. Mailbox
+arrival was observed at 20:43:46 and 20:43:50 UTC; the two creator confirmations
+succeeded at 20:46:37 and 20:47:07 UTC. All required onboarding gates then passed.
+This proves fresh verification-email delivery and consumption, not retrospective
+delivery of the earlier invitation messages. The temporary sign-in harness
+sessions were stopped after collecting the sanitized evidence.
 
 ### Previous baseline
 
@@ -257,10 +286,13 @@ The profile passed the actual Studio configuration parser. Its proposed syntheti
 distribution statement still requires the submitting human's explicit confirmation
 in Studio; creating this profile does not accept rights or authorise production.
 
-A separate local Electron profile/workspace was opened for the sign-in check.
-Computer-use access to that window timed out. No live creator sign-in, refresh,
-encrypted credential persistence or API-authorised receipt read has been proven.
-The installed Studio workspace was not modified.
+A separate local Electron profile/workspace was opened for the initial sign-in
+check, but computer-use access to that window timed out. The later isolated
+harness proved both creators' live code + PKCE sign-in using Studio's real account
+adapter, authorized profile reads and AONIK email verification. Desktop UI
+sign-in, refresh rotation, persistent credentials and publishing receipt reads
+still need their own acceptance checks. The installed Studio workspace was not
+modified.
 
 [Studio PR #2578](https://github.com/michaeljosiah/ArkeStudio/pull/2578) contains
 the sign-in, frozen edition, resumable upload and receipt implementation. Its
@@ -344,13 +376,12 @@ The CLI runner uses the signed-in dev operator, while deployed applications
 explicitly use their system-assigned managed identity. Temporary operator
 Session Executor access must be removed after the rehearsal.
 
-The application adapter is pushed in `2848f965`. The normal
+The application adapter from `2848f965` passed the protected
 [dev image workflow](https://github.com/michaeljosiah/aonik/actions/runs/42166936001)
-is waiting for the protected `dev` environment review. API/Worker still run
-`d05793b5` and the old closed profile until that build and normal runtime rollout
-complete. Do not work around the review with a direct application image swap.
-After rollout, prove the deployed system-assigned identity path before opening
-intake. The current API is healthy (200) and the dev catalogue remains 404.
+and normal deployment recorded above. Current API/Worker images include it and
+select the closed remote-verifier profile. The actual deployed system-assigned
+identity path still needs a live intake job before opening intake. API health
+is 200 and the dev catalogue remains 404.
 
 These tools do not submit creator material, accept distribution rights, approve
 an edition or expose a catalogue. Keep admission closed until the final runtime,
@@ -443,7 +474,10 @@ passed (two existing warnings outside the new storage module). The registry
 image build passed Dart analysis and **22** verifier tests. These are distinct
 from the live acceptance sequence above.
 
-**Readiness:** updated application/private storage deployed and channel closed;
-isolated remote verification qualified with synthetic fixtures. Deployed caller identity, creator sign-in,
-tenant/independent actors and the complete Studio → approval → Player rehearsal
-are still unproven. #403 stays open.
+**Readiness:** updated application/private storage/email configuration deployed
+and channel closed; isolated remote verification qualified with synthetic
+fixtures. Both synthetic creators have active tenant links, live Studio-adapter
+sign-in and completed AONIK email/profile gates. Deployed verifier identity,
+desktop submission, reviewer/channel authority, consenting human pilot actors
+and the complete Studio → approval → Player rehearsal remain unproven. #403
+stays open.
