@@ -59,6 +59,30 @@ If a variable is omitted or empty, runtime uses image/application defaults and a
 3. Run `mode=deploy`.
 4. Verify endpoints and telemetry.
 
+### Arke publishing storage and channel settings
+
+`publishingStorageEnabled` provisions dedicated private intake/delivery SMB
+shares and mounts them at the same absolute paths in API and Worker. It also
+keeps at least one Worker replica running for SQL outbox polling and one API
+replica warm so Studio's bounded requests do not depend on scale-from-zero startup.
+`publishingAppSettings` contains the non-secret `Publishing__` settings applied
+identically to both hosts; the normal API/Worker app-setting collector does not
+replace this parameter. Enabling storage does not enable channel admission or
+publication. The dev profile stages a closed `arke-worlds-dev` channel.
+
+For an already deployed dev release, `scripts/Configure-ArkeDevPublishing.ps1`
+previews these settings against the live apps; `-Apply` applies the reviewed
+profile without changing application images. Provision the storage module first.
+The script is restricted to the inspected dev subscription/tenant and refuses
+open channel switches. It keeps existing credentials in memory. Azure accepts
+updates asynchronously: verify the new revisions are ready, compare API/Worker
+settings and check health after it returns `Accepted`.
+
+See [the Arke dev rehearsal record](arke-publishing-dev.md) for identity, verifier,
+storage and Player qualification gates. Until this infrastructure change is
+merged, use its reviewed branch for runtime deployments; an older template can
+replace the publishing settings and mounts.
+
 ## Image source
 
 - Primary path: successful `CI` run for a push to `master`

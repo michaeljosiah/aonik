@@ -1,0 +1,93 @@
+{
+  "observedUtc": "2026-11-06T05:18:04Z",
+  "sourceCommit": "2848f9658fff95c45b43f19a2c5063f2b741cfd0",
+  "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:edcf30cccff2a89f69523e2dabba590118999778cc2e623471c511217ab46dfb",
+  "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "runtime": {
+    "uid": 65532,
+    "publicNetwork": "denied",
+    "metadataNetwork": "denied",
+    "scratchBytes": 67108864,
+    "writableRuntime": false,
+    "addressSpaceBytes": 2147483648,
+    "cpuSeconds": 45,
+    "processes": 32,
+    "fileBytes": 16777216,
+    "oversizedAllocationDenied": true,
+    "cgroupMountVisible": false,
+    "azureConfiguredCpu": 1,
+    "azureConfiguredMemory": "2Gi"
+  },
+  "abandonedJobReclaimed": true,
+  "abandonedJobObservedAfterSeconds": 160,
+  "remainingAllocatedSessions": 0,
+  "packages": [
+    {
+      "fixture": "world",
+      "Passed": true,
+      "Code": "verified",
+      "ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "ArchiveSha256": "9352b3dbc8c5da7ff88cc5cac0e90d170bfc595311bae00566e0e2c381eae96c",
+      "Fingerprint": "f0c9dec899fac7d5ab328eb3d9ca0947fd4070c7228d4507f263a06a14705224"
+    },
+    {
+      "fixture": "listening",
+      "Passed": true,
+      "Code": "verified",
+      "ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "ArchiveSha256": "b468faf208b88acf090b9c38e845cb810120f42e091594a282fe890069be2a6f",
+      "Fingerprint": "b9e9d89eebc5631c422e28c51dc7702f962ec7e932a6f120af750bae4944d20b"
+    },
+    {
+      "fixture": "guide",
+      "Passed": true,
+      "Code": "verified",
+      "ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "ArchiveSha256": "5d74b9dad1f73297863f87e7f4b0d31fb60630cb8fc9b327989caa7f8780b50a",
+      "Fingerprint": "a47ed440e0dbd4c08b73fdcaa1e9b438ab2fd643180b5a5beafccdb8076009ab"
+    },
+    {
+      "fixture": "music",
+      "Passed": true,
+      "Code": "verified",
+      "ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "ArchiveSha256": "fa788f6805bd27a16012600b25888f5f6171c68827186af1666723ee6fbad2b1",
+      "Fingerprint": "4f353c4aaaad243aab30829c8cafe1a7cd126d5154b7a9511823a4d315a78690"
+    },
+    {
+      "fixture": "story",
+      "Passed": true,
+      "Code": "verified",
+      "ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "ArchiveSha256": "276047d64389024f033993e7f2421d19b2c49d702956952ad7ef2647c6fc8b59",
+      "Fingerprint": "adf60d1aa917d48dcb5aebff85348638428fb98d68d98275328a9a60ca034668"
+    },
+    {
+      "fixture": "comic",
+      "Passed": true,
+      "Code": "verified",
+      "ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "ArchiveSha256": "0df7242308500738fc3967333fbf147f91705a2fba8a756f563da37188c567aa",
+      "Fingerprint": "bed3bed509f7ca62419453b420e7039325bd8bc8cff2af6b1157795b1f6f915e"
+    },
+    {
+      "fixture": "part",
+      "Passed": true,
+      "Code": "verified",
+      "ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "ArchiveSha256": "00d22a6b93d988a59ff6908d1b245264d93e036d84b5053814ac169522fcca16",
+      "Fingerprint": "68943f007b43638df9809a25f79bdd44952fd8b1d040c28403fc72a752f05052"
+    },
+    {
+      "fixture": "changed-archive-identity",
+      "Passed": false,
+      "Code": "verifier-upload-invalid"
+    },
+    {
+      "fixture": "invalid-archive",
+      "Passed": false,
+      "Code": "manifest-size-limit"
+    }
+  ],
+  "scope": "Synthetic fixtures through the real .NET adapter using a temporary operator execution grant; not Studio sign-in, deployed Worker identity, editorial approval, catalogue delivery or Player acceptance."
+}

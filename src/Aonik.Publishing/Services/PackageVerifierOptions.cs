@@ -2,6 +2,8 @@ namespace Aonik.Publishing.Services;
 
 public sealed class PackageVerifierOptions
 {
+    public string Provider { get; set; } = "Docker";
+    public string SessionPoolResourceId { get; set; } = string.Empty;
     public string DockerExecutable { get; set; } = "docker";
     public string Image { get; set; } = string.Empty;
     public string ReaderCommit { get; set; } = string.Empty;

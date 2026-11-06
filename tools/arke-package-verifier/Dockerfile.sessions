@@ -1,0 +1,18 @@
+ARG DART_IMAGE
+ARG PYTHON_IMAGE
+FROM ${DART_IMAGE} AS build
+WORKDIR /build
+COPY . .
+RUN dart pub get --enforce-lockfile && cd verifier && dart analyze && dart test && dart compile exe bin/verify.dart -o /verify && dart run test/export_fixtures.dart /fixtures
+
+FROM ${PYTHON_IMAGE}
+WORKDIR /app
+COPY --from=build /verify /app/verify
+COPY --from=build /build/reader-pin.json /app/reader-pin.json
+COPY --from=build /fixtures /app/fixtures
+COPY session/ /app/
+RUN chmod 0555 /tmp /var/tmp /app && chmod 0444 /app/*.py /app/reader-pin.json && /app/verify | python -c "import json,sys; assert json.load(sys.stdin)['code']=='invalid-worker-arguments'"
+USER 65532:65532
+RUN python -B -m unittest -v test_server
+EXPOSE 8080
+ENTRYPOINT ["python", "-B", "/app/server.py"]

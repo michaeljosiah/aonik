@@ -512,3 +512,6 @@ apps/docs-site/build/
 /localstorage-keys.json
 /me-fetch.json
 /UsersmjosisourcereposaoniksrcAonik.Apibintmpbuild
+# The verifier's Dart CLI is source, not a .NET build output directory.
+!tools/arke-package-verifier/bin/
+!tools/arke-package-verifier/bin/*.dart
