@@ -79,6 +79,14 @@ export function useTenantBootstrap(enabled: boolean): {
   const [state, setState] = useState<TenantBootstrapState>({ kind: 'loading' });
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // The picker and shell can both observe this hook. Keep their resolution in
+  // sync when the user selects an organization, without refetching memberships.
+  useEffect(() => {
+    const onTenantChanged = () => setRefreshKey((key) => key + 1);
+    window.addEventListener('aonik:tenant-changed', onTenantChanged);
+    return () => window.removeEventListener('aonik:tenant-changed', onTenantChanged);
+  }, []);
+
   const refetch = useCallback(() => {
     invalidateTenantBootstrap();
     setRefreshKey((k) => k + 1);

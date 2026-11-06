@@ -70,6 +70,28 @@ internal class RegistrationService : IRegistrationService
             throw new InvalidOperationException($"Tenant {request.TenantId.Value} not found.");
         }
 
+        if (tenant.Status != TenantStatus.Active)
+        {
+            throw new TenantAccessDeniedException("This tenant is not accepting registrations.");
+        }
+
+        // Login admits only existing links or administrator-created placeholders.
+        // Check the same invitation boundary before creating an external identity,
+        // otherwise a rejected registration leaves an unusable Auth0 account behind.
+        var pendingEmails = await _dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.TenantId == tenant.Id &&
+                user.ExternalIssuer == BootstrapIdentityConstants.PendingOwnerIssuer &&
+                user.Status == "Active" && user.Email != null)
+            .Select(user => user.Email!)
+            .ToListAsync(cancellationToken);
+
+        if (!pendingEmails.Contains(request.Email.Trim(), StringComparer.OrdinalIgnoreCase))
+        {
+            throw new TenantAccessDeniedException(
+                "Ask a tenant administrator to invite this email address before registering. If you already have an account, sign in instead.");
+        }
+
         var supportedCountries = TenantCountryCodeSerializer.Deserialize(tenant.SupportedCountriesJson);
         var allowedOriginCountries = TenantCountryCodeSerializer.ResolveWithFallback(
             tenant.AllowedOriginCountriesJson,

@@ -24,6 +24,15 @@ public class TenantValidationMiddleware
     {
         try
         {
+            // Registration resolves the tenant from its validated request body. Its
+            // service checks tenant status and invitation admission before IdP writes.
+            if (HttpMethods.IsPost(context.Request.Method) &&
+                context.Request.Path.Equals("/v1/registrations/individual", StringComparison.OrdinalIgnoreCase))
+            {
+                await _next(context);
+                return;
+            }
+
             if (context.Items[Aonik.Publishing.Services.PublicPublicationRoutes.ResolvedChannelItem] is string channel
                 && Aonik.Publishing.Services.PublicPublicationRoutes.Match(context.Request.Path, context.Request.Method, out var matched) && channel == matched)
             { await _next(context); return; }

@@ -19,6 +19,7 @@ public class TenantValidationMiddlewareTests
     [InlineData("/v1/settings/auth-provider", "GET")] // provider discovery (prior fix)
     [InlineData("/v1/settings/public", "GET")]
     [InlineData("/health", "GET")]
+    [InlineData("/v1/registrations/individual", "POST")]
     public async Task InvokeAsync_ShouldPassThrough_WhenPathIsPreTenantWhitelisted_AndTenantUnresolved(
         string path, string method)
     {
@@ -43,6 +44,9 @@ public class TenantValidationMiddlewareTests
 
     [Theory]
     [InlineData("/orders", "GET")]
+    [InlineData("/v1/registrations/individual", "GET")]
+    [InlineData("/v1/registrations/individual/other", "POST")]
+    [InlineData("/v1/registrations/individuals", "POST")]
     [InlineData("/auth/tokens-for-something-else", "POST")] // not the exact /auth/token segment
     public async Task InvokeAsync_ShouldReturn401_WhenPathIsTenantScoped_AndTenantUnresolved(
         string path, string method)

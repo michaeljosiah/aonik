@@ -4,6 +4,11 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Invited creator registration (#403):** Check tenant status and invitation admission before creating an external identity, return a clear forbidden response when admission is missing, and allow the exact registration endpoint to resolve its tenant from the request body. Existing tenant invitation requirements remain enforced.
+- **Organization recovery after sign-in (#403):** Validate the signed-in account's organization memberships before loading tenant setup, so a stale organization selection cannot trigger a false session-expired loop.
+
 ### Added
 
 - **Arke isolated verifier runtime (#403):** Added a fail-closed Azure Dynamic Sessions adapter, dedicated dev pool/IAM template, sealed package transport and bounded non-root reader processes. Added runtime qualification tools and transport/protocol/isolation tests. The synthetic dev profile is capped at 32 MiB archives and 16 MiB assets; independent review and public release remain separately gated.

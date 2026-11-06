@@ -6,6 +6,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.Platform.Contracts.Models.Onboarding;
 using ApplicationRegistrationRequest = Aonik.Platform.Contracts.Models.Registration.IndividualRegistrationRequest;
 using Aonik.Platform.Contracts.Services.Registration;
+using Aonik.Platform.Services.Identity;
 using Aonik.Platform.Contracts.Models.Configuration;
 using FastEndpoints;
 using Microsoft.EntityFrameworkCore;
@@ -42,6 +43,8 @@ internal class IndividualRegistrationEndpoint : Endpoint<IndividualRegistrationR
             s.Description = "Creates a new individual user account, party, and returns the onboarding snapshot. Resolves tenant from request body, subdomain, or header.";
             s.Response(200, "Registration successful");
             s.Response(400, "Invalid request");
+            s.Response(403, "Tenant inactive or invitation required");
+            s.Response(409, "An account already exists; sign in instead");
         });
         Options(x => x.WithTags("Registration"));
     }
@@ -77,6 +80,12 @@ internal class IndividualRegistrationEndpoint : Endpoint<IndividualRegistrationR
         catch (RegistrationConflictException ex)
         {
             HttpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+            await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
+            return;
+        }
+        catch (TenantAccessDeniedException ex)
+        {
+            HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             await HttpContext.Response.WriteAsJsonAsync(new { error = ex.Message }, ct);
             return;
         }

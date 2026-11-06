@@ -102,6 +102,7 @@ import { setAccessTokenGetter, setModuleDisabledRedirectPredicate } from '@/lib/
 import { bootstrapService } from '@/services/bootstrapService';
 import { tenantService } from '@/services/tenantService';
 import { identityService } from '@/services/identityService';
+import { useTenantBootstrap } from '@/hooks/useTenantBootstrap';
 import { agentConfigService } from '@/services/aiService';
 import { getSelectedTenant } from '@/lib/tenantContext';
 
@@ -400,16 +401,20 @@ function BootstrapStatusUnavailablePage({ message }: { message: string }) {
 }
 
 function AuthenticatedApp() {
+  const location = useLocation();
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null);
   const [tenantNeedsSetup, setTenantNeedsSetup] = useState<boolean | null>(null);
   const [bootstrapStatusError, setBootstrapStatusError] = useState<string | null>(null);
   const { isLoading: authLoading, isAuthenticated, accessToken, getAccessToken } = useAuth();
 
   useEffect(() => {
-    const checkSetup = async () => {
-      // Ensure API layer has the latest token getter before any calls
-      setAccessTokenGetter(getAccessToken);
+    setAccessTokenGetter(getAccessToken);
+  }, [getAccessToken]);
+  const { state: tenantState } = useTenantBootstrap(
+    isAuthenticated && !authLoading && !location.pathname.startsWith('/login'));
 
+  useEffect(() => {
+    const checkSetup = async () => {
       setBootstrapStatusError(null);
 
       // Retry bootstrap status check up to 3 times on transient failure.
@@ -449,8 +454,10 @@ function AuthenticatedApp() {
         return;
       }
         
-      // Only check tenant setup if user is authenticated and tenants exist
-      if (status.tenantCount > 0 && isAuthenticated) {
+      // A cached organization may belong to a previous login. Resolve current
+      // memberships before any tenant-scoped request; otherwise its 401 redirects
+      // to login before the organization picker can recover the stale selection.
+      if (status.tenantCount > 0 && isAuthenticated && tenantState.kind === 'ready') {
         try {
           const selectedTenant = getSelectedTenant();
           if (!selectedTenant?.tenantId) {
@@ -484,7 +491,7 @@ function AuthenticatedApp() {
     };
 
     checkSetup();
-  }, [authLoading, isAuthenticated, accessToken, getAccessToken]);
+  }, [authLoading, isAuthenticated, accessToken, getAccessToken, tenantState]);
 
   if (needsSetup === null || tenantNeedsSetup === null) {
     return (

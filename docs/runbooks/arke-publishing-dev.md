@@ -5,6 +5,41 @@ catalogue migration or public release is authorised by the dev rehearsal.
 
 ## Deployed application
 
+On **6 November 2026**, the owner approved the protected dev build/deployment
+gates for implementation `2848f9658fff95c45b43f19a2c5063f2b741cfd0` (PR #405,
+merged as `03544392428273583672aad0652e17ea52c8a07f`). The normal workflows passed:
+
+- [Image build](https://github.com/michaeljosiah/aonik/actions/runs/42166936001)
+- [Deployment preview](https://github.com/michaeljosiah/aonik/actions/runs/42177133886)
+- [Deployment](https://github.com/michaeljosiah/aonik/actions/runs/42177516628)
+
+| Application | Ready revision | Immutable digest |
+| --- | --- | --- |
+| API | `aonik-dev-api--0000376` | `sha256:a67535ccdc3cebaf4040bfe7ed69ae093880e11c078edbeb7a4f302b4ca93727` |
+| Worker | `aonik-dev-worker--0000367` | `sha256:e76ca6b6062f92a7ac4e4fb980af4756dbae3b7ef22c3737bedcdf45da1233e7` |
+| Admin UI | `aonik-dev-adminui--0000367` | `sha256:e9c69a68205a64d718eb3770a1bcaddb149d16e9ff460669296644fbe383da65` |
+
+API and Worker are Running with minimum replicas 1. Both select
+`AzureDynamicSessions` and the qualified immutable verifier image/pool described
+below. `/health` returned 200; the still-disabled dev catalogue returned 404.
+This proves rollout, not an actual Worker-managed verification job.
+
+The owner requested two synthetic Mailinator creators and nominated an existing,
+email-verified account as independent reviewer. Registration exposed two defects:
+body-only tenant routing was rejected before the endpoint, and an uninvited
+registration created an Auth0 identity before tenant admission failed. The fix
+checks active tenant/invitation before IdP creation and returns 403. Recover the
+first verified identity through an administrator invitation followed by normal
+sign-in; invite the second address before registration. Never mark email verified
+directly, reset the reviewer's password, or grant access by editing SQL.
+
+Reviewer Auth0 sign-in succeeded, but a stale Admin UI organization selection
+caused `/v1/me` to run against an unrelated tenant before membership discovery.
+The follow-up startup-order fix must be rolled out before continuing in that
+browser. Registration/session recovery is not end-to-end publishing acceptance.
+
+### Previous baseline
+
 On 5 November 2026, release `d05793b5bf1a1c754d4f94e68fb554e54eaba5cb`
 (merged PR #404) passed CI and was deployed with the normal runtime workflow:
 
@@ -309,8 +344,7 @@ passed (two existing warnings outside the new storage module). The registry
 image build passed Dart analysis and **22** verifier tests. These are distinct
 from the live acceptance sequence above.
 
-**Readiness:** baseline application/private storage deployed and channel closed;
-isolated remote verification qualified with synthetic fixtures. Updated adapter
-rollout awaits GitHub's dev review; deployed caller identity, creator sign-in,
+**Readiness:** updated application/private storage deployed and channel closed;
+isolated remote verification qualified with synthetic fixtures. Deployed caller identity, creator sign-in,
 tenant/independent actors and the complete Studio → approval → Player rehearsal
 are still unproven. #403 stays open.
