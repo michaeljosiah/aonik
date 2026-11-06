@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -33,21 +32,7 @@ public sealed class DockerPackageVerifier : IPackageVerifier
             var errors = ReadBoundedAsync(process.StandardError, 8192, timeout.Token);
             await Task.WhenAll(output, errors, process.WaitForExitAsync(timeout.Token));
             if (process.ExitCode != 0) return Refused(process.ExitCode == 137 ? "verifier-resource-limit" : "verifier-unavailable", policy);
-            var result = JsonSerializer.Deserialize<PackageVerificationResult>(await output, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-            if (result is null || result.ReaderCommit != ReaderPin || result.Assets is null
-                || !Regex.IsMatch(result.Code ?? "", "^[a-z0-9-]{1,100}$"))
-                return Refused("verifier-protocol-invalid", policy);
-            if (!result.Passed) return result;
-            if (result.Code != "verified" || result.ArchiveSha256 != input.Sha256 || result.ArchiveBytes != input.Bytes
-                || result.Assets.Count > policy.MaxAssets || result.Kind is not ("world" or "guide" or "part" or "production" or "story" or "comic")
-                || result.Assets.Any(a => a is null || a.ByteLength < 0 || a.ByteLength > policy.MaxAssetBytes || a.Path is null || a.Path.Length > 1024
-                    || !Regex.IsMatch(a.Sha256 ?? "", "^[a-f0-9]{64}$"))
-                || !Regex.IsMatch(result.Fingerprint ?? "", "^[a-f0-9]{64}$"))
-                return Refused("verifier-protocol-invalid", policy);
-            var lines = new[] { result.Edition }.Concat(result.Assets.Select(a => $"{a.Path} {a.Sha256}").Order(StringComparer.Ordinal));
-            if (Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join('\n', lines)))) != result.Fingerprint)
-                return Refused("verifier-fingerprint-invalid", policy);
-            return result;
+            return VerifierProtocol.Parse(await output, input, policy);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { return Refused("verifier-timeout", policy); }
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or IOException or InvalidDataException or JsonException)

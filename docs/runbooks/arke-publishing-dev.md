@@ -82,7 +82,8 @@ storage bindings, trusted API/Worker containers and domain access checks, not
 per-tenant POSIX users. No untrusted parser may share these mounts. This smoke
 check does not qualify crash durability, backup restoration or multi-instance races.
 
-Retained quotas are 512 MiB/creator and 2 GiB/tenant; archive cap 128 MiB; at most
+Retained quotas are 512 MiB/creator and 2 GiB/tenant; the initial archive cap was 128 MiB,
+reduced in the 6 November remote-verifier profile to 32 MiB (16 MiB per asset); at most
 20 creator packages, 200 tenant packages, 10 namespaces/creator and 20 sessions
 per creator/day. Parts plus assembly require at least three times the retained
 quota plus temporary-write headroom. Share quotas are capacity ceilings, not
@@ -117,7 +118,7 @@ The non-secret host profile is
 [`iac/azure/environments/dev/arke-studio.json`](../../iac/azure/environments/dev/arke-studio.json).
 Set `ARKE_AONIK_CONFIG` to its absolute path before launching the Studio branch.
 It includes the API URL, issuer, native client ID, audience, scopes, tenant ID,
-channel key, redirect port, 128 MiB cap and `dev-synthetic-v1` declaration version.
+channel key, redirect port, 32 MiB qualification cap and `dev-synthetic-v1` declaration version.
 The profile passed the actual Studio configuration parser. Its proposed synthetic
 distribution statement still requires the submitting human's explicit confirmation
 in Studio; creating this profile does not accept rights or authorise production.
@@ -139,7 +140,7 @@ Use role management for `Publishing.Review`, `Publishing.Publish` and
 alone grants no publishing authority. A creator cannot approve or publish their
 own submission, including through another linked party.
 
-## Verifier runtime — unresolved deployment prerequisite
+## Verifier runtime
 
 ACR run `db3` successfully built and tested the pinned Linux verifier:
 
@@ -151,20 +152,63 @@ ACR run `db3` successfully built and tested the pinned Linux verifier:
 The CLI entry point was excluded by the global .NET `bin/` ignore rule; the
 explicit source exception now makes a clean checkout reproducible.
 
-**The deployed Worker cannot execute this verifier yet.** Its adapter launches
+**The original deployed Worker cannot execute this Docker verifier.** Its adapter launches
 Docker with a networkless, read-only, non-root container and bounded CPU, memory,
 PIDs, scratch and timeout. The ACA Worker image has neither Docker CLI nor daemon;
 [ACA does not support privileged host access](https://learn.microsoft.com/en-us/azure/container-apps/containers).
 An image build is not evidence that these runtime controls work in dev.
 
-Qualification needs either a dedicated Docker-capable verification host with a
-secure invocation boundary and matching private volume, or a tested remote
-adapter for an isolated service such as
-[custom-container Dynamic Sessions](https://learn.microsoft.com/en-us/azure/container-apps/sessions-custom-container).
-Do not substitute a native parser inside the API/Worker, borrow the AI pool's
-network-enabled execution policy, or manually mark a validation report passed.
-Record actual network denial, resource termination, cleanup after caller death,
-archive identity and report provenance before enabling admission.
+The 6 November implementation adds a dedicated
+[custom-container Dynamic Sessions](https://learn.microsoft.com/en-us/azure/container-apps/sessions-custom-container)
+adapter. It does not borrow the network-enabled AI pool or parse packages in
+API/Worker. The repeatable module is `iac/azure/modules/publishing-verifier.bicep`.
+
+- Environment: `aonik-dev-publishing-acae`, workload profiles enabled, no storage mounts.
+- Pool: `aonikdevpublishing`; endpoint
+  `https://aonikdevpublishing.icybay-1d1112c3.uksouth.azurecontainerapps.io`.
+- Image: `aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:edcf30cccff2a89f69523e2dabba590118999778cc2e623471c511217ab46dfb`
+  (ACR run `db7`, 22 Dart and 9 Linux transport/limit tests).
+- Python base: `python@sha256:09a17cad02668ae61ece136b4fd36ac3849e14f670ebedb637ea3e15580525bc`;
+  reader and Dart base pins remain as above.
+- Outbound networking disabled; no identity or credentials inside sessions.
+  A separate pull identity has only ACR pull access. API/Worker system identities
+  have Session Executor and Reader on this pool, not Contributor.
+- Fixed qualification profile: 1 CPU / 2 GiB, 64 MiB scratch, 32 MiB archives,
+  16 MiB assets; one ready session and a two-session cap. Azure rejected zero
+  ready sessions and a lifetime below 300 seconds. One warm sandbox and its
+  supporting infrastructure incur ongoing cost; this is not scale-to-zero.
+- Each job uses sealed memfd input, a fresh nonce/session, 45-second reader
+  deadline, a non-renewable 150-second watchdog and a 300-second Azure lifetime.
+  The reader also has kernel address-space, CPU, process, descriptor and file
+  limits. See the [provider contract](../features/arke-publishing-intake.md#azure-dynamic-sessions-provider).
+
+The earlier session image (`4ece9f…`, run `db5`) passed all seven synthetic types
+through the actual .NET adapter: world, listening, guide, music, story, comic and
+part. A separate live probe confirmed UID 65532, blocked public/metadata TCP
+connections, non-writable runtime directories and exactly 64 MiB scratch.
+Azure hides the cgroup mount in this sandbox; cgroup introspection is not
+evidence of its CPU/memory enforcement. The final image adds an independent
+kernel address-space allocation-denial probe. Final-image runtime/abandonment
+checks and API/Worker adapter rollout are still in progress at this checkpoint.
+
+Run `scripts/Test-ArkeDevVerifier.ps1 -CheckAbandonedJob` to inspect the fixed
+runtime probes and observe reclamation without caller cleanup. Run
+`dotnet run --project tools/ArkeVerifier.Qualification -- iac/azure/environments/dev/aca.parameters.json tests/Aonik.TestSupport/Publishing/Fixtures`
+for seven positive packages, changed archive identity and an invalid archive.
+The CLI runner uses the signed-in dev operator, while deployed applications
+explicitly use their system-assigned managed identity. Temporary operator
+Session Executor access must be removed after the rehearsal.
+
+These tools do not submit creator material, accept distribution rights, approve
+an edition or expose a catalogue. Keep admission closed until the final runtime,
+deployed caller identity and remaining creator/Player checks are recorded.
+
+Implementation validation on 6 November: full .NET regression **5,325 passed /
+12 existing skips**, then **21 focused verifier tests** after the final transport
+and active-image checks. Solution builds have zero errors; restoring current
+NuGet audit data also surfaced existing transitive package advisories (Pkcs and
+ImageSharp), separate from this change. Bicep compilation and PowerShell parsing
+passed. Full live creator/reviewer and Player acceptance is still outstanding.
 
 ## Player and catalogue audit
 

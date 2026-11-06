@@ -85,7 +85,14 @@ public static class DependencyInjection
         // Core abstractions
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<Aonik.Publishing.Contracts.IPublishingObjectStore, Publishing.PrivatePublicationObjectStore>();
-        services.AddScoped<Aonik.Publishing.Contracts.IPackageVerifier, Publishing.DockerPackageVerifier>();
+        services.AddScoped<Publishing.DockerPackageVerifier>();
+        services.AddHttpClient("Publishing.Verifier", client => client.Timeout = Timeout.InfiniteTimeSpan)
+            .RemoveAllLoggers()
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+        services.AddScoped(sp => new Publishing.SessionPackageVerifier(
+            sp.GetRequiredService<IHttpClientFactory>().CreateClient("Publishing.Verifier"),
+            new Azure.Identity.ManagedIdentityCredential(Azure.Identity.ManagedIdentityId.SystemAssigned)));
+        services.AddScoped<Aonik.Publishing.Contracts.IPackageVerifier, Publishing.PackageVerifierRouter>();
         services.AddScoped<Aonik.Publishing.Contracts.IPublicationArtifactStore, Publishing.ImmutablePublicationArtifactStore>();
         services.AddScoped<Aonik.Publishing.Contracts.ILegacyCatalogueMirror, Publishing.GitHubLegacyCatalogueMirror>();
         services.AddHttpClient("Publishing.PublicReadback", client => client.Timeout = TimeSpan.FromSeconds(95))

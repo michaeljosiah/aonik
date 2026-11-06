@@ -21,6 +21,7 @@ $worker = Join-Path $stage 'verifier'
 New-Item -ItemType Directory -Path $worker | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'reader-pin.json') -Destination $stage
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Dockerfile'),(Join-Path $PSScriptRoot '.dockerignore') -Destination $stage
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Dockerfile.sessions'),(Join-Path $PSScriptRoot 'session') -Destination $stage -Recurse
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'bin'),(Join-Path $PSScriptRoot 'lib'),(Join-Path $PSScriptRoot 'pubspec.yaml') -Destination $worker -Recurse
 if (Test-Path (Join-Path $PSScriptRoot 'test')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'test') -Destination $worker -Recurse }
 @'

@@ -9,5 +9,5 @@
   "rightsDeclarationVersion": "dev-synthetic-v1",
   "permissionText": "Development rehearsal only. I confirm that I control all included synthetic material and permit private review and, after independent approval, distribution through the isolated arke-worlds-dev test channel. This does not authorize production distribution.",
   "redirectPort": 37619,
-  "maxPackageBytes": 134217728
+  "maxPackageBytes": 33554432
 }

@@ -61,6 +61,7 @@ All defaults fail closed. The following is an illustrative **private test channe
       "MaxValidationAttempts": 3
     },
     "Verifier": {
+      "Provider": "Docker",
       "DockerExecutable": "docker",
       "Image": "<qualified-registry-image>@sha256:<64-hex-digest>",
       "ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
@@ -93,7 +94,21 @@ Use a compatible installed Dart SDK (the pinned packages require Dart 3.11.1 or 
 
 The native executable is for local fixture qualification. **The server has no native-process verification fallback.** Its production adapter requires a qualified container image by immutable digest. Build that image from the prepared workspace using `tools/arke-package-verifier/Dockerfile`, with an operator-qualified Debian-compatible Dart SDK image supplied as `DART_IMAGE` **by digest**. The Dockerfile reruns analysis/tests and includes a hard 90-second supervisor inside the container, so a dead API/Worker cannot leave an unbounded parser process behind.
 
-At runtime the adapter enforces no network, read-only root/input, a non-root user, no capabilities or privilege escalation, CPU/PID/memory limits, bounded tmpfs scratch, bounded output and a host timeout. It rechecks report provenance, archive identity and edition fingerprint. Containers are uniquely named and labelled `aonik.publishing.verifier=true`; host cleanup force-removes the generated name. Qualify resource termination and host/container cleanup in the actual deployment before enabling the channel.
+At runtime the Docker adapter enforces no network, read-only root/input, a non-root user, no capabilities or privilege escalation, CPU/PID/memory limits, bounded tmpfs scratch, bounded output and a host timeout. It rechecks report provenance, archive identity and edition fingerprint. Containers are uniquely named and labelled `aonik.publishing.verifier=true`; host cleanup force-removes the generated name. Qualify resource termination and host/container cleanup in the actual deployment before enabling the channel.
+
+### Azure Dynamic Sessions provider
+
+ACA hosts cannot launch the Docker adapter. `Provider: AzureDynamicSessions` uses a dedicated custom-container pool, selected by its ARM `SessionPoolResourceId`. `Docker` remains the default; unknown providers fail closed. There is no native parser fallback or reuse of the AI code-interpreter pool.
+
+The dev qualification profile uses 32 MiB archives, 16 MiB assets, 4 MiB documents, 64 MiB scratch, 1 CPU and 2 GiB pool memory. Configure the channel and Studio archive limits to the same 32 MiB ceiling. Set `MemoryMiB: 2048`, `ScratchMiB: 64`, `MaxAssetBytes: 16777216` and the qualified session image digest. API and Worker settings must match. The builder emits `Dockerfile.sessions` and its transport alongside the pinned reader workspace; both `DART_IMAGE` and `PYTHON_IMAGE` build arguments must be qualified digests.
+
+Each verification gets a new cryptographically random session and nonce. The adapter validates the ARM pool configuration before and after execution: immutable image, egress disabled, one container, no command override, secrets, environment injection or mounts, image-pull identity unavailable inside the session, bounded lifecycle and capacity. The caller's system-assigned managed identity needs only Session Executor and Reader on this pool. Its named HTTP client disables redirects, cookies and request logging. No storage credentials, paths, SAS URLs or creator bearer tokens are sent to the sandbox.
+
+The single-use transport streams bounded chunks into an anonymous Linux memfd, verifies length/hash and seals the input against writing, resizing and removing seals. A separate non-root reader inherits only that descriptor and a minimal environment. Its kernel limits bound address space, CPU time, file size, open descriptors and processes; `no_new_privs` is set before exec. The runtime directories are not writable by UID 65532; scratch is the bounded `/dev/shm` filesystem. This is not a claim that ACA exposes Docker's read-only-root setting. Parent transport memory is non-dumpable, and child stdout/stderr are bounded.
+
+The parser wall deadline is at most 45 seconds. A fixed 150-second job watchdog exits even if the caller disappears; the Azure session has a non-renewable 300-second maximum lifetime. Every adapter exit attempts stop-session with an independent cleanup deadline. Unconfirmed cleanup invalidates a result. There is no automatic transport replay into a possibly reused sandbox. Existing held-submission/revision recovery remains authoritative.
+
+Use `scripts/Test-ArkeDevVerifier.ps1 -CheckAbandonedJob` for fixed runtime/network/allocation/expiry probes and `tools/ArkeVerifier.Qualification` for all seven synthetic package types through the real adapter. These tools target the dedicated dev pool only. They do not create submissions, approve rights, publish artefacts or qualify human/device acceptance. Record actual results in the [dev runbook](../runbooks/arke-publishing-dev.md).
 
 The worker checks every media asset through the owning `extractAsset`/`checkAsset` primitives, not just `readWorldPackage`. It also bounds central-directory/document sizes, refuses unsafe/duplicate/unreferenced/compressed outer entries, checks supported document capabilities, inspects media containers and constrains nested EPUB expansion. Art/media rights, age suitability and editorial approval are separate checks.
 
