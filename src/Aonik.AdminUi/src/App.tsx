@@ -537,7 +537,7 @@ function AuthenticatedApp() {
           path="/setup/tenant"
           element={
             <ProtectedRoute>
-              <TenantSetupWizardPage onComplete={() => window.location.href = '/'} />
+              <TenantSetupWizardPage onComplete={() => setTenantNeedsSetup(false)} />
             </ProtectedRoute>
           }
         />
@@ -546,7 +546,7 @@ function AuthenticatedApp() {
             path="/*"
             element={
               <ProtectedRoute>
-                <TenantSetupWizardPage onComplete={() => window.location.href = '/'} />
+                <TenantSetupWizardPage onComplete={() => setTenantNeedsSetup(false)} />
               </ProtectedRoute>
             }
           />

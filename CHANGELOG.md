@@ -8,6 +8,7 @@ All notable changes to the AONIK project will be documented in this file.
 
 - **Invited creator registration (#403):** Check tenant status and invitation admission before creating an external identity, return a clear forbidden response when admission is missing, and allow the exact registration endpoint to resolve its tenant from the request body. Existing tenant invitation requirements remain enforced.
 - **Organization recovery after sign-in (#403):** Validate the signed-in account's organization memberships before loading tenant setup, so a stale organization selection cannot trigger a false session-expired loop.
+- **Optional workspace setup (#403):** Keep “Skip for now” in the current browser session instead of reloading into the same unfinished wizard. Skipping retains saved progress and does not mark company setup complete.
 
 ### Added
 

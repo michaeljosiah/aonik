@@ -5,6 +5,25 @@ catalogue migration or public release is authorised by the dev rehearsal.
 
 ## Deployed application
 
+Recovery release `484c87782b397b636dda2bb98216041fca85ac58` from PR #406 passed
+[CI](https://github.com/michaeljosiah/aonik/actions/runs/42179322706),
+[image build](https://github.com/michaeljosiah/aonik/actions/runs/42179351344),
+[preview](https://github.com/michaeljosiah/aonik/actions/runs/42180760111) and
+[deployment](https://github.com/michaeljosiah/aonik/actions/runs/42181160485).
+API `0000377`, Worker `0000368` and Admin UI `0000368` are Running; health is
+200 and the disabled catalogue is 404. The actual reviewer browser now reaches
+the two-organization picker and selects Arke Kidz without a false session expiry.
+The live body-only registration check returns 403 before identity creation;
+Auth0 confirms no second identity was created. The first identity is verified
+but still needs an AONIK invitation/link.
+
+The previously unused tenant's optional company wizard then exposed a separate
+skip loop: its completion callback reloaded into the unfinished wizard. The
+follow-up changes that callback to leave setup in the current session, preserving
+the incomplete flag and progress. No industry/company details are invented.
+Native Studio consent was left unaccepted; tenant invitations use the normal
+authenticated administration path once setup can be postponed.
+
 On **6 November 2026**, the owner approved the protected dev build/deployment
 gates for implementation `2848f9658fff95c45b43f19a2c5063f2b741cfd0` (PR #405,
 merged as `03544392428273583672aad0652e17ea52c8a07f`). The normal workflows passed:
@@ -35,8 +54,8 @@ directly, reset the reviewer's password, or grant access by editing SQL.
 
 Reviewer Auth0 sign-in succeeded, but a stale Admin UI organization selection
 caused `/v1/me` to run against an unrelated tenant before membership discovery.
-The follow-up startup-order fix must be rolled out before continuing in that
-browser. Registration/session recovery is not end-to-end publishing acceptance.
+The startup-order fix was subsequently deployed and verified as recorded above.
+Registration/session recovery is not end-to-end publishing acceptance.
 
 ### Previous baseline
 
