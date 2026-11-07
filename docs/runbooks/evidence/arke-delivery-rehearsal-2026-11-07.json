@@ -1,0 +1,516 @@
+{
+  "checkedAt": "2026-11-07T22:28:36.602Z",
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "scope": "Completed owner-authorised synthetic dev delivery readback fault, same-operation retry, idempotent replay and withdrawal rehearsal.",
+  "submissionId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+  "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+  "revisionNumber": 3,
+  "package": {
+    "status": 200,
+    "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+    "bytes": 2354240
+  },
+  "reviewDigest": "62988eabc500b5142a15ecad45680132fdb8c77876ad511cdd17415c5518abcf",
+  "validation": {
+    "reportId": "6fc86383-c1b2-4a34-a8ad-9af882a9f3d4",
+    "status": "passed",
+    "code": "verified",
+    "completedAt": "2026-11-07T21:58:19.6632723",
+    "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+    "verifierImage": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:edcf30cccff2a89f69523e2dabba590118999778cc2e623471c511217ab46dfb"
+  },
+  "approval": {
+    "decisionId": "5f6afa10-52f7-435f-9331-d4ff7dade8c6",
+    "requestId": "e537ee16-5ab9-424e-8b24-4db705bef486",
+    "reviewerUserId": "fea74a2f-3261-47f7-a8ca-359ec0f3f373",
+    "decidedAt": "2026-11-07T22:08:18.946654Z",
+    "checks": {
+      "distributionRightsReviewed": true,
+      "attributionReviewed": true,
+      "audienceSafetyReviewed": true
+    },
+    "replaySameId": true
+  },
+  "preflight": {
+    "sourceIp": "100.100.0.212",
+    "apiInternalIp": "100.100.242.87",
+    "retainedArtifactId": "4e7eb6bb-a64a-4530-8416-9ca5fa865774",
+    "manual": {
+      "appliedAt": "2026-11-07T22:05:27.2721335Z",
+      "restoredAt": "2026-11-07T22:06:07.8154183Z",
+      "workerHttpSequence": [
+        200,
+        403,
+        200
+      ],
+      "operatorHealth": 200,
+      "operatorCatalogueStatus": 200,
+      "devSerial": 2,
+      "devWorldCount": 0,
+      "originalBaselineRestored": true
+    },
+    "automatic": {
+      "appliedAt": "2026-11-07T22:08:20.0982294Z",
+      "restoreDelaySeconds": 60,
+      "restoredAt": "2026-11-07T22:09:22.7078695Z",
+      "workerHttpSequence": [
+        200,
+        403,
+        200
+      ],
+      "originalBaselineRestored": true
+    },
+    "method": "One named dev ingress deny rule for the observed Worker source /32; explicit removal and detached watchdog removal both qualified. No policy, bytes or database changes."
+  },
+  "remaining": [
+    "Configured cross-tenant/no-party/expired-auth cases",
+    "Other delivery failure modes including attempt exhaustion and mirror failure remain unqualified by this transient-readback test",
+    "Supported consumer variants and refresh modes",
+    "Production baseline rights, measured capacity and isolated backup restoration"
+  ],
+  "method": "Actual Studio CreatorPublishingService freezes, uploads and refreshes revision 3; real reviewer PKCE identity and deployed AONIK endpoints; temporary dev ingress source denial drives the deployed Worker into uncertain delivery. Service/API/network evidence, not additional Player UI coverage.",
+  "authority": {
+    "releaseAuthority": "User explicitly authorised release, reversible Worker readback fault, same-operation retry and withdrawal in arke-worlds-dev.",
+    "editorialApproval": "User explicitly approved revision 3 for dev.",
+    "recordedAt": "2026-11-07T22:17:19.0013124Z",
+    "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05"
+  },
+  "runtime": {
+    "apiRevision": "aonik-dev-api--0000383",
+    "workerReplica": "aonik-dev-worker--0000373-7cb7b7b46c-bnjtk",
+    "redeployed": false,
+    "databaseWrites": "Normal authenticated domain services and deployed Worker only; no direct SQL or schema changes."
+  },
+  "liveFault": {
+    "appliedAt": "2026-11-07T22:17:08.1258836Z",
+    "restoredAt": "2026-11-07T22:18:48.6847740Z",
+    "workerNetworkProbeStatus": 403,
+    "operatorHealthStatus": 200,
+    "sourceCidr": "100.100.0.212/32",
+    "autoRestoreSeconds": 600,
+    "originalBaselineRestored": true,
+    "failedOperation": {
+      "id": "f5f85e15-c520-47df-9f36-5ebd12127231",
+      "channelKey": "arke-worlds-dev",
+      "kind": "publish",
+      "submissionId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "decisionId": "5f6afa10-52f7-435f-9331-d4ff7dade8c6",
+      "editionId": null,
+      "status": "uncertain",
+      "code": "public-transport-uncertain",
+      "attempts": 1,
+      "committedSerial": null,
+      "createdAt": "2026-11-07T22:17:27.4570415",
+      "completedAt": null,
+      "version": "AAAAAAAXtr8=",
+      "canRetry": true
+    },
+    "devCatalogue": {
+      "version": 2,
+      "serial": 2,
+      "worlds": []
+    },
+    "retainedArchive": {
+      "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/3f5a20c5-0cb4-4b4c-88f9-1ba46e914f78",
+      "status": 200,
+      "bytes": 2354240,
+      "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "mediaType": "application/zip",
+      "contentLength": "2354240"
+    }
+  },
+  "retry": {
+    "observedAt": "2026-11-07T22:19:06.856Z",
+    "originalOperationId": "f5f85e15-c520-47df-9f36-5ebd12127231",
+    "requestId": "89401b1a-dd89-432b-96b0-2ebaf8caf165",
+    "audit": {
+      "id": "3a61b0cf-55b5-497a-8b46-47a522cd02bd",
+      "channelKey": "arke-worlds-dev",
+      "kind": "retry",
+      "submissionId": null,
+      "revisionId": null,
+      "decisionId": null,
+      "editionId": null,
+      "status": "committed",
+      "code": "retry-queued",
+      "attempts": 0,
+      "committedSerial": null,
+      "createdAt": "2026-11-07T22:19:00.3718619",
+      "completedAt": "2026-11-07T22:19:00.3703684",
+      "version": "AAAAAAAXttQ=",
+      "canRetry": false
+    },
+    "before": {
+      "id": "f5f85e15-c520-47df-9f36-5ebd12127231",
+      "channelKey": "arke-worlds-dev",
+      "kind": "publish",
+      "submissionId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "decisionId": "5f6afa10-52f7-435f-9331-d4ff7dade8c6",
+      "editionId": null,
+      "status": "uncertain",
+      "code": "public-transport-uncertain",
+      "attempts": 2,
+      "committedSerial": null,
+      "createdAt": "2026-11-07T22:17:27.4570415",
+      "completedAt": null,
+      "version": "AAAAAAAXtso=",
+      "canRetry": true
+    },
+    "accepted": {
+      "id": "f5f85e15-c520-47df-9f36-5ebd12127231",
+      "channelKey": "arke-worlds-dev",
+      "kind": "publish",
+      "submissionId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "decisionId": "5f6afa10-52f7-435f-9331-d4ff7dade8c6",
+      "editionId": null,
+      "status": "pending",
+      "code": "retry-queued",
+      "attempts": 0,
+      "committedSerial": null,
+      "createdAt": "2026-11-07T22:17:27.4570415",
+      "completedAt": null,
+      "version": "AAAAAAAXttM=",
+      "canRetry": true
+    },
+    "committed": {
+      "id": "f5f85e15-c520-47df-9f36-5ebd12127231",
+      "channelKey": "arke-worlds-dev",
+      "kind": "publish",
+      "submissionId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "decisionId": "5f6afa10-52f7-435f-9331-d4ff7dade8c6",
+      "editionId": "1a977564-5ab4-426e-877a-453c398a2f45",
+      "status": "committed",
+      "code": "published",
+      "attempts": 1,
+      "committedSerial": 3,
+      "createdAt": "2026-11-07T22:17:27.4570415",
+      "completedAt": "2026-11-07T22:19:01.4367007",
+      "version": "AAAAAAAXtt0=",
+      "canRetry": false
+    },
+    "sameOperation": true,
+    "singleEditionId": "1a977564-5ab4-426e-877a-453c398a2f45",
+    "publicArtifacts": [
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/cb9001b7-c002-4c4d-be85-6557e45c6bc8",
+        "status": 200,
+        "bytes": 1176020,
+        "sha256": "9d5101c3698c0f000021e71848c7b31ec12a8a824eb8a93fe4cf8f661339b81f",
+        "mediaType": "image/png",
+        "contentLength": "1176020"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/3f5a20c5-0cb4-4b4c-88f9-1ba46e914f78",
+        "status": 200,
+        "bytes": 2354240,
+        "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+        "mediaType": "application/zip",
+        "contentLength": "2354240"
+      }
+    ],
+    "filesAfterFailure": [
+      {
+        "length": 2354240,
+        "name": "3f5a20c50cb44b4c88f91ba46e914f78",
+        "type": "file"
+      }
+    ],
+    "filesAfterSuccess": [
+      {
+        "length": 2354240,
+        "name": "3f5a20c50cb44b4c88f91ba46e914f78",
+        "type": "file"
+      },
+      {
+        "length": 1176020,
+        "name": "cb9001b7c0024c4dbe856557e45c6bc8",
+        "type": "file"
+      }
+    ]
+  },
+  "replays": [
+    {
+      "method": "POST",
+      "path": "/publishing/publications/f5f85e15-c520-47df-9f36-5ebd12127231/retry",
+      "status": 200,
+      "code": "published",
+      "operationId": "f5f85e15-c520-47df-9f36-5ebd12127231"
+    },
+    {
+      "method": "POST",
+      "path": "/publishing/publications/f5f85e15-c520-47df-9f36-5ebd12127231/retry",
+      "status": 409,
+      "code": "publication-operation-conflict",
+      "operationId": null
+    },
+    {
+      "method": "POST",
+      "path": "/publishing/publications/f5f85e15-c520-47df-9f36-5ebd12127231/retry",
+      "status": 409,
+      "code": "publication-not-retryable",
+      "operationId": null
+    },
+    {
+      "method": "POST",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/publication",
+      "status": 200,
+      "code": "published",
+      "operationId": "f5f85e15-c520-47df-9f36-5ebd12127231"
+    }
+  ],
+  "withdrawal": {
+    "operation": {
+      "id": "50b4d3f6-249b-4b6a-a584-149d5c55d980",
+      "channelKey": "arke-worlds-dev",
+      "kind": "withdraw",
+      "submissionId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "decisionId": null,
+      "editionId": "1a977564-5ab4-426e-877a-453c398a2f45",
+      "status": "committed",
+      "code": "withdrawn",
+      "attempts": 1,
+      "committedSerial": 4,
+      "createdAt": "2026-11-07T22:20:17.2120949",
+      "completedAt": "2026-11-07T22:20:23.4495013",
+      "version": "AAAAAAAXtvY=",
+      "canRetry": false
+    },
+    "editionId": "1a977564-5ab4-426e-877a-453c398a2f45",
+    "isCurrent": false,
+    "withdrawnAt": "2026-11-07T22:20:23.4480091",
+    "catalogue": {
+      "version": 2,
+      "serial": 4,
+      "worlds": []
+    },
+    "retainedArtifacts": [
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/cb9001b7-c002-4c4d-be85-6557e45c6bc8",
+        "status": 200,
+        "bytes": 1176020,
+        "sha256": "9d5101c3698c0f000021e71848c7b31ec12a8a824eb8a93fe4cf8f661339b81f",
+        "mediaType": "image/png",
+        "contentLength": "1176020"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/3f5a20c5-0cb4-4b4c-88f9-1ba46e914f78",
+        "status": 200,
+        "bytes": 2354240,
+        "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+        "mediaType": "application/zip",
+        "contentLength": "2354240"
+      }
+    ],
+    "creator": {
+      "observedAt": "2026-11-07T22:21:15.504Z",
+      "candidateId": "b141ce42-b23d-435d-9e04-61e017ef3a2d",
+      "receiptId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "status": "withdrawn",
+      "transfer": "complete",
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "packageBytes": 2354240
+    }
+  },
+  "studio": {
+    "approved": {
+      "observedAt": "2026-11-07T22:11:05.439Z",
+      "candidateId": "b141ce42-b23d-435d-9e04-61e017ef3a2d",
+      "receiptId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "status": "approved",
+      "transfer": "complete",
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "packageBytes": 2354240
+    },
+    "published": {
+      "observedAt": "2026-11-07T22:19:51.040Z",
+      "candidateId": "b141ce42-b23d-435d-9e04-61e017ef3a2d",
+      "receiptId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "status": "published",
+      "transfer": "complete",
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "packageBytes": 2354240
+    },
+    "withdrawn": {
+      "observedAt": "2026-11-07T22:21:15.504Z",
+      "candidateId": "b141ce42-b23d-435d-9e04-61e017ef3a2d",
+      "receiptId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05",
+      "status": "withdrawn",
+      "transfer": "complete",
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "packageBytes": 2354240
+    }
+  },
+  "production": {
+    "before": {
+      "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/catalogue.json",
+      "status": 200,
+      "bytes": 14076,
+      "sha256": "6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca",
+      "mediaType": "application/octet-stream",
+      "contentLength": "14076",
+      "serial": 49,
+      "worldCount": 5
+    },
+    "after": {
+      "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/catalogue.json",
+      "status": 200,
+      "bytes": 14076,
+      "sha256": "6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca",
+      "mediaType": "application/octet-stream",
+      "contentLength": "14076",
+      "serial": 49,
+      "worldCount": 5
+    },
+    "unchanged": true
+  },
+  "cleanup": {
+    "ingressRestored": true,
+    "temporaryDebugConsoleExited": true,
+    "mirrorStatus": "disabled"
+  },
+  "finalReadback": {
+    "at": "2026-11-07T22:23:22.345Z",
+    "label": "final",
+    "health": 200,
+    "production": {
+      "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/catalogue.json",
+      "status": 200,
+      "bytes": 14076,
+      "sha256": "6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca",
+      "mediaType": "application/octet-stream",
+      "contentLength": "14076",
+      "serial": 49,
+      "worldCount": 5
+    },
+    "dev": {
+      "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/catalogue.json",
+      "status": 200,
+      "bytes": 36,
+      "sha256": "80161bad473aa71cbd42c691f9071a8afdcabe17f5739a8071a1145ce0f381fd",
+      "mediaType": "application/json",
+      "contentLength": "36",
+      "feed": {
+        "version": 2,
+        "serial": 4,
+        "worlds": []
+      }
+    },
+    "artifacts": [
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/cb9001b7-c002-4c4d-be85-6557e45c6bc8",
+        "status": 200,
+        "bytes": 1176020,
+        "sha256": "9d5101c3698c0f000021e71848c7b31ec12a8a824eb8a93fe4cf8f661339b81f",
+        "mediaType": "image/png",
+        "contentLength": "1176020"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/3f5a20c5-0cb4-4b4c-88f9-1ba46e914f78",
+        "status": 200,
+        "bytes": 2354240,
+        "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+        "mediaType": "application/zip",
+        "contentLength": "2354240"
+      }
+    ]
+  },
+  "harnessCorrection": "The first retry harness attempt confused the idempotency request ID with the server operation ID. It stopped before any retry POST. The lookup was corrected to use the saved publish response ID; the normal retry endpoint then accepted the original operation. No product-code fix was necessary.",
+  "validationChecks": {
+    "build": {
+      "command": "dotnet build Aonik.sln --no-restore -m:1 -nr:false",
+      "errors": 0,
+      "existingWarnings": 60
+    },
+    "tests": {
+      "suites": [
+        {
+          "project": "Aonik.Application.Tests.dll",
+          "passed": 3538,
+          "skipped": 2,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.Infrastructure.Tests.dll",
+          "passed": 422,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.Api.Tests.dll",
+          "passed": 787,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.SharedKernel.Tests.dll",
+          "passed": 72,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.Cli.Tests.dll",
+          "passed": 35,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.Architecture.Tests.dll",
+          "passed": 62,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.Voice.Tests.dll",
+          "passed": 139,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.Finance.Tests.dll",
+          "passed": 27,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.PersonalFinance.Tests.dll",
+          "passed": 1,
+          "skipped": 0,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.Finance.IntegrationTests.dll",
+          "passed": 0,
+          "skipped": 10,
+          "failed": 0
+        },
+        {
+          "project": "Aonik.Database.Tests.dll",
+          "passed": 269,
+          "skipped": 0,
+          "failed": 0
+        }
+      ],
+      "initialAttempt": "Sandbox testhost IPC connection timed out before tests ran; stopped and reran the whole suite outside the sandbox.",
+      "skipped": 12,
+      "passed": 5352,
+      "failed": 0,
+      "command": "dotnet test Aonik.sln --no-build --no-restore -m:1 -nr:false"
+    },
+    "helper": {
+      "diffWhitespace": "passed",
+      "automaticRestore": "passed live",
+      "manualRestore": "passed live",
+      "powerShellParse": "passed"
+    }
+  }
+}

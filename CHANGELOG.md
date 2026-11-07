@@ -16,6 +16,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Added
 
+- **Arke delivery fault and retry rehearsal (#403):** Proved that a real Worker public-readback failure preserves the empty catalogue and copied archive, then an authorised retry commits the same operation once. Publish/retry replays remain stable, conflicting or completed-operation retries are refused, and withdrawal advances to an empty serial 4 while retaining exact assets. Added a dev-only source restriction helper with qualified automatic restoration and sanitized evidence; production is unchanged.
+
 - **Arke editorial failure rehearsal (#403):** Proved independent request-changes, a verified immutable revision replacement through Studio, stale review/version refusal, rejection and stable decision replays. Creator feedback retains both revision messages while hiding internal review fields; the earlier local receipt becomes superseded. Public discovery remains unchanged.
 
 - **Arke cross-account rehearsal (#403):** All 21 live Creator 2 denial probes passed against Creator 1's private receipts, packages, upload mutations and revision replacement. Owner-positive controls and identical before/after records prove the denials preserved the original state; the empty upload fixture was cancelled by its owner. Recorded same-tenant scope and remaining qualification; no runtime fix or public release was needed.
