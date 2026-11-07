@@ -508,7 +508,8 @@ The rehearsal stage uses 1 MiB parts within the existing 32 MiB package cap, so 
 2,354,240-byte real Studio export exercises multipart recovery without increasing
 the accepted archive size. This is a synthetic test configuration, not a capacity
 qualification. Recovery resumed the original receipt before any successful part;
-this does not prove interruption after an accepted chunk or a process restart.
+this checkpoint did not prove interruption after an accepted chunk or a process
+restart. The subsequent private failure rehearsal below proves both separately.
 
 At 14:36 UTC the original receipt completed all 2,354,240 bytes and the deployed
 Worker's managed-identity job passed the pinned Azure Dynamic Sessions verifier.
@@ -560,6 +561,74 @@ reviewer harness was signed out and stopped; Creator 1's Studio session was pres
 See the [live evidence](evidence/arke-live-rehearsal-2026-11-07.json) for exact identities
 and remaining acceptance cases. This synthetic base-book run does not qualify all of #403.
 
+## Private upload failure rehearsal — 7 November 2026
+
+The owner requested merge and continuation. AONIK [#407](https://github.com/michaeljosiah/aonik/pull/407),
+Studio [#2752](https://github.com/michaeljosiah/ArkeStudio/pull/2752), Player
+[#54](https://github.com/michaeljosiah/ArkePlayer/pull/54), and specification PR #134
+were squash-merged at 15:32 UTC. AONIK used the owner's prior force-merge authority
+because required GitHub checks remained queued without an assigned runner.
+Queued checks are not passing CI. The local validation limits in the validation section below
+still apply; merging did not replace the deployed runtime images.
+
+At 15:41 UTC the real Studio `CreatorPublishingService`, `AonikPublishingApi` and
+normal Creator 1 account adapter submitted another **private** receipt using the
+same owner-confirmed synthetic archive and declaration. An isolated Electron
+process exited after the server accepted the first 1 MiB part but before Studio
+recorded its acknowledgement. A fresh process loaded the durable receipt as
+**Paused**, with zero locally acknowledged bytes. Resume reconciled the server
+state and sent only parts 2 and 3, retaining receipt
+`acf682c0-3141-4fb5-835d-89c566eb3165`, revision
+`e768da08-740d-4ad1-b451-16fe4522c324` and upload
+`8d189b7c-bc0a-4803-9464-4f609649eeec`. The deployed Worker verified the archive
+at 15:41:51 UTC and the receipt reached **In review**. No editorial approval or
+publication was requested for this new receipt.
+
+Narrow authenticated API probes then established these results:
+
+| Case | Observed result |
+| --- | --- |
+| Identical create and submit replay | Same receipt/revision and validation report |
+| Changed archive declaration with reused request ID | 409 `request-id-reused` |
+| Wrong submit revision / stale replacement version | 409 `revision-changed` / `review-version-changed` |
+| Creator reading reviewer or channel-management routes | 403 |
+| Invalid bearer / unresolved tenant header | 401; these do not prove expired auth or configured cross-tenant isolation |
+| Complete before all parts / submit before complete | 409 `parts-missing` / `package-not-uploaded` |
+| Malformed digest / short or out-of-range part | 422 `invalid-part-digest` / `invalid-part-length` |
+| Correct declared part hash with corrupted transport bytes | 422 `upload-bytes-mismatch`; zero bytes counted |
+| Retry the correct bytes after corruption | Accepted; identical retry did not increase received bytes |
+| Changed identity for an accepted part number | 409 `part-identity-conflict` |
+| Cancel and repeat cancellation | Both 204; upload remains cancelled |
+| Write to the cancelled upload | 409 `upload-superseded` |
+| Start replacement, then repeat the old cancellation | New session remains open |
+| Individually valid parts whose assembled archive differs from the declaration | 422 `upload-bytes-mismatch`; session retired as failed and submission stayed awaiting upload |
+
+The malformed-byte checks used a separate private receipt
+`617d6c5e-5bb6-4781-a8cf-051f0ecdc784`; its altered bytes never entered verification
+or editorial review. Failed/cancelled bytes remain subject to normal retention
+cleanup. No immediate quota reclamation or physical-deletion claim is made.
+The public dev catalogue remained empty at serial 2. The original released edition
+remains withdrawn, and this run made no production requests that mutate state.
+
+The [sanitized evidence](evidence/arke-negative-rehearsal-2026-11-07.json) records
+timestamps, exact identities, HTTP outcomes, merge commits and remaining cases.
+The service interruption is a real process restart using Studio's implementation;
+the additional HTTP probes are not new UI coverage. Creator 2 cross-party checks
+are prepared but await a fresh sign-in. Independent request-changes/rejection,
+real expired-auth/no-party and configured cross-tenant checks, delivery failure
+recovery, supported Player variants, capacity and restore qualification remain open.
+
+To repeat recovery in an isolated dev workspace, keep the frozen export and saved
+request identity, stop the uploader after a successful part acknowledgement, and
+restart Studio with that workspace. Resume the existing **Paused** receipt, then
+verify that only server-reported missing parts are sent. For corruption tests use
+a separate private receipt; never alter the original approved edition or release
+malformed bytes. Retain IDs for cancellation/replay checks, and check catalogue
+serial and contents after each test. Do not reset receipt files or database state
+to make a failed run look successful.
+
+## Operational safeguards and recovery
+
 - Keep intake closed if verifier capacity, identity setup or storage readiness is
   unknown. Keep review and delivery separate; an outage must not grant approval.
 - Inspect receipt validation codes and outbox attempts; unavailable verification
@@ -601,5 +670,5 @@ verification, independent owner-approved review and dev publication. Both synthe
 creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
 forced refresh passed for this one synthetic base EPUB. Consenting human pilot actors, the
-failure-case and supported-consumer matrix, audited production baseline rights,
+remaining identity/editorial/delivery failure cases and supported-consumer matrix, audited production baseline rights,
 capacity and backup restoration are still unqualified. #403 stays open.
