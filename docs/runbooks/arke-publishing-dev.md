@@ -708,6 +708,111 @@ UI coverage. No runtime or schema fix was required. Remaining #403 work includes
 configured cross-tenant/no-party/expired-auth cases, delivery fault/retry,
 supported consumer variants, production rights, capacity and isolated restoration.
 
+## Controlled delivery readback fault — dev only
+
+`scripts/Set-ArkeDevDeliveryReadbackFault.ps1` can temporarily deny the single
+observed Worker source IPv4 at the **dev API ingress**. All other clients remain
+allowed. This uses Azure Container Apps [IP restrictions](https://learn.microsoft.com/en-us/azure/container-apps/ip-restrictions);
+it does not change approval, delivery policy, artifact bytes or database state.
+The observed source must be requalified for the current Worker replica. Do not
+reuse an old pod IP after a restart or assume the outbound public IP is used for
+traffic within the Container Apps environment.
+
+1. Confirm there is one Worker replica, no other active delivery operation and
+   no existing dev ingress restriction. In a temporary Worker debug console,
+   probe a retained dev artifact with `curl --write-out` and record HTTP status,
+   `local_ip` and `remote_ip`. Normal clients must also receive HTTP 200.
+2. Run `-Action Preview -WorkerSourceIp <observed-ip>` with a private `-StatePath`.
+   `Block -Apply` records the empty baseline and arms a detached restore watchdog
+   before adding one named `/32` deny rule. It temporarily denies all API requests
+   from that source, so keep other Worker-to-API work out of the rehearsal window.
+   The default deadline is 600 seconds;
+   `-AutoRestoreSeconds 60` is available for recovery qualification. The deadline
+   starts the restore; Azure's control-plane update can take additional time.
+3. Qualify the fault against the retained artifact before publishing: Worker
+   readback must return 403, while operator health/catalogue reads remain 200.
+   Record the catalogue serial and confirm it did not change. If these checks
+   fail, restore immediately and do not claim a delivery fault was exercised.
+4. For an independently approved exact revision and explicitly authorised dev
+   release, retain the original publication operation through failure and retry.
+   Expect `uncertain` / `public-transport-uncertain`, an unchanged catalogue head
+   and no current edition. Use the existing `/publishing/publications/{id}/retry`
+   API with the current operation version and a durable retry request ID.
+5. Run `-Action Restore -StatePath <same-file> -Apply`. Confirm the state records
+   `originalBaselineRestored: true`, Worker readback returns 200, and the original
+   operation commits once. Replays must not create another catalogue promotion.
+   Withdraw the synthetic edition using a new higher serial after verification.
+6. Exit the temporary debug console, inspect the watchdog's output/error logs
+   beside its state file, and verify no rehearsal restriction remains. The
+   watchdog also exits promptly after an explicit successful restore.
+
+Recovery removes only `arke-dev-403-readback-rehearsal` when its name, description,
+action and source match the saved record. It preserves unrelated operator rules
+and reports if the original empty baseline is no longer restored. If the helper
+cannot run, inspect the rule and remove that exact owned rule with
+`az containerapp ingress access-restriction remove --subscription 336d38e2-bb96-4510-a4c5-5c313139eef9 --resource-group rg-aonik-dev-uksouth --name aonik-dev-api --rule-name arke-dev-403-readback-rehearsal`.
+Never clear all ingress rules as a recovery shortcut.
+
+On 7 November, the preflight observed Worker source `100.100.0.212` and API
+internal address `100.100.242.87`. Both manual restoration and the 60-second
+watchdog qualification passed (200 → 403 → 200). Normal health and catalogue
+reads stayed available, with the empty dev catalogue at serial 2. This preflight
+alone is not proof of a failed publication or successful retry.
+
+### Live result — 7 November 2026
+
+Studio froze and uploaded revision 3 of receipt
+`acf682c0-3141-4fb5-835d-89c566eb3165`, preserving the original synthetic archive
+hash and adding an explicit delivery-rehearsal summary. The deployed verifier
+passed report `6fc86383-c1b2-4a34-a8ad-9af882a9f3d4`. The owner separately confirmed
+the exact independent editorial decision and dev release/retry/withdrawal.
+Approval `5f6afa10-52f7-435f-9331-d4ff7dade8c6` is bound to revision
+`5516467b-7dfa-43ee-94a7-4093700bcc05` and review digest
+`62988eabc500b5142a15ecad45680132fdb8c77876ad511cdd17415c5518abcf`.
+
+The live fault was applied at 22:17 UTC. The deployed Worker copied the archive
+but could not complete public readback. Publication operation
+`f5f85e15-c520-47df-9f36-5ebd12127231` became **uncertain** with
+`public-transport-uncertain`; its claim was released and the receipt returned to
+Approved. The catalogue stayed empty at serial 2 with no new published edition.
+The operator could still download the retained archive at its original hash and
+length while the Worker-network probe received 403.
+
+After restoring ingress, the normal retry API accepted that **same operation**
+and recorded one retry audit, `3a61b0cf-55b5-497a-8b46-47a522cd02bd`. It committed
+one edition at serial 3. The ZIP retained artifact ID
+`3f5a20c5-0cb4-4b4c-88f9-1ba46e914f78`; retry completed the artwork at
+`cb9001b7-c002-4c4d-be85-6557e45c6bc8`. Both public URLs returned 200 with exact
+MIME type, declared length and SHA-256. Replaying publish and retry returned the
+original operation without another promotion. Changed retry arguments returned
+409 `publication-operation-conflict`; a fresh retry of the committed operation
+returned 409 `publication-not-retryable`.
+
+Withdrawal operation `50b4d3f6-249b-4b6a-a584-149d5c55d980` then committed serial 4
+with zero discoverable worlds. Both immutable URLs remained readable and exact.
+Studio's real receipt refresh showed Approved → Published → Withdrawn for the
+same frozen candidate. Production remained serial 49/five worlds with its
+original feed hash; the GitHub mirror remained disabled. The ingress baseline
+was restored and the temporary debug console exited.
+
+The operator harness initially looked up the idempotency request ID as if it were
+the server operation ID. It stopped before any retry write; using the saved
+publish response corrected that lookup. No product-code, schema or deployment
+change was needed. The solution build passed with zero errors and 60 existing
+dependency/analyzer warnings. The full solution suite passed **5,352 tests with
+12 existing skips**, including all 787 API tests and 269 database tests. The
+initial sandboxed run could not connect to its test host; it was stopped before
+tests ran, and the complete rerun outside the sandbox passed. PowerShell parsing,
+JSON evidence assertions and diff whitespace checks also passed.
+
+The [sanitized evidence](evidence/arke-delivery-rehearsal-2026-11-07.json) includes
+the failed/accepted/committed operation snapshots, retry audit, artifact identities,
+replay refusals, creator states and restoration timestamps. This qualifies a
+transient public-readback fault and recovery through the deployed pipeline. It
+does not qualify attempt exhaustion, mirror failure, the remaining identity
+matrix, further Player variants, production rights, capacity or backup restore.
+#403 remains open.
+
 ## Operational safeguards and recovery
 
 - Keep intake closed if verifier capacity, identity setup or storage readiness is
@@ -750,6 +855,9 @@ disabled, and the synthetic edition has completed Studio submission, deployed Wo
 verification, independent owner-approved review and dev publication. Both synthetic
 creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
-forced refresh passed for this one synthetic base EPUB. Consenting human pilot actors, the
-remaining identity/delivery failure cases and supported-consumer matrix, audited production baseline rights,
-capacity and backup restoration are still unqualified. #403 stays open.
+forced refresh passed for this one synthetic base EPUB. The transient Worker
+readback fault, same-operation retry and serial-4 withdrawal are also qualified;
+dev discovery is currently empty. Consenting human pilot actors, remaining
+identity and delivery failure cases, the supported-consumer matrix, audited
+production baseline rights, capacity and backup restoration are still
+unqualified. #403 stays open.
