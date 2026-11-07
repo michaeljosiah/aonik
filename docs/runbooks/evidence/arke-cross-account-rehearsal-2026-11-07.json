@@ -1,0 +1,251 @@
+{
+  "checkedAt": "2026-11-07T21:29:14.801Z",
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "scope": "Two synthetic identities in the same tenant; Creator 2 cannot read or mutate Creator 1 private submissions",
+  "method": "Real Studio AonikAccount PKCE sessions and narrow authenticated API probes against deployed dev; not new UI coverage",
+  "owner": {
+    "finalControlsAt": "2026-11-07T21:29:14.801Z",
+    "positiveControlsAt": "2026-11-07T21:26:52.47Z",
+    "userId": "a86d992b-872d-4fcd-b88d-0156ee122a5f"
+  },
+  "challenger": {
+    "userId": "194096bc-eb58-40df-885a-bc37ecc04dbf",
+    "identityHttpStatus": 200,
+    "tenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8"
+  },
+  "protectedSubmission": {
+    "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+    "submissionId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+    "packageBytes": 2354240,
+    "versionBefore": "AAAAAAAXqh0=",
+    "versionAfter": "AAAAAAAXqh0=",
+    "status": "in-review",
+    "revisionId": "e768da08-740d-4ad1-b451-16fe4522c324"
+  },
+  "openUploadFixture": {
+    "statusAfterProbes": "open",
+    "statusBefore": "open",
+    "receivedBytesBefore": 0,
+    "submissionId": "617d6c5e-5bb6-4781-a8cf-051f0ecdc784",
+    "cleanupStatus": "cancelled by Creator 1 after unchanged-state assertion",
+    "receivedBytesAfter": 0,
+    "revisionId": "daff702c-6370-4416-a89b-29ca71539162",
+    "uploadId": "614f3f97-71a5-4796-8789-83c8a1a2dbeb"
+  },
+  "ownerPositiveControls": {
+    "decisions": 200,
+    "receipt": 200,
+    "privatePackage": 200,
+    "finalOwnerCancellation": 204,
+    "upload": 200,
+    "openUploadCreation": 200,
+    "packageHashAndLengthMatch": true,
+    "preview": 200
+  },
+  "deniedProbes": [
+    {
+      "name": "other-creator-receipt",
+      "method": "GET",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+      "status": 404,
+      "expected": 404,
+      "code": null
+    },
+    {
+      "name": "other-creator-upload",
+      "method": "GET",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/8d189b7c-bc0a-4803-9464-4f609649eeec",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "other-creator-package",
+      "method": "GET",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/package",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "other-creator-preview",
+      "method": "GET",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/preview",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "other-creator-decisions",
+      "method": "GET",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions?page=1&pageSize=100",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "withdrawn-other-creator-receipt",
+      "method": "GET",
+      "path": "/publishing/submissions/fd5b2a73-3cdb-40e3-98e8-509ba1606880",
+      "status": 404,
+      "expected": 404,
+      "code": null
+    },
+    {
+      "name": "withdrawn-other-creator-private-package",
+      "method": "GET",
+      "path": "/publishing/submissions/fd5b2a73-3cdb-40e3-98e8-509ba1606880/package",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "spoofed-owner-headers",
+      "method": "GET",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+      "status": 404,
+      "expected": 404,
+      "code": null
+    },
+    {
+      "name": "other-creator-open-upload",
+      "method": "GET",
+      "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads/614f3f97-71a5-4796-8789-83c8a1a2dbeb",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "begin-other-creator-upload",
+      "method": "POST",
+      "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "put-other-creator-part",
+      "method": "PUT",
+      "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads/614f3f97-71a5-4796-8789-83c8a1a2dbeb/parts/1",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "complete-other-creator-upload",
+      "method": "POST",
+      "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads/614f3f97-71a5-4796-8789-83c8a1a2dbeb/complete",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "cancel-other-creator-upload",
+      "method": "DELETE",
+      "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads/614f3f97-71a5-4796-8789-83c8a1a2dbeb",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "submit-other-creator-package",
+      "method": "POST",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/submit",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "replace-other-creator-revision",
+      "method": "POST",
+      "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/revisions",
+      "status": 404,
+      "expected": 404,
+      "code": "submission-unavailable"
+    },
+    {
+      "name": "creator-cannot-review",
+      "method": "GET",
+      "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+      "status": 403,
+      "expected": 403,
+      "code": null
+    },
+    {
+      "name": "creator-cannot-list-reviews",
+      "method": "GET",
+      "path": "/publishing/review/submissions?channelKey=arke-worlds-dev&page=1&pageSize=100",
+      "status": 403,
+      "expected": 403,
+      "code": null
+    },
+    {
+      "name": "creator-cannot-read-reviewer-package",
+      "method": "GET",
+      "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/revisions/e768da08-740d-4ad1-b451-16fe4522c324/package",
+      "status": 403,
+      "expected": 403,
+      "code": null
+    },
+    {
+      "name": "creator-cannot-read-reviewer-artwork",
+      "method": "GET",
+      "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/revisions/e768da08-740d-4ad1-b451-16fe4522c324/images/key-art",
+      "status": 403,
+      "expected": 403,
+      "code": null
+    },
+    {
+      "name": "creator-cannot-preview-publication",
+      "method": "GET",
+      "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/publication",
+      "status": 403,
+      "expected": 403,
+      "code": null
+    },
+    {
+      "name": "creator-cannot-manage-channel",
+      "method": "GET",
+      "path": "/publishing/management/channels",
+      "status": 403,
+      "expected": 403,
+      "code": null
+    }
+  ],
+  "ownList": {
+    "suppliedOwnerFilterCount": 0,
+    "containsOtherCreator": false,
+    "suppliedOwnerFilterStatus": 200,
+    "status": 200,
+    "count": 0
+  },
+  "stateIntegrity": {
+    "snapshotsMatch": true,
+    "afterSnapshotSha256": "8429ac1db37b6a68425f1418f141dbd1f8c9b3061841e22eeb440ab05196f147",
+    "scope": "Receipt and rowversion, upload, validation preview, decisions, mutable receipt, open upload and downloaded archive identity; excludes later authorized owner cleanup",
+    "beforeSnapshotSha256": "8429ac1db37b6a68425f1418f141dbd1f8c9b3061841e22eeb440ab05196f147"
+  },
+  "publicCatalogue": {
+    "status": 200,
+    "serial": 2,
+    "worldCount": 0
+  },
+  "creator2Harness": {
+    "signedOut": true,
+    "stoppedAt": "2026-11-07T21:29:42.121Z",
+    "nativeCreator1SessionPreserved": true
+  },
+  "applicationFixRequired": false,
+  "runtimeOrSchemaChanged": false,
+  "sameTenantCrossPartyProven": true,
+  "configuredCrossTenantProven": false,
+  "issue403Complete": false,
+  "remaining": [
+    "Configured second-tenant, no-party and genuinely expired-auth checks",
+    "Independent request-changes, replacement revision, rejection and stale review snapshot checks",
+    "Delivery fault and durable retry",
+    "Supported Player variants and background scheduling",
+    "Human pilot consent, production baseline rights audit, capacity/cost and isolated restore qualification"
+  ]
+}

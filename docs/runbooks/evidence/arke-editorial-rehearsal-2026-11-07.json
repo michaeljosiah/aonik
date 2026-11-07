@@ -1,0 +1,278 @@
+{
+  "checkedAt": "2026-11-07T21:35:03.531Z",
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "scope": "Owner-authorised private editorial failure rehearsal; no approval or public release",
+  "method": "Real independent reviewer PKCE session and deployed review endpoints; actual Studio CreatorPublishingService freezes, replaces, uploads and refreshes Creator 1 receipts. Service/API evidence, not additional UI coverage.",
+  "submissionId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+  "ownerUserId": "a86d992b-872d-4fcd-b88d-0156ee122a5f",
+  "reviewerUserId": "fea74a2f-3261-47f7-a8ca-359ec0f3f373",
+  "originalRevision": {
+    "validationReportId": "a27b9e8d-5dc5-479e-b519-5784e3810470",
+    "number": 1,
+    "id": "e768da08-740d-4ad1-b451-16fe4522c324",
+    "reviewDigest": "fbf59c3362c6e35a06780bc914dea8bf442b00abac856b95f97daa50f84aed08",
+    "privatePackageReadback": {
+      "status": 200,
+      "bytes": 2354240,
+      "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c"
+    }
+  },
+  "requestChanges": {
+    "decision": "request-changes",
+    "checks": [
+      {
+        "path": "/v1/me",
+        "method": "GET",
+        "status": 200,
+        "code": null
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "status": 200,
+        "code": null
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 409,
+        "code": "review-version-changed"
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 409,
+        "code": "review-material-changed"
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 200,
+        "code": null
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 200,
+        "code": null
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 409,
+        "code": "decision-operation-conflict"
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "status": 200,
+        "code": null
+      }
+    ],
+    "operationId": "d4e090ae-295b-4bfe-87c0-528e3faaebe0",
+    "revisionId": "e768da08-740d-4ad1-b451-16fe4522c324",
+    "at": "2026-11-07T21:33:41.133Z",
+    "id": "10da0e46-3024-4fbc-9d53-42499844f21f",
+    "reviewDigest": "fbf59c3362c6e35a06780bc914dea8bf442b00abac856b95f97daa50f84aed08",
+    "replaySameId": true,
+    "creatorMessage": "Development rehearsal: update the submission summary to explicitly say this edition is for the isolated arke-worlds-dev test channel, then submit a replacement revision.",
+    "policyVersion": "dev-editorial-v1",
+    "actorUserId": "fea74a2f-3261-47f7-a8ca-359ec0f3f373"
+  },
+  "replacement": {
+    "at": "2026-11-07T21:34:33.835Z",
+    "id": "669d306a-99f7-493a-ae00-96a52a20a04f",
+    "number": 2,
+    "sameReceipt": true,
+    "previousRevisionRetained": true,
+    "localCandidateId": "0dbe2503-3d9f-4841-8779-c7626192af85",
+    "summary": "A synthetic publishing rehearsal about a child growing a lantern garden. Development rehearsal only for the isolated arke-worlds-dev test channel.",
+    "frozenArchiveSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+    "frozenArchiveBytes": 2354240,
+    "sameApprovedArchive": true,
+    "newImmutableSubmissionMetadata": true,
+    "reviewDigest": "a30efc02580170a6bc01739aaffbc178d2c50d7ed32cab68685906bc88e42104",
+    "digestChanged": true,
+    "validation": {
+      "completedAt": "2026-11-07T21:34:36.1227608",
+      "code": "verified",
+      "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "reportId": "e8943be4-8493-407c-8f3b-71d0532281e1",
+      "status": "passed",
+      "verifierImage": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:edcf30cccff2a89f69523e2dabba590118999778cc2e623471c511217ab46dfb"
+    },
+    "requests": [
+      {
+        "method": "GET",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/revisions",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads",
+        "status": 200
+      },
+      {
+        "method": "PUT",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/9ab35985-6adf-411b-8e65-d7e11f4dbf7c/parts/1",
+        "status": 200
+      },
+      {
+        "method": "PUT",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/9ab35985-6adf-411b-8e65-d7e11f4dbf7c/parts/2",
+        "status": 200
+      },
+      {
+        "method": "PUT",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/9ab35985-6adf-411b-8e65-d7e11f4dbf7c/parts/3",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/9ab35985-6adf-411b-8e65-d7e11f4dbf7c/complete",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/submit",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "status": 200
+      }
+    ]
+  },
+  "rejection": {
+    "decision": "reject",
+    "checks": [
+      {
+        "path": "/v1/me",
+        "method": "GET",
+        "status": 200,
+        "code": null
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "status": 200,
+        "code": null
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 409,
+        "code": "review-version-changed"
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 409,
+        "code": "review-material-changed"
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 409,
+        "code": "review-revision-changed"
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 200,
+        "code": null
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 200,
+        "code": null
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "POST",
+        "status": 409,
+        "code": "decision-operation-conflict"
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "status": 200,
+        "code": null
+      }
+    ],
+    "operationId": "f1213b33-1f0c-4b69-b9b2-9cecb7c44b85",
+    "revisionId": "669d306a-99f7-493a-ae00-96a52a20a04f",
+    "at": "2026-11-07T21:34:46.085Z",
+    "id": "e48f4636-df64-4f33-9362-cd3f60cddb1d",
+    "reviewDigest": "a30efc02580170a6bc01739aaffbc178d2c50d7ed32cab68685906bc88e42104",
+    "replaySameId": true,
+    "creatorMessage": "Development rehearsal complete: this private test revision is rejected and will not be published.",
+    "policyVersion": "dev-editorial-v1",
+    "actorUserId": "fea74a2f-3261-47f7-a8ca-359ec0f3f373"
+  },
+  "decisionHistory": [
+    {
+      "id": "e48f4636-df64-4f33-9362-cd3f60cddb1d",
+      "revisionId": "669d306a-99f7-493a-ae00-96a52a20a04f",
+      "decision": "reject",
+      "isActive": true
+    },
+    {
+      "id": "10da0e46-3024-4fbc-9d53-42499844f21f",
+      "revisionId": "e768da08-740d-4ad1-b451-16fe4522c324",
+      "decision": "request-changes",
+      "isActive": false
+    }
+  ],
+  "creatorFeedback": {
+    "internalReviewerFieldsExposed": false,
+    "currentStatus": "rejected",
+    "oldLocalTransfer": "superseded",
+    "checkedAt": "2026-11-07T21:35:03.531Z",
+    "decisions": [
+      {
+        "id": "e48f4636-df64-4f33-9362-cd3f60cddb1d",
+        "revisionId": "669d306a-99f7-493a-ae00-96a52a20a04f",
+        "decision": "reject",
+        "message": "Development rehearsal complete: this private test revision is rejected and will not be published.",
+        "decidedAt": "2026-11-07T21:34:39.5578117"
+      },
+      {
+        "id": "10da0e46-3024-4fbc-9d53-42499844f21f",
+        "revisionId": "e768da08-740d-4ad1-b451-16fe4522c324",
+        "decision": "request-changes",
+        "message": "Development rehearsal: update the submission summary to explicitly say this edition is for the isolated arke-worlds-dev test channel, then submit a replacement revision.",
+        "decidedAt": "2026-11-07T21:33:34.7129438"
+      }
+    ]
+  },
+  "publicCatalogue": {
+    "serial": 2,
+    "worldCount": 0
+  },
+  "temporaryReviewerHarnessSignedOut": true,
+  "temporaryReviewerHarnessStoppedAt": "2026-11-07T21:35:45.478Z",
+  "nativeCreator1SessionPreserved": true,
+  "applicationFixRequired": false,
+  "runtimeOrSchemaChanged": false,
+  "issue403Complete": false,
+  "remaining": [
+    "Configured second-tenant, no-party and genuinely expired-auth checks",
+    "Delivery fault and durable retry",
+    "Supported Player story/comic/part/update variants and background scheduling",
+    "Human pilot consent, production baseline rights audit, capacity/cost and isolated backup restore"
+  ]
+}
