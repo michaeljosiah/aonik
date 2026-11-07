@@ -615,9 +615,10 @@ timestamps, exact identities, HTTP outcomes, merge commits and remaining cases.
 The service interruption is a real process restart using Studio's implementation;
 the additional HTTP probes are not new UI coverage. At this checkpoint, Creator 2
 cross-party checks awaited a fresh sign-in; the later results below complete them.
-Independent request-changes/rejection,
-real expired-auth/no-party and configured cross-tenant checks, delivery failure
-recovery, supported Player variants, capacity and restore qualification remain open.
+Independent request-changes/rejection was also pending then; the editorial
+results below complete that sequence. Real expired-auth/no-party and configured
+cross-tenant checks, delivery failure recovery, supported Player variants,
+capacity and restore qualification remain open.
 
 To repeat recovery in an isolated dev workspace, keep the frozen export and saved
 request identity, stop the uploader after a successful part acknowledgement, and
@@ -662,9 +663,50 @@ remained signed in.
 The public catalogue remained empty at serial 2. No application/schema fix,
 additional release or production write was needed. These results qualify
 **same-tenant cross-party isolation** for the exercised routes; they do not prove
-a configured second-tenant boundary or the remaining identity/editorial/delivery
+a configured second-tenant boundary or the remaining identity/delivery
 matrix. The [sanitized evidence](evidence/arke-cross-account-rehearsal-2026-11-07.json)
 contains each HTTP outcome and matching owner snapshot hashes. #403 remains open.
+
+## Editorial revision and rejection rehearsal — 7 November 2026
+
+The independently authenticated reviewer resumed with the same private test
+receipt `acf682c0-3141-4fb5-835d-89c566eb3165`. At 21:33 UTC, private download
+readback matched the original archive hash and length. Revision 1's review digest
+was `fbf59c3362c6e35a06780bc914dea8bf442b00abac856b95f97daa50f84aed08`.
+The reviewer recorded **Request changes**, explicitly asking for a clearer
+dev-only submission summary as a workflow rehearsal. This was not an approval
+or a substantive adverse finding about the synthetic story.
+
+Studio's real publishing service refreshed Creator 1's receipt and received that
+message. It froze a new local candidate from the same owner-confirmed export and
+submitted changed immutable metadata as revision 2 of the same receipt:
+`669d306a-99f7-493a-ae00-96a52a20a04f`. The archive itself was unchanged;
+the summary now explicitly names the isolated dev channel. Studio uploaded all
+three parts to a new session, completed and submitted it. The deployed verifier
+passed report `e8943be4-8493-407c-8f3b-71d0532281e1` at 21:34:36 UTC.
+The new revision received a different review digest and retained revision 1.
+
+The reviewer then recorded **Reject** for revision 2 to complete the private
+failure workflow. Both decisions replayed to the same IDs. Changed replay
+arguments returned 409 `decision-operation-conflict`; stale versions returned
+409 `review-version-changed`. The old digest against the current revision returned
+409 `review-material-changed`, and the old revision against the current version
+returned 409 `review-revision-changed`.
+
+Creator 1 refreshed through Studio's service and received **Rejected** plus both
+revision-specific messages. Its earlier local receipt became **Superseded**.
+The creator history exposed no internal reasons, reviewer user/party IDs or
+approval-check fields. The reviewer history retained the first decision as
+inactive and the new rejection as active. Public discovery remained empty at
+serial 2; no new approval or release was requested. The temporary reviewer
+harness signed out and stopped, preserving native Creator 1 Studio.
+
+The [editorial evidence](evidence/arke-editorial-rehearsal-2026-11-07.json) records
+the exact decision IDs, validation provenance, revision identities, request
+outcomes and final creator feedback. This is live service/API proof, not additional
+UI coverage. No runtime or schema fix was required. Remaining #403 work includes
+configured cross-tenant/no-party/expired-auth cases, delivery fault/retry,
+supported consumer variants, production rights, capacity and isolated restoration.
 
 ## Operational safeguards and recovery
 
@@ -709,5 +751,5 @@ verification, independent owner-approved review and dev publication. Both synthe
 creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
 forced refresh passed for this one synthetic base EPUB. Consenting human pilot actors, the
-remaining identity/editorial/delivery failure cases and supported-consumer matrix, audited production baseline rights,
+remaining identity/delivery failure cases and supported-consumer matrix, audited production baseline rights,
 capacity and backup restoration are still unqualified. #403 stays open.
