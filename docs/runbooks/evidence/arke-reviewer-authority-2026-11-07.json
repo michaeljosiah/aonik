@@ -1,0 +1,30 @@
+{
+  "checkedAt": "2026-11-07T12:02:06.928Z",
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "authentication": {
+    "adapter": "Studio AonikAccount",
+    "flow": "Authorization Code with PKCE",
+    "profileReadStatus": 200,
+    "expectedReviewerIdentityConfirmed": true,
+    "expectedTenantConfirmed": true,
+    "activePartyConfirmed": true
+  },
+  "role": {
+    "name": "ArkeDevPublishingReviewer",
+    "permissionKeys": [
+      "Publishing.Publish",
+      "Publishing.Review",
+      "Publishing.Withdraw"
+    ],
+    "assignmentReadBackVerified": true,
+    "existingReviewerRolesPreserved": true,
+    "creatorRolesUnchanged": true,
+    "syntheticCreatorCount": 2,
+    "creatorsHaveReviewerRole": false
+  },
+  "channelSettingsChanged": false,
+  "editorialDecisionMade": false,
+  "publicationMade": false,
+  "fullRehearsalComplete": false
+}

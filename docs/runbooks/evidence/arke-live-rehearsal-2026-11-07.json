@@ -1,0 +1,272 @@
+{
+  "checkedAt": "2026-11-07T15:20:11.2688823Z",
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "scope": "Owner-authorised synthetic base EPUB rehearsal; not full issue 403 or production qualification",
+  "submissionId": "fd5b2a73-3cdb-40e3-98e8-509ba1606880",
+  "revisionId": "145457a8-a681-44bf-9495-06040610bda5",
+  "uploadId": "50cf80ce-276f-481f-a1b9-c4e342537ee8",
+  "sameReceiptResumed": true,
+  "uploadInterruptionAfterAcceptedChunkProven": false,
+  "validation": {
+    "reportId": "c5780e0d-fa91-4594-83a1-c57c6e21b2c4",
+    "status": "passed",
+    "code": "verified",
+    "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+    "packageBytes": 2354240,
+    "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+    "verifierImage": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:edcf30cccff2a89f69523e2dabba590118999778cc2e623471c511217ab46dfb",
+    "completedAt": "2026-11-07T14:36:35.0816567"
+  },
+  "reviewDigest": "d829b8695fc0ccd596c3310bcbe6e607e43dbf249543c1d5e0af434e6a81b9ea",
+  "approval": {
+    "decision": {
+      "id": "2254df5d-143b-466b-9421-83eda49cff06",
+      "operationId": "e59671b3-85e0-48f9-854f-761bd4082c23",
+      "revisionId": "145457a8-a681-44bf-9495-06040610bda5",
+      "reviewDigest": "d829b8695fc0ccd596c3310bcbe6e607e43dbf249543c1d5e0af434e6a81b9ea",
+      "decision": "approve",
+      "internalReason": "Owner explicitly approved this exact synthetic revision and all three editorial checks on 2026-11-07. Isolated dev rehearsal only.",
+      "creatorMessage": "Approved for the isolated arke-worlds-dev rehearsal only.",
+      "actorUserId": "fea74a2f-3261-47f7-a8ca-359ec0f3f373",
+      "actorPartyId": "912d9877-9fc3-42ed-969b-38886b5c700d",
+      "policyVersion": "dev-editorial-v1",
+      "decidedAt": "2026-11-07T14:43:13.6025166Z",
+      "checks": {
+        "distributionRightsReviewed": true,
+        "attributionReviewed": true,
+        "audienceSafetyReviewed": true
+      },
+      "isActive": true
+    },
+    "replaySameId": true,
+    "conflict": {
+      "type": "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+      "title": "decision-operation-conflict",
+      "status": 409,
+      "detail": "This operation already names different decision arguments or actor.",
+      "code": "decision-operation-conflict"
+    }
+  },
+  "release": {
+    "id": "b51122d2-7923-45e3-9d65-2aa767f5a244",
+    "channelKey": "arke-worlds-dev",
+    "kind": "publish",
+    "submissionId": "fd5b2a73-3cdb-40e3-98e8-509ba1606880",
+    "revisionId": "145457a8-a681-44bf-9495-06040610bda5",
+    "decisionId": "2254df5d-143b-466b-9421-83eda49cff06",
+    "editionId": "ae622218-e193-43bb-b51a-3b4eeb311973",
+    "status": "committed",
+    "code": "published",
+    "attempts": 1,
+    "committedSerial": 1,
+    "createdAt": "2026-11-07T14:46:21.9556145",
+    "completedAt": "2026-11-07T14:46:33.7516362",
+    "reason": "Owner explicitly authorised release of the exact approved synthetic edition to arke-worlds-dev for Player testing and subsequent withdrawal.",
+    "version": "AAAAAAAXqEI=",
+    "canRetry": false
+  },
+  "hold": {
+    "operation": {
+      "id": "91ab0030-4d35-4617-8904-f733fcd0cb14",
+      "channelKey": "arke-worlds-dev",
+      "kind": "hold",
+      "submissionId": "fd5b2a73-3cdb-40e3-98e8-509ba1606880",
+      "revisionId": "145457a8-a681-44bf-9495-06040610bda5",
+      "decisionId": null,
+      "editionId": null,
+      "status": "committed",
+      "code": "future-publication-held",
+      "attempts": 0,
+      "committedSerial": null,
+      "createdAt": "2026-11-07T14:58:21.7598944Z",
+      "completedAt": "2026-11-07T14:58:21.759211Z",
+      "reason": "Owner-authorised synthetic dev rehearsal: hold further publication before withdrawal.",
+      "version": "AAAAAAAXqJ0=",
+      "canRetry": false
+    },
+    "replaySameId": true
+  },
+  "publicReadback": [
+    {
+      "kind": "package",
+      "status": 200,
+      "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "bytes": 2354240,
+      "contentType": "application/zip",
+      "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/4e7eb6bb-a64a-4530-8416-9ca5fa865774"
+    },
+    {
+      "kind": "artwork",
+      "status": 200,
+      "sha256": "9d5101c3698c0f000021e71848c7b31ec12a8a824eb8a93fe4cf8f661339b81f",
+      "bytes": 1176020,
+      "contentType": "image/png",
+      "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/ddaa4cbe-b3e1-41bb-9fa1-b82c9a56fb74"
+    }
+  ],
+  "anonymousProbesBeforeRelease": [
+    {
+      "path": "/publishing/submissions/fd5b2a73-3cdb-40e3-98e8-509ba1606880/package",
+      "status": 401
+    },
+    {
+      "path": "/publishing/submissions/fd5b2a73-3cdb-40e3-98e8-509ba1606880/uploads/50cf80ce-276f-481f-a1b9-c4e342537ee8",
+      "status": 401
+    },
+    {
+      "path": "/publishing/review/submissions/fd5b2a73-3cdb-40e3-98e8-509ba1606880/revisions/145457a8-a681-44bf-9495-06040610bda5/package",
+      "status": 401
+    },
+    {
+      "path": "/publishing/channels/arke-worlds-dev/catalogue.json",
+      "status": 404
+    }
+  ],
+  "production": {
+    "productionSerial": 49,
+    "productionWorldCount": 5,
+    "productionHash": "6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca"
+  },
+  "player": {
+    "baseCommit": "6fd23cd",
+    "firstOpenFix": "P9a watches the existing shared catalogue refresh",
+    "applicationId": "studio.arke.player.dev",
+    "apkSha256": "d4733b9061a2d83c6f95db9916a132f82be35aaaf965f4cdfe8cb29b907fc30d",
+    "targetedTestsPassed": 31,
+    "strictAnalysis": "passed",
+    "coreInstall": {
+      "at": "2026-11-07T15:04:58.802207Z",
+      "phase": "install",
+      "catalogueSerial": 1,
+      "catalogueWorldCount": 1,
+      "installedWorld": "lantern-garden-dev-403",
+      "bookTitle": "The First Lantern",
+      "bookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "bookBytes": 1176545,
+      "persistedLibraryReopened": true,
+      "storyReadFromLocalEpub": true,
+      "deviceUiVerified": false
+    },
+    "deviceVisualResult": "Observed Discover entry, install, Play, EPUB cover and complete A Small Beginning chapter on Pixel_9 Android emulator.",
+    "airplaneModeRestartProven": true,
+    "sourceCommit": "1b80ab72067bdb91642adaf57cf1bff4c6735f8d",
+    "appTests": {
+      "passed": 246,
+      "existingSkips": 13
+    },
+    "designChecks": "21 turns, 166 rules, anchors resolve",
+    "coreAfterWithdrawal": {
+      "at": "2026-11-07T15:12:11.197214Z",
+      "phase": "withdrawn",
+      "catalogueSerial": 2,
+      "catalogueWorldCount": 0,
+      "installedWorld": "lantern-garden-dev-403",
+      "bookTitle": "The First Lantern",
+      "bookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "bookBytes": 1176545,
+      "persistedLibraryReopened": true,
+      "storyReadFromLocalEpub": true,
+      "deviceUiVerified": false
+    },
+    "offlineDetails": {
+      "deviceColdBoot": true,
+      "applicationLaunchedAfterAirplaneModeEnabled": true,
+      "airplaneModeOn": 1,
+      "internetTile": "Airplane mode",
+      "bookTitle": "The First Lantern",
+      "chapter": "A Small Beginning",
+      "completeStoryRendered": true,
+      "afterServerWithdrawal": true,
+      "observedAt": "2026-11-07T15:16:00Z",
+      "captureRecovery": "Cold-booted same AVD using supported SwiftShader renderer; no app data cleared"
+    },
+    "afterForcedRefresh": {
+      "observedAt": "2026-11-07T15:19:17.7243747Z",
+      "discover": "Checked; empty list",
+      "cachedSerial": 2,
+      "cachedWorldCount": 0,
+      "installedWorldCount": 1,
+      "installedWorldId": "lantern-garden-dev-403",
+      "localBookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "readActionRetained": true,
+      "airplaneModeRestoredOff": true
+    }
+  },
+  "withdrawal": {
+    "operation": {
+      "id": "d2fcf8af-bdd6-41d3-8b2e-344977c576d3",
+      "channelKey": "arke-worlds-dev",
+      "kind": "withdraw",
+      "submissionId": "fd5b2a73-3cdb-40e3-98e8-509ba1606880",
+      "revisionId": "145457a8-a681-44bf-9495-06040610bda5",
+      "decisionId": null,
+      "editionId": "ae622218-e193-43bb-b51a-3b4eeb311973",
+      "status": "committed",
+      "code": "withdrawn",
+      "attempts": 1,
+      "committedSerial": 2,
+      "createdAt": "2026-11-07T15:09:57.0431742",
+      "completedAt": "2026-11-07T15:09:58.2135377",
+      "reason": "Owner-authorised withdrawal after synthetic dev Player discovery, download and reading rehearsal.",
+      "version": "AAAAAAAXqP0=",
+      "canRetry": false
+    },
+    "replaySameId": true
+  },
+  "remaining": [
+    "Consenting human pilot creators",
+    "No-party, expired-auth and cross-party/tenant live denial matrix",
+    "Interruption after accepted upload chunk and process restart",
+    "Request-changes, new revision, rejection and stale snapshot cases",
+    "Delivery fault and durable retry",
+    "Current and supported older Player story/comic/part/update and background scheduler",
+    "Production baseline ownership and rights audit",
+    "Capacity/cost qualification and isolated backup restore"
+  ],
+  "issue403Complete": false,
+  "withdrawalReadback": {
+    "at": "2026-11-07T15:12:32.7555232Z",
+    "feedStatus": 200,
+    "catalogue": {
+      "version": 2,
+      "serial": 2,
+      "worlds": []
+    },
+    "retainedPackageStatus": 200,
+    "retainedPackageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+    "retainedPackageBytes": 2354240
+  },
+  "syntheticBaseBookFlowPassed": true,
+  "studioFinalReceipt": {
+    "status": "Withdrawn",
+    "revision": 1,
+    "updatedAt": "2026-11-07T15:19:49Z",
+    "sameSubmissionId": true
+  },
+  "finalChannelState": {
+    "apiRevision": "0000383",
+    "workerRevision": "0000373",
+    "admissionEnabled": true,
+    "reviewEnabled": true,
+    "deliveryEnabled": true,
+    "publicCatalogueEnabled": true,
+    "legacyMirrorEnabled": false,
+    "serial": 2,
+    "worldCount": 0,
+    "futurePublicationHeld": true,
+    "productionPublishingEnabled": false
+  },
+  "finalChecks": {
+    "at": "2026-11-07T15:21:25.2036726Z",
+    "apiHealthStatus": 200,
+    "productionHash": "6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca"
+  },
+  "reviewerHarnessSignedOut": true,
+  "sources": {
+    "aonik": "5553bb2008d904fe8b45a279b05bc69847e080ee",
+    "studio": "6e7e29ccf58a17d2a56c03211ebb6530d4b780e1",
+    "player": "1b80ab72067bdb91642adaf57cf1bff4c6735f8d",
+    "specification": "044729b3f558d46b1244992068b16f504832cb4d"
+  }
+}

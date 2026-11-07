@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Publishing on Azure Files (#403):** Qualify the exact authenticated SMB intake/delivery mounts before writing instead of applying unsupported Unix chmod operations. Local storage keeps owner-only roots; mismatched, missing, read-only or substituted mounts fail closed. The first live Studio receipt remains resumable after this deployment fix.
+
 - **Dev email and verification secrets (#403):** Enable the existing Key Vault references in the dev deployment profile so configured ACS and OTP hashing credentials reach the API instead of the legacy placeholder values. Deployed successfully; both synthetic creators received and confirmed fresh verification emails and passed all required onboarding gates.
 
 - **Invited creator registration (#403):** Check tenant status and invitation admission before creating an external identity, return a clear forbidden response when admission is missing, and allow the exact registration endpoint to resolve its tenant from the request body. Existing tenant invitation requirements remain enforced.
@@ -13,6 +15,8 @@ All notable changes to the AONIK project will be documented in this file.
 - **Optional workspace setup (#403):** Keep “Skip for now” in the current browser session instead of reloading into the same unfinished wizard. Skipping retains saved progress and does not mark company setup complete.
 
 ### Added
+
+- **Arke synthetic dev rehearsal (#403):** Recorded the original Studio receipt's successful resume, managed-identity verification, explicitly approved editorial decision, serial-1 release, device install/read/offline cold launch, hold and serial-2 withdrawal. Forced Player refresh removes discovery while retaining the installed book and immutable artifact. Production is unchanged; broader failure-case, supported-consumer and pilot qualification remains open.
 
 - **Dev registration email infrastructure (#403):** Added a standalone Azure managed sender template and an optional runtime sender fallback. The dev profile uses the verified managed domain; credentials remain in deployment secret storage and delivery requires live mailbox verification.
 

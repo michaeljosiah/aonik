@@ -306,6 +306,27 @@ Use role management for `Publishing.Review`, `Publishing.Publish` and
 alone grants no publishing authority. A creator cannot approve or publish their
 own submission, including through another linked party.
 
+On **7 November 2026**, the designated reviewer completed Studio's actual
+Authorization Code + PKCE sign-in. A subsequent `/v1/me` request returned 200
+and confirmed the expected tenant, reviewer identity and active party. The
+normal tenant administration APIs created `ArkeDevPublishingReviewer` with
+exactly `Publishing.Review`, `Publishing.Publish` and `Publishing.Withdraw`,
+then assigned it to the reviewer using the additive user-role endpoint.
+Read-back confirmed the assignment, preserved both existing reviewer roles,
+and confirmed that both synthetic creators retain only `PersonalUser`.
+See [sanitized reviewer evidence](evidence/arke-reviewer-authority-2026-11-07.json).
+Actor and role identifiers remain in the private rehearsal evidence.
+
+The first manual login handoff failed because its temporary terminal receiver
+was no longer running. A separate, bounded background receiver resolved that
+failure. After a successful callback the Studio adapter closes its loopback
+listener by design; refreshing that callback page can therefore show connection
+refused even though the account is signed in. Confirm the adapter's account
+state and an authenticated API response before asking the reviewer to sign in
+again. This establishes adapter authentication and role assignment, not desktop
+UI qualification. Channel allowlists/enablement, editorial decisions and the
+complete publishing rehearsal remain outstanding.
+
 ## Verifier runtime
 
 ACR run `db3` successfully built and tested the pinned Linux verifier:
@@ -446,6 +467,99 @@ case. Screenshots must be from the actual signed-in applications.
 
 ## Operations and recovery
 
+### Synthetic rehearsal, 7 November 2026
+
+`Set-ArkeDevPublishingStage.ps1 -Stage PrivateReview -ReviewerEvidencePath <private-receipt> -Apply`
+activates only the fixed dev tenant/channel after checking the independently assigned
+reviewer role and unchanged creator roles. `Delivery` additionally opens dev delivery
+and discovery; `Closed` closes all channel switches. Each command defaults to a
+read-only preview. The checked-in infrastructure profile remains closed, and a normal
+deployment reapplies that closed profile. Reapply the intended rehearsal stage only
+after the deployment is healthy. The GitHub production mirror stays disabled.
+
+API revision `0000381` and Worker revision `0000371` were healthy with private review
+enabled. The first native Studio submission created receipt
+`fd5b2a73-3cdb-40e3-98e8-509ba1606880` for the owner-confirmed synthetic edition
+`10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c`.
+Upload then paused on an unsupported `chmod` against Azure Files. The creator resumed
+that same saved receipt after the storage adapter fix; no new request identity was made.
+
+At 13:35 UTC the fix from `5553bb20` was deployed by CLI to healthy API revision
+`0000382` (100% traffic) and Worker `0000372`. Both images passed the critical
+vulnerability gate with no secret findings (6 API / 10 Worker high findings remain).
+GitHub had no assigned runner, and ACR source builds exhausted compiler memory;
+the fallback cross-published committed sources for Linux locally and packaged the
+unchanged non-root runtime stages in ACR. Only publish output entered those build
+contexts. Keep ignored `output/` and `.tools/` out of future workspace build contexts.
+The [deployment evidence](evidence/arke-storage-deployment-2026-11-07.json) pins both
+digests. At that deployment checkpoint health was 200 and public discovery was 404.
+The later live results below are separate from that deployment evidence.
+
+The dev profile explicitly selects `Publishing:Storage:AccessControl=AzureFilesSmb`
+and the dedicated account `ankpubxkhim4xqiopna`. Before writes, Linux mount metadata
+must identify the exact root, CIFS filesystem, writable mount and superblock, and the
+expected `intake` or `delivery` share. Missing mounts, nested binds, other accounts,
+read-only shares and unknown modes refuse. Local mode remains the default and keeps
+Unix owner-only roots. No permission error is silently ignored. Azure Files access
+is enforced by the authenticated ACA storage binding; these shares are not static
+file mounts. See [Microsoft's SMB mounting guidance](https://learn.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-linux).
+
+The rehearsal stage uses 1 MiB parts within the existing 32 MiB package cap, so the
+2,354,240-byte real Studio export exercises multipart recovery without increasing
+the accepted archive size. This is a synthetic test configuration, not a capacity
+qualification. Recovery resumed the original receipt before any successful part;
+this does not prove interruption after an accepted chunk or a process restart.
+
+At 14:36 UTC the original receipt completed all 2,354,240 bytes and the deployed
+Worker's managed-identity job passed the pinned Azure Dynamic Sessions verifier.
+The independent reviewer downloaded the private package and checked its exact
+SHA/length, story and geometric artwork. Anonymous private-package, upload-state
+and reviewer-package requests returned 401. Following the owner's explicit exact
+revision approval, decision `2254df5d-143b-466b-9421-83eda49cff06` committed;
+an identical replay returned the same decision and changed arguments returned 409.
+Approval alone left public discovery at 404.
+
+The owner separately authorised dev publication and withdrawal. `Delivery` stage
+produced healthy API `0000383` and Worker `0000373`, retaining the scanned image
+digests. The empty dev baseline committed serial 0; publication operation
+`b51122d2-7923-45e3-9d65-2aa767f5a244` committed serial 1 on its first attempt.
+Its replay returned the same operation. Public ZIP/artwork readback matched every
+declared SHA, byte count and MIME type. Studio's original receipt displayed
+**Published** and the independent review message after refresh. The production
+catalogue remained byte-identical at serial 49 with five worlds; the mirror is disabled.
+
+The first dev Player install exposed a missing refresh on P9a when the bundled
+catalogue was empty. First open now starts the existing shared catalogue refresh,
+retaining the designed **Install a world** and **Add a file** actions. Targeted tests
+passed 31/31, the full app suite passed 246 tests with 13 existing skips, strict Dart
+analysis and formatting passed, and the design gate passed 21 turns / 166 rules.
+The fix is Player commit `1b80ab7`, with SPEC-058 clarification `044729b`.
+The APK update preserved emulator
+app data; Android reclaimed disposable caches after an insufficient-storage refusal.
+The real Player core downloaded, verified and installed the public edition, then
+reopened its persisted library and read the matching local EPUB. On the Pixel 9
+emulator, Discover showed the hosted edition, Install completed, and the reader
+rendered both the cover and complete **A Small Beginning** chapter.
+
+Desktop capture intermittently returned `FrameArrived timed out`. A cold boot of
+the same AVD with `-gpu swiftshader -no-snapshot-load` restored reliable capture;
+no app data was cleared. Before relaunching Player, Android airplane mode was
+enabled and the Internet tile showed **Airplane mode**. The retained world and
+complete chapter then rendered offline. Networking was restored after the check.
+
+The authorised hold committed and identical replay returned the same operation.
+The release preview reported `publication-held`, while the catalogue remained at
+serial 1. Withdrawal operation `d2fcf8af-bdd6-41d3-8b2e-344977c576d3` committed
+serial 2 on its first attempt; replay after completion returned the same operation.
+The public feed became empty, while the immutable ZIP remained HTTP 200 with its
+original SHA and length. Player's forced refresh displayed **Checked** and removed
+the world from Discover. Its persisted cache contained serial 2 with no worlds,
+while the installed library, EPUB hash and Read action remained intact.
+Studio refreshed the original receipt to **Withdrawn** at 15:19:49 UTC. The temporary
+reviewer harness was signed out and stopped; Creator 1's Studio session was preserved.
+See the [live evidence](evidence/arke-live-rehearsal-2026-11-07.json) for exact identities
+and remaining acceptance cases. This synthetic base-book run does not qualify all of #403.
+
 - Keep intake closed if verifier capacity, identity setup or storage readiness is
   unknown. Keep review and delivery separate; an outage must not grant approval.
 - Inspect receipt validation codes and outbox attempts; unavailable verification
@@ -467,6 +581,13 @@ case. Screenshots must be from the actual signed-in applications.
 
 ## Validation of this preparation
 
+For the 7 November storage fix, the solution build passed with zero errors and
+37 existing warnings. The completed non-API suites passed; the broad API run and
+isolated retry hit unrelated HTTP timeouts and were stopped. The focused publishing
+API suite passed all 18 tests. Do not interpret the earlier preparation totals below
+as a clean full-suite result for this later commit. The new rehearsal evidence and
+Docker-context exclusions do not change application code or database schema.
+
 `dotnet build Aonik.sln --no-restore -m:1 -nr:false` passed with zero errors and
 two existing query-filter analyzer warnings. `dotnet test Aonik.sln --no-build
 -m:1 -nr:false` passed **5,306** tests with **12** existing skips. Bicep compilation
@@ -474,10 +595,11 @@ passed (two existing warnings outside the new storage module). The registry
 image build passed Dart analysis and **22** verifier tests. These are distinct
 from the live acceptance sequence above.
 
-**Readiness:** updated application/private storage/email configuration deployed
-and channel closed; isolated remote verification qualified with synthetic
-fixtures. Both synthetic creators have active tenant links, live Studio-adapter
-sign-in and completed AONIK email/profile gates. Deployed verifier identity,
-desktop submission, reviewer/channel authority, consenting human pilot actors
-and the complete Studio → approval → Player rehearsal remain unproven. #403
-stays open.
+**Readiness:** dev admission/review/delivery are enabled, the production mirror is
+disabled, and the synthetic edition has completed Studio submission, deployed Worker
+verification, independent owner-approved review and dev publication. Both synthetic
+creators have active tenant links and completed email/profile gates. Core Player
+install, device discovery/reading, cold-launch offline access, hold, withdrawal and
+forced refresh passed for this one synthetic base EPUB. Consenting human pilot actors, the
+failure-case and supported-consumer matrix, audited production baseline rights,
+capacity and backup restoration are still unqualified. #403 stays open.
