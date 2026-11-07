@@ -613,8 +613,9 @@ remains withdrawn, and this run made no production requests that mutate state.
 The [sanitized evidence](evidence/arke-negative-rehearsal-2026-11-07.json) records
 timestamps, exact identities, HTTP outcomes, merge commits and remaining cases.
 The service interruption is a real process restart using Studio's implementation;
-the additional HTTP probes are not new UI coverage. Creator 2 cross-party checks
-are prepared but await a fresh sign-in. Independent request-changes/rejection,
+the additional HTTP probes are not new UI coverage. At this checkpoint, Creator 2
+cross-party checks awaited a fresh sign-in; the later results below complete them.
+Independent request-changes/rejection,
 real expired-auth/no-party and configured cross-tenant checks, delivery failure
 recovery, supported Player variants, capacity and restore qualification remain open.
 
@@ -626,6 +627,44 @@ a separate private receipt; never alter the original approved edition or release
 malformed bytes. Retain IDs for cancellation/replay checks, and check catalogue
 serial and contents after each test. Do not reset receipt files or database state
 to make a failed run look successful.
+
+## Cross-account qualification — 7 November 2026
+
+Creator 2 completed fresh Studio code + PKCE sign-in at 21:21–21:25 UTC. The
+expired afternoon callback was correctly refused; the new receiver accepted only
+its matching request. No callback state validation was weakened.
+
+At 21:25–21:29 UTC, **21 live denial probes passed** using Creator 2's real identity
+in the same tenant as Creator 1. Creator 1 first opened an empty private upload
+on the existing failure-test receipt, so write checks targeted a session that was
+actually writable by its owner. Both accounts' authenticated access was verified.
+
+| Cross-account case | Observed result |
+| --- | --- |
+| Creator 1 receipt, uploaded/open sessions, private ZIP, validation preview and decision history | 404 |
+| Withdrawn receipt and its retained private ZIP | 404 |
+| Supplied owner user/party headers | Still 404 |
+| Begin upload, send a correctly hashed 1 MiB part, complete or cancel upload | 404 `submission-unavailable` |
+| Submit the owner's validated package or replace its revision with a valid declaration/current version | 404 `submission-unavailable` |
+| Reviewer detail/list, reviewer ZIP/artwork, release preview and channel management | 403 |
+| Creator 2's own list, including a supplied owner-party query filter | 200 with zero receipts; no Creator 1 records |
+
+Creator 1's positive controls returned 200 for the receipt, upload, preview,
+decisions and private package. Before/after snapshots matched exactly, including
+rowversions, revision IDs, validation preview, decision history and upload state.
+The writable upload remained open with zero received bytes. The downloaded archive
+still matched all 2,354,240 bytes and SHA-256
+`10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c`.
+After this comparison, Creator 1 cancelled the empty fixture successfully (204).
+The temporary Creator 2 harness signed out and stopped; native Creator 1 Studio
+remained signed in.
+
+The public catalogue remained empty at serial 2. No application/schema fix,
+additional release or production write was needed. These results qualify
+**same-tenant cross-party isolation** for the exercised routes; they do not prove
+a configured second-tenant boundary or the remaining identity/editorial/delivery
+matrix. The [sanitized evidence](evidence/arke-cross-account-rehearsal-2026-11-07.json)
+contains each HTTP outcome and matching owner snapshot hashes. #403 remains open.
 
 ## Operational safeguards and recovery
 
