@@ -16,6 +16,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Added
 
+- **Arke synthetic dev rehearsal (#403):** Recorded the original Studio receipt's successful resume, managed-identity verification, explicitly approved editorial decision, serial-1 release, device install/read/offline cold launch, hold and serial-2 withdrawal. Forced Player refresh removes discovery while retaining the installed book and immutable artifact. Production is unchanged; broader failure-case, supported-consumer and pilot qualification remains open.
+
 - **Dev registration email infrastructure (#403):** Added a standalone Azure managed sender template and an optional runtime sender fallback. The dev profile uses the verified managed domain; credentials remain in deployment secret storage and delivery requires live mailbox verification.
 
 - **Arke isolated verifier runtime (#403):** Added a fail-closed Azure Dynamic Sessions adapter, dedicated dev pool/IAM template, sealed package transport and bounded non-root reader processes. Added runtime qualification tools and transport/protocol/isolation tests. The synthetic dev profile is capped at 32 MiB archives and 16 MiB assets; independent review and public release remain separately gated.

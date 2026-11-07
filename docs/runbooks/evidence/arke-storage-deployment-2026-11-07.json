@@ -1,0 +1,40 @@
+{
+  "checkedAt": "2026-11-07T13:35:15Z",
+  "sourceCommit": "5553bb2008d904fe8b45a279b05bc69847e080ee",
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "build": {
+    "method": "dotnet publish Release linux-x64 framework-dependent, then unchanged non-root runtime stage in ACR",
+    "reason": "GitHub runner remained queued; ACR source builds db8 and db9 failed with csc exit 137. Local Linux cross-publish succeeded.",
+    "apiRun": "dba",
+    "workerRun": "dbb",
+    "scannedWith": "Trivy 0.76.2, checksum-verified official release",
+    "criticalFindings": 0,
+    "secretFindings": 0,
+    "apiHighFindings": 6,
+    "workerHighFindings": 10
+  },
+  "api": {
+    "revision": "aonik-dev-api--0000382",
+    "image": "aonikdevacr.azurecr.io/aonik-api@sha256:328ad4b3df816b8ad65f9da78e6de51377ca58cc433021e3962385ce66f54019",
+    "health": "Healthy",
+    "running": "Running",
+    "trafficPercent": 100
+  },
+  "worker": {
+    "revision": "aonik-dev-worker--0000372",
+    "image": "aonikdevacr.azurecr.io/aonik-worker@sha256:04c6ee1eb6ddf183b0b922de9bbdf6973599ffb6342719175ff5e859cc25319b",
+    "health": "Healthy",
+    "running": "Running"
+  },
+  "storageMode": "AzureFilesSmb",
+  "apiHealthStatus": 200,
+  "publicCatalogueStatus": 404,
+  "privateReviewEnabled": true,
+  "deliveryEnabled": false,
+  "publicCatalogueEnabled": false,
+  "legacyMirrorEnabled": false,
+  "submissionId": "fd5b2a73-3cdb-40e3-98e8-509ba1606880",
+  "submissionStateAtDeployment": "awaiting-upload",
+  "acceptance": "Runtime fix deployed; actual resumed upload and managed-identity verification still pending."
+}

@@ -13,6 +13,8 @@
 **/*.log
 node_modules/
 artifacts/
+output/
+.tools/
 coverage/
 *.md
 !README.md
