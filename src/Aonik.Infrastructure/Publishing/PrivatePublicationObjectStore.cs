@@ -94,8 +94,9 @@ public sealed class PrivatePublicationObjectStore(IOptions<PublishingOptions> op
             if (Inside(root, forbidden) || Inside(forbidden, root)) throw Unavailable();
         }
         RejectLinks(root);
+        var localPermissions = PublicationStorageAccess.UsesLocalPermissions(root, options.Value.Storage, "intake");
         Directory.CreateDirectory(root);
-        if (!OperatingSystem.IsWindows())
+        if (localPermissions && !OperatingSystem.IsWindows())
         {
             Directory.CreateDirectory(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
@@ -128,7 +129,7 @@ public sealed class PrivatePublicationObjectStore(IOptions<PublishingOptions> op
         if (File.Exists(path) && (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw Unavailable();
     }
 
-    private static async Task WriteAsync(string destination, string sha256, long expectedBytes, Stream input, CancellationToken ct)
+    private async Task WriteAsync(string destination, string sha256, long expectedBytes, Stream input, CancellationToken ct)
     {
         if (expectedBytes <= 0) throw Mismatch();
         await WriteSlots.WaitAsync(ct);
@@ -154,7 +155,7 @@ public sealed class PrivatePublicationObjectStore(IOptions<PublishingOptions> op
                 await file.FlushAsync(ct);
                 file.Flush(flushToDisk: true);
             }
-            if (!OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary,
+            if (PublicationStorageAccess.UsesLocalPermissions(RootPath(), options.Value.Storage, "intake") && !OperatingSystem.IsWindows()) File.SetUnixFileMode(temporary,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
             try { File.Move(temporary, destination, overwrite: false); }
             catch (IOException) when (File.Exists(destination)) { await VerifyAsync(destination, sha256, expectedBytes, ct); }

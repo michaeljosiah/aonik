@@ -48,6 +48,8 @@
     "publishingAppSettings": {
       "value": {
         "Publishing__Intake__PrivateRoot": "/mnt/aonik-publishing-private",
+        "Publishing__Storage__AccessControl": "AzureFilesSmb",
+        "Publishing__Storage__AzureFilesAccountName": "ankpubxkhim4xqiopna",
         "Publishing__Intake__MaxCreatorRetainedBytes": "536870912",
         "Publishing__Intake__MaxTenantRetainedBytes": "2147483648",
         "Publishing__Intake__MaxCreatorPackages": "20",

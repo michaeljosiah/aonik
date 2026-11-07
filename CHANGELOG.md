@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Publishing on Azure Files (#403):** Qualify the exact authenticated SMB intake/delivery mounts before writing instead of applying unsupported Unix chmod operations. Local storage keeps owner-only roots; mismatched, missing, read-only or substituted mounts fail closed. The first live Studio receipt remains resumable after this deployment fix.
+
 - **Dev email and verification secrets (#403):** Enable the existing Key Vault references in the dev deployment profile so configured ACS and OTP hashing credentials reach the API instead of the legacy placeholder values. Deployed successfully; both synthetic creators received and confirmed fresh verification emails and passed all required onboarding gates.
 
 - **Invited creator registration (#403):** Check tenant status and invitation admission before creating an external identity, return a clear forbidden response when admission is missing, and allow the exact registration endpoint to resolve its tenant from the request body. Existing tenant invitation requirements remain enforced.

@@ -85,8 +85,10 @@ public sealed class ImmutablePublicationArtifactStore(IOptions<PublishingOptions
             Path.GetFullPath(configuration["BlobStorage:LocalBasePath"]??"storage")};
         if(!string.IsNullOrWhiteSpace(options.Value.Intake.PrivateRoot))forbidden.Add(options.Value.Intake.PrivateRoot);
         foreach(var other in forbidden){var path=Path.GetFullPath(other);if(Inside(root,path)||Inside(path,root))throw Unavailable();}
-        RejectLinks(root);Directory.CreateDirectory(root);
-        if(!OperatingSystem.IsWindows())File.SetUnixFileMode(root,UnixFileMode.UserRead|UnixFileMode.UserWrite|UnixFileMode.UserExecute);
+        RejectLinks(root);
+        var localPermissions=PublicationStorageAccess.UsesLocalPermissions(root,options.Value.Storage,"delivery");
+        Directory.CreateDirectory(root);
+        if(localPermissions&&!OperatingSystem.IsWindows())File.SetUnixFileMode(root,UnixFileMode.UserRead|UnixFileMode.UserWrite|UnixFileMode.UserExecute);
         return root;
     }
     private static bool Inside(string path,string root)=>path.Equals(root,StringComparison.OrdinalIgnoreCase)||path.StartsWith(Path.TrimEndingDirectorySeparator(root)+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase);

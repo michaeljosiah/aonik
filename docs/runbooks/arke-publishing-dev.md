@@ -306,6 +306,27 @@ Use role management for `Publishing.Review`, `Publishing.Publish` and
 alone grants no publishing authority. A creator cannot approve or publish their
 own submission, including through another linked party.
 
+On **7 November 2026**, the designated reviewer completed Studio's actual
+Authorization Code + PKCE sign-in. A subsequent `/v1/me` request returned 200
+and confirmed the expected tenant, reviewer identity and active party. The
+normal tenant administration APIs created `ArkeDevPublishingReviewer` with
+exactly `Publishing.Review`, `Publishing.Publish` and `Publishing.Withdraw`,
+then assigned it to the reviewer using the additive user-role endpoint.
+Read-back confirmed the assignment, preserved both existing reviewer roles,
+and confirmed that both synthetic creators retain only `PersonalUser`.
+See [sanitized reviewer evidence](evidence/arke-reviewer-authority-2026-11-07.json).
+Actor and role identifiers remain in the private rehearsal evidence.
+
+The first manual login handoff failed because its temporary terminal receiver
+was no longer running. A separate, bounded background receiver resolved that
+failure. After a successful callback the Studio adapter closes its loopback
+listener by design; refreshing that callback page can therefore show connection
+refused even though the account is signed in. Confirm the adapter's account
+state and an authenticated API response before asking the reviewer to sign in
+again. This establishes adapter authentication and role assignment, not desktop
+UI qualification. Channel allowlists/enablement, editorial decisions and the
+complete publishing rehearsal remain outstanding.
+
 ## Verifier runtime
 
 ACR run `db3` successfully built and tested the pinned Linux verifier:
@@ -445,6 +466,37 @@ case. Screenshots must be from the actual signed-in applications.
    bytes and previously installed offline copies are not remote-deleted.
 
 ## Operations and recovery
+
+### Synthetic rehearsal, 7 November 2026
+
+`Set-ArkeDevPublishingStage.ps1 -Stage PrivateReview -ReviewerEvidencePath <private-receipt> -Apply`
+activates only the fixed dev tenant/channel after checking the independently assigned
+reviewer role and unchanged creator roles. `Delivery` additionally opens dev delivery
+and discovery; `Closed` closes all channel switches. Each command defaults to a
+read-only preview. The checked-in infrastructure profile remains closed, and a normal
+deployment reapplies that closed profile. Reapply the intended rehearsal stage only
+after the deployment is healthy. The GitHub production mirror stays disabled.
+
+API revision `0000381` and Worker revision `0000371` were healthy with private review
+enabled. The first native Studio submission created receipt
+`fd5b2a73-3cdb-40e3-98e8-509ba1606880` for the owner-confirmed synthetic edition
+`10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c`.
+Upload then paused on an unsupported `chmod` against Azure Files. Resume that saved
+receipt after deploying the storage adapter fix; do not create a new request identity.
+
+The dev profile explicitly selects `Publishing:Storage:AccessControl=AzureFilesSmb`
+and the dedicated account `ankpubxkhim4xqiopna`. Before writes, Linux mount metadata
+must identify the exact root, CIFS filesystem, writable mount and superblock, and the
+expected `intake` or `delivery` share. Missing mounts, nested binds, other accounts,
+read-only shares and unknown modes refuse. Local mode remains the default and keeps
+Unix owner-only roots. No permission error is silently ignored. Azure Files access
+is enforced by the authenticated ACA storage binding; these shares are not static
+file mounts. See [Microsoft's SMB mounting guidance](https://learn.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-linux).
+
+The rehearsal stage uses 1 MiB parts within the existing 32 MiB package cap, so the
+2,354,240-byte real Studio export exercises multipart recovery without increasing
+the accepted archive size. This is a synthetic test configuration, not a capacity
+qualification. The live Worker verification and Player sequence are still pending.
 
 - Keep intake closed if verifier capacity, identity setup or storage readiness is
   unknown. Keep review and delivery separate; an outage must not grant approval.
