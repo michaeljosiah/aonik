@@ -1,0 +1,366 @@
+{
+  "checkedAt": "2026-11-07T15:50:20.3998780Z",
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "scope": "Owner-authorised private synthetic failure rehearsal; no new public release",
+  "merges": [
+    {
+      "method": "admin squash under prior force-merge authorization",
+      "mergedAt": "2026-11-07T15:32:32Z",
+      "pullRequest": 407,
+      "checksAtMerge": "queued, not passed",
+      "commit": "4890788ae9d3d25430f530f3d138288f1cf39863",
+      "repository": "michaeljosiah/aonik"
+    },
+    {
+      "pullRequest": 2752,
+      "commit": "42d3def5dc647bec05eae262308ed7a5b0fbe646",
+      "mergedAt": "2026-11-07T15:32:07Z",
+      "method": "squash",
+      "repository": "michaeljosiah/ArkeStudio"
+    },
+    {
+      "pullRequest": 54,
+      "commit": "1ddb861b1253b8a089a533701a4a2c960943b93e",
+      "mergedAt": "2026-11-07T15:32:13Z",
+      "method": "squash",
+      "repository": "michaeljosiah/ArkePlayer"
+    },
+    {
+      "pullRequest": 134,
+      "commit": "e1f2ba05ac962539075f1a62302f8a3970a5fcbc",
+      "mergedAt": "2026-11-07T15:32:01Z",
+      "method": "squash",
+      "repository": "michaeljosiah/arke-studio-specs"
+    }
+  ],
+  "method": {
+    "identity": "Normal AonikAccount with app-owned encrypted session; no identity or token bypass",
+    "creator": "Synthetic Creator 1, existing native Studio account",
+    "packageBytes": 2354240,
+    "runtimeChanged": false,
+    "material": "Same owner-confirmed frozen synthetic edition and dev-only rights declaration as the earlier base EPUB rehearsal",
+    "interruption": "Real CreatorPublishingService and AonikPublishingApi in separate Electron processes; exit after server accepted part 1, before client journal acknowledgement",
+    "failureProbes": "Narrow authenticated HTTP requests against the deployed dev API; not additional UI coverage",
+    "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c"
+  },
+  "creatorBoundaries": {
+    "at": "2026-11-07T15:41:03.72Z",
+    "result": [
+      {
+        "name": "own-receipt",
+        "status": 200,
+        "code": null,
+        "expected": 200
+      },
+      {
+        "name": "creator-cannot-review",
+        "status": 403,
+        "code": null,
+        "expected": 403
+      },
+      {
+        "name": "creator-cannot-manage-channel",
+        "status": 403,
+        "code": null,
+        "expected": 403
+      },
+      {
+        "name": "invalid-bearer",
+        "status": 401,
+        "code": null,
+        "expected": 401
+      }
+    ]
+  },
+  "interruptedUpload": {
+    "interruptedAt": "2026-11-07T15:41:19.611Z",
+    "resumedAt": "2026-11-07T15:41:43.066Z",
+    "firstProcessId": 450072,
+    "resumedProcessId": 445484,
+    "receiptId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+    "revisionId": "e768da08-740d-4ad1-b451-16fe4522c324",
+    "uploadId": "8d189b7c-bc0a-4803-9464-4f609649eeec",
+    "serverAcceptedBytesBeforeExit": 1048576,
+    "serverMissingPartsBeforeExit": [
+      2,
+      3
+    ],
+    "savedLocalBytesBeforeResume": 0,
+    "savedTransferBeforeResume": "paused",
+    "receiptReused": true,
+    "uploadSessionReused": true,
+    "partsSentAfterRestart": [
+      2,
+      3
+    ],
+    "receivedBytesAfterResume": 2354240,
+    "actualResumeRequests": [
+      {
+        "method": "GET",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads",
+        "status": 200
+      },
+      {
+        "method": "PUT",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/8d189b7c-bc0a-4803-9464-4f609649eeec/parts/2",
+        "status": 200
+      },
+      {
+        "method": "PUT",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/8d189b7c-bc0a-4803-9464-4f609649eeec/parts/3",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/8d189b7c-bc0a-4803-9464-4f609649eeec/complete",
+        "status": 200
+      },
+      {
+        "method": "POST",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/submit",
+        "status": 200
+      },
+      {
+        "method": "GET",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "status": 200
+      }
+    ],
+    "validation": {
+      "packageBytes": 2354240,
+      "code": "verified",
+      "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "status": "passed",
+      "completedAt": "2026-11-07T15:41:51.7807336",
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "verifierImage": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:edcf30cccff2a89f69523e2dabba590118999778cc2e623471c511217ab46dfb",
+      "reportId": "a27b9e8d-5dc5-479e-b519-5784e3810470"
+    },
+    "finalReceiptStatus": "in-review"
+  },
+  "replayAndConcurrency": {
+    "at": "2026-11-07T15:43:24.547Z",
+    "identicalCreateSameReceipt": true,
+    "changedHash": {
+      "status": 409,
+      "code": "request-id-reused"
+    },
+    "identicalSubmitSameValidationReport": true,
+    "wrongRevision": {
+      "status": 409,
+      "code": "revision-changed"
+    },
+    "staleRevisionVersion": {
+      "status": 409,
+      "code": "review-version-changed"
+    },
+    "unselectedTenantHeader": {
+      "status": 401,
+      "code": null,
+      "note": "Unselected synthetic tenant header; not a configured second-tenant qualification"
+    }
+  },
+  "chunkIntegrityAndCancellation": {
+    "at": "2026-11-07T15:47:31.353Z",
+    "result": {
+      "receiptId": "617d6c5e-5bb6-4781-a8cf-051f0ecdc784",
+      "revisionId": "daff702c-6370-4416-a89b-29ca71539162",
+      "uploadId": "e92ed455-10d4-4357-83cf-7c458874d053",
+      "checks": [
+        {
+          "name": "create-private-test",
+          "status": 201,
+          "code": null,
+          "receivedBytes": null
+        },
+        {
+          "name": "begin-private-upload",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 0
+        },
+        {
+          "name": "premature-completion",
+          "status": 409,
+          "code": "parts-missing",
+          "receivedBytes": null
+        },
+        {
+          "name": "malformed-digest",
+          "status": 422,
+          "code": "invalid-part-digest",
+          "receivedBytes": null
+        },
+        {
+          "name": "short-part",
+          "status": 422,
+          "code": "invalid-part-length",
+          "receivedBytes": null
+        },
+        {
+          "name": "out-of-range-part",
+          "status": 422,
+          "code": "invalid-part-length",
+          "receivedBytes": null
+        },
+        {
+          "name": "corrupt-transport-bytes",
+          "status": 422,
+          "code": "upload-bytes-mismatch",
+          "receivedBytes": null
+        },
+        {
+          "name": "failed-part-not-counted",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 0
+        },
+        {
+          "name": "recover-correct-part",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 1048576
+        },
+        {
+          "name": "identical-part-replay",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 1048576
+        },
+        {
+          "name": "changed-part-identity",
+          "status": 409,
+          "code": "part-identity-conflict",
+          "receivedBytes": null
+        },
+        {
+          "name": "incomplete-package-submit",
+          "status": 409,
+          "code": "package-not-uploaded",
+          "receivedBytes": null
+        },
+        {
+          "name": "cancel",
+          "status": 204,
+          "code": null,
+          "receivedBytes": null
+        },
+        {
+          "name": "cancel-replay",
+          "status": 204,
+          "code": null,
+          "receivedBytes": null
+        },
+        {
+          "name": "cancelled-state",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 1048576
+        },
+        {
+          "name": "write-after-cancel",
+          "status": 409,
+          "code": "upload-superseded",
+          "receivedBytes": null
+        }
+      ],
+      "finalUploadStatus": "cancelled",
+      "catalogueSerial": 2,
+      "publicWorldCount": 0
+    }
+  },
+  "replacementAndArchiveIntegrity": {
+    "at": "2026-11-07T15:48:49.4Z",
+    "result": {
+      "receiptId": "617d6c5e-5bb6-4781-a8cf-051f0ecdc784",
+      "revisionId": "daff702c-6370-4416-a89b-29ca71539162",
+      "oldUploadId": "e92ed455-10d4-4357-83cf-7c458874d053",
+      "uploadId": "fec455cf-6a39-4966-aab9-01b547085584",
+      "checks": [
+        {
+          "name": "replace-cancelled-session",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 0
+        },
+        {
+          "name": "late-cancel-of-old-session",
+          "status": 204,
+          "code": null,
+          "receivedBytes": null
+        },
+        {
+          "name": "replacement-still-open",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 0
+        },
+        {
+          "name": "receive-part-1",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 1048576
+        },
+        {
+          "name": "receive-part-2",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 2097152
+        },
+        {
+          "name": "receive-part-3",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 2354240
+        },
+        {
+          "name": "whole-archive-digest-mismatch",
+          "status": 422,
+          "code": "upload-bytes-mismatch",
+          "receivedBytes": null
+        },
+        {
+          "name": "failed-assembly-retired",
+          "status": 200,
+          "code": null,
+          "receivedBytes": 2354240
+        },
+        {
+          "name": "failed-package-cannot-submit",
+          "status": 409,
+          "code": "package-not-uploaded",
+          "receivedBytes": null
+        }
+      ],
+      "finalUploadStatus": "failed",
+      "finalReceiptStatus": "awaiting-upload",
+      "archiveWasNeverSubmitted": true
+    }
+  },
+  "crossCreator": {
+    "status": "pending fresh Creator 2 sign-in",
+    "proven": false
+  },
+  "publicCatalogue": {
+    "changedByThisRehearsal": false,
+    "worldCount": 0,
+    "serial": 2,
+    "checkedAt": "2026-11-07T15:47:31.353Z"
+  },
+  "issue403Complete": false,
+  "remaining": [
+    "Fresh Creator 2 cross-party read/write denial and a configured second-tenant denial",
+    "No-party and genuinely expired-auth live checks (invalid bearer is not expired auth)",
+    "Independent reviewer request-changes, replacement revision, rejection and stale review-snapshot checks",
+    "Delivery fault and durable retry",
+    "Current and supported older Player story/comic/part/update and background scheduler",
+    "Consenting human pilot creators and production baseline ownership/rights audit",
+    "Capacity/cost qualification and isolated backup restoration"
+  ]
+}

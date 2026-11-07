@@ -16,6 +16,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Added
 
+- **Arke upload failure rehearsal (#403):** Proved recovery after an accepted chunk and uploader process restart, stable receipt/report replays, stale-version refusal, chunk corruption recovery, cancellation isolation and whole-archive digest refusal against dev. Recorded the four merged implementation/specification PRs and remaining identity/editorial/consumer qualification. No new public edition was released.
+
 - **Arke synthetic dev rehearsal (#403):** Recorded the original Studio receipt's successful resume, managed-identity verification, explicitly approved editorial decision, serial-1 release, device install/read/offline cold launch, hold and serial-2 withdrawal. Forced Player refresh removes discovery while retaining the installed book and immutable artifact. Production is unchanged; broader failure-case, supported-consumer and pilot qualification remains open.
 
 - **Dev registration email infrastructure (#403):** Added a standalone Azure managed sender template and an optional runtime sender fallback. The dev profile uses the verified managed domain; credentials remain in deployment secret storage and delivery requires live mailbox verification.
