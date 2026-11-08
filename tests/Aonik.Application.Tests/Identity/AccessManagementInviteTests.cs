@@ -227,6 +227,75 @@ public class AccessManagementInviteTests
     }
 
     [Fact]
+    public async Task ListUsersAsync_ShouldReturnFilteredPaginationMetadata()
+    {
+        // Arrange
+        var (service, context, tenantId, _) = CreateService();
+        using var dbContext = context;
+        for (var index = 0; index < 5; index++)
+        {
+            context.Users.Add(new User
+            {
+                Id = Guid.NewGuid(), TenantId = tenantId, Email = $"fixture-{index}@example.test",
+                ExternalIssuer = "test", ExternalSubject = Guid.NewGuid().ToString(), Status = "Active"
+            });
+        }
+        context.Users.Add(new User
+        {
+            Id = Guid.NewGuid(), TenantId = tenantId, Email = "unrelated@example.test",
+            ExternalIssuer = "test", ExternalSubject = Guid.NewGuid().ToString(), Status = "Active"
+        });
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await service.ListUsersAsync(new ListUsersRequest(PageNumber: 2, PageSize: 2, Search: "fixture-"));
+        var empty = await service.ListUsersAsync(new ListUsersRequest(Search: "absent"));
+
+        // Assert
+        result.Items.Select(user => user.Email).Should().Equal("fixture-2@example.test", "fixture-3@example.test");
+        result.TotalCount.Should().Be(5);
+        result.PageNumber.Should().Be(2);
+        result.PageSize.Should().Be(2);
+        result.TotalPages.Should().Be(3);
+        result.HasPreviousPage.Should().BeTrue();
+        result.HasNextPage.Should().BeTrue();
+        empty.TotalCount.Should().Be(0);
+        empty.TotalPages.Should().Be(0);
+        empty.Items.Should().BeEmpty();
+        empty.HasNextPage.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ListRolesAsync_ShouldReturnFilteredPaginationMetadata()
+    {
+        // Arrange
+        var (service, context, tenantId, _) = CreateService();
+        using var dbContext = context;
+        for (var index = 0; index < 5; index++)
+        {
+            context.Roles.Add(new Role { Id = Guid.NewGuid(), TenantId = tenantId, Name = $"Fixture {index}" });
+        }
+        await context.SaveChangesAsync();
+
+        // Act
+        var result = await service.ListRolesAsync(new ListRolesRequest(PageNumber: 2, PageSize: 2, Search: "Fixture"));
+        var empty = await service.ListRolesAsync(new ListRolesRequest(Search: "absent"));
+
+        // Assert
+        result.Items.Select(role => role.Name).Should().Equal("Fixture 2", "Fixture 3");
+        result.TotalCount.Should().Be(5);
+        result.PageNumber.Should().Be(2);
+        result.PageSize.Should().Be(2);
+        result.TotalPages.Should().Be(3);
+        result.HasPreviousPage.Should().BeTrue();
+        result.HasNextPage.Should().BeTrue();
+        empty.TotalCount.Should().Be(0);
+        empty.TotalPages.Should().Be(0);
+        empty.Items.Should().BeEmpty();
+        empty.HasNextPage.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task InviteUserAsync_ShouldCreatePendingInviteWithRole()
     {
         var (service, context, tenantId, tenantAdminRole) = CreateService();

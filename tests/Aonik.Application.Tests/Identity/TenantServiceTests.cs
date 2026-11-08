@@ -17,6 +17,53 @@ namespace Aonik.Application.Tests.Identity;
 
 public class TenantServiceTests
 {
+    [Fact]
+    public async Task ListTenantsAsync_ShouldReturnFilteredPaginationMetadata()
+    {
+        // Arrange
+        var tenantContext = new TestTenantContext();
+        var userId = Guid.NewGuid();
+        var clock = new FixedClock(new DateTime(2026, 11, 8, 0, 0, 0, DateTimeKind.Utc));
+        var options = new DbContextOptionsBuilder<PlatformDbContext>()
+            .UseInMemoryDatabase($"TenantPagination_{Guid.NewGuid()}").Options;
+        var currentUser = new TestCurrentUserProvider(userId);
+        using var context = new PlatformDbContext(options, new HttpContextTenantProvider(tenantContext), currentUser, clock);
+        for (var index = 0; index < 5; index++)
+        {
+            context.Tenants.Add(new Aonik.Platform.Entities.Identity.Tenant
+            {
+                Id = Guid.NewGuid(), Name = $"Fixture {index}", Environment = "Dev", DefaultCurrency = "GBP", Status = "Active"
+            });
+        }
+        context.Tenants.Add(new Aonik.Platform.Entities.Identity.Tenant
+        {
+            Id = Guid.NewGuid(), Name = "Unrelated", Environment = "Dev", DefaultCurrency = "GBP", Status = "Active"
+        });
+        await context.SaveChangesAsync();
+        var audit = new TestAuditLogWriter();
+        var correlation = new TestCorrelationContext();
+        var service = new TenantService(context, new TestTenantProvisioner(context, clock, userId), audit, clock,
+            currentUser, correlation, tenantContext, new AllowAllPermissionService(), new CurrencyMetadataProvider(),
+            new PendingTenantUserProvisioner(context, clock, currentUser, audit, correlation));
+
+        // Act
+        var result = await service.ListTenantsAsync(new ListTenantsRequest(PageNumber: 2, PageSize: 2, NameFilter: "Fixture"));
+        var empty = await service.ListTenantsAsync(new ListTenantsRequest(NameFilter: "absent"));
+
+        // Assert
+        result.Items.Select(tenant => tenant.Name).Should().Equal("Fixture 2", "Fixture 3");
+        result.TotalCount.Should().Be(5);
+        result.PageNumber.Should().Be(2);
+        result.PageSize.Should().Be(2);
+        result.TotalPages.Should().Be(3);
+        result.HasPreviousPage.Should().BeTrue();
+        result.HasNextPage.Should().BeTrue();
+        empty.TotalCount.Should().Be(0);
+        empty.TotalPages.Should().Be(0);
+        empty.Items.Should().BeEmpty();
+        empty.HasNextPage.Should().BeFalse();
+    }
+
     private sealed class TestTenantProvider : ITenantProvider
     {
         private readonly Guid _tenantId;

@@ -813,6 +813,84 @@ does not qualify attempt exhaustion, mirror failure, the remaining identity
 matrix, further Player variants, production rights, capacity or backup restore.
 #403 remains open.
 
+## Configured identity boundaries — 8 November 2026
+
+The [sanitized identity evidence](evidence/arke-identity-rehearsal-2026-11-08.json)
+records **41 successful denial probes**: 16 across configured tenants, seven
+with a missing party relationship, and 18 with missing or malformed bearer
+credentials. These use the deployed API and the existing Studio creator session.
+They do not substitute malformed credentials for a genuinely expired token.
+
+The nominated reviewer's existing PlatformAdmin membership in the Aonik Dev
+Tenant created **Arke 403 Identity Isolation 2026-11-08** through the normal
+admin API. Tenant `44241bd4-14af-4221-9a85-007c11c0c33e` uses the Arke Worlds
+pack with publishing enabled. The normal invitation API admitted Creator 1 as
+PersonalUser. No elevated creator role, new content submission, or second-channel
+distribution declaration was introduced. The empty fixture tenant is retained
+for further identity checks.
+
+The same real Auth0 identity resolves to distinct AONIK user/party IDs in the two
+tenants. Both `/v1/me` calls return 200, and the new tenant's creator list returns
+200 with zero receipts. Requests for the original tenant's receipt, package,
+preview, decisions, upload reads/writes, submission and revision replacement
+return 404. Spoofed owner headers and owner/tenant query parameters do not escape
+the boundary. Reviewer/publication/management routes return 403. Owner-positive
+receipt, preview, decision, package and writable-upload snapshots are identical
+before and after the denials. The owner then cancelled the empty upload fixture.
+
+For the no-party case, an operator-only EF harness temporarily soft-deleted the
+single newly created fixture UserParty relationship. It pinned the dev database,
+tenant, user, party and reviewer, refused a tenant containing publishing content,
+and wrote apply/restore audit records. It did not alter Creator 1's original
+tenant relationship. The authenticated fixture identity remained Active with
+`partyId: null`; all seven creator routes returned **403 `no-party`**. A `finally`
+block restored the same relationship ID. A fresh API check confirmed the original
+party ID and a successful empty creator list. The temporary single-client-IP SQL
+rule was removed, with an independent timed cleanup also scheduled.
+
+The initial restoration-evidence query timed out after the relationship had
+already been restored. Separate API checks verified restoration. Read-only
+diagnostics found approximately 720,000 audit rows and only the primary-key
+index. Tenant-scoped audit indexes are being qualified through the canonical
+EF migration stream; no schema operation was authored by hand. Admin tenant,
+user and role pagination also returned positional arguments in the wrong order.
+Those three constructors now use named arguments; regression checks cover
+filtered middle pages and empty results.
+
+The solution build passed with zero errors and 59 existing warnings. The final
+full solution run passed **5,355 tests with 12 existing skips**, including all
+787 API and 269 database tests. It used `DOTNET_PROCESSOR_COUNT=4` to bound test
+concurrency. The initial broad run was interrupted after an API timeout while
+the model was rebuilding; the complete final run passed. All migrations,
+including the three new audit indexes, applied cleanly to a fresh LocalDB
+database. The first dev index build exceeded the five-minute DDL limit and
+rolled back, leaving only the original primary-key index; a bounded retry is
+pending. No temporary SQL firewall rule was left behind by that failed attempt.
+
+**Genuine expiry remains pending.** The actual Creator 1 token was accepted for
+the owner receipt before expiry and its signature verified with Auth0's JWKS.
+It expires at **14:36:10 UTC on 8 November**. A hidden local watcher is scheduled
+for **14:42:10 UTC**, allowing the API's five-minute clock tolerance plus one
+minute. It holds only an encrypted access-token copy, without a refresh token,
+and cannot refresh or change Studio's session. It will require 401 responses
+explicitly reporting expiration, record the result, then delete that copy.
+Auth0 lifetimes, JWT claims and server time were not changed. The machine and
+watcher must remain running; a scheduled probe is not a passing result.
+
+To finish that check, inspect the local rehearsal's `identity-expiry-status.json`
+and `identity-expiry-result.json` after the scheduled time. If the process was
+interrupted, resume the protected fixture with the same genuine token; do not
+forge an `exp` value or count an absent/malformed token as expiry. Add the actual
+result to the sanitized evidence before marking this part qualified. No access
+token, refresh token, password, authorization code or database credential belongs
+in the evidence or Git history.
+
+Dev discovery remains empty at serial 4; production remains serial 49 with five
+worlds and SHA-256
+`6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca`.
+The broader supported-consumer, production-rights, capacity, backup and pilot
+acceptance work remains open under #403.
+
 ## Operational safeguards and recovery
 
 - Keep intake closed if verifier capacity, identity setup or storage readiness is

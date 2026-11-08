@@ -22498,6 +22498,12 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "IsDeleted", "Timestamp");
+
+                    b.HasIndex("TenantId", "IsDeleted", "CorrelationId", "Timestamp");
+
+                    b.HasIndex("TenantId", "IsDeleted", "ResourceId", "Timestamp");
+
                     b.ToTable("AnkAuditLogs", "dbo");
                 });
 

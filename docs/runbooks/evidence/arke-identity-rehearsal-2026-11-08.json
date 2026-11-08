@@ -1,0 +1,437 @@
+{
+  "issue": 403,
+  "date": "2026-11-08",
+  "scope": "Synthetic development identity boundary rehearsal; real token expiry remains pending",
+  "api": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io",
+  "originalTenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
+  "isolatedTenantId": "44241bd4-14af-4221-9a85-007c11c0c33e",
+  "setup": {
+    "tenantName": "Arke 403 Identity Isolation 2026-11-08",
+    "businessType": "arke-worlds",
+    "publishingEnabled": true,
+    "createdThroughAdminApi": true,
+    "creatorInvitedThroughAdminApi": true,
+    "creatorRole": "PersonalUser",
+    "existingPlatformAdminUsed": true,
+    "additionalPrivilegeGranted": false,
+    "newContentSubmitted": false
+  },
+  "configuredCrossTenant": {
+    "at": "2026-11-08T07:04:57.484Z",
+    "owner": {
+      "userId": "a86d992b-872d-4fcd-b88d-0156ee122a5f",
+      "tenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
+      "partyId": "fcb1f81f-c207-4e34-942a-7183da17ff83",
+      "status": 200
+    },
+    "sameSubjectOtherTenant": {
+      "userId": "7b2b92e2-deff-443c-bd27-5a13a7860cab",
+      "tenantId": "44241bd4-14af-4221-9a85-007c11c0c33e",
+      "partyId": "b4ddcd18-961e-4cbc-830c-c06d1b0e7842",
+      "status": 200
+    },
+    "distinctTenantUserAndParty": true,
+    "positiveOtherTenantListStatus": 200,
+    "positiveOtherTenantListCount": 0,
+    "probes": [
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "status": 404,
+        "expected": 404,
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/package",
+        "method": "GET",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/preview",
+        "method": "GET",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions?page=1&pageSize=100",
+        "method": "GET",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/fd5b2a73-3cdb-40e3-98e8-509ba1606880",
+        "method": "GET",
+        "status": 404,
+        "expected": 404,
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "status": 404,
+        "expected": 404,
+        "spoofedOwnerHeaders": true
+      },
+      {
+        "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads/8bf2017f-497b-407e-936f-039f2fd18122",
+        "method": "GET",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads",
+        "method": "POST",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads/8bf2017f-497b-407e-936f-039f2fd18122/parts/1",
+        "method": "PUT",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads/8bf2017f-497b-407e-936f-039f2fd18122/complete",
+        "method": "POST",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/uploads/8bf2017f-497b-407e-936f-039f2fd18122",
+        "method": "DELETE",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/submit",
+        "method": "POST",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/617d6c5e-5bb6-4781-a8cf-051f0ecdc784/revisions",
+        "method": "POST",
+        "status": 404,
+        "expected": 404,
+        "code": "submission-unavailable",
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "status": 403,
+        "expected": 403,
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/publication",
+        "method": "GET",
+        "status": 403,
+        "expected": 403,
+        "spoofedOwnerHeaders": false
+      },
+      {
+        "path": "/publishing/management/channels",
+        "method": "GET",
+        "status": 403,
+        "expected": 403,
+        "spoofedOwnerHeaders": false
+      }
+    ],
+    "ownerStateUnchanged": true,
+    "ownerUploadCancelled": true
+  },
+  "missingAndMalformedAuthentication": {
+    "probes": [
+      {
+        "path": "/v1/me",
+        "method": "GET",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions",
+        "method": "GET",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/package",
+        "method": "GET",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/preview",
+        "method": "GET",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "GET",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads",
+        "method": "POST",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/management/channels",
+        "method": "GET",
+        "kind": "missing-bearer",
+        "status": 401
+      },
+      {
+        "path": "/v1/me",
+        "method": "GET",
+        "kind": "malformed-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions",
+        "method": "GET",
+        "kind": "malformed-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "kind": "malformed-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/package",
+        "method": "GET",
+        "kind": "malformed-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/preview",
+        "method": "GET",
+        "kind": "malformed-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "GET",
+        "kind": "malformed-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads",
+        "method": "POST",
+        "kind": "malformed-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/review/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "kind": "malformed-bearer",
+        "status": 401
+      },
+      {
+        "path": "/publishing/management/channels",
+        "method": "GET",
+        "kind": "malformed-bearer",
+        "status": 401
+      }
+    ],
+    "ownerControlsPassed": true,
+    "receiptUnchanged": true
+  },
+  "noParty": {
+    "at": "2026-11-08T07:12:54.639Z",
+    "fixtureTenantIdentity": {
+      "userId": "7b2b92e2-deff-443c-bd27-5a13a7860cab",
+      "tenantId": "44241bd4-14af-4221-9a85-007c11c0c33e",
+      "partyId": null,
+      "status": 200
+    },
+    "probes": [
+      {
+        "path": "/publishing/submissions",
+        "method": "GET",
+        "status": 403,
+        "code": "no-party"
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "method": "GET",
+        "status": 403,
+        "code": "no-party"
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/package",
+        "method": "GET",
+        "status": 403,
+        "code": "no-party"
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/preview",
+        "method": "GET",
+        "status": 403,
+        "code": "no-party"
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/decisions",
+        "method": "GET",
+        "status": 403,
+        "code": "no-party"
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads",
+        "method": "POST",
+        "status": 403,
+        "code": "no-party"
+      },
+      {
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads/8d189b7c-bc0a-4803-9464-4f609649eeec",
+        "method": "GET",
+        "status": 403,
+        "code": "no-party"
+      }
+    ],
+    "ownerStillAccessible": true,
+    "restoredIdentity": {
+      "userId": "7b2b92e2-deff-443c-bd27-5a13a7860cab",
+      "tenantId": "44241bd4-14af-4221-9a85-007c11c0c33e",
+      "partyId": "b4ddcd18-961e-4cbc-830c-c06d1b0e7842",
+      "status": 200
+    },
+    "restoredListStatus": 200,
+    "restoredListCount": 0,
+    "relationship": {
+      "at": "2026-11-08T07:18:12.8853407Z",
+      "tenant": "44241bd4-14af-4221-9a85-007c11c0c33e",
+      "user": "7b2b92e2-deff-443c-bd27-5a13a7860cab",
+      "party": "b4ddcd18-961e-4cbc-830c-c06d1b0e7842",
+      "linkId": "1462d6e5-0422-4076-9a84-4caa0ca74ad8",
+      "restored": true,
+      "correlation": "arke-403-no-party-20261108"
+    }
+  },
+  "temporaryFirewall": {
+    "removed": true,
+    "rule": "arke-403-identity-20261108073521-4579a951",
+    "at": "2026-11-08T07:35:31.8854720Z"
+  },
+  "catalogueControls": {
+    "dev": {
+      "worlds": 0,
+      "serial": 4
+    },
+    "production": {
+      "sha256": "6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca",
+      "worlds": 5,
+      "serial": 49
+    },
+    "at": "2026-11-08T07:20:56.1377357Z"
+  },
+  "genuineExpiry": {
+    "status": "scheduled-not-yet-executed",
+    "issuer": "https://aonik.uk.auth0.com/",
+    "issuedAt": "2026-11-07T14:36:10.000Z",
+    "expiresAt": "2026-11-08T14:36:10.000Z",
+    "probeAt": "2026-11-08T14:42:10.000Z",
+    "signatureVerifiedWithIssuerJwks": true,
+    "positiveOwnerControlStatus": 200,
+    "clockSkewAllowanceSeconds": 300,
+    "additionalMarginSeconds": 60,
+    "protectedStorage": true,
+    "refreshTokenStored": false,
+    "providerLifetimeUnchanged": true,
+    "jwtUnmodified": true,
+    "requiresMachineAndWatcherToRemainRunning": true
+  },
+  "qualifications": {
+    "crossTenant": true,
+    "noParty": true,
+    "missingMalformedAuthentication": true,
+    "genuineExpiredAuthentication": false,
+    "productionPublishingEnabled": false,
+    "pilotReadiness": false
+  },
+  "fixes": {
+    "adminPagination": {
+      "lists": [
+        "tenants",
+        "users",
+        "roles"
+      ],
+      "filteredAndEmptyPageRegressionsPassed": true
+    },
+    "auditIndexes": {
+      "migration": "20261108072219_IndexTenantAuditLookups",
+      "canonicalContext": "AonikDbContext",
+      "toolGenerated": true,
+      "indexCount": 3,
+      "initialAuditRowCount": 720226,
+      "initialIndexes": [
+        "PK_AnkAuditLogs"
+      ],
+      "initialQueryTimedOut": true,
+      "localFreshDatabaseMigrationStreamPassed": true,
+      "firstDevMigrationAttemptTimedOutAndRolledBack": true,
+      "devStatus": "retry-pending"
+    }
+  },
+  "validation": {
+    "solutionBuild": {
+      "errors": 0,
+      "existingWarnings": 59
+    },
+    "fullSolutionTests": {
+      "passed": 5355,
+      "skipped": 12,
+      "failed": 0,
+      "dotnetProcessorCount": 4
+    },
+    "focusedIdentityTests": {
+      "passed": 18,
+      "failed": 0
+    }
+  },
+  "remaining": [
+    "Genuine expired-token result after 14:42:10 UTC",
+    "Supported Player variants and refresh/update matrix",
+    "Remaining delivery failures and attempt exhaustion",
+    "Production baseline ownership and rights",
+    "Capacity, costs and isolated backup restoration",
+    "Consenting human pilot acceptance"
+  ]
+}

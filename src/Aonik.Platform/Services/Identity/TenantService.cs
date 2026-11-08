@@ -260,10 +260,10 @@ internal class TenantService : AdminServiceBase, ITenantService
             items.Add(await MapToResponseAsync(tenant, cancellationToken));
 
         return new PagedResult<TenantResponse>(
-            items,
-            request.PageNumber,
-            request.PageSize,
-            totalCount);
+            Items: items,
+            TotalCount: totalCount,
+            PageNumber: request.PageNumber,
+            PageSize: request.PageSize);
     }
 
     public async Task<TenantResponse> UpdateTenantAsync(
