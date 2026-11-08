@@ -336,31 +336,45 @@
     "restoredListStatus": 200,
     "restoredListCount": 0,
     "relationship": {
-      "at": "2026-11-08T07:18:12.8853407Z",
+      "at": "2026-11-08T07:49:23.9930913Z",
       "tenant": "44241bd4-14af-4221-9a85-007c11c0c33e",
       "user": "7b2b92e2-deff-443c-bd27-5a13a7860cab",
       "party": "b4ddcd18-961e-4cbc-830c-c06d1b0e7842",
       "linkId": "1462d6e5-0422-4076-9a84-4caa0ca74ad8",
       "restored": true,
       "correlation": "arke-403-no-party-20261108"
-    }
+    },
+    "auditEvents": [
+      {
+        "id": "70d3c4d2-37e8-4323-9cbc-49d8d14fe464",
+        "action": "ArkeDevIdentityFixtureRestored",
+        "timestamp": "2026-11-08T07:12:54.8577236"
+      },
+      {
+        "id": "401ea88e-b402-4a4a-92a0-13c62c09b800",
+        "action": "ArkeDevIdentityFixtureApplied",
+        "timestamp": "2026-11-08T07:12:53.19017"
+      }
+    ]
   },
   "temporaryFirewall": {
+    "rule": "arke-403-identity-20261108075722-e21e2cd5",
     "removed": true,
-    "rule": "arke-403-identity-20261108073521-4579a951",
-    "at": "2026-11-08T07:35:31.8854720Z"
+    "at": "2026-11-08T07:58:34.7572392Z"
   },
   "catalogueControls": {
+    "apiHealth": 200,
     "dev": {
-      "worlds": 0,
-      "serial": 4
+      "serial": 4,
+      "worlds": 0
     },
+    "at": "2026-11-08T08:05:06.6582283Z",
     "production": {
-      "sha256": "6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca",
+      "serial": 49,
       "worlds": 5,
-      "serial": 49
+      "sha256": "6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca"
     },
-    "at": "2026-11-08T07:20:56.1377357Z"
+    "adminStatus": 200
   },
   "genuineExpiry": {
     "status": "scheduled-not-yet-executed",
@@ -393,7 +407,80 @@
         "users",
         "roles"
       ],
-      "filteredAndEmptyPageRegressionsPassed": true
+      "filteredAndEmptyPageRegressionsPassed": true,
+      "liveChecks": {
+        "at": "2026-11-08T08:00:40.944Z",
+        "results": [
+          {
+            "path": "/admin/tenants?pageNumber=1&pageSize=100",
+            "status": 200,
+            "totalCount": 5,
+            "pageNumber": 1,
+            "pageSize": 100,
+            "itemCount": 5
+          },
+          {
+            "path": "/admin/users?pageNumber=1&pageSize=100",
+            "status": 200,
+            "totalCount": 2,
+            "pageNumber": 1,
+            "pageSize": 100,
+            "itemCount": 2
+          },
+          {
+            "path": "/admin/roles?pageNumber=1&pageSize=100",
+            "status": 200,
+            "totalCount": 5,
+            "pageNumber": 1,
+            "pageSize": 100,
+            "itemCount": 5
+          }
+        ],
+        "empty": {
+          "status": 200,
+          "body": {
+            "items": [],
+            "totalCount": 0,
+            "pageNumber": 1,
+            "pageSize": 20,
+            "totalPages": 0,
+            "hasPreviousPage": false,
+            "hasNextPage": false
+          }
+        },
+        "requests": [
+          {
+            "path": "/v1/me",
+            "status": 200,
+            "tenant": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
+            "elapsedMs": 2584
+          },
+          {
+            "path": "/admin/tenants?pageNumber=1&pageSize=100",
+            "status": 200,
+            "tenant": "7fa21f8e-e433-4077-bd66-4c2af3c67da8",
+            "elapsedMs": 543
+          },
+          {
+            "path": "/admin/users?pageNumber=1&pageSize=100",
+            "status": 200,
+            "tenant": "44241bd4-14af-4221-9a85-007c11c0c33e",
+            "elapsedMs": 202
+          },
+          {
+            "path": "/admin/roles?pageNumber=1&pageSize=100",
+            "status": 200,
+            "tenant": "44241bd4-14af-4221-9a85-007c11c0c33e",
+            "elapsedMs": 157
+          },
+          {
+            "path": "/admin/tenants?pageNumber=1&pageSize=20&nameFilter=nonexistent-arke403-identity-fixture",
+            "status": 200,
+            "tenant": "7fa21f8e-e433-4077-bd66-4c2af3c67da8",
+            "elapsedMs": 97
+          }
+        ]
+      }
     },
     "auditIndexes": {
       "migration": "20261108072219_IndexTenantAuditLookups",
@@ -407,7 +494,27 @@
       "initialQueryTimedOut": true,
       "localFreshDatabaseMigrationStreamPassed": true,
       "firstDevMigrationAttemptTimedOutAndRolledBack": true,
-      "devStatus": "retry-pending"
+      "devStatus": "applied",
+      "apiLookup": {
+        "status": 200,
+        "itemCount": 2,
+        "elapsedMs": 78
+      },
+      "deployment": {
+        "target": "20261108072219_IndexTenantAuditLookups",
+        "started": "2026-11-08T07:36:38.1415101Z",
+        "completed": "2026-11-08T07:49:05.2487853Z",
+        "applied": true,
+        "canonicalContext": "AonikDbContext",
+        "sqlAuthCredentialPrinted": false
+      },
+      "readOnlyQueryWarmup": {
+        "automaticStatisticsAllowedToFinish": true,
+        "count": 2,
+        "at": "2026-11-08T07:58:30.5641181Z",
+        "elapsedMs": 60537,
+        "readOnlyQuery": true
+      }
     }
   },
   "validation": {
@@ -424,6 +531,15 @@
     "focusedIdentityTests": {
       "passed": 18,
       "failed": 0
+    },
+    "ci": {
+      "run": 42459529234,
+      "source": "5f69585208a3070acabd00b5c17fea665a2e1779",
+      "conclusion": "success"
+    },
+    "runtimeBuildAndScan": {
+      "run": 42459535358,
+      "conclusion": "success"
     }
   },
   "remaining": [
@@ -433,5 +549,33 @@
     "Production baseline ownership and rights",
     "Capacity, costs and isolated backup restoration",
     "Consenting human pilot acceptance"
-  ]
+  ],
+  "runtimeDeployment": {
+    "sourceCommit": "5f69585208a3070acabd00b5c17fea665a2e1779",
+    "at": "2026-11-08T08:01:30.1178332Z",
+    "images": [
+      {
+        "image": "aonikdevacr.azurecr.io/aonik-api@sha256:f0b1f4ee6e7b634dd87b39339651d296e60c26eb43465c8110de905aa11347e2",
+        "at": "2026-11-08T07:59:48.2371907Z",
+        "name": "aonik-dev-api",
+        "state": "Running",
+        "revision": "aonik-dev-api--arke403-5f695852"
+      },
+      {
+        "image": "aonikdevacr.azurecr.io/aonik-worker@sha256:63f7a4ac5c70d1ccb9c0e82a55b68bb9d6065ebc04f10cfa01b829886fda0277",
+        "at": "2026-11-08T08:00:34.6872173Z",
+        "name": "aonik-dev-worker",
+        "state": "Running",
+        "revision": "aonik-dev-worker--arke403-5f695852"
+      },
+      {
+        "image": "aonikdevacr.azurecr.io/aonik-adminui@sha256:f464e2cfb095fb900de9a25da6547eae596f6d0c6e9a97244303081ba288964e",
+        "at": "2026-11-08T08:01:22.0531723Z",
+        "name": "aonik-dev-adminui",
+        "state": "Running",
+        "revision": "aonik-dev-adminui--arke403-5f695852"
+      }
+    ],
+    "runtimeConfigurationUnchanged": true
+  }
 }
