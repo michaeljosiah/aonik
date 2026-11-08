@@ -124,6 +124,13 @@ internal static class PlayerCatalogueProjection
             pin["released"]=operation.CreatedAt.ToString("yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture);
             pin["production"]=production;pin["chapters"]=chapters.DeepClone();parts.Add(pin.DeepClone());
             if(basePin["parts"] is null)basePin["parts"]=parts;
+            // SPEC-058 R-48/R-53: the verified part declares its production's next release.
+            // An omitted optional schedule does not erase the author's previous declaration.
+            if(manifest["part"]?["schedule"] is { } schedule)
+            {
+                var target=world["productions"]!.AsArray().OfType<JsonObject>().Single(p=>p["id"]?.GetValue<string>()==production);
+                target["schedule"]=schedule.DeepClone();
+            }
         }
         else
         {

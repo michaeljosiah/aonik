@@ -943,6 +943,69 @@ acceptance work remains open under #403.
 - Private manual intake and verified operator publication handoff remain the
   fallback. No production manual or automated upload is part of this run.
 
+## Player consumer compatibility — 8 November 2026
+
+The consumer matrix uses actual Player source, rather than an independent parser:
+
+| Consumer | Exact source | Scope qualified |
+| --- | --- | --- |
+| Current worlds-first Player | `17dc9a23c8bd550dc7116ef61d37a53319e15081` | Seven AONIK-generated catalogue types, exact pins, installation, repeated installation, part continuity and network-free library reopening; future story/comic versions are not downloaded. |
+| Last published Android preview, `v0.1.0-preview.20261026.update` | `03a261bda82bc6ec07d66f980506143ecba430a8` | The same catalogue matrix; supported world/listening/guide/music/part content remains usable. Story/comic entries are safely ignored and never fetched. |
+| Earlier dev APK from the first rehearsal | `1b80ab72067bdb91642adaf57cf1bff4c6735f8d` | Previously qualified base EPUB discovery, install, reading, withdrawal refresh and offline cold launch. Its retained library is the input to the current APK upgrade check. |
+
+The published preview is version `0.1.0`, Android version code `2001`, ARM64,
+Android 7+. It is the historical compatibility floor exercised here, **not** proof
+that its released APK has passed on a physical phone. Current dev is Android x64,
+`studio.arke.player.dev`, version `0.1.0+1`. No Google Play candidate or iOS build
+is qualified by these results. Older unlisted builds remain unqualified.
+
+`qualify_consumers.dart` consumes the seven complete catalogues emitted by the
+real .NET delivery tests. It checks every retained pin's length and SHA, then uses
+the selected checkout's real installer. Only the test HTTP transport maps the
+synthetic `public.example.test` authority to loopback; certificate checks and
+production configuration are unchanged. Standalone productions use a local base
+fixture; the guide uses the real file-import path. All libraries reopen after the
+local artifact server closes. This proves format/installer compatibility, not an
+editorial approval or a deployed publication of these fixtures.
+
+`qualify_dev_player.dart` separately installs the already-approved synthetic EPUB
+from its retained immutable dev HTTPS URL with each reader. Forced refresh advances
+the saved serial-1 feed to the live, empty serial 4, repeated install is stable,
+and the installed EPUB reopens without network access with its original SHA.
+Withdrawal removes discovery; a previously known immutable URL remains downloadable,
+as intended by the retention policy. This is not artifact revocation.
+
+The checks found that the AONIK projection discarded the schedule declared inside
+a verified part. The projection now updates only the affected production's schedule,
+preserving an existing declaration when the next part omits it. Regression tests
+cover the schedule, unrelated production and unchanged base fingerprint.
+
+To reproduce the local matrix, set `AONIK_PLAYER_QUALIFICATION_DIRECTORY` to a
+temporary output directory and run `PublicationDeliveryTests`. Resolve each exact
+Player checkout's dependencies, then invoke its Dart SDK with its package config:
+
+```text
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_consumers.dart <projection-output> <player> current <result.json>
+```
+
+Use `legacy` for the published preview. The live probe takes the retained,
+approved serial-1 dev snapshot, exact reader commit and evidence output path.
+Do not substitute an unreviewed package or publish these local fixtures.
+
+The current pure-Dart world suite passed **376** tests; the historical suite passed
+**227**. The current Flutter suite passed **408**, with **13** existing skips, and
+the explicit development-channel/refresh suite passed **13**. The native PDFium
+download failed during first setup; the rebuild reused the same version's binaries
+already qualified by the previous dev build. The application source was unchanged.
+
+Remaining acceptance is explicit: actual scheduled Android notification delivery
+for a newly approved part, live AONIK publication of part/update/story/comic editions,
+physical and Play-installed device tests, and production baseline/rights qualification.
+Old hard-coded clients still use GitHub. Their eventual updates require an explicitly
+approved catalogue mirror; this rehearsal does not enable that mirror or change the
+production feed. See the [consumer evidence](evidence/arke-player-compatibility-2026-11-08.json)
+for the exact distinction between local, live transport and device observations.
+
 ## Validation of this preparation
 
 For the 7 November storage fix, the solution build passed with zero errors and
@@ -968,6 +1031,6 @@ forced refresh passed for this one synthetic base EPUB. The transient Worker
 readback fault, same-operation retry and serial-4 withdrawal are also qualified;
 dev discovery is currently empty. Configured cross-tenant, no-party and
 missing/malformed authentication boundaries are now qualified. Consenting human
-pilot actors, genuine token expiry, remaining delivery failure cases, the supported-consumer matrix, audited
+pilot actors, genuine token expiry, remaining delivery failure cases, the remaining live/device consumer checks, audited
 production baseline rights, capacity and backup restoration are still
 unqualified. #403 stays open.
