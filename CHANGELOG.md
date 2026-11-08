@@ -6,6 +6,10 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Player parts without cover artwork (#403):** Accept a verified part that inherits the current base edition's approved cover, preserving its catalogue pin instead of requiring or promoting a duplicate image. Full editions still require verified artwork; every included part asset still requires exact rights coverage.
+
+- **Player chapter schedules (#403):** Preserve a verified part's release schedule in the catalogue entry for its production. Parts that omit a schedule retain the previous declaration; other productions and the base fingerprint remain unchanged.
+
 - **Tenant audit lookup timeouts (#403):** Add canonical EF-generated indexes for tenant timelines, correlation IDs and resource IDs. This addresses full scans found while retrieving the live missing-party fixture's apply/restore audit trail.
 
 - **Admin identity pagination (#403):** Return the correct total count, page number and page size for tenant, user and role lists. Filtered middle-page and empty-result regressions cover the issue found during the configured-tenant rehearsal.
@@ -19,6 +23,8 @@ All notable changes to the AONIK project will be documented in this file.
 - **Optional workspace setup (#403):** Keep “Skip for now” in the current browser session instead of reloading into the same unfinished wizard. Skipping retains saved progress and does not mark company setup complete.
 
 ### Added
+
+- **Player compatibility rehearsal (#403):** Added repeatable qualification against actual current and historical Player readers, using AONIK-generated synthetic catalogue pins and retained dev HTTPS assets. Evidence distinguishes local format/install checks, live transport and Android device checks from the outstanding publication and physical-device gates.
 
 - **Arke identity boundary rehearsal (#403):** Recorded 41 live denials across configured tenants, a temporarily missing party relationship, and absent/malformed authentication. Owner state and package hashes remain unchanged; the fixture relationship and temporary SQL access were restored. Genuine token expiry is scheduled and explicitly remains unqualified until its actual result is recorded.
 

@@ -1,0 +1,146 @@
+{
+  "checkedAt": "2026-11-08T16:22:34.988Z",
+  "issue": 403,
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "receiptId": "fbbb1317-8c13-4062-ba00-90b9c3cab0d6",
+  "revisionId": "9f886acc-e498-4bd6-a62f-dfa546cde3bb",
+  "reviewDigest": "3e6ca4cb6eda9db8067c58a0f9d84ee6ee2470c907d3e4c78173cc81e6b3f8ad",
+  "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+  "approval": {
+    "id": "0fccd185-178e-4420-95b7-9f2944d2c96d",
+    "decidedAt": "2026-11-08T16:10:21.6581103Z",
+    "decision": "approve",
+    "checks": {
+      "distributionRightsReviewed": true,
+      "attributionReviewed": true,
+      "audienceSafetyReviewed": true
+    }
+  },
+  "operations": [
+    {
+      "id": "040db549-4447-46f4-856c-81b2dd045011",
+      "kind": "withdraw",
+      "status": "committed",
+      "editionId": "eb5e08f3-031f-44b5-b09d-a835c3dc457b",
+      "committedSerial": 6,
+      "attempts": 1,
+      "completedAt": "2026-11-08T16:17:55.141466"
+    },
+    {
+      "id": "05fedf74-bf3b-473f-91db-83b1367e3339",
+      "kind": "publish",
+      "status": "committed",
+      "editionId": "eb5e08f3-031f-44b5-b09d-a835c3dc457b",
+      "committedSerial": 5,
+      "attempts": 1,
+      "completedAt": "2026-11-08T16:10:50.1206202"
+    }
+  ],
+  "currentReader": [
+    {
+      "checkedAt": "2026-11-08T16:15:31.466846Z",
+      "readerCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
+      "phase": "published",
+      "catalogueSerial": 5,
+      "worldCount": 1,
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "bookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "offlineReopened": true,
+      "sameLibraryAcrossPhases": true,
+      "scope": "Actual Player reader, live dev HTTPS discovery/install, persisted library; no device claim",
+      "passed": true
+    },
+    {
+      "checkedAt": "2026-11-08T16:18:55.421747Z",
+      "readerCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
+      "phase": "withdrawn",
+      "catalogueSerial": 6,
+      "worldCount": 0,
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "bookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "offlineReopened": true,
+      "sameLibraryAcrossPhases": true,
+      "scope": "Actual Player reader, live dev HTTPS discovery/install, persisted library; no device claim",
+      "passed": true
+    }
+  ],
+  "legacyReader": [
+    {
+      "checkedAt": "2026-11-08T16:15:33.753164Z",
+      "readerCommit": "03a261bda82bc6ec07d66f980506143ecba430a8",
+      "phase": "published",
+      "catalogueSerial": 5,
+      "worldCount": 1,
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "bookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "offlineReopened": true,
+      "sameLibraryAcrossPhases": true,
+      "scope": "Actual Player reader, live dev HTTPS discovery/install, persisted library; no device claim",
+      "passed": true
+    },
+    {
+      "checkedAt": "2026-11-08T16:18:57.667382Z",
+      "readerCommit": "03a261bda82bc6ec07d66f980506143ecba430a8",
+      "phase": "withdrawn",
+      "catalogueSerial": 6,
+      "worldCount": 0,
+      "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "bookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "offlineReopened": true,
+      "sameLibraryAcrossPhases": true,
+      "scope": "Actual Player reader, live dev HTTPS discovery/install, persisted library; no device claim",
+      "passed": true
+    }
+  ],
+  "android": {
+    "sourceCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
+    "applicationId": "studio.arke.player.dev",
+    "device": "Pixel_9 x86_64 emulator",
+    "publishedSerial": 5,
+    "publishedWorlds": 1,
+    "publishedCacheFetchedAt": "2026-11-08T16:13:54.974269Z",
+    "discoveryCardVisible": true,
+    "coverAndCompleteChapterRendered": true,
+    "withdrawnSerial": 6,
+    "withdrawnWorlds": 0,
+    "withdrawnCacheFetchedAt": "2026-11-08T16:18:40.450406Z",
+    "discoveryVisiblyEmpty": true,
+    "installedLibraryStillVisible": true,
+    "libraryAndReadingPositionByteIdentical": true,
+    "librarySha256": "4a0f6a5a6afd837717b29273056eab6a8c1512626f485ca3d6e17bb0efeaf831",
+    "scope": "UI refresh, discovery and reading; no new offline cold-launch or physical-device claim"
+  },
+  "finalReceiptStatus": "withdrawn",
+  "finalCatalogue": {
+    "serial": 6,
+    "worldCount": 0
+  },
+  "retainedImmutableArtifacts": [
+    {
+      "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/977f46aa-1749-45f0-9df1-33d8175827c7",
+      "status": 200,
+      "bytes": 2354240,
+      "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c"
+    },
+    {
+      "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/46ddb128-c2d8-430f-b264-6fee2be3a1de",
+      "status": 200,
+      "bytes": 1176020,
+      "sha256": "9d5101c3698c0f000021e71848c7b31ec12a8a824eb8a93fe4cf8f661339b81f"
+    }
+  ],
+  "anonymousPrivatePackageStatus": 401,
+  "productionControl": {
+    "method": "GitHub release asset metadata digest; no production write",
+    "digest": "sha256:6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca",
+    "id": 707126022,
+    "size": 14076,
+    "updated_at": "2026-11-03T21:17:51Z"
+  },
+  "limitations": [
+    "Live new part, new edition, story and comic publication need their own exact approvals.",
+    "Actual scheduled Android part notifications and physical/Play/iOS acceptance remain unqualified."
+  ],
+  "issue403Complete": false
+}

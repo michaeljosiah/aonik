@@ -24,7 +24,7 @@ Future<void> main(List<String> args) async {
     }
     await visit(jsonDecode(json));catalogues++;
   }
-  if(catalogues!=7) throw StateError('Expected world, listening, guide, music, story, comic and part catalogues; got $catalogues');
+  if(catalogues!=8) throw StateError('Expected world, listening, guide, music, story, comic, part and coverless-part catalogues; got $catalogues');
   stdout.writeln('Pinned Player accepted $catalogues complete .NET catalogues and $pins exact public pins ($readerQualificationPin).');
 }
 const readerQualificationPin='27df122566bcdef18126932c15a74112e18b8573';

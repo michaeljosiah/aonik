@@ -29,7 +29,10 @@ internal static class EditorialMaterialRules
     {
         if (!revision.PermissionGranted || revision.Material is not { } material) return "rights-evidence-required";
         if (material.ReleaseKind != result.Kind) return "release-kind-mismatch";
-        if (!result.Assets.Any(a => a.Id == material.ArtworkAssetId && a.MediaType is "image/png" or "image/jpeg"))
+        // Parts inherit the approved base edition's artwork; Studio does not repeat its cover.
+        // An explicitly supplied asset must still be a verified image from this exact package.
+        var inheritsArtwork = result.Kind == "part" && material.ArtworkAssetId.Length == 0;
+        if (!inheritsArtwork && !result.Assets.Any(a => a.Id == material.ArtworkAssetId && a.MediaType is "image/png" or "image/jpeg"))
             return "artwork-evidence-required";
         var covered = material.RightsEvidence.SelectMany(e => e.AssetIds).ToHashSet(StringComparer.Ordinal);
         if (!covered.SetEquals(result.Assets.Select(a => a.Id))) return "rights-asset-coverage-required";

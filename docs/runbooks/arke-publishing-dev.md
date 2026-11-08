@@ -898,25 +898,20 @@ remain accessible, the owner receipt returns 200, the other-tenant receipt
 returns 404, and all 18 missing/malformed bearer probes still return 401.
 Final documentation/evidence updates do not alter the tested runtime source.
 
-**Genuine expiry remains pending.** The actual Creator 1 token was accepted for
-the owner receipt before expiry and its signature verified with Auth0's JWKS.
-It expires at **14:36:10 UTC on 8 November**. A hidden local watcher is scheduled
-for **14:42:10 UTC**, allowing the API's five-minute clock tolerance plus one
-minute. It holds only an encrypted access-token copy, without a refresh token,
-and cannot refresh or change Studio's session. It will require 401 responses
-explicitly reporting expiration, record the result, then delete that copy.
-Auth0 lifetimes, JWT claims and server time were not changed. The machine and
-watcher must remain running; a scheduled probe is not a passing result.
+**Genuine expiry passed at 14:42:10 UTC on 8 November.** The actual Creator 1
+token was accepted for its owner receipt before expiry and its signature verified
+with Auth0's JWKS. After its original **14:36:10 UTC** expiry, the watcher allowed
+the API's five-minute clock tolerance plus one minute. All five routes—identity,
+submission list, receipt, package read and upload creation—returned **401 with an
+expired-token challenge**. No refresh token was used, and the protected access-token
+fixture was deleted after the result was recorded. Auth0 lifetimes, JWT claims,
+server time and shared authentication settings were unchanged. The sanitized
+[identity evidence](evidence/arke-identity-rehearsal-2026-11-08.json) includes the
+positive control and each expired response; no credential belongs in Git history.
 
-To finish that check, inspect the local rehearsal's `identity-expiry-status.json`
-and `identity-expiry-result.json` after the scheduled time. If the process was
-interrupted, resume the protected fixture with the same genuine token; do not
-forge an `exp` value or count an absent/malformed token as expiry. Add the actual
-result to the sanitized evidence before marking this part qualified. No access
-token, refresh token, password, authorization code or database credential belongs
-in the evidence or Git history.
-
-Dev discovery remains empty at serial 4; production remains serial 49 with five
+The identity batch ended with empty dev discovery at serial 4; the later approved
+Player release/withdrawal cycle below ended empty at serial 6. Production retained
+the same catalogue asset digest, previously parsed as serial 49 with five
 worlds and SHA-256
 `6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca`.
 The broader supported-consumer, production-rights, capacity, backup and pilot
@@ -943,6 +938,156 @@ acceptance work remains open under #403.
 - Private manual intake and verified operator publication handoff remain the
   fallback. No production manual or automated upload is part of this run.
 
+## Player consumer compatibility — 8 November 2026
+
+The consumer matrix uses actual Player source, rather than an independent parser:
+
+| Consumer | Exact source | Scope qualified |
+| --- | --- | --- |
+| Current worlds-first Player | `17dc9a23c8bd550dc7116ef61d37a53319e15081` | Eight scenarios across seven AONIK-generated catalogue types, including coverless parts, exact pins, installation, repeated installation, part continuity and network-free library reopening; future story/comic versions are not downloaded. |
+| Last published Android preview, `v0.1.0-preview.20261026.update` | `03a261bda82bc6ec07d66f980506143ecba430a8` | The same catalogue matrix; supported world/listening/guide/music/part content remains usable. Story/comic entries are safely ignored and never fetched. |
+| Earlier dev APK from the first rehearsal | `1b80ab72067bdb91642adaf57cf1bff4c6735f8d` | Previously qualified base EPUB discovery, install, reading, withdrawal refresh and offline cold launch. Its retained library is the input to the current APK upgrade check. |
+
+The published preview is version `0.1.0`, Android version code `2001`, ARM64,
+Android 7+. It is the historical compatibility floor exercised here, **not** proof
+that its released APK has passed on a physical phone. Current dev is Android x64,
+`studio.arke.player.dev`, version `0.1.0+1`. No Google Play candidate or iOS build
+is qualified by these results. Older unlisted builds remain unqualified.
+
+`qualify_consumers.dart` consumes the eight complete catalogue scenarios emitted by the
+real .NET delivery tests. It checks every retained pin's length and SHA, then uses
+the selected checkout's real installer. Only the test HTTP transport maps the
+synthetic `public.example.test` authority to loopback; certificate checks and
+production configuration are unchanged. Standalone productions use a local base
+fixture; the guide uses the real file-import path. All libraries reopen after the
+local artifact server closes. This proves format/installer compatibility, not an
+editorial approval or a deployed publication of these fixtures.
+
+`qualify_dev_player.dart` separately installs the already-approved synthetic EPUB
+from its retained immutable dev HTTPS URL with each reader. Forced refresh advances
+the saved serial-1 feed to the live, empty serial 4, repeated install is stable,
+and the installed EPUB reopens without network access with its original SHA.
+Withdrawal removes discovery; a previously known immutable URL remains downloadable,
+as intended by the retention policy. This is not artifact revocation.
+
+The checks found that the AONIK projection discarded the schedule declared inside
+a verified part. The projection now updates only the affected production's schedule,
+preserving an existing declaration when the next part omits it. Regression tests
+cover the schedule, unrelated production and unchanged base fingerprint.
+
+A further check found that Studio parts intentionally omit the base cover, while
+the submission/approval path required another image. Parts may now use an empty
+artwork asset ID to inherit the approved base cover. The existing public cover pin
+is preserved, and all included assets still require rights evidence. A real,
+image-free synthetic part exercises approval and delivery; whole editions still
+fail approval without their own verified artwork. Studio has the matching frozen
+candidate/schema change. These fixes require deployment before live qualification.
+
+The current APK was installed over the earlier dev APK without clearing data; its
+library was byte-identical immediately after upgrade. After an emulator reboot,
+airplane mode was enabled before the first Player launch. The retained cover and
+complete chapter rendered, and the EPUB hash remained unchanged. Network access
+was restored. **You → Check for updates** displayed **Checked** and saved the empty
+serial-4 catalogue; Worlds no longer listed the edition while Library retained it
+and its reading position. Android System UI became unresponsive under the initial
+host load, then recovered after reducing test concurrency and waiting; this is an
+emulator observation, not a physical-device reliability result.
+
+To reproduce the local matrix, set `AONIK_PLAYER_QUALIFICATION_DIRECTORY` to a
+temporary output directory and run `PublicationDeliveryTests`. Resolve each exact
+Player checkout's dependencies, then invoke its Dart SDK with its package config:
+
+```text
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_consumers.dart <projection-output> <player> current <result.json>
+```
+
+Use `legacy` for the published preview. The live probe takes the retained,
+approved serial-1 dev snapshot, exact reader commit and evidence output path.
+Do not substitute an unreviewed package or publish these local fixtures.
+
+The current pure-Dart world suite passed **376** tests; the historical suite passed
+**227**. The current Flutter suite passed **408**, with **13** existing skips, and
+the explicit development-channel/refresh suite passed **13**. The native PDFium
+download failed during first setup; the rebuild reused the same version's binaries
+already qualified by the previous dev build. The application source was unchanged.
+
+Both readers also passed a local whole-edition update using two actual Studio
+exports of Lantern Garden (7 and 8 November). The library stayed singular, retained
+the EPUB reading position and reopened offline. The chapter bytes are identical;
+the regenerated EPUB publication metadata has a new asset hash, which the installer
+matches exactly. `qualify_edition_update.dart` reproduces this file-import check;
+it is not a live approval/publication or an Android update result.
+
+Final focused AONIK publishing regression passed **129** tests; Studio publishing
+passed **32**, workspace type-checks passed, and lint reported zero errors with eight
+existing warnings. The solution build passed with zero errors. Final functional commit
+`03ba5abfcfbf0c8a0b88b9fafc5248b65597eec3` passed [GitHub CI](https://github.com/michaeljosiah/aonik/actions/runs/42473620611):
+**5,370 .NET tests**, five existing skips, and **690 Admin UI tests** across 70 files.
+Local full-suite attempts hit unrelated API HTTP timeouts,
+and a restricted test-host attempt could not establish its runner connection; these
+are not recorded as passing runs. The final host-connected publishing rerun passed,
+and the 13 affected API tests also passed in isolation.
+
+The immutable API, Worker and Admin UI images for that functional commit were deployed
+to dev through the CLI at 11:32 UTC on 8 November. [Image build and scan](https://github.com/michaeljosiah/aonik/actions/runs/42473695138)
+passed on attempt 2; attempt 1 failed downloading Trivy before scanning and caused
+no rollout. Environment, volume, mount, scale, resources and ingress fingerprints
+match the pre-deployment baseline. Health returned 200, anonymous private receipt
+and review requests returned 401, and both the native creator and independent reviewer
+could still read the verified, private receipt. Both actual Player readers repeated
+the retained-HTTPS install, empty serial-4 refresh and offline reopen after deployment.
+
+Studio's broader CI exposed audio fixture failures already present on its main branch
+after direct PCM duration measurement landed. The paired Studio PR repairs the actual
+PCM durations and constructs legacy sidecar metadata through owned commits. The broad
+local run passed 167 tests with two skips and one restoration failure; the final
+restoration and two legacy-metadata cases then passed after repair, with typecheck
+and lint passing. [Final Studio CI](https://github.com/michaeljosiah/ArkeStudio/actions/runs/42476402823)
+passed all 21 Linux/Windows and build jobs for `128db8572488c9820eea516822290876e264c170`.
+Studio PR #2838 and the paired private specification PR #141 are merged. The earlier
+broad local run is retained honestly as a failed intermediate run.
+
+Withdrawal is terminal for the current review workflow. The operator's authorised
+base re-release therefore produced a new private receipt of the identical original
+archive, which passed server verification. The owner separately approved receipt
+`fbbb1317-8c13-4062-ba00-90b9c3cab0d6`, revision 1, digest
+`3e6ca4cb6eda9db8067c58a0f9d84ee6ee2470c907d3e4c78173cc81e6b3f8ad`.
+That decision was recorded at 16:10:21 UTC, publication committed serial **5** at
+16:10:50, and the authorised withdrawal committed empty serial **6** at 16:17:55.
+Each operation completed in one attempt. The old withdrawn approval was not reused.
+
+Both actual Player readers discovered the live serial-5 edition, downloaded its
+exact approved archive, repeated installation without changing their library, and
+reopened the EPUB without network access. The same libraries then refreshed to
+empty serial 6 and reopened unchanged. On the current Android emulator, the UI
+showed the discovery card, cover and complete chapter. After withdrawal, its
+persisted feed and discovery UI were empty, while its library JSON—including
+reading position—was byte-for-byte unchanged. This new cycle does not claim a new
+Android offline cold launch; that separate earlier observation is recorded above.
+Published immutable ZIP/artwork URLs still returned their exact hashes after
+withdrawal, as the retention contract requires; the private receipt package route
+still returned 401 anonymously. Production release-asset metadata retained the
+same digest and update time. See the [release-cycle evidence](evidence/arke-player-release-cycle-2026-11-08.json).
+
+`qualify_release_cycle.dart` reproduces the two phases against a live dev base:
+
+```text
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_release_cycle.dart published <fresh-scratch-directory> <reader-commit> <published-serial>
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_release_cycle.dart withdrawn <same-scratch-directory> <reader-commit> <withdrawn-serial>
+```
+
+Run the first phase while the exact synthetic base is approved and published,
+and the second only after its authorised withdrawal. The tool does not publish,
+withdraw, or delete its evidence. Keep separate scratch libraries for each reader.
+
+Remaining acceptance is explicit: actual scheduled Android notification delivery
+for a newly approved part, live AONIK publication of part/update/story/comic editions,
+physical and Play-installed device tests, and production baseline/rights qualification.
+Old hard-coded clients still use GitHub. Their eventual updates require an explicitly
+approved catalogue mirror; this rehearsal does not enable that mirror or change the
+production feed. See the [consumer evidence](evidence/arke-player-compatibility-2026-11-08.json)
+for the exact distinction between local, live transport and device observations.
+
 ## Validation of this preparation
 
 For the 7 November storage fix, the solution build passed with zero errors and
@@ -966,8 +1111,8 @@ creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
 forced refresh passed for this one synthetic base EPUB. The transient Worker
 readback fault, same-operation retry and serial-4 withdrawal are also qualified;
-dev discovery is currently empty. Configured cross-tenant, no-party and
-missing/malformed authentication boundaries are now qualified. Consenting human
-pilot actors, genuine token expiry, remaining delivery failure cases, the supported-consumer matrix, audited
+dev discovery is currently empty at serial 6. Configured cross-tenant, no-party,
+missing/malformed authentication and genuine token-expiry boundaries are qualified.
+Consenting human pilot actors, remaining delivery failure cases, the remaining live/device consumer checks, audited
 production baseline rights, capacity and backup restoration are still
 unqualified. #403 stays open.

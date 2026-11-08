@@ -88,7 +88,8 @@ internal static class PlayerCatalogueProjection
     public static IReadOnlyList<string> PictureIds(ApprovedPublicationMaterial m)
     {
         var manifest=JsonNode.Parse(m.Package.Presentation!.Manifest.GetRawText())!.AsObject();
-        var ids=new HashSet<string>(StringComparer.Ordinal){m.Material.ArtworkAssetId};
+        var ids=new HashSet<string>(StringComparer.Ordinal);
+        if(m.Material.ArtworkAssetId.Length>0)ids.Add(m.Material.ArtworkAssetId);
         if(manifest["keyArt"]?.GetValue<string>() is { } key)ids.Add(key);
         foreach(var p in manifest["productions"]!.AsArray())foreach(var role in new[]{"picture","tall"})if(p?[role]?.GetValue<string>() is { } id)ids.Add(id);
         return ids.Order(StringComparer.Ordinal).ToArray();
@@ -124,6 +125,13 @@ internal static class PlayerCatalogueProjection
             pin["released"]=operation.CreatedAt.ToString("yyyy-MM-dd",System.Globalization.CultureInfo.InvariantCulture);
             pin["production"]=production;pin["chapters"]=chapters.DeepClone();parts.Add(pin.DeepClone());
             if(basePin["parts"] is null)basePin["parts"]=parts;
+            // SPEC-058 R-48/R-53: the verified part declares its production's next release.
+            // An omitted optional schedule does not erase the author's previous declaration.
+            if(manifest["part"]?["schedule"] is { } schedule)
+            {
+                var target=world["productions"]!.AsArray().OfType<JsonObject>().Single(p=>p["id"]?.GetValue<string>()==production);
+                target["schedule"]=schedule.DeepClone();
+            }
         }
         else
         {
@@ -131,8 +139,11 @@ internal static class PlayerCatalogueProjection
             var products=world["productions"]!.AsArray();var old=products.OfType<JsonObject>().SingleOrDefault(x=>x["id"]?.GetValue<string>()==production["id"]?.GetValue<string>());
             if(old is not null)products.Remove(old);products.Add(p);
         }
-        var artwork=assetMap[material.Material.ArtworkAssetId];
-        var worldPins=world["pins"]?.DeepClone().AsObject()??new JsonObject();worldPins["keyArt"]=PinOf(artwork);world["pins"]=worldPins;
+        if(material.Material.ArtworkAssetId.Length>0)
+        {
+            var artwork=assetMap[material.Material.ArtworkAssetId];
+            var worldPins=world["pins"]?.DeepClone().AsObject()??new JsonObject();worldPins["keyArt"]=PinOf(artwork);world["pins"]=worldPins;
+        }
         if(existing is not null)worlds.Remove(existing);worlds.Add(world);
         root["serial"]=serial;
         var json=root.ToJsonString();Read(json);if(pin.ToJsonString().Length>65536)throw Invalid("catalogue-pin-size-limit");return(json,slot,pin);
