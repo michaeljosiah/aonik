@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Player parts without cover artwork (#403):** Accept a verified part that inherits the current base edition's approved cover, preserving its catalogue pin instead of requiring or promoting a duplicate image. Full editions still require verified artwork; every included part asset still requires exact rights coverage.
+
 - **Player chapter schedules (#403):** Preserve a verified part's release schedule in the catalogue entry for its production. Parts that omit a schedule retain the previous declaration; other productions and the base fingerprint remain unchanged.
 
 - **Tenant audit lookup timeouts (#403):** Add canonical EF-generated indexes for tenant timelines, correlation IDs and resource IDs. This addresses full scans found while retrieving the live missing-party fixture's apply/restore audit trail.

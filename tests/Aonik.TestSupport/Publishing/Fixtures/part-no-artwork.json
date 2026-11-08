@@ -1,0 +1,96 @@
+{
+  "passed": true,
+  "code": "verified",
+  "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "archiveSha256": "ed4ada10ae96be2d6dcf2a3973a25604a37a500865e81e60310e991084ac780a",
+  "archiveBytes": 33012,
+  "worldId": "lantern-garden",
+  "edition": "2026-11-04",
+  "fingerprint": "f46f31c1deff35118f0a89361fc5d2107c1e7fb9166829429c813c6751aca5f8",
+  "kind": "part",
+  "baseFingerprint": "b9e9d89eebc5631c422e28c51dc7702f962ec7e932a6f120af750bae4944d20b",
+  "partNumber": 1,
+  "coverAssetId": null,
+  "assets": [
+    {
+      "id": "listening",
+      "path": "listening.json",
+      "mediaType": "application/vnd.arke.listening+json",
+      "byteLength": 572,
+      "sha256": "76272991daa3ccccfff8952e89b7bdef8a06ee26f0dd3e1646be5f8996d097d2"
+    },
+    {
+      "id": "a01",
+      "path": "ledger/audio/ch01.m4a",
+      "mediaType": "audio/mp4",
+      "byteLength": 15576,
+      "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+    },
+    {
+      "id": "a02",
+      "path": "ledger/audio/ch02.m4a",
+      "mediaType": "audio/mp4",
+      "byteLength": 15576,
+      "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+    }
+  ],
+  "presentation": {
+    "schemaVersion": 4,
+    "manifestSha256": "ee3808e5496b5f7bcb1b7cd0ccd0998e961da497d8e9209b80574525a8e6029d",
+    "manifest": {
+      "format": "arke-world-package",
+      "schemaVersion": 4,
+      "id": "lantern-garden",
+      "edition": "2026-11-04",
+      "name": "Lantern Garden",
+      "productions": [
+        {
+          "id": "story",
+          "title": "Lantern Garden",
+          "listening": "listening"
+        }
+      ],
+      "part": {
+        "follows": "2026-11-03",
+        "fingerprint": "b9e9d89eebc5631c422e28c51dc7702f962ec7e932a6f120af750bae4944d20b",
+        "number": 1
+      },
+      "assets": {
+        "listening": {
+          "path": "listening.json",
+          "mediaType": "application/vnd.arke.listening+json",
+          "byteLength": 572,
+          "sha256": "76272991daa3ccccfff8952e89b7bdef8a06ee26f0dd3e1646be5f8996d097d2"
+        },
+        "a01": {
+          "path": "ledger/audio/ch01.m4a",
+          "mediaType": "audio/mp4",
+          "byteLength": 15576,
+          "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+        },
+        "a02": {
+          "path": "ledger/audio/ch02.m4a",
+          "mediaType": "audio/mp4",
+          "byteLength": 15576,
+          "sha256": "0c375def7c76581b54c3d4792c49cf1cab6def665f03ec0463527018c7e73e49"
+        }
+      }
+    },
+    "details": {
+      "story": {
+        "chapters": [
+          {
+            "id": "next-neap",
+            "number": 21,
+            "title": "Neap"
+          },
+          {
+            "id": "next-the-rail-book",
+            "number": 22,
+            "title": "The rail book"
+          }
+        ]
+      }
+    }
+  }
+}

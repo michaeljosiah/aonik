@@ -60,6 +60,7 @@ Future<void> main(List<String> args) async {
       'story',
       'comic',
       'parts',
+      'parts-no-artwork',
     ]) {
       final directory = Directory('${source.path}/$kind');
       final text = await File(
@@ -122,7 +123,9 @@ Future<void> main(List<String> args) async {
       );
       var outcome = 'installed-and-reopened';
       try {
-        if (kind == 'world' || kind == 'listening' || kind == 'parts') {
+        if (kind == 'world' ||
+            kind == 'listening' ||
+            kind.startsWith('parts')) {
           await installer.install(world);
           final fetched = requests.length;
           await installer.install(world);
@@ -134,7 +137,7 @@ Future<void> main(List<String> args) async {
             store.worlds.single.fingerprint == world.package!.fingerprint,
             '$kind edition fingerprint',
           );
-          if (kind == 'parts') {
+          if (kind.startsWith('parts')) {
             require(
               store.worlds.single.parts.single.fingerprint ==
                   world.package!.parts.single.fingerprint,

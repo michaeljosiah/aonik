@@ -949,7 +949,7 @@ The consumer matrix uses actual Player source, rather than an independent parser
 
 | Consumer | Exact source | Scope qualified |
 | --- | --- | --- |
-| Current worlds-first Player | `17dc9a23c8bd550dc7116ef61d37a53319e15081` | Seven AONIK-generated catalogue types, exact pins, installation, repeated installation, part continuity and network-free library reopening; future story/comic versions are not downloaded. |
+| Current worlds-first Player | `17dc9a23c8bd550dc7116ef61d37a53319e15081` | Eight scenarios across seven AONIK-generated catalogue types, including coverless parts, exact pins, installation, repeated installation, part continuity and network-free library reopening; future story/comic versions are not downloaded. |
 | Last published Android preview, `v0.1.0-preview.20261026.update` | `03a261bda82bc6ec07d66f980506143ecba430a8` | The same catalogue matrix; supported world/listening/guide/music/part content remains usable. Story/comic entries are safely ignored and never fetched. |
 | Earlier dev APK from the first rehearsal | `1b80ab72067bdb91642adaf57cf1bff4c6735f8d` | Previously qualified base EPUB discovery, install, reading, withdrawal refresh and offline cold launch. Its retained library is the input to the current APK upgrade check. |
 
@@ -959,7 +959,7 @@ that its released APK has passed on a physical phone. Current dev is Android x64
 `studio.arke.player.dev`, version `0.1.0+1`. No Google Play candidate or iOS build
 is qualified by these results. Older unlisted builds remain unqualified.
 
-`qualify_consumers.dart` consumes the seven complete catalogues emitted by the
+`qualify_consumers.dart` consumes the eight complete catalogue scenarios emitted by the
 real .NET delivery tests. It checks every retained pin's length and SHA, then uses
 the selected checkout's real installer. Only the test HTTP transport maps the
 synthetic `public.example.test` authority to loopback; certificate checks and
@@ -980,6 +980,24 @@ a verified part. The projection now updates only the affected production's sched
 preserving an existing declaration when the next part omits it. Regression tests
 cover the schedule, unrelated production and unchanged base fingerprint.
 
+A further check found that Studio parts intentionally omit the base cover, while
+the submission/approval path required another image. Parts may now use an empty
+artwork asset ID to inherit the approved base cover. The existing public cover pin
+is preserved, and all included assets still require rights evidence. A real,
+image-free synthetic part exercises approval and delivery; whole editions still
+fail approval without their own verified artwork. Studio has the matching frozen
+candidate/schema change. These fixes require deployment before live qualification.
+
+The current APK was installed over the earlier dev APK without clearing data; its
+library was byte-identical immediately after upgrade. After an emulator reboot,
+airplane mode was enabled before the first Player launch. The retained cover and
+complete chapter rendered, and the EPUB hash remained unchanged. Network access
+was restored. **You → Check for updates** displayed **Checked** and saved the empty
+serial-4 catalogue; Worlds no longer listed the edition while Library retained it
+and its reading position. Android System UI became unresponsive under the initial
+host load, then recovered after reducing test concurrency and waiting; this is an
+emulator observation, not a physical-device reliability result.
+
 To reproduce the local matrix, set `AONIK_PLAYER_QUALIFICATION_DIRECTORY` to a
 temporary output directory and run `PublicationDeliveryTests`. Resolve each exact
 Player checkout's dependencies, then invoke its Dart SDK with its package config:
@@ -997,6 +1015,26 @@ The current pure-Dart world suite passed **376** tests; the historical suite pas
 the explicit development-channel/refresh suite passed **13**. The native PDFium
 download failed during first setup; the rebuild reused the same version's binaries
 already qualified by the previous dev build. The application source was unchanged.
+
+Both readers also passed a local whole-edition update using two actual Studio
+exports of Lantern Garden (7 and 8 November). The library stayed singular, retained
+the EPUB reading position and reopened offline. The chapter bytes are identical;
+the regenerated EPUB publication metadata has a new asset hash, which the installer
+matches exactly. `qualify_edition_update.dart` reproduces this file-import check;
+it is not a live approval/publication or an Android update result.
+
+Final focused AONIK publishing regression passed **129** tests; Studio publishing
+passed **32**, workspace type-checks passed, and lint reported zero errors with eight
+existing warnings. The solution build passed with zero errors. The first compatibility
+commit passed GitHub CI. Local full-suite attempts hit unrelated API HTTP timeouts,
+and a restricted test-host attempt could not establish its runner connection; these
+are not recorded as passing runs. The final host-connected publishing rerun passed.
+
+Withdrawal is terminal for the current review workflow. The operator's authorised
+base re-release therefore produced a new private receipt of the identical original
+archive, which passed server verification and awaits a fresh exact-revision editorial
+decision. The public dev catalogue remains empty at serial 4 until that decision and
+release complete; an earlier withdrawn approval is never silently reused.
 
 Remaining acceptance is explicit: actual scheduled Android notification delivery
 for a newly approved part, live AONIK publication of part/update/story/comic editions,

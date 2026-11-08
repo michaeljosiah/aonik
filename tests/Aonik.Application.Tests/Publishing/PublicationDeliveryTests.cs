@@ -10,6 +10,31 @@ namespace Aonik.Application.Tests.Publishing;
 
 public class PublicationDeliveryTests
 {
+    [Fact]
+    public async Task PartWithoutArtwork_Should_KeepApprovedBaseCover_AndDeliverOnlyItsArchive()
+    {
+        using var h = new PublicationScenario();
+        await h.InitialiseAsync();
+        var baseReceipt = await h.ApproveAsync("listening");
+        var baseOperation = await h.Service.PublishAsync(baseReceipt.Id, await h.RequestAsync(baseReceipt.Id));
+        await h.DeliverAsync(baseOperation.Id);
+        var before = JsonNode.Parse(await h.HeadAsync())!;
+        var artwork = before["worlds"]![0]!["pins"]!["keyArt"]!.ToJsonString();
+        var count = h.Store.Bytes.Count;
+        var part = await h.ApproveAsync("part-no-artwork");
+
+        var operation = await h.Service.PublishAsync(part.Id, await h.RequestAsync(part.Id));
+        await h.DeliverAsync(operation.Id);
+
+        var world = JsonNode.Parse(await h.HeadAsync())!["worlds"]![0]!;
+        world["pins"]!["keyArt"]!.ToJsonString().Should().Be(artwork);
+        world["package"]!["parts"]!.AsArray().Should().ContainSingle();
+        h.Store.Bytes.Count.Should().Be(count + 1);
+        (await h.Db.PublicationArtifacts.Where(a => a.OperationId == operation.Id).ToListAsync())
+            .Should().ContainSingle(a => a.AssetId == "" && a.PublicVerifiedAt != null);
+        await h.ExportAsync("parts-no-artwork");
+    }
+
     [Theory]
     [InlineData(181)]
     [InlineData(200)]

@@ -70,7 +70,7 @@ internal sealed class PublicationScenario : IDisposable
         var package=JsonSerializer.Deserialize<PackageVerificationResult>(await File.ReadAllTextAsync(Path.ChangeExtension(path,".json")),new JsonSerializerOptions{PropertyNameCaseInsensitive=true})!;
         _inputs[package.ArchiveSha256]=path;
         AsCreator();var receipt=(await Creators.CreateAsync(new(Guid.NewGuid(),"arke-worlds",title??package.WorldId,"Synthetic creator","A quiet adventure","en",package.WorldId,package.Edition,kind+".zip",
-            package.ArchiveBytes,package.ArchiveSha256,"rights-v1",true,new("children","Ages 7+",package.Kind,package.CoverAssetId!,"Synthetic fixture attribution",
+            package.ArchiveBytes,package.ArchiveSha256,"rights-v1",true,new("children","Ages 7+",package.Kind,package.CoverAssetId??"","Synthetic fixture attribution",
                 [new("Synthetic fixture use","test-evidence",package.Assets.Select(a=>a.Id).ToArray())])))).Submission;
         var sub=await Db.Submissions.SingleAsync(s=>s.TenantId==Tenant&&s.Id==receipt.Id);var revision=await Db.Revisions.SingleAsync(r=>r.Id==sub.CurrentRevisionId);
         var session=new PublicationUploadSession{TenantId=Tenant,CreatorPartyId=CreatorParty,SubmissionId=sub.Id,RevisionId=revision.Id,StorageLocationId="private-test",Status="uploaded",

@@ -1,11 +1,11 @@
 {
-  "checkedAt": "2026-11-08T10:20:27.103Z",
+  "checkedAt": "2026-11-08T10:57:09.531Z",
   "issue": "https://github.com/michaeljosiah/aonik/issues/403",
   "scope": "Player consumer compatibility; synthetic fixtures and isolated dev channel only",
   "aonikBaseCommit": "ccf9122e58b8aef1ac845e15bdd88349ae33f384",
   "consumers": [
     {
-      "checkedAt": "2026-11-08T10:00:12.414077Z",
+      "checkedAt": "2026-11-08T10:53:55.036449Z",
       "readerProfile": "current",
       "readerCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
       "scope": "Real reader and installer; .NET synthetic catalogues; loopback artifact transport; no device or live release claim",
@@ -13,7 +13,7 @@
         {
           "kind": "world",
           "serial": 53,
-          "catalogueSha256": "8feb4539ca22273af9f77d1cdff050a30b144c1b7c75b2e7660e06ddef16cacc",
+          "catalogueSha256": "5949125c8f8df7c72cea823892e8585d0d142044699339478cd01b0999f900bb",
           "pinsVerified": 2,
           "artifactRequests": 1,
           "result": "installed-and-reopened",
@@ -22,7 +22,7 @@
         {
           "kind": "listening",
           "serial": 53,
-          "catalogueSha256": "836ea251c6cb7f7e858a233b0bdf5ac8d1ea1ddf7962bcf664ce0b3bca5964b2",
+          "catalogueSha256": "9474febb6c8bfa267faf5e63d3b8ba939a03ccbcacabc2b46041d8d11a981815",
           "pinsVerified": 2,
           "artifactRequests": 1,
           "result": "installed-and-reopened",
@@ -31,7 +31,7 @@
         {
           "kind": "guide",
           "serial": 53,
-          "catalogueSha256": "7c2998dac0ada9ee5c46a8a2ad83c7d717ccd497563b25156f51a9892beda609",
+          "catalogueSha256": "0ac1e187f38bdc8a4fcf098ffd1c1bcd77a78faf4632cd72b294b222425eb4e6",
           "pinsVerified": 2,
           "artifactRequests": 0,
           "result": "installed-and-reopened",
@@ -40,7 +40,7 @@
         {
           "kind": "music",
           "serial": 53,
-          "catalogueSha256": "3a7173387e309a8fae5d47af0ba686ff80236546b695f5dd1d528169772c60de",
+          "catalogueSha256": "f97b4ff7907066afae4fbddb54d7c2f16f9163b52b8b5b78a1bf038f8b565578",
           "pinsVerified": 3,
           "artifactRequests": 1,
           "result": "installed-and-reopened",
@@ -49,7 +49,7 @@
         {
           "kind": "story",
           "serial": 53,
-          "catalogueSha256": "383b14b11a36adeefdc935fc206a339a9b3b0c737a36ab8ff4f657f7781674f6",
+          "catalogueSha256": "5fd55d07e54589aa3a964b792c9c96f156e15da4c1ab5568a3bc8d50e4a8f7d2",
           "pinsVerified": 4,
           "artifactRequests": 1,
           "result": "installed-and-reopened",
@@ -58,7 +58,7 @@
         {
           "kind": "comic",
           "serial": 53,
-          "catalogueSha256": "e8537283881fe265e8713accdce2ba790809c2f9239021b72e2a69c76cb52732",
+          "catalogueSha256": "e069a5cfd0e36fa67f16ac56c1d44db7de64d02534ddd38a14c41d02bfb8cdcf",
           "pinsVerified": 3,
           "artifactRequests": 1,
           "result": "installed-and-reopened",
@@ -67,7 +67,16 @@
         {
           "kind": "parts",
           "serial": 54,
-          "catalogueSha256": "c75da980d5c49e662fa2c2b309f4102151fada6c0882856d59a20c680be87b70",
+          "catalogueSha256": "a7b3412a4fcc43177bdc14499ab20abcf7338c5cb266f273428ab91a18eb9d3e",
+          "pinsVerified": 3,
+          "artifactRequests": 2,
+          "result": "installed-and-reopened",
+          "offlineReopened": true
+        },
+        {
+          "kind": "parts-no-artwork",
+          "serial": 54,
+          "catalogueSha256": "5ad3b5ba985cc5fc4a936fc34570bcc8afef509b1b7eddca6c791b775c7ddd4b",
           "pinsVerified": 3,
           "artifactRequests": 2,
           "result": "installed-and-reopened",
@@ -77,7 +86,7 @@
       "passed": true
     },
     {
-      "checkedAt": "2026-11-08T10:00:19.888301Z",
+      "checkedAt": "2026-11-08T10:53:54.417088Z",
       "readerProfile": "legacy",
       "readerCommit": "03a261bda82bc6ec07d66f980506143ecba430a8",
       "scope": "Real reader and installer; .NET synthetic catalogues; loopback artifact transport; no device or live release claim",
@@ -85,7 +94,7 @@
         {
           "kind": "world",
           "serial": 53,
-          "catalogueSha256": "8feb4539ca22273af9f77d1cdff050a30b144c1b7c75b2e7660e06ddef16cacc",
+          "catalogueSha256": "5949125c8f8df7c72cea823892e8585d0d142044699339478cd01b0999f900bb",
           "pinsVerified": 2,
           "artifactRequests": 1,
           "result": "installed-and-reopened",
@@ -94,7 +103,7 @@
         {
           "kind": "listening",
           "serial": 53,
-          "catalogueSha256": "836ea251c6cb7f7e858a233b0bdf5ac8d1ea1ddf7962bcf664ce0b3bca5964b2",
+          "catalogueSha256": "9474febb6c8bfa267faf5e63d3b8ba939a03ccbcacabc2b46041d8d11a981815",
           "pinsVerified": 2,
           "artifactRequests": 1,
           "result": "installed-and-reopened",
@@ -103,7 +112,7 @@
         {
           "kind": "guide",
           "serial": 53,
-          "catalogueSha256": "7c2998dac0ada9ee5c46a8a2ad83c7d717ccd497563b25156f51a9892beda609",
+          "catalogueSha256": "0ac1e187f38bdc8a4fcf098ffd1c1bcd77a78faf4632cd72b294b222425eb4e6",
           "pinsVerified": 2,
           "artifactRequests": 0,
           "result": "installed-and-reopened",
@@ -112,7 +121,7 @@
         {
           "kind": "music",
           "serial": 53,
-          "catalogueSha256": "3a7173387e309a8fae5d47af0ba686ff80236546b695f5dd1d528169772c60de",
+          "catalogueSha256": "f97b4ff7907066afae4fbddb54d7c2f16f9163b52b8b5b78a1bf038f8b565578",
           "pinsVerified": 3,
           "artifactRequests": 1,
           "result": "installed-and-reopened",
@@ -121,7 +130,7 @@
         {
           "kind": "story",
           "serial": 53,
-          "catalogueSha256": "383b14b11a36adeefdc935fc206a339a9b3b0c737a36ab8ff4f657f7781674f6",
+          "catalogueSha256": "5fd55d07e54589aa3a964b792c9c96f156e15da4c1ab5568a3bc8d50e4a8f7d2",
           "pinsVerified": 4,
           "artifactRequests": 0,
           "result": "catalogue-accepted-unsupported-production-not-fetched",
@@ -130,7 +139,7 @@
         {
           "kind": "comic",
           "serial": 53,
-          "catalogueSha256": "e8537283881fe265e8713accdce2ba790809c2f9239021b72e2a69c76cb52732",
+          "catalogueSha256": "e069a5cfd0e36fa67f16ac56c1d44db7de64d02534ddd38a14c41d02bfb8cdcf",
           "pinsVerified": 3,
           "artifactRequests": 0,
           "result": "catalogue-accepted-unsupported-production-not-fetched",
@@ -139,7 +148,16 @@
         {
           "kind": "parts",
           "serial": 54,
-          "catalogueSha256": "c75da980d5c49e662fa2c2b309f4102151fada6c0882856d59a20c680be87b70",
+          "catalogueSha256": "a7b3412a4fcc43177bdc14499ab20abcf7338c5cb266f273428ab91a18eb9d3e",
+          "pinsVerified": 3,
+          "artifactRequests": 2,
+          "result": "installed-and-reopened",
+          "offlineReopened": true
+        },
+        {
+          "kind": "parts-no-artwork",
+          "serial": 54,
+          "catalogueSha256": "5ad3b5ba985cc5fc4a936fc34570bcc8afef509b1b7eddca6c791b775c7ddd4b",
           "pinsVerified": 3,
           "artifactRequests": 2,
           "result": "installed-and-reopened",
@@ -179,6 +197,34 @@
       "passed": true
     }
   ],
+  "localEditionUpdates": [
+    {
+      "checkedAt": "2026-11-08T10:56:30.349948Z",
+      "readerCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
+      "scope": "Actual Studio exports through real Player file-update path; local only, no public release",
+      "baseArchiveSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+      "epubSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e",
+      "edition": "2026-11-08",
+      "readingPositionPreserved": true,
+      "noDuplicateLibraryEntries": true,
+      "offlineReopened": true,
+      "passed": true
+    },
+    {
+      "checkedAt": "2026-11-08T10:56:35.421582Z",
+      "readerCommit": "03a261bda82bc6ec07d66f980506143ecba430a8",
+      "scope": "Actual Studio exports through real Player file-update path; local only, no public release",
+      "baseArchiveSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+      "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+      "epubSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e",
+      "edition": "2026-11-08",
+      "readingPositionPreserved": true,
+      "noDuplicateLibraryEntries": true,
+      "offlineReopened": true,
+      "passed": true
+    }
+  ],
   "tests": {
     "currentWorldPackage": {
       "passed": 376
@@ -193,8 +239,14 @@
     "currentDevelopmentChannelAndRefresh": {
       "passed": 13
     },
-    "publishingDeliveryAndScheduleRegression": {
-      "passed": 23
+    "publishingRegression": {
+      "passed": 129
+    },
+    "studioPublishingRegression": {
+      "passed": 32,
+      "lintErrors": 0,
+      "existingLintWarnings": 8,
+      "workspaceTypecheck": "passed"
     },
     "qualificationScriptsAnalysis": "passed",
     "solutionBuild": {
@@ -202,21 +254,35 @@
       "warnings": 58
     },
     "fullSolution": {
-      "status": "bounded-retry-running",
-      "firstAttempt": "Stopped after unrelated API HTTP timeouts under default test parallelism; not a passing run",
-      "retry": "DOTNET_PROCESSOR_COUNT=2; xUnit MaxParallelThreads=2; solution projects sequential"
+      "status": "final-commit-ci-pending",
+      "priorCommitCi": {
+        "commit": "09169611f6c2ede51740ce14ff3bf603ffe6a90f",
+        "run": "https://github.com/michaeljosiah/aonik/actions/runs/42471059638",
+        "result": "passed"
+      },
+      "localAttempts": "Default and bounded full runs were stopped after unrelated API HTTP timeouts. A later restricted publishing run could not connect to testhost; host-connected rerun passed all 129 publishing tests. No local full-suite pass is claimed."
     }
   },
   "android": {
+    "checkedAt": "2026-11-08T10:49:02.7069425Z",
     "sourceCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
     "previousSourceCommit": "1b80ab72067bdb91642adaf57cf1bff4c6735f8d",
     "applicationId": "studio.arke.player.dev",
     "apkSha256": "36289ab213767143c5c0a83f3d97f9b2def09f094a0839ed38f572ffbac8a0fb",
+    "device": "Pixel_9 x86_64 Android emulator",
     "upgradePreservedLibraryExactly": true,
     "installedWorldVisibleInNewLibrary": true,
     "coverAndCompleteChapterRendered": true,
-    "offlineColdLaunch": "in-progress",
-    "currentForcedRefreshUi": "pending"
+    "offlineColdLaunch": "passed: first app launch after reboot with airplane mode enabled; complete chapter rendered",
+    "epubSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+    "currentForcedRefreshUi": "passed: You / Check for updates displayed Checked",
+    "cacheSerialAfterRefresh": 4,
+    "cacheWorldsAfterRefresh": 0,
+    "cacheFetchedAt": "2026-11-08T10:34:59.599040Z",
+    "libraryRetainedAfterRefresh": true,
+    "readingPositionRetained": true,
+    "airplaneModeRestoredToOff": true,
+    "deviceLimitation": "Android System UI stalled under host test load, then recovered after reboot, lower test concurrency and Wait; physical device reliability unqualified"
   },
   "productionControl": {
     "checkedAt": "2026-11-08T10:16:40.2802216Z",
@@ -230,7 +296,7 @@
   },
   "fix": {
     "component": "PlayerCatalogueProjection.Apply",
-    "behavior": "Project a verified part schedule onto its matching production; preserve the old schedule when omitted",
+    "behavior": "Project a verified part schedule onto its matching production; preserve the old schedule when omitted. Permit a part to inherit the approved base artwork without repeating a cover, preserving exact rights coverage and the original cover pin.",
     "deployed": false
   },
   "remaining": [
