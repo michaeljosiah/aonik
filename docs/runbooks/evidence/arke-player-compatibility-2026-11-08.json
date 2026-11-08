@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-08T10:57:09.531Z",
+  "checkedAt": "2026-11-08T11:36:04.911Z",
   "issue": "https://github.com/michaeljosiah/aonik/issues/403",
   "scope": "Player consumer compatibility; synthetic fixtures and isolated dev channel only",
   "aonikBaseCommit": "ccf9122e58b8aef1ac845e15bdd88349ae33f384",
@@ -169,7 +169,7 @@
   ],
   "liveTransport": [
     {
-      "checkedAt": "2026-11-08T09:55:20.913733Z",
+      "checkedAt": "2026-11-08T11:35:20.410362Z",
       "readerCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
       "scope": "Live anonymous HTTPS artifact install and forced feed refresh, then network-free library reopening; no device claim",
       "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
@@ -183,7 +183,7 @@
       "passed": true
     },
     {
-      "checkedAt": "2026-11-08T09:55:20.788071Z",
+      "checkedAt": "2026-11-08T11:35:20.276753Z",
       "readerCommit": "03a261bda82bc6ec07d66f980506143ecba430a8",
       "scope": "Live anonymous HTTPS artifact install and forced feed refresh, then network-free library reopening; no device claim",
       "packageSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
@@ -248,19 +248,46 @@
       "existingLintWarnings": 8,
       "workspaceTypecheck": "passed"
     },
+    "studioAudioFixtureRepair": {
+      "baseCommit": "d665c0f9fd9a9204eaa83aa9a682a237ef0cd38d",
+      "baselineCi": "https://github.com/michaeljosiah/ArkeStudio/actions/runs/42472232100",
+      "broadLocalRun": {
+        "passed": 167,
+        "failed": 1,
+        "skipped": 2,
+        "note": "The restoration failure was subsequently repaired; this earlier run is not a full-suite pass."
+      },
+      "finalMetadataCases": {
+        "passed": 3,
+        "failed": 0
+      },
+      "finalCoordinatorTypecheck": "passed",
+      "finalLintErrors": 0,
+      "finalCi": "pending",
+      "finalCommit": "128db8572"
+    },
     "qualificationScriptsAnalysis": "passed",
     "solutionBuild": {
       "errors": 0,
       "warnings": 58
     },
     "fullSolution": {
-      "status": "final-commit-ci-pending",
-      "priorCommitCi": {
-        "commit": "09169611f6c2ede51740ce14ff3bf603ffe6a90f",
-        "run": "https://github.com/michaeljosiah/aonik/actions/runs/42471059638",
-        "result": "passed"
+      "status": "passed",
+      "commit": "03ba5abfcfbf0c8a0b88b9fafc5248b65597eec3",
+      "run": "https://github.com/michaeljosiah/aonik/actions/runs/42473620611",
+      "dotnet": {
+        "passed": 5370,
+        "skipped": 5,
+        "projects": 11
       },
-      "localAttempts": "Default and bounded full runs were stopped after unrelated API HTTP timeouts. A later restricted publishing run could not connect to testhost; host-connected rerun passed all 129 publishing tests. No local full-suite pass is claimed."
+      "adminUi": {
+        "files": 70,
+        "passed": 690
+      },
+      "isolatedLocalApiTimeoutRecheck": {
+        "passed": 13
+      },
+      "localAttempts": "Two local full-suite attempts stopped after API HTTP timeouts. Their 13 affected API tests passed in isolation; full-suite qualification is from CI."
     }
   },
   "android": {
@@ -294,10 +321,67 @@
     "unchangedSincePreviousRehearsal": true,
     "downloadProbe": "504 Gateway Timeout on repeated anonymous downloads; metadata control succeeded"
   },
+  "deployment": {
+    "checkedAt": "2026-11-08T11:34:19.605Z",
+    "sourceCommit": "03ba5abfcfbf0c8a0b88b9fafc5248b65597eec3",
+    "at": "2026-11-08T11:32:36.2266002Z",
+    "images": [
+      {
+        "image": "aonikdevacr.azurecr.io/aonik-api@sha256:d03b1e85529682c1680703255a4d07ea9739e4fade2c079d02a5c56a9a712262",
+        "at": "2026-11-08T11:30:35.0165377Z",
+        "revision": "aonik-dev-api--arke403-03ba5abf",
+        "name": "aonik-dev-api",
+        "state": "Running"
+      },
+      {
+        "image": "aonikdevacr.azurecr.io/aonik-worker@sha256:802a5a2f113cbb75c20444fc34c1546d880c7f1de0ba156754867c112e0a61fc",
+        "at": "2026-11-08T11:31:39.4001917Z",
+        "revision": "aonik-dev-worker--arke403-03ba5abf",
+        "name": "aonik-dev-worker",
+        "state": "Running"
+      },
+      {
+        "image": "aonikdevacr.azurecr.io/aonik-adminui@sha256:8f1e54f3e48b63c084d395c5d9a5af19a5183c08000574269e716c85e719d10e",
+        "at": "2026-11-08T11:32:28.2293564Z",
+        "revision": "aonik-dev-adminui--arke403-03ba5abf",
+        "name": "aonik-dev-adminui",
+        "state": "Running"
+      }
+    ],
+    "runtimeConfigurationUnchanged": true,
+    "buildRun": "https://github.com/michaeljosiah/aonik/actions/runs/42473695138",
+    "buildAttempt": 2,
+    "initialAttempt": "Trivy installer download failed before scanning; no rollout occurred",
+    "postDeployment": [
+      {
+        "path": "/health",
+        "status": 200,
+        "bytes": 63
+      },
+      {
+        "path": "/publishing/channels/arke-worlds-dev/catalogue.json",
+        "status": 200,
+        "bytes": 36,
+        "serial": 4,
+        "worldCount": 0,
+        "sha256": "80161bad473aa71cbd42c691f9071a8afdcabe17f5739a8071a1145ce0f381fd"
+      },
+      {
+        "path": "/publishing/submissions/fbbb1317-8c13-4062-ba00-90b9c3cab0d6/package",
+        "status": 401,
+        "bytes": 0
+      },
+      {
+        "path": "/publishing/review/submissions/fbbb1317-8c13-4062-ba00-90b9c3cab0d6",
+        "status": 401,
+        "bytes": 0
+      }
+    ]
+  },
   "fix": {
     "component": "PlayerCatalogueProjection.Apply",
     "behavior": "Project a verified part schedule onto its matching production; preserve the old schedule when omitted. Permit a part to inherit the approved base artwork without repeating a cover, preserving exact rights coverage and the original cover pin.",
-    "deployed": false
+    "deployed": true
   },
   "remaining": [
     "Actual Android scheduler and notification delivery for a newly approved part",

@@ -1025,10 +1025,30 @@ it is not a live approval/publication or an Android update result.
 
 Final focused AONIK publishing regression passed **129** tests; Studio publishing
 passed **32**, workspace type-checks passed, and lint reported zero errors with eight
-existing warnings. The solution build passed with zero errors. The first compatibility
-commit passed GitHub CI. Local full-suite attempts hit unrelated API HTTP timeouts,
+existing warnings. The solution build passed with zero errors. Final functional commit
+`03ba5abfcfbf0c8a0b88b9fafc5248b65597eec3` passed [GitHub CI](https://github.com/michaeljosiah/aonik/actions/runs/42473620611):
+**5,370 .NET tests**, five existing skips, and **690 Admin UI tests** across 70 files.
+Local full-suite attempts hit unrelated API HTTP timeouts,
 and a restricted test-host attempt could not establish its runner connection; these
-are not recorded as passing runs. The final host-connected publishing rerun passed.
+are not recorded as passing runs. The final host-connected publishing rerun passed,
+and the 13 affected API tests also passed in isolation.
+
+The immutable API, Worker and Admin UI images for that functional commit were deployed
+to dev through the CLI at 11:32 UTC on 8 November. [Image build and scan](https://github.com/michaeljosiah/aonik/actions/runs/42473695138)
+passed on attempt 2; attempt 1 failed downloading Trivy before scanning and caused
+no rollout. Environment, volume, mount, scale, resources and ingress fingerprints
+match the pre-deployment baseline. Health returned 200, anonymous private receipt
+and review requests returned 401, and both the native creator and independent reviewer
+could still read the verified, private receipt. Both actual Player readers repeated
+the retained-HTTPS install, empty serial-4 refresh and offline reopen after deployment.
+
+Studio's broader CI exposed audio fixture failures already present on its main branch
+after direct PCM duration measurement landed. The paired Studio PR repairs the actual
+PCM durations and constructs legacy sidecar metadata through owned commits. The broad
+local run passed 167 tests with two skips and one restoration failure; the final
+restoration and two legacy-metadata cases then passed after repair, with typecheck
+and lint passing. Final Linux/Windows CI remains a merge gate; this is not a claim
+that the earlier broad local run was fully green.
 
 Withdrawal is terminal for the current review workflow. The operator's authorised
 base re-release therefore produced a new private receipt of the identical original
