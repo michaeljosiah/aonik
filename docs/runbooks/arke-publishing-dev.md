@@ -898,25 +898,20 @@ remain accessible, the owner receipt returns 200, the other-tenant receipt
 returns 404, and all 18 missing/malformed bearer probes still return 401.
 Final documentation/evidence updates do not alter the tested runtime source.
 
-**Genuine expiry remains pending.** The actual Creator 1 token was accepted for
-the owner receipt before expiry and its signature verified with Auth0's JWKS.
-It expires at **14:36:10 UTC on 8 November**. A hidden local watcher is scheduled
-for **14:42:10 UTC**, allowing the API's five-minute clock tolerance plus one
-minute. It holds only an encrypted access-token copy, without a refresh token,
-and cannot refresh or change Studio's session. It will require 401 responses
-explicitly reporting expiration, record the result, then delete that copy.
-Auth0 lifetimes, JWT claims and server time were not changed. The machine and
-watcher must remain running; a scheduled probe is not a passing result.
+**Genuine expiry passed at 14:42:10 UTC on 8 November.** The actual Creator 1
+token was accepted for its owner receipt before expiry and its signature verified
+with Auth0's JWKS. After its original **14:36:10 UTC** expiry, the watcher allowed
+the API's five-minute clock tolerance plus one minute. All five routes—identity,
+submission list, receipt, package read and upload creation—returned **401 with an
+expired-token challenge**. No refresh token was used, and the protected access-token
+fixture was deleted after the result was recorded. Auth0 lifetimes, JWT claims,
+server time and shared authentication settings were unchanged. The sanitized
+[identity evidence](evidence/arke-identity-rehearsal-2026-11-08.json) includes the
+positive control and each expired response; no credential belongs in Git history.
 
-To finish that check, inspect the local rehearsal's `identity-expiry-status.json`
-and `identity-expiry-result.json` after the scheduled time. If the process was
-interrupted, resume the protected fixture with the same genuine token; do not
-forge an `exp` value or count an absent/malformed token as expiry. Add the actual
-result to the sanitized evidence before marking this part qualified. No access
-token, refresh token, password, authorization code or database credential belongs
-in the evidence or Git history.
-
-Dev discovery remains empty at serial 4; production remains serial 49 with five
+The identity batch ended with empty dev discovery at serial 4; the later approved
+Player release/withdrawal cycle below ended empty at serial 6. Production retained
+the same catalogue asset digest, previously parsed as serial 49 with five
 worlds and SHA-256
 `6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca`.
 The broader supported-consumer, production-rights, capacity, backup and pilot
@@ -1047,14 +1042,43 @@ after direct PCM duration measurement landed. The paired Studio PR repairs the a
 PCM durations and constructs legacy sidecar metadata through owned commits. The broad
 local run passed 167 tests with two skips and one restoration failure; the final
 restoration and two legacy-metadata cases then passed after repair, with typecheck
-and lint passing. Final Linux/Windows CI remains a merge gate; this is not a claim
-that the earlier broad local run was fully green.
+and lint passing. [Final Studio CI](https://github.com/michaeljosiah/ArkeStudio/actions/runs/42476402823)
+passed all 21 Linux/Windows and build jobs for `128db8572488c9820eea516822290876e264c170`.
+Studio PR #2838 and the paired private specification PR #141 are merged. The earlier
+broad local run is retained honestly as a failed intermediate run.
 
 Withdrawal is terminal for the current review workflow. The operator's authorised
 base re-release therefore produced a new private receipt of the identical original
-archive, which passed server verification and awaits a fresh exact-revision editorial
-decision. The public dev catalogue remains empty at serial 4 until that decision and
-release complete; an earlier withdrawn approval is never silently reused.
+archive, which passed server verification. The owner separately approved receipt
+`fbbb1317-8c13-4062-ba00-90b9c3cab0d6`, revision 1, digest
+`3e6ca4cb6eda9db8067c58a0f9d84ee6ee2470c907d3e4c78173cc81e6b3f8ad`.
+That decision was recorded at 16:10:21 UTC, publication committed serial **5** at
+16:10:50, and the authorised withdrawal committed empty serial **6** at 16:17:55.
+Each operation completed in one attempt. The old withdrawn approval was not reused.
+
+Both actual Player readers discovered the live serial-5 edition, downloaded its
+exact approved archive, repeated installation without changing their library, and
+reopened the EPUB without network access. The same libraries then refreshed to
+empty serial 6 and reopened unchanged. On the current Android emulator, the UI
+showed the discovery card, cover and complete chapter. After withdrawal, its
+persisted feed and discovery UI were empty, while its library JSON—including
+reading position—was byte-for-byte unchanged. This new cycle does not claim a new
+Android offline cold launch; that separate earlier observation is recorded above.
+Published immutable ZIP/artwork URLs still returned their exact hashes after
+withdrawal, as the retention contract requires; the private receipt package route
+still returned 401 anonymously. Production release-asset metadata retained the
+same digest and update time. See the [release-cycle evidence](evidence/arke-player-release-cycle-2026-11-08.json).
+
+`qualify_release_cycle.dart` reproduces the two phases against a live dev base:
+
+```text
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_release_cycle.dart published <fresh-scratch-directory> <reader-commit> <published-serial>
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_release_cycle.dart withdrawn <same-scratch-directory> <reader-commit> <withdrawn-serial>
+```
+
+Run the first phase while the exact synthetic base is approved and published,
+and the second only after its authorised withdrawal. The tool does not publish,
+withdraw, or delete its evidence. Keep separate scratch libraries for each reader.
 
 Remaining acceptance is explicit: actual scheduled Android notification delivery
 for a newly approved part, live AONIK publication of part/update/story/comic editions,
@@ -1087,8 +1111,8 @@ creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
 forced refresh passed for this one synthetic base EPUB. The transient Worker
 readback fault, same-operation retry and serial-4 withdrawal are also qualified;
-dev discovery is currently empty. Configured cross-tenant, no-party and
-missing/malformed authentication boundaries are now qualified. Consenting human
-pilot actors, genuine token expiry, remaining delivery failure cases, the remaining live/device consumer checks, audited
+dev discovery is currently empty at serial 6. Configured cross-tenant, no-party,
+missing/malformed authentication and genuine token-expiry boundaries are qualified.
+Consenting human pilot actors, remaining delivery failure cases, the remaining live/device consumer checks, audited
 production baseline rights, capacity and backup restoration are still
 unqualified. #403 stays open.

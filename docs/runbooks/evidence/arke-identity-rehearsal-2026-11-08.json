@@ -1,7 +1,7 @@
 {
   "issue": 403,
   "date": "2026-11-08",
-  "scope": "Synthetic development identity boundary rehearsal; real token expiry remains pending",
+  "scope": "Synthetic development identity boundary rehearsal, including verified genuine access-token expiry",
   "api": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io",
   "originalTenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
   "isolatedTenantId": "44241bd4-14af-4221-9a85-007c11c0c33e",
@@ -377,7 +377,7 @@
     "adminStatus": 200
   },
   "genuineExpiry": {
-    "status": "scheduled-not-yet-executed",
+    "status": "passed",
     "issuer": "https://aonik.uk.auth0.com/",
     "issuedAt": "2026-11-07T14:36:10.000Z",
     "expiresAt": "2026-11-08T14:36:10.000Z",
@@ -390,13 +390,56 @@
     "refreshTokenStored": false,
     "providerLifetimeUnchanged": true,
     "jwtUnmodified": true,
-    "requiresMachineAndWatcherToRemainRunning": true
+    "at": "2026-11-08T14:42:10.504Z",
+    "environment": "dev",
+    "tenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
+    "receiptId": "acf682c0-3141-4fb5-835d-89c566eb3165",
+    "subjectSha256": "e5afa10500a6557f32f23cc8360566e6e92b9283c0f21a48a1b0137608fc831b",
+    "positiveControlBeforeExpiry": {
+      "status": 200,
+      "revisionId": "5516467b-7dfa-43ee-94a7-4093700bcc05"
+    },
+    "results": [
+      {
+        "method": "GET",
+        "path": "/v1/me",
+        "status": 401,
+        "expiredChallenge": true
+      },
+      {
+        "method": "GET",
+        "path": "/publishing/submissions",
+        "status": 401,
+        "expiredChallenge": true
+      },
+      {
+        "method": "GET",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165",
+        "status": 401,
+        "expiredChallenge": true
+      },
+      {
+        "method": "GET",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/package",
+        "status": 401,
+        "expiredChallenge": true
+      },
+      {
+        "method": "POST",
+        "path": "/publishing/submissions/acf682c0-3141-4fb5-835d-89c566eb3165/uploads",
+        "status": 401,
+        "expiredChallenge": true
+      }
+    ],
+    "sharedAuthSettingsChanged": false,
+    "refreshTokenUsed": false,
+    "protectedFixtureRemoved": true
   },
   "qualifications": {
     "crossTenant": true,
     "noParty": true,
     "missingMalformedAuthentication": true,
-    "genuineExpiredAuthentication": false,
+    "genuineExpiredAuthentication": true,
     "productionPublishingEnabled": false,
     "pilotReadiness": false
   },
@@ -543,7 +586,6 @@
     }
   },
   "remaining": [
-    "Genuine expired-token result after 14:42:10 UTC",
     "Supported Player variants and refresh/update matrix",
     "Remaining delivery failures and attempt exhaustion",
     "Production baseline ownership and rights",

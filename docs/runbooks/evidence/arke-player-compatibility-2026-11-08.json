@@ -263,7 +263,16 @@
       },
       "finalCoordinatorTypecheck": "passed",
       "finalLintErrors": 0,
-      "finalCi": "pending",
+      "finalCi": {
+        "status": "passed",
+        "commit": "128db8572488c9820eea516822290876e264c170",
+        "run": "https://github.com/michaeljosiah/ArkeStudio/actions/runs/42476402823",
+        "platforms": [
+          "Linux",
+          "Windows"
+        ],
+        "jobsPassed": 21
+      },
       "finalCommit": "128db8572"
     },
     "qualificationScriptsAnalysis": "passed",
@@ -388,7 +397,14 @@
     "Live dev approval/publication and device consumption of part/update/story/comic editions",
     "Physical device and Play-installed candidate acceptance; iOS remains unqualified",
     "Production baseline rights audit and deliberate mirror enablement for unchanged historical clients",
-    "Other issue 403 gates, including the genuine-expired-token result, consenting human pilot, capacity and backup restore"
+    "Other issue 403 gates, including consenting human pilot, capacity and backup restore"
   ],
-  "issue403Complete": false
+  "issue403Complete": false,
+  "releaseCycleEvidence": "arke-player-release-cycle-2026-11-08.json",
+  "genuineExpiredToken": {
+    "status": "passed",
+    "checkedAt": "2026-11-08T14:42:10.504Z",
+    "checks": 5,
+    "evidence": "arke-identity-rehearsal-2026-11-08.json"
+  }
 }
