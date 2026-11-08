@@ -813,6 +813,115 @@ does not qualify attempt exhaustion, mirror failure, the remaining identity
 matrix, further Player variants, production rights, capacity or backup restore.
 #403 remains open.
 
+## Configured identity boundaries — 8 November 2026
+
+The [sanitized identity evidence](evidence/arke-identity-rehearsal-2026-11-08.json)
+records **41 successful denial probes**: 16 across configured tenants, seven
+with a missing party relationship, and 18 with missing or malformed bearer
+credentials. These use the deployed API and the existing Studio creator session.
+They do not substitute malformed credentials for a genuinely expired token.
+
+The nominated reviewer's existing PlatformAdmin membership in the Aonik Dev
+Tenant created **Arke 403 Identity Isolation 2026-11-08** through the normal
+admin API. Tenant `44241bd4-14af-4221-9a85-007c11c0c33e` uses the Arke Worlds
+pack with publishing enabled. The normal invitation API admitted Creator 1 as
+PersonalUser. No elevated creator role, new content submission, or second-channel
+distribution declaration was introduced. The empty fixture tenant is retained
+for further identity checks.
+
+The same real Auth0 identity resolves to distinct AONIK user/party IDs in the two
+tenants. Both `/v1/me` calls return 200, and the new tenant's creator list returns
+200 with zero receipts. Requests for the original tenant's receipt, package,
+preview, decisions, upload reads/writes, submission and revision replacement
+return 404. Spoofed owner headers and owner/tenant query parameters do not escape
+the boundary. Reviewer/publication/management routes return 403. Owner-positive
+receipt, preview, decision, package and writable-upload snapshots are identical
+before and after the denials. The owner then cancelled the empty upload fixture.
+
+For the no-party case, an operator-only EF harness temporarily soft-deleted the
+single newly created fixture UserParty relationship. It pinned the dev database,
+tenant, user, party and reviewer, refused a tenant containing publishing content,
+and wrote apply/restore audit records. It did not alter Creator 1's original
+tenant relationship. The authenticated fixture identity remained Active with
+`partyId: null`; all seven creator routes returned **403 `no-party`**. A `finally`
+block restored the same relationship ID. A fresh API check confirmed the original
+party ID and a successful empty creator list. The temporary single-client-IP SQL
+rule was removed, with an independent timed cleanup also scheduled.
+
+The initial restoration-evidence query timed out after the relationship had
+already been restored. Separate API checks verified restoration. Read-only
+diagnostics found approximately 720,000 audit rows and only the primary-key
+index. Three tenant-scoped audit indexes were generated through the canonical
+EF migration stream and applied to dev; no schema operation was authored by hand. Admin tenant,
+user and role pagination also returned positional arguments in the wrong order.
+Those three constructors now use named arguments; regression checks cover
+filtered middle pages and empty results.
+
+The solution build passed with zero errors and 59 existing warnings. The final
+full solution run passed **5,355 tests with 12 existing skips**, including all
+787 API and 269 database tests. It used `DOTNET_PROCESSOR_COUNT=4` to bound test
+concurrency. The initial broad run was interrupted after an API timeout while
+the model was rebuilding; the complete final run passed. All migrations,
+including the three new audit indexes, applied cleanly to a fresh LocalDB
+database. The first dev index build exceeded the five-minute DDL limit and
+rolled back, leaving only the original primary-key index. After confirming no
+blocking session, the same migration completed at **07:49:05 UTC**, using a
+bounded 20-minute command timeout for the one-off canonical context runner.
+The three commands took approximately 392, 300 and 49 seconds on the existing
+10-DTU database. Its service tier was not changed. For a similarly sized audit
+table, pre-apply this canonical migration with an adequate maintenance timeout;
+the normal Migrator host's five-minute default was insufficient in this rehearsal.
+
+The first API lookup then hit synchronous SQL automatic-statistics generation
+(`SELECT (STATMAN)`), interrupted by the API's 30-second deadline. Executing the
+same parameterized **read-only** count with a bounded longer timeout let those
+statistics finish in 60.5 seconds. The normal audit endpoint subsequently returned
+200 with both expected records in **78 ms**. Apply audit
+`401ea88e-b402-4a4a-92a0-13c62c09b800` and restore audit
+`70d3c4d2-37e8-4323-9cbc-49d8d14fe464` prove the party relationship was absent
+only from 07:12:53 to 07:12:54 UTC; the later delay was retrieval, not restoration.
+The migration and query warm-up both removed their temporary SQL firewall rules.
+
+[CI 42459529234](https://github.com/michaeljosiah/aonik/actions/runs/42459529234)
+and [image build/scan 42459535358](https://github.com/michaeljosiah/aonik/actions/runs/42459535358)
+passed for source `5f69585208a3070acabd00b5c17fea665a2e1779`. API, Worker and
+Admin UI were updated through the CLI to immutable image digests; all three
+`arke403-5f695852` revisions were Running by 08:01:22 UTC. Environment, volume,
+mount, resource, scale and ingress fingerprints match the previous revisions.
+The active publishing configuration was preserved rather than reapplying the
+checked-in closed-channel defaults.
+
+Live tenant, user and role lists now return correct counts (5, 2 and 5 in the
+selected test contexts), page 1 and page size 100. The empty tenant search
+returns zero items/count/pages. On the new API, both creator tenant identities
+remain accessible, the owner receipt returns 200, the other-tenant receipt
+returns 404, and all 18 missing/malformed bearer probes still return 401.
+Final documentation/evidence updates do not alter the tested runtime source.
+
+**Genuine expiry remains pending.** The actual Creator 1 token was accepted for
+the owner receipt before expiry and its signature verified with Auth0's JWKS.
+It expires at **14:36:10 UTC on 8 November**. A hidden local watcher is scheduled
+for **14:42:10 UTC**, allowing the API's five-minute clock tolerance plus one
+minute. It holds only an encrypted access-token copy, without a refresh token,
+and cannot refresh or change Studio's session. It will require 401 responses
+explicitly reporting expiration, record the result, then delete that copy.
+Auth0 lifetimes, JWT claims and server time were not changed. The machine and
+watcher must remain running; a scheduled probe is not a passing result.
+
+To finish that check, inspect the local rehearsal's `identity-expiry-status.json`
+and `identity-expiry-result.json` after the scheduled time. If the process was
+interrupted, resume the protected fixture with the same genuine token; do not
+forge an `exp` value or count an absent/malformed token as expiry. Add the actual
+result to the sanitized evidence before marking this part qualified. No access
+token, refresh token, password, authorization code or database credential belongs
+in the evidence or Git history.
+
+Dev discovery remains empty at serial 4; production remains serial 49 with five
+worlds and SHA-256
+`6f05f91401e4752930b38c0936bc0da2ad08ad3ac6b2ed0552c9083dcda6ceca`.
+The broader supported-consumer, production-rights, capacity, backup and pilot
+acceptance work remains open under #403.
+
 ## Operational safeguards and recovery
 
 - Keep intake closed if verifier capacity, identity setup or storage readiness is
@@ -857,7 +966,8 @@ creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
 forced refresh passed for this one synthetic base EPUB. The transient Worker
 readback fault, same-operation retry and serial-4 withdrawal are also qualified;
-dev discovery is currently empty. Consenting human pilot actors, remaining
-identity and delivery failure cases, the supported-consumer matrix, audited
+dev discovery is currently empty. Configured cross-tenant, no-party and
+missing/malformed authentication boundaries are now qualified. Consenting human
+pilot actors, genuine token expiry, remaining delivery failure cases, the supported-consumer matrix, audited
 production baseline rights, capacity and backup restoration are still
 unqualified. #403 stays open.

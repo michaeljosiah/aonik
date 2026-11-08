@@ -112,10 +112,10 @@ internal sealed class AccessUserQueryHelper
             item.PartyInfo?.PersonProfile?.PhotoUrlTiny)).ToList();
 
         return new PagedResult<AccessUserSummary>(
-            summaries,
-            request.PageNumber,
-            request.PageSize,
-            totalCount);
+            Items: summaries,
+            TotalCount: totalCount,
+            PageNumber: request.PageNumber,
+            PageSize: request.PageSize);
     }
 
     public async Task<AccessUserDetail?> GetUserAsync(

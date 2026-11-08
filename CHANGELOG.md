@@ -6,6 +6,10 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Tenant audit lookup timeouts (#403):** Add canonical EF-generated indexes for tenant timelines, correlation IDs and resource IDs. This addresses full scans found while retrieving the live missing-party fixture's apply/restore audit trail.
+
+- **Admin identity pagination (#403):** Return the correct total count, page number and page size for tenant, user and role lists. Filtered middle-page and empty-result regressions cover the issue found during the configured-tenant rehearsal.
+
 - **Publishing on Azure Files (#403):** Qualify the exact authenticated SMB intake/delivery mounts before writing instead of applying unsupported Unix chmod operations. Local storage keeps owner-only roots; mismatched, missing, read-only or substituted mounts fail closed. The first live Studio receipt remains resumable after this deployment fix.
 
 - **Dev email and verification secrets (#403):** Enable the existing Key Vault references in the dev deployment profile so configured ACS and OTP hashing credentials reach the API instead of the legacy placeholder values. Deployed successfully; both synthetic creators received and confirmed fresh verification emails and passed all required onboarding gates.
@@ -15,6 +19,8 @@ All notable changes to the AONIK project will be documented in this file.
 - **Optional workspace setup (#403):** Keep “Skip for now” in the current browser session instead of reloading into the same unfinished wizard. Skipping retains saved progress and does not mark company setup complete.
 
 ### Added
+
+- **Arke identity boundary rehearsal (#403):** Recorded 41 live denials across configured tenants, a temporarily missing party relationship, and absent/malformed authentication. Owner state and package hashes remain unchanged; the fixture relationship and temporary SQL access were restored. Genuine token expiry is scheduled and explicitly remains unqualified until its actual result is recorded.
 
 - **Arke delivery fault and retry rehearsal (#403):** Proved that a real Worker public-readback failure preserves the empty catalogue and copied archive, then an authorised retry commits the same operation once. Publish/retry replays remain stable, conflicting or completed-operation retries are refused, and withdrawal advances to an empty serial 4 while retaining exact assets. Added a dev-only source restriction helper with qualified automatic restoration and sanitized evidence; production is unchanged.
 

@@ -12,6 +12,10 @@ public class AuditLogConfiguration : IEntityTypeConfiguration<AuditLog>
 
         builder.HasKey(a => a.Id);
 
+        builder.HasIndex(a => new { a.TenantId, a.IsDeleted, a.Timestamp });
+        builder.HasIndex(a => new { a.TenantId, a.IsDeleted, a.CorrelationId, a.Timestamp });
+        builder.HasIndex(a => new { a.TenantId, a.IsDeleted, a.ResourceId, a.Timestamp });
+
         builder.Property(a => a.CorrelationId)
             .HasMaxLength(200)
             .HasDefaultValue(string.Empty);

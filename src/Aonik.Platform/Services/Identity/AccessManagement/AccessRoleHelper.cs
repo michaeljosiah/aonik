@@ -58,10 +58,10 @@ internal sealed class AccessRoleHelper
             .ToListAsync(cancellationToken);
 
         return new PagedResult<AccessRoleSummary>(
-            items,
-            request.PageNumber,
-            request.PageSize,
-            totalCount);
+            Items: items,
+            TotalCount: totalCount,
+            PageNumber: request.PageNumber,
+            PageSize: request.PageSize);
     }
 
     public async Task<AccessRoleDetail?> GetRoleAsync(
