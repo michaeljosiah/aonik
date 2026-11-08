@@ -1088,6 +1088,48 @@ approved catalogue mirror; this rehearsal does not enable that mirror or change 
 production feed. See the [consumer evidence](evidence/arke-player-compatibility-2026-11-08.json)
 for the exact distinction between local, live transport and device observations.
 
+## Newer-edition checkpoint and reader fix (8 November)
+
+The `2026-11-08` whole edition is frozen as local candidate
+`91f61711-6da5-41ed-952e-9f1107351750`, archive SHA-256
+`c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b`.
+The story XHTML and artwork are byte-identical to the approved synthetic base;
+only the EPUB publication metadata changed. **It is not yet uploaded, approved or
+published.** Creator 1's native session expired and Studio's receipt refresh requests
+a new sign-in. Dev remains empty at serial 6. The earlier exact base approval is
+not an approval of this newer edition.
+
+Preparing the Android checkpoint exposed a real reader defect: the short EPUB's
+coarse CFI percentage reached 100% on page 1 of 2. Player marked it finished and
+reopened at the cover. [Player #66](https://github.com/michaeljosiah/ArkePlayer/pull/66)
+and [the paired specification](https://github.com/michaeljosiah/arke-studio-specs/pull/142)
+are merged. Completion also requires the last reported chapter page; absent or invalid
+pagination keeps the book resumable. All CI jobs, 22 library tests, 420 app tests
+(13 existing skips), and static analysis passed.
+
+The fixed Android app shows **Continue** and resumes **A Small Beginning**, page
+1 of 2. The dev app upgrade retained byte-identical library data. Oversized debug
+APKs were refused for storage; a 63,679,315-byte x86-64 profile APK with the same
+app ID and signing key installed successfully. No app data was cleared. Its exact
+APK hash and saved CFI are in the [edition-update evidence](evidence/arke-player-edition-update-2026-11-08.json).
+This proves the reader fix, not the pending live content update or offline-after-update gate.
+
+`qualify_live_edition_update.dart` uses copies of the retained base libraries and
+the real Player `HostedCatalogue`, `hasUpdate` and `WorldInstaller.update` paths:
+
+```text
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_live_edition_update.dart prepare <copied-base-scratch> <reader-commit> <empty-serial>
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_live_edition_update.dart updated <same-scratch> <reader-commit> <published-serial>
+dart --packages=<player>/.dart_tool/package_config.json tools/arke-package-verifier/test/qualify_live_edition_update.dart withdrawn <same-scratch> <reader-commit> <withdrawn-serial>
+```
+
+Both current and historical readers completed **prepare**, retaining a deterministic
+halfway checkpoint in separate libraries. The later phases remain pending. They check
+live detection, old content remaining available until verification, exact position
+retention, one library entry, clearing Update, idempotent repeated update, and offline
+reopening. The tool does not submit, approve, publish or withdraw anything. Record
+Android UI observations separately from these reader-library checks.
+
 ## Validation of this preparation
 
 For the 7 November storage fix, the solution build passed with zero errors and

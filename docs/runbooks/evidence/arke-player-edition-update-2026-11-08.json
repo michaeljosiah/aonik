@@ -1,0 +1,140 @@
+{
+  "checkedAt": "2026-11-08T17:14:29.620Z",
+  "issue": 403,
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "status": "prepared-awaiting-creator-sign-in",
+  "liveNewerEditionVerified": false,
+  "candidate": {
+    "id": "91f61711-6da5-41ed-952e-9f1107351750",
+    "exportId": "ap_01M6XBSCZE8G1GQGP6GKMKYN3N",
+    "edition": "2026-11-08",
+    "bytes": 2354240,
+    "sha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+    "submitted": false,
+    "approved": false,
+    "published": false
+  },
+  "content": {
+    "checkedAt": "2026-11-08T16:58:40.709828+00:00",
+    "baseArchiveSha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c",
+    "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+    "bookSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e",
+    "artworkSha256": "9d5101c3698c0f000021e71848c7b31ec12a8a824eb8a93fe4cf8f661339b81f",
+    "epubDifferences": [
+      "OEBPS/package.opf"
+    ],
+    "storyBytesIdentical": true,
+    "artworkBytesIdentical": true,
+    "scope": "Frozen local packages; server verification and editorial approval still required"
+  },
+  "readerPreparation": [
+    {
+      "checkedAt": "2026-11-08T16:52:38.766790Z",
+      "readerCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
+      "phase": "prepare",
+      "scope": "Real Player reader, live dev HTTPS feed/update, deterministic saved progress; Android recorded separately",
+      "catalogueSerial": 6,
+      "worldCount": 0,
+      "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+      "installedFingerprint": "aeb2150becd2b61ae6ba0f0d050356aeb09c6554381e182bdd69bac498776f03",
+      "bookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "position": {
+        "id": "lantern-garden-dev-403.the-first-lantern.book",
+        "place": {
+          "progress": 0.5,
+          "updatedAt": "2026-11-08T16:52:38.715235Z",
+          "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+        },
+        "finished": false
+      },
+      "liveUpdateDetected": false,
+      "oldEditionAvailableBeforeSwap": false,
+      "progressPreserved": true,
+      "noDuplicateLibraryEntries": true,
+      "offlineReopened": true,
+      "updateSteps": [],
+      "passed": true
+    },
+    {
+      "checkedAt": "2026-11-08T16:52:57.118471Z",
+      "readerCommit": "03a261bda82bc6ec07d66f980506143ecba430a8",
+      "phase": "prepare",
+      "scope": "Real Player reader, live dev HTTPS feed/update, deterministic saved progress; Android recorded separately",
+      "catalogueSerial": 6,
+      "worldCount": 0,
+      "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+      "installedFingerprint": "aeb2150becd2b61ae6ba0f0d050356aeb09c6554381e182bdd69bac498776f03",
+      "bookSha256": "17f44aebaf9443e437e1e913c516fb93b924b70967c3b2910e25756622d288d4",
+      "position": {
+        "id": "lantern-garden-dev-403.the-first-lantern.book",
+        "place": {
+          "progress": 0.5,
+          "updatedAt": "2026-11-08T16:52:57.068700Z",
+          "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+        },
+        "finished": false
+      },
+      "liveUpdateDetected": false,
+      "oldEditionAvailableBeforeSwap": false,
+      "progressPreserved": true,
+      "noDuplicateLibraryEntries": true,
+      "offlineReopened": true,
+      "updateSteps": [],
+      "passed": true
+    }
+  ],
+  "playerFix": {
+    "commit": "30cb419efdf5ffaaad3aaf4037b6734d29f642b6",
+    "pullRequest": "https://github.com/michaeljosiah/ArkePlayer/pull/66",
+    "mergeCommit": "9d6746e3d1adb19a9fb1cf8658ca9c1d1bcf22fc",
+    "specification": "https://github.com/michaeljosiah/arke-studio-specs/pull/142",
+    "ci": "https://github.com/michaeljosiah/ArkePlayer/actions/runs/42502495822",
+    "ciResult": "all-three-jobs-passed",
+    "libraryTests": 22,
+    "appTests": 420,
+    "appSkips": 13,
+    "analysis": "passed",
+    "defect": "Coarse EPUB location progress reached 100% before the last screen page; finished state discarded the CFI on reopening.",
+    "behavior": "Requires the last reported chapter page as well; missing or invalid pagination remains resumable."
+  },
+  "android": {
+    "applicationId": "studio.arke.player.dev",
+    "device": "Pixel_9 Android emulator x86_64",
+    "buildMode": "profile",
+    "apkSha256": "9dc90f838353e333b8c18c3b4e86887ff8d0f3f8152b66ee70268c1c2eedcdf2",
+    "apkBytes": 63679315,
+    "libraryUnchangedAcrossAppUpgrade": true,
+    "debugInstallRefusedForStorage": true,
+    "appDataCleared": false,
+    "observedChapter": "A Small Beginning",
+    "observedPage": 1,
+    "observedChapterPages": 2,
+    "continueShown": true,
+    "reopenedAtChapterInsteadOfCover": true,
+    "checkpoint": {
+      "worldId": "lantern-garden-dev-403",
+      "edition": "2026-11-07",
+      "fingerprint": "aeb2150becd2b61ae6ba0f0d050356aeb09c6554381e182bdd69bac498776f03",
+      "itemId": "lantern-garden-dev-403.the-first-lantern.book",
+      "place": {
+        "progress": 1,
+        "updatedAt": "2026-11-08T17:12:15.797121Z",
+        "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+      },
+      "finished": false
+    },
+    "scope": "Reader fix verified on retained older content; no new-content update or offline-after-update claim."
+  },
+  "publicState": {
+    "serial": 6,
+    "worldCount": 0,
+    "productionMirrorEnabled": false
+  },
+  "remaining": [
+    "Creator 1 fresh native sign-in and private frozen-edition upload",
+    "Server package verification and exact-revision independent editorial approval",
+    "Authorised dev release, live Update detection, replacement and offline resume",
+    "Authorised withdrawal and unchanged installed newer edition"
+  ]
+}
