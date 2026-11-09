@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Publishing withdrawal receipts (#403):** Cascading base/part withdrawal now updates every affected current receipt. Exact authorised replay reconciles stale receipts left by older workers without changing the committed operation or catalogue serial, while preserving newer revisions and other live editions.
+
 - **Player parts without cover artwork (#403):** Accept a verified part that inherits the current base edition's approved cover, preserving its catalogue pin instead of requiring or promoting a duplicate image. Full editions still require verified artwork; every included part asset still requires exact rights coverage.
 
 - **Player chapter schedules (#403):** Preserve a verified part's release schedule in the catalogue entry for its production. Parts that omit a schedule retain the previous declaration; other productions and the base fingerprint remain unchanged.

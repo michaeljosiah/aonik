@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 using Aonik.IntegrationTests.Support;
+using Aonik.Publishing.Contracts;
 using Aonik.Publishing.Entities;
 using Aonik.Publishing.Persistence;
 using Aonik.Publishing.Testing;
@@ -16,6 +17,37 @@ public class PublicationDeliverySqlServerTests(SqlLocalDbFixture database):IClas
         var options=new DbContextOptionsBuilder<PublishingDbContext>(database.CreateOptions<PublishingDbContext>());
         if(interceptor is not null)options.AddInterceptors(interceptor);
         return new(options.Options,parent);
+    }
+    [Fact]
+    public async Task PartWithdrawal_Should_CommitCascadeReceipts_AndRepairLegacyReplayInSql()
+    {
+        using var h = Scope();
+        await h.InitialiseAsync();
+        var baseReceipt = await h.ApproveAsync("listening");
+        var first = await h.Service.PublishAsync(baseReceipt.Id, await h.RequestAsync(baseReceipt.Id));
+        await h.DeliverAsync(first.Id);
+        var part = await h.ApproveAsync("part");
+        var next = await h.Service.PublishAsync(part.Id, await h.RequestAsync(part.Id));
+        await h.DeliverAsync(next.Id);
+        var edition = (await h.Service.CatalogueAsync("arke-worlds")).Editions.Single(row => row.Kind == "part");
+        var command = new PublicationActionRequest(Guid.NewGuid(), edition.Version, "Withdraw the synthetic sequence");
+
+        var operation = await h.Service.WithdrawAsync(edition.Id, command);
+        await h.DeliverAsync(operation.Id);
+
+        var head = await h.HeadAsync();
+        head.Should().Contain("\"serial\":55");
+        (await h.Db.Submissions.Where(row => row.TenantId == h.Tenant && (row.Id == baseReceipt.Id || row.Id == part.Id)).ToListAsync())
+            .Should().OnlyContain(row => row.Status == SubmissionStatuses.Withdrawn);
+        (await h.Db.Submissions.SingleAsync(row => row.TenantId == h.Tenant && row.Id == baseReceipt.Id)).Status = SubmissionStatuses.Published;
+        await h.Db.SaveChangesAsync();
+
+        using var replay = Scope(h);
+        (await replay.Service.WithdrawAsync(edition.Id, command)).Id.Should().Be(operation.Id);
+        (await replay.Db.Submissions.AsNoTracking().SingleAsync(row => row.TenantId == h.Tenant && row.Id == baseReceipt.Id)).Status
+            .Should().Be(SubmissionStatuses.Withdrawn);
+        (await replay.HeadAsync()).Should().Be(head);
+        (await replay.Db.PublicationOperations.CountAsync(row => row.TenantId == h.Tenant && row.Kind == "withdraw")).Should().Be(1);
     }
     [Fact]
     public async Task SqlCommitFailure_Should_RollBackCatalogueEditionAndOperation_ThenRecoverOnce()
