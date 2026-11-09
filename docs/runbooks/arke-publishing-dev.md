@@ -1187,9 +1187,98 @@ real creator service refreshed the same receipt through approved, published and
 withdrawn. The temporary reviewer helper was signed out after the batch.
 
 See the [completed 9 November evidence](evidence/arke-player-edition-update-2026-11-09.json).
-This supersedes the pending-update checkpoints above. Live part/story/comic,
-supported device/background-scheduler cases and the remaining operational/pilot
-gates in #403 remain open. No production mutation or mirror enablement was made.
+This supersedes the pending-update checkpoints above. The later live part/story/comic
+batch is recorded below; supported device/background-scheduler cases and the
+remaining operational/pilot gates in #403 remain open. No production mutation or
+mirror enablement was made.
+
+## Live part, story and comic rehearsal (9 November)
+
+Player [#51 / PR #68](https://github.com/michaeljosiah/ArkePlayer/pull/68) is merged.
+The catalogue-pinning CLI now emits the dedicated comic pin and version while
+preserving story and other format branches. All 393 world-package tests and the
+three CI jobs passed. The opt-in Android reader rehearsal is merged in
+[Player PR #69](https://github.com/michaeljosiah/ArkePlayer/pull/69), also with all
+three CI jobs green.
+
+The original synthetic **Paper Garden Dev 403** fixtures were built with Studio's
+real package writer/readback and export records, then frozen and submitted through
+its actual upload/receipt services using Creator 1. They contain gentle Mina text,
+geometric artwork and quiet AAC test tones, with no third-party assets or human
+voice. This qualifies the submission path, not interactive Studio authoring or the
+production export compiler. Separate reviewer sign-in and exact-revision decisions
+were automated under the owner's explicit synthetic-dev-test authority; they are
+not a nontechnical human editorial walkthrough or production rights clearance.
+
+The deployed verifier checked all four private archives, and independent downloads
+matched their exact SHA-256 and byte lengths. The base, artwork-free audio part,
+visual novel and graphic novel published in order at serials **9, 10, 11 and 12**.
+Each decision/publication replay returned the same operation. The part inherited
+the base cover and added chapter 2 plus the production schedule.
+
+Current Player libraries installed the real HTTPS artifacts, preserved the audio
+position, ignored future story/comic versions, and did not fetch duplicates on
+repeat installation. The historical `03a261bd` reader installed base/part and
+safely ignored story/comic without fetching their archives. This is execution of
+the older libraries, not deployment of an older application. The normal Android
+dev app discovered the part, kept chapter 1's Resume position and played chapter 2.
+
+The real Android readers followed the visual novel's friend choice and saved
+`sc_friend` / `ch_friend`; the comic saved page 2. Continue reopened both with Dart
+HTTP client creation denied, and the file-backed library reload retained both
+saves, the audio position and the unrelated Lantern Garden world. These checks
+passed at live serial 12 and again after withdrawal at empty serial **15**.
+They do not establish physical-radio, OS background scheduling or physical-device
+compatibility. Pure-reader withdrawal checks also verified all 17 retained local
+files and saved positions with no artifact downloads.
+
+**Device interruption:** the first debug test APK exceeded emulator storage.
+Flutter's installer automatically uninstalled the dev app before it could be
+stopped. The dev library was explicitly restored from the pre-run checkpoint and
+verified media (10 on-device file hashes); this is not uninterrupted native
+retention across that incident. Subsequent runs backed up all private files and
+preferences, used smaller profile APKs and replace-only `adb install -r`, and
+stopped on installation failure. After both passing phases, the ordinary dev APK
+was restored and its full library exactly matched the post-test backup. The
+documented test procedure prevents the uninstall fallback from recurring.
+
+Comic withdrawal committed at serial 13, story at 14, and part at 15. Withdrawing
+the part correctly retired its base sequence as well, leaving an empty catalogue.
+The older Worker nevertheless left the base receipt reporting Published. AONIK
+[PR #415](https://github.com/michaeljosiah/aonik/pull/415) updates every affected
+current-revision receipt and permits an exact authorised replay to reconcile older
+stale receipts without a new operation or catalogue serial. The fix is merged as
+`6984034312d9e7ba8be15b712621bb90730c3fe6`. Its exact source tree passed
+[CI attempt 2](https://github.com/michaeljosiah/aonik/actions/runs/42686674558/attempts/2):
+**5,377 .NET tests passed / 5 existing skips**, canonical-model validation and
+**690 Admin UI tests**. The first CI attempt never acquired a runner and was
+cancelled. Local focused tests, all 270 SQL tests and all 19 publishing endpoints
+passed; the broad local API retries retained unrelated HTTP timeout failures and
+are not represented as a clean full-suite pass. The initial SQL disk-exhaustion
+failure was resolved by clearing disposable generated builds.
+
+The [image build and vulnerability scan](https://github.com/michaeljosiah/aonik/actions/runs/42686715788)
+passed. Image-only CLI deployment produced Worker `aonik-dev-worker--0000374` and
+API `aonik-dev-api--0000384`, retaining all 46 Worker and 85 API environment
+settings. The comparison was corrected to normalize null/empty secret-reference
+placeholders and compare authoritative readback, rather than the CLI update
+response projection. No actual setting changed. Both revisions became ready and
+API health returned 200.
+
+At **20:25:35 UTC**, an exact replay of part withdrawal
+`0ea8ea16-f77f-4cae-adfd-2db1e5576397` repaired the base receipt; the repeated replay
+returned the same operation. The operation set and empty catalogue serial **15**
+did not change. All four real Studio creator receipts now report **Withdrawn /
+complete**. The temporary reviewer helper was signed out after this batch.
+
+The [sanitized format evidence](evidence/arke-player-live-formats-2026-11-09.json)
+records hashes, receipts, decisions, operations, reader checks and limitations.
+This batch supersedes earlier live part/story/comic-pending notes. #403 remains
+open for supported deployed devices/OS scheduling, interactive movie/production
+export walkthroughs as applicable, remaining delivery faults/mirror migration,
+manual fallback and backup restoration, nontechnical review/human pilot, and
+production ownership/rights/baseline/capacity/cost approval. Production and the
+GitHub mirror remain unchanged.
 
 ## Validation of this preparation
 
@@ -1214,7 +1303,7 @@ creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
 forced refresh passed for this one synthetic base EPUB. The transient Worker
 readback fault, same-operation retry and serial-4 withdrawal are also qualified;
-dev discovery is now empty at serial 8 after the qualified newer-edition update.
+dev discovery is now empty at serial 15 after the later format rehearsal.
 Configured cross-tenant, no-party,
 missing/malformed authentication and genuine token-expiry boundaries are qualified.
 Consenting human pilot actors, remaining delivery failure cases, the remaining live/device consumer checks, audited
