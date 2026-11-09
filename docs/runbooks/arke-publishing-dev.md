@@ -1130,6 +1130,67 @@ retention, one library entry, clearing Update, idempotent repeated update, and o
 reopening. The tool does not submit, approve, publish or withdraw anything. Record
 Android UI observations separately from these reader-library checks.
 
+## Completed live newer-edition rehearsal (9 November)
+
+Creator 1 completed fresh normal Auth0 code + PKCE sign-in using the generated
+test credential. A bounded local receiver used Studio's real account adapter and
+saved the session through Electron's protected storage; no token or password is
+included in the evidence. The independent reviewer also completed normal sign-in.
+
+The existing frozen candidate `91f61711-6da5-41ed-952e-9f1107351750` was submitted
+without rebuilding it. Receipt `6b52ca0c-c8b8-404b-8d11-144c40f3fb7c`, revision 1
+(`b8dafad9-381e-4999-8d38-49f9bd4b7a8e`), uploaded all 2,354,240 bytes and passed
+the deployed Worker verifier at 08:09:18 UTC. It entered **In review**.
+The reviewer downloaded the exact server copy and confirmed archive SHA-256
+`c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b`.
+Its review digest is
+`874b3f058a9346bd298b5293ee36703ddd85de5f8705da6a8543904c7f53540c`.
+
+The original synthetic story and geometric artwork remain unchanged; the EPUB
+publication metadata is the only book change. Before release, the current and historical
+Player scratch libraries retained their original book hash and halfway reading checkpoints.
+The public dev catalogue was still empty at serial 6 at 08:19 UTC, and anonymous
+access to the new private package returned 401.
+
+The owner then explicitly authorised autonomous test-account sign-in and all dev
+rehearsal actions. Using the separate reviewer identity, the normal server gate
+recorded exact-revision decision `32a5df4a-73ae-4e4b-9ef8-998ca3d56122`.
+Approval replay returned the same decision. This is an owner-authorised automated
+synthetic dev rehearsal with separate identities; it is not a manual editorial
+walkthrough or a consenting-human production pilot.
+
+Publication `20451375-edb9-4e90-bb63-8229773ba0e3` committed in one attempt at
+15:57:48 UTC, advancing the catalogue from empty serial 6 to serial 7 with one
+world. Replaying the command returned the same operation. Both the current
+Player consumer (`30cb419e`) and historical consumer (`03a261bd`) then passed
+the live HTTPS **updated** phase: detection, old bytes available before the verified
+swap, exact updated book hash, unchanged saved CFI/progress/finished state,
+one world and book, cleared update state, idempotent repeat and offline reopening.
+The earlier current-reader preparation used `17dc9a23`; the update used the merged
+`30cb419e` reader-position fix. No scratch checkpoint was reset.
+
+The existing Android dev app detected **Update · 2.4 MB** after **You → Check for
+updates**, installed edition `2026-11-08`, and returned to **Continue**. Its exact
+saved place (including timestamp) and unfinished state survived installation.
+The installed EPUB matched SHA-256
+`a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e`.
+Continue opened **A Small Beginning**, page **1 of 2**, online and again with
+airplane mode enabled. Normal reading subsequently advanced only the place's
+timestamp. Networking was restored; the app data was never cleared.
+
+Withdrawal `13588317-1ff2-4367-be19-941e1f840f84` committed in one attempt at
+16:06:38 UTC and replay returned the same operation. Serial **8** is empty. Both
+reader harnesses passed **withdrawn**, retaining the updated content and progress
+offline. Android's forced check cached serial 8, discovery became empty, and the
+installed library still held the same edition/CFI and unfinished state. Studio's
+real creator service refreshed the same receipt through approved, published and
+withdrawn. The temporary reviewer helper was signed out after the batch.
+
+See the [completed 9 November evidence](evidence/arke-player-edition-update-2026-11-09.json).
+This supersedes the pending-update checkpoints above. Live part/story/comic,
+supported device/background-scheduler cases and the remaining operational/pilot
+gates in #403 remain open. No production mutation or mirror enablement was made.
+
 ## Validation of this preparation
 
 For the 7 November storage fix, the solution build passed with zero errors and
@@ -1153,7 +1214,8 @@ creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
 forced refresh passed for this one synthetic base EPUB. The transient Worker
 readback fault, same-operation retry and serial-4 withdrawal are also qualified;
-dev discovery is currently empty at serial 6. Configured cross-tenant, no-party,
+dev discovery is now empty at serial 8 after the qualified newer-edition update.
+Configured cross-tenant, no-party,
 missing/malformed authentication and genuine token-expiry boundaries are qualified.
 Consenting human pilot actors, remaining delivery failure cases, the remaining live/device consumer checks, audited
 production baseline rights, capacity and backup restoration are still
