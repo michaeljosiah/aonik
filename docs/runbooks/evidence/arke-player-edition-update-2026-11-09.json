@@ -1,0 +1,399 @@
+{
+  "checkedAt": "2026-11-09T16:13:36.9560905Z",
+  "issue": 403,
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "status": "live-update-and-withdrawal-passed",
+  "liveNewerEditionVerified": true,
+  "candidate": {
+    "id": "91f61711-6da5-41ed-952e-9f1107351750",
+    "receiptId": "6b52ca0c-c8b8-404b-8d11-144c40f3fb7c",
+    "revisionId": "b8dafad9-381e-4999-8d38-49f9bd4b7a8e",
+    "revisionNumber": 1,
+    "edition": "2026-11-08",
+    "sha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+    "bytes": 2354240,
+    "submitted": true,
+    "verified": true,
+    "approved": true,
+    "published": true,
+    "withdrawn": true
+  },
+  "verification": {
+    "reportId": "cfc90528-cb23-4b6a-83ef-3f47039d8710",
+    "completedAt": "2026-11-09T08:09:18.9277019",
+    "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+    "verifierImage": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:edcf30cccff2a89f69523e2dabba590118999778cc2e623471c511217ab46dfb",
+    "reviewDigest": "874b3f058a9346bd298b5293ee36703ddd85de5f8705da6a8543904c7f53540c",
+    "blockingCode": null
+  },
+  "readback": {
+    "status": 200,
+    "bytes": 2354240,
+    "sha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+    "contentType": "application/zip",
+    "cacheControl": "private, no-store"
+  },
+  "requests": [
+    {
+      "path": "/v1/me",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/publishing/submissions",
+      "method": "POST",
+      "status": 201
+    },
+    {
+      "path": "/publishing/submissions/6b52ca0c-c8b8-404b-8d11-144c40f3fb7c/uploads",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/publishing/submissions/6b52ca0c-c8b8-404b-8d11-144c40f3fb7c/uploads/89b1de2c-7ce3-4f23-936b-057ded147e90/parts/1",
+      "method": "PUT",
+      "status": 200
+    },
+    {
+      "path": "/publishing/submissions/6b52ca0c-c8b8-404b-8d11-144c40f3fb7c/uploads/89b1de2c-7ce3-4f23-936b-057ded147e90/parts/2",
+      "method": "PUT",
+      "status": 200
+    },
+    {
+      "path": "/publishing/submissions/6b52ca0c-c8b8-404b-8d11-144c40f3fb7c/uploads/89b1de2c-7ce3-4f23-936b-057ded147e90/parts/3",
+      "method": "PUT",
+      "status": 200
+    },
+    {
+      "path": "/publishing/submissions/6b52ca0c-c8b8-404b-8d11-144c40f3fb7c/uploads/89b1de2c-7ce3-4f23-936b-057ded147e90/complete",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/publishing/submissions/6b52ca0c-c8b8-404b-8d11-144c40f3fb7c/submit",
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "path": "/publishing/submissions/6b52ca0c-c8b8-404b-8d11-144c40f3fb7c",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "preRelease": {
+    "checkedAt": "2026-11-09T08:19:11.9019784Z",
+    "devSerial": 6,
+    "worldCount": 0,
+    "anonymousPrivatePackageStatus": 401
+  },
+  "remaining": [
+    "Live part/story/comic and supported-device/background-scheduler qualification",
+    "Remaining delivery failure/exhaustion and optional mirror qualification",
+    "Nontechnical reviewer walkthrough and consenting human pilot",
+    "Production catalogue rights/baseline audit, capacity/cost/limits, isolated backup restoration and manual fallback"
+  ],
+  "authentication": {
+    "creatorSignInCompletedAt": "2026-11-09T08:07:51.099Z",
+    "creatorSessionProtected": true,
+    "creatorIdentityConfirmedByApi": true,
+    "creatorIdentityPersistedAfterDesktopRestart": true,
+    "independentReviewerSignedIn": true,
+    "credentialsIncluded": false
+  },
+  "authority": {
+    "scope": "Owner-authorised automated synthetic dev rehearsal using separate creator and reviewer identities",
+    "userInstruction": "Run all tests yourself and sign in yourself. You have all the test account details. The Michael.josiah@mailinator.com has the password prefilled so just click enter. All are test accounts on dev setup so proceed without human intervention.",
+    "normalServerApprovalGateUsed": true,
+    "manualEditorialAcceptanceClaimed": false,
+    "consentingHumanPilotClaimed": false,
+    "productionMutation": false
+  },
+  "approval": {
+    "id": "32a5df4a-73ae-4e4b-9ef8-998ca3d56122",
+    "operationId": "ca987785-21f7-4baf-9f97-4dae73961783",
+    "revisionId": "b8dafad9-381e-4999-8d38-49f9bd4b7a8e",
+    "reviewDigest": "874b3f058a9346bd298b5293ee36703ddd85de5f8705da6a8543904c7f53540c",
+    "decision": "approve",
+    "internalReason": "Owner authorised the automated synthetic dev approval/release/update/withdrawal rehearsal on 2026-11-09 after this exact receipt, archive and review digest were presented. The unchanged original story, artwork, dev-only distribution evidence, attribution and audience suitability were checked. This exercises a separate reviewer identity and is not production or manual editorial acceptance.",
+    "creatorMessage": "Approved for the isolated dev newer-edition update and reading-progress rehearsal only.",
+    "actorUserId": "fea74a2f-3261-47f7-a8ca-359ec0f3f373",
+    "actorPartyId": "912d9877-9fc3-42ed-969b-38886b5c700d",
+    "policyVersion": "dev-editorial-v1",
+    "decidedAt": "2026-11-09T15:56:54.695498Z",
+    "checks": {
+      "distributionRightsReviewed": true,
+      "attributionReviewed": true,
+      "audienceSafetyReviewed": true
+    },
+    "isActive": true
+  },
+  "approvalReplaySameId": true,
+  "publication": {
+    "id": "20451375-edb9-4e90-bb63-8229773ba0e3",
+    "channelKey": "arke-worlds-dev",
+    "kind": "publish",
+    "submissionId": "6b52ca0c-c8b8-404b-8d11-144c40f3fb7c",
+    "revisionId": "b8dafad9-381e-4999-8d38-49f9bd4b7a8e",
+    "decisionId": "32a5df4a-73ae-4e4b-9ef8-998ca3d56122",
+    "editionId": "caa32a37-8a7a-4327-848e-86e4090398ec",
+    "status": "committed",
+    "code": "published",
+    "attempts": 1,
+    "committedSerial": 7,
+    "createdAt": "2026-11-09T15:57:39.1445436",
+    "completedAt": "2026-11-09T15:57:48.8198034",
+    "reason": "Owner explicitly authorised isolated dev release of this approved newer edition, update/progress/offline checks, then withdrawal.",
+    "version": "AAAAAAAYBX8=",
+    "canRetry": false
+  },
+  "publicationReplaySameId": true,
+  "withdrawal": {
+    "id": "13588317-1ff2-4367-be19-941e1f840f84",
+    "channelKey": "arke-worlds-dev",
+    "kind": "withdraw",
+    "submissionId": "6b52ca0c-c8b8-404b-8d11-144c40f3fb7c",
+    "revisionId": "b8dafad9-381e-4999-8d38-49f9bd4b7a8e",
+    "decisionId": null,
+    "editionId": "caa32a37-8a7a-4327-848e-86e4090398ec",
+    "status": "committed",
+    "code": "withdrawn",
+    "attempts": 1,
+    "committedSerial": 8,
+    "createdAt": "2026-11-09T16:06:31.7700345",
+    "completedAt": "2026-11-09T16:06:38.9309817",
+    "reason": "Owner-authorised withdrawal following the dev newer-edition rehearsal; retain verified installed copies and immutable artifacts.",
+    "version": "AAAAAAAYBdo=",
+    "canRetry": false
+  },
+  "withdrawalReplaySameId": true,
+  "readers": [
+    {
+      "name": "current",
+      "update": {
+        "checkedAt": "2026-11-09T16:02:24.628665Z",
+        "readerCommit": "30cb419efdf5ffaaad3aaf4037b6734d29f642b6",
+        "phase": "updated",
+        "scope": "Real Player reader, live dev HTTPS feed/update, deterministic saved progress; Android recorded separately",
+        "catalogueSerial": 7,
+        "worldCount": 1,
+        "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+        "installedFingerprint": "2baba833385cdfcc3f9930d0c3d68b44769cd54012e6c59996499368664af67b",
+        "bookSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e",
+        "position": {
+          "id": "lantern-garden-dev-403.the-first-lantern.book",
+          "place": {
+            "progress": 0.5,
+            "updatedAt": "2026-11-08T16:52:38.715235Z",
+            "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+          },
+          "finished": false
+        },
+        "liveUpdateDetected": true,
+        "oldEditionAvailableBeforeSwap": true,
+        "progressPreserved": true,
+        "noDuplicateLibraryEntries": true,
+        "offlineReopened": true,
+        "updateSteps": [
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Checking'",
+          "Instance of 'Checking'",
+          "Instance of 'Checking'"
+        ],
+        "passed": true
+      },
+      "withdrawal": {
+        "checkedAt": "2026-11-09T16:07:55.434003Z",
+        "readerCommit": "30cb419efdf5ffaaad3aaf4037b6734d29f642b6",
+        "phase": "withdrawn",
+        "scope": "Real Player reader, live dev HTTPS feed/update, deterministic saved progress; Android recorded separately",
+        "catalogueSerial": 8,
+        "worldCount": 0,
+        "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+        "installedFingerprint": "2baba833385cdfcc3f9930d0c3d68b44769cd54012e6c59996499368664af67b",
+        "bookSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e",
+        "position": {
+          "id": "lantern-garden-dev-403.the-first-lantern.book",
+          "place": {
+            "progress": 0.5,
+            "updatedAt": "2026-11-08T16:52:38.715235Z",
+            "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+          },
+          "finished": false
+        },
+        "liveUpdateDetected": false,
+        "oldEditionAvailableBeforeSwap": false,
+        "progressPreserved": true,
+        "noDuplicateLibraryEntries": true,
+        "offlineReopened": true,
+        "updateSteps": [],
+        "passed": true
+      }
+    },
+    {
+      "name": "legacy",
+      "update": {
+        "checkedAt": "2026-11-09T16:02:25.193727Z",
+        "readerCommit": "03a261bda82bc6ec07d66f980506143ecba430a8",
+        "phase": "updated",
+        "scope": "Real Player reader, live dev HTTPS feed/update, deterministic saved progress; Android recorded separately",
+        "catalogueSerial": 7,
+        "worldCount": 1,
+        "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+        "installedFingerprint": "2baba833385cdfcc3f9930d0c3d68b44769cd54012e6c59996499368664af67b",
+        "bookSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e",
+        "position": {
+          "id": "lantern-garden-dev-403.the-first-lantern.book",
+          "place": {
+            "progress": 0.5,
+            "updatedAt": "2026-11-08T16:52:57.0687Z",
+            "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+          },
+          "finished": false
+        },
+        "liveUpdateDetected": true,
+        "oldEditionAvailableBeforeSwap": true,
+        "progressPreserved": true,
+        "noDuplicateLibraryEntries": true,
+        "offlineReopened": true,
+        "updateSteps": [
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Downloading'",
+          "Instance of 'Checking'",
+          "Instance of 'Checking'",
+          "Instance of 'Checking'"
+        ],
+        "passed": true
+      },
+      "withdrawal": {
+        "checkedAt": "2026-11-09T16:08:06.430245Z",
+        "readerCommit": "03a261bda82bc6ec07d66f980506143ecba430a8",
+        "phase": "withdrawn",
+        "scope": "Real Player reader, live dev HTTPS feed/update, deterministic saved progress; Android recorded separately",
+        "catalogueSerial": 8,
+        "worldCount": 0,
+        "updateArchiveSha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b",
+        "installedFingerprint": "2baba833385cdfcc3f9930d0c3d68b44769cd54012e6c59996499368664af67b",
+        "bookSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e",
+        "position": {
+          "id": "lantern-garden-dev-403.the-first-lantern.book",
+          "place": {
+            "progress": 0.5,
+            "updatedAt": "2026-11-08T16:52:57.0687Z",
+            "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+          },
+          "finished": false
+        },
+        "liveUpdateDetected": false,
+        "oldEditionAvailableBeforeSwap": false,
+        "progressPreserved": true,
+        "noDuplicateLibraryEntries": true,
+        "offlineReopened": true,
+        "updateSteps": [],
+        "passed": true
+      }
+    }
+  ],
+  "currentReaderPreparationCommit": "17dc9a23c8bd550dc7116ef61d37a53319e15081",
+  "android": {
+    "scope": "Pixel 9 Android emulator; installed x86-64 profile app, not a physical-device or Play-distributed build qualification",
+    "applicationId": "studio.arke.player.dev",
+    "apkSha256": "9dc90f838353e333b8c18c3b4e86887ff8d0f3f8152b66ee70268c1c2eedcdf2",
+    "updateCheck": "You > Check for updates; Update 2.4 MB / 8 Nov 2026 shown on installed world",
+    "editionBefore": "2026-11-07",
+    "editionAfter": "2026-11-08",
+    "fingerprintAfter": "2baba833385cdfcc3f9930d0c3d68b44769cd54012e6c59996499368664af67b",
+    "installedBookSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e",
+    "positionBefore": {
+      "progress": 1.0,
+      "updatedAt": "2026-11-08T17:12:15.797121Z",
+      "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+    },
+    "positionImmediatelyAfterUpdate": {
+      "progress": 1.0,
+      "updatedAt": "2026-11-08T17:12:15.797121Z",
+      "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+    },
+    "exactPositionPreservedAcrossInstallation": true,
+    "finishedBefore": false,
+    "finishedAfter": false,
+    "worldCount": 1,
+    "itemCount": 1,
+    "updateCleared": true,
+    "resumedChapter": "A Small Beginning",
+    "resumedPage": "1 of 2",
+    "offlineReopened": true,
+    "offlineCondition": "Android airplane mode On; Internet tile Airplane mode; Wi-Fi and mobile icons absent; reading view closed and reopened",
+    "networkRestored": true,
+    "withdrawalCatalogue": {
+      "fetchedAt": "2026-11-09T16:10:05.30884Z",
+      "list": {
+        "version": 2,
+        "serial": 8,
+        "worlds": []
+      }
+    },
+    "withdrawalDiscoveryEmpty": true,
+    "installedEditionAfterWithdrawal": "2026-11-08",
+    "positionAfterReadingAndWithdrawal": {
+      "progress": 1.0,
+      "updatedAt": "2026-11-09T16:06:29.614275Z",
+      "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+    },
+    "finishedAfterWithdrawal": false,
+    "readingTimestampNote": "Normal reading after installation updates the place timestamp; the CFI, progress and unfinished state remained unchanged.",
+    "dataCleared": false
+  },
+  "creatorReceiptTracking": [
+    {
+      "at": "2026-11-09T15:57:43.68Z",
+      "receiptId": "6b52ca0c-c8b8-404b-8d11-144c40f3fb7c",
+      "revisionId": "b8dafad9-381e-4999-8d38-49f9bd4b7a8e",
+      "status": "approved",
+      "receivedBytes": 2354240,
+      "transfer": "complete"
+    },
+    {
+      "at": "2026-11-09T16:05:14.696Z",
+      "receiptId": "6b52ca0c-c8b8-404b-8d11-144c40f3fb7c",
+      "revisionId": "b8dafad9-381e-4999-8d38-49f9bd4b7a8e",
+      "status": "published",
+      "receivedBytes": 2354240,
+      "transfer": "complete"
+    },
+    {
+      "at": "2026-11-09T16:09:59.07Z",
+      "receiptId": "6b52ca0c-c8b8-404b-8d11-144c40f3fb7c",
+      "revisionId": "b8dafad9-381e-4999-8d38-49f9bd4b7a8e",
+      "status": "withdrawn",
+      "receivedBytes": 2354240,
+      "transfer": "complete"
+    }
+  ],
+  "finalDevState": {
+    "serial": 8,
+    "worldCount": 0,
+    "mirrorStatus": "disabled",
+    "productionProbed": false,
+    "productionMutation": false,
+    "reviewerSessionSignedOut": true,
+    "creatorProtectedSessionRetained": true
+  }
+}
