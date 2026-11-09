@@ -182,7 +182,22 @@ internal sealed class PublicationService(IPublishingDataContext db,PublicationAu
         {
             var edition=await db.PublishedEditions.SingleOrDefaultAsync(e=>e.TenantId==actor.TenantId&&e.Id==editionId,ct)??throw PublicationAuthority.Missing();
             var c=authority.Channel(actor,edition.ChannelKey,"withdraw");PublicationAuthority.RequireWithdrawal(c,options.Value);
-            var old=await Replay(actor,request.OperationId,digest,ct);if(old is not null)return Map(old);
+            var old=await Replay(actor,request.OperationId,digest,ct);
+            if(old is not null)
+            {
+                // Exact, authorised replay also reconciles receipts left stale by
+                // older workers. The committed operation and catalogue never change.
+                if(old.Status=="committed"&&old.CompletedAt is { } completedAt)
+                {
+                    var baseScope=edition.Slot=="world"||edition.Kind=="part";
+                    var retired=await db.PublishedEditions.Where(row=>row.TenantId==actor.TenantId&&row.ChannelKey==edition.ChannelKey
+                        &&row.WorldId==edition.WorldId&&!row.IsCurrent&&row.WithdrawnAt>=old.CreatedAt&&row.WithdrawnAt<=completedAt
+                        &&(row.Id==edition.Id||(baseScope&&(row.Slot=="world"||row.Kind=="part")))).ToListAsync(ct);
+                    await PublicationWithdrawalReceipts.ApplyAsync(db,actor.TenantId,retired,ct);
+                    await db.SaveChangesAsync(ct);
+                }
+                return Map(old);
+            }
             Version(edition.RowVersion,request.ExpectedVersion);if(!edition.IsCurrent)throw Conflict("publication-entry-changed");
             if(await db.PublicationOperations.AnyAsync(o=>o.TenantId==actor.TenantId&&o.EditionId==edition.Id&&o.Kind=="withdraw"&&(o.Status=="pending"||o.Status=="copying"||o.Status=="uncertain"),ct))throw Conflict("withdrawal-in-progress");
             var op=New(actor,edition.ChannelKey,request.OperationId,digest,"withdraw");op.EditionId=edition.Id;op.SubmissionId=edition.SubmissionId;op.RevisionId=edition.RevisionId;

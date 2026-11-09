@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Aonik.Publishing.Contracts;
+using Aonik.Publishing.Entities;
 using Aonik.Publishing.Services;
 using Aonik.Publishing.Testing;
 
@@ -103,6 +104,8 @@ public class PublicationDeliveryTests
         var catalogue=await h.Service.CatalogueAsync("arke-worlds");var entry=catalogue.Editions.Single(e=>e.Kind=="part");h.Settings.Channels["arke-worlds"].DeliveryEnabled=false;
         var withdraw=await h.Service.WithdrawAsync(entry.Id,new(Guid.NewGuid(),entry.Version,"Safety withdrawal"));await h.DeliverAsync(withdraw.Id);
         root=JsonNode.Parse(await h.HeadAsync())!;root["serial"]!.GetValue<int>().Should().Be(55);root["worlds"]!.AsArray().Should().BeEmpty();h.Store.Bytes.Should().NotBeEmpty();
+        (await h.Db.Submissions.SingleAsync(s=>s.Id==b.Id)).Status.Should().Be(SubmissionStatuses.Withdrawn);
+        (await h.Db.Submissions.SingleAsync(s=>s.Id==p.Id)).Status.Should().Be(SubmissionStatuses.Withdrawn);
     }
     [Fact]
     public async Task ConcurrentUnrelatedWorlds_Should_MergeOntoLatestCompleteHead()

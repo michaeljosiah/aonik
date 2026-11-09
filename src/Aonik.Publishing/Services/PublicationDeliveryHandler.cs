@@ -184,7 +184,7 @@ internal sealed class PublicationDeliveryHandler(IPublishingDataContext db,Publi
                     var space=await db.Namespaces.SingleAsync(n=>n.TenantId==op.TenantId&&n.ChannelKey==op.ChannelKey&&n.WorldId==edition.WorldId,ct);
                     space.ApprovedBaseFingerprint=null;space.LastApprovedPartNumber=0;
                 }
-                if(submission is not null&&submission.CurrentRevisionId==edition.RevisionId)submission.Status=SubmissionStatuses.Withdrawn;
+                await PublicationWithdrawalReceipts.ApplyAsync(db,op.TenantId,affected,ct);
             }
             next.Sha256=PlayerCatalogueProjection.Hash(next.Json);db.CatalogueSnapshots.Add(next);
             state.Serial=serial;state.HeadSnapshotId=next.Id;
