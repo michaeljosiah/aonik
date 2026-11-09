@@ -1,0 +1,292 @@
+{
+  "checkedAtUtc": "2026-11-09T22:09:40.793191+00:00",
+  "issue": 403,
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "world": "notification-garden-dev-403",
+  "status": "emulator-background-notification-rehearsal-passed",
+  "authority": {
+    "scope": "User-authorised autonomous synthetic dev testing with separate creator and reviewer accounts; user selected emulator only.",
+    "manualEditorialAcceptance": false,
+    "productionApproval": false
+  },
+  "provenance": {
+    "authoring": "Original Mina story, geometric artwork and quiet AAC test tones through Studio package writer/readback and freeze/upload/receipt services.",
+    "thirdPartyAssets": false,
+    "humanVoice": false,
+    "interactiveAuthoringUiQualified": false
+  },
+  "device": {
+    "id": "emulator-5554",
+    "model": "Pixel 9 emulator",
+    "abi": "x86_64",
+    "androidApi": 36,
+    "androidVersion": "16",
+    "physicalDevice": false,
+    "apkSha256": "c0594fd0f2ae22ffab397a3d2716766602bf32d8ea503241f88bf799599d1f46",
+    "applicationId": "studio.arke.player.dev",
+    "sourceCommit": "ce6d83d863be305032945add7ac86ff48ce8f4da",
+    "dataPreservingInstall": "adb install -r; matching app ID and signing certificate; no uninstall or clear-data"
+  },
+  "fix": {
+    "pr": "https://github.com/michaeljosiah/ArkePlayer/pull/71",
+    "mergeCommit": "368600aad909abd8bf8c18276858ea61d2ae9bd7",
+    "ci": "https://github.com/michaeljosiah/ArkePlayer/actions/runs/42706988452",
+    "ciHead": "2a6a325bab5b33b00712bda353ee8e6f743a68ea",
+    "allThreeCiJobs": "passed",
+    "localAppTestsPassed": 434,
+    "localAppTestsExistingSkips": 13,
+    "focusedLifecycleTests": 3,
+    "staticAnalysis": "passed",
+    "format": "passed",
+    "behavior": "Wait for the first resumed lifecycle before media/UI initialization; prevent worker plugin registration from starting Home or stranding a cancelled media handshake."
+  },
+  "releases": [
+    {
+      "kind": "base",
+      "receiptId": "68fbc0ed-ea71-40e3-94ed-97b157189cd0",
+      "revisionId": "182e8b03-4d6d-4c87-ae59-0b3352cb47e9",
+      "revisionNumber": 1,
+      "edition": "2026-11-09",
+      "sha256": "02b99ab5da8892ee2d507b96748c75a688a614edb01afad9dc24ed3c9fa4b03c",
+      "bytes": 99737,
+      "fingerprint": "fa24b7c7a9922603652fcfd316ed63bd3354a7ae27611b55cab422c7c2aaeb3a",
+      "reviewDigest": "948bc65ab256ef31de54baddb9fec09fd7729cc0091ac35646ffb3545eb70306",
+      "verificationReportId": "7ed089cf-fce1-4427-847f-3fac6a98c4af",
+      "verificationCode": "verified",
+      "privateReadback": {
+        "status": 200,
+        "bytes": 99737,
+        "sha256": "02b99ab5da8892ee2d507b96748c75a688a614edb01afad9dc24ed3c9fa4b03c"
+      },
+      "approvalId": "1fc6acb9-634b-4bf2-b25a-6d8d2ec6ad10",
+      "approvalReplaySameId": true,
+      "publicationReplaySameId": true,
+      "receiptStatus": "withdrawn"
+    },
+    {
+      "kind": "part",
+      "receiptId": "bbc68d1e-026f-4b5e-9925-dd885d2f3400",
+      "revisionId": "13614046-5ad8-4028-8d08-4e0c4797744f",
+      "revisionNumber": 1,
+      "edition": "2026-11-09-2",
+      "sha256": "b6b62a4d9ad5c151dd7a3549fce51821530b84909691693fbc8348d4853c30fd",
+      "bytes": 98492,
+      "fingerprint": "7a0b11df744a1230c2c0083b055b9a9801210256a8f7768ede6da7b6c5711a1f",
+      "reviewDigest": "3e53860d52bb345a2b907e476474bac64a28915d3d7449bf69891227d0e2f0c8",
+      "verificationReportId": "4314b1ed-eb30-4006-a829-f6ce346c203f",
+      "verificationCode": "verified",
+      "privateReadback": {
+        "status": 200,
+        "bytes": 98492,
+        "sha256": "b6b62a4d9ad5c151dd7a3549fce51821530b84909691693fbc8348d4853c30fd"
+      },
+      "approvalId": "8ca9edec-289b-44e2-96db-307427292231",
+      "approvalReplaySameId": true,
+      "publicationReplaySameId": true,
+      "receiptStatus": "withdrawn"
+    }
+  ],
+  "operations": [
+    {
+      "id": "33668aff-1e58-415d-b531-75c316f28744",
+      "kind": "withdraw",
+      "submissionId": "bbc68d1e-026f-4b5e-9925-dd885d2f3400",
+      "revisionId": "13614046-5ad8-4028-8d08-4e0c4797744f",
+      "decisionId": null,
+      "editionId": "51713cba-de93-40a1-bec4-9229a72f8d77",
+      "status": "committed",
+      "code": "withdrawn",
+      "attempts": 1,
+      "committedSerial": 18,
+      "completedAt": "2026-11-09T22:03:23.3477105"
+    },
+    {
+      "id": "3afea263-f950-4cdd-a742-fe4ea5bb244f",
+      "kind": "publish",
+      "submissionId": "bbc68d1e-026f-4b5e-9925-dd885d2f3400",
+      "revisionId": "13614046-5ad8-4028-8d08-4e0c4797744f",
+      "decisionId": "8ca9edec-289b-44e2-96db-307427292231",
+      "editionId": "51713cba-de93-40a1-bec4-9229a72f8d77",
+      "status": "committed",
+      "code": "published",
+      "attempts": 1,
+      "committedSerial": 17,
+      "completedAt": "2026-11-09T21:11:42.2776226"
+    },
+    {
+      "id": "33ba00f1-df4a-4f56-83c3-a6d45e0e4ebf",
+      "kind": "publish",
+      "submissionId": "68fbc0ed-ea71-40e3-94ed-97b157189cd0",
+      "revisionId": "182e8b03-4d6d-4c87-ae59-0b3352cb47e9",
+      "decisionId": "1fc6acb9-634b-4bf2-b25a-6d8d2ec6ad10",
+      "editionId": "1c5a0e5c-bd48-4a95-b340-01257ebf1c7b",
+      "status": "committed",
+      "code": "published",
+      "attempts": 1,
+      "committedSerial": 16,
+      "completedAt": "2026-11-09T21:05:37.5638253"
+    }
+  ],
+  "checks": [
+    {
+      "case": "Notify initially off; deny permission",
+      "result": "passed",
+      "evidenceAt": "2026-11-09T21:10:19.548864+00:00",
+      "scheduledJobs": 0
+    },
+    {
+      "case": "Grant permission and enable Notify",
+      "result": "passed",
+      "intervalMs": 86400000,
+      "networkConstraint": "NOT_METERED"
+    },
+    {
+      "case": "Native worker delivery with no foreground Activity",
+      "result": "passed",
+      "evidenceAt": "2026-11-09T21:58:58.051101+00:00",
+      "libraryExactMatch": true,
+      "inboxBytes": 98492,
+      "inboxSha256": "b6b62a4d9ad5c151dd7a3549fce51821530b84909691693fbc8348d4853c30fd",
+      "notificationCount": 1,
+      "notificationTitle": "Notification Garden Dev 403",
+      "notificationText": "Chapter 2 · Garden chapters"
+    },
+    {
+      "case": "Repeat worker with existing inbox",
+      "result": "passed",
+      "evidenceAt": "2026-11-09T22:02:31.719232+00:00",
+      "sameNotificationCreationAndUpdateTimes": [
+        "mCreationTimeMs=1794261696795",
+        "mUpdateTimeMs=1794261696795"
+      ],
+      "sameLibraryAndInbox": true
+    },
+    {
+      "case": "Cold notification tap",
+      "result": "passed",
+      "evidenceAt": "2026-11-09T22:00:51.064815+00:00",
+      "workerPid": 1677,
+      "tapPid": 4179,
+      "destination": "Garden chapters",
+      "partCount": 1,
+      "inboxConsumed": true,
+      "autoplay": false
+    },
+    {
+      "case": "Warm notification tap",
+      "result": "passed",
+      "evidenceAt": "2026-11-09T22:03:11.016335+00:00",
+      "workerAndTapPid": 5023,
+      "destination": "Garden chapters",
+      "partCount": 1,
+      "inboxConsumed": true,
+      "autoplay": false
+    },
+    {
+      "case": "Offline startup; network interruption and retry; persisted job after reboot",
+      "result": "passed",
+      "offlineStartupAt": "2026-11-09T21:54:26.936983+00:00",
+      "postRebootWorkerSuccessDeviceTime": "2026-11-09 21:58:28.919"
+    },
+    {
+      "case": "Notify off cancels daily work",
+      "result": "passed",
+      "evidenceAt": "2026-11-09T22:04:05.038926+00:00",
+      "scheduledJobs": 0
+    },
+    {
+      "case": "Withdrawal refresh and retained offline playback",
+      "result": "passed",
+      "evidenceAt": "2026-11-09T22:05:52.299357+00:00",
+      "serial": 18,
+      "availableWorlds": 0,
+      "installedWorlds": 3,
+      "wifiAndMobileDataDisabled": true,
+      "activeDefaultNetwork": "none",
+      "nativePlaybackState": "PLAYING",
+      "observedChapterPositionMs": 12187,
+      "bufferedDurationMs": 24000,
+      "unrelatedLibraryAndProgressUnchanged": true,
+      "cleanupPlaybackState": "PAUSED"
+    }
+  ],
+  "acceleratedScheduling": {
+    "method": "Backed up app-private WorkSpec.last_enqueue_time and hosted-cache fetchedAt advanced 25h; Android scheduler run command. No device clock change.",
+    "intervalInputsConstraintsAndWorkIdPreserved": true,
+    "natural24HourWaitQualified": false,
+    "syntheticWorldResetForRepeat": true,
+    "otherWorldsNeverReset": true,
+    "warmScheduleBackupSha256": "1776e3281f6af67713250929af1b8c8883093a644c8cab86eaf0af11778cce69",
+    "duplicateScheduleBackupSha256": "b51810868798c5002181abd96dc1ba0bba4c65443fe726a9508f01531a31540d"
+  },
+  "failuresAndRecovery": [
+    {
+      "problem": "Pre-fix background plugin registration started Home and prematurely imported the part, updating the notification twice.",
+      "resolution": "Lifecycle startup gate and native regression checks."
+    },
+    {
+      "problem": "First fix waited after AudioService.init; cancelled worker stranded the media handshake and produced a blank tap screen.",
+      "resolution": "Move the gate before media/UI initialization; final cold and same-process warm taps passed."
+    },
+    {
+      "problem": "Long-running emulator session incurred cold-start service ANRs, Android execution quota and blocked background network.",
+      "resolution": "Preserve evidence, precompile APK, reconnect and reboot the backed-up emulator; persisted work then succeeded. No global quota or security exemptions."
+    },
+    {
+      "problem": "Host storage filled while collecting an intermediate evidence file.",
+      "resolution": "Removed verified inactive generated .NET test bin output; retook the evidence. Source, device data and backups retained."
+    },
+    {
+      "problem": "System UI briefly reported an ANR after reboot.",
+      "resolution": "Waited for recovery before inspecting/tapping notifications."
+    }
+  ],
+  "backups": [
+    {
+      "file": "403-device-before-notifications.tar",
+      "bytes": 2627584,
+      "sha256": "f1c800c9c9d9a697eb7e7bdaa366749cf74c91b418ac1131150f1f62fc4eb7cd"
+    },
+    {
+      "file": "403-device-before-startup-fix.tar",
+      "bytes": 3376128,
+      "sha256": "975e4d64f5e01be10218bc1ccf6280fceb6f98ef511d5b714fa0671d86ac93d2"
+    },
+    {
+      "file": "403-device-before-startup-fix2.tar",
+      "bytes": 3438080,
+      "sha256": "9768f0d36d1151fa883571e2e55d6808e8d3475102b28b304f860a88ed28e93d"
+    },
+    {
+      "file": "403-device-before-notification-reboot.tar",
+      "bytes": 3482624,
+      "sha256": "67e9f07577d8fd265e12b45b8b9c69448ab86bebb76646738231676af22c8df2"
+    },
+    {
+      "file": "403-device-after-notifications.tar",
+      "bytes": 3743744,
+      "sha256": "61e617a51b208c91716c74375e7d7d51629b34b95c40ffd1a147e4271d43c493"
+    }
+  ],
+  "finalState": {
+    "devCatalogueSerial": 18,
+    "availableWorlds": 0,
+    "bothReceipts": "withdrawn",
+    "dailyJobs": 0,
+    "chapterNotifications": 0,
+    "inboxEmpty": true,
+    "networkRestored": true,
+    "testPlaybackPaused": true,
+    "temporaryReviewer": "signed-out",
+    "productionChanged": false,
+    "githubMirror": "disabled"
+  },
+  "unqualified": [
+    "Natural 24-hour timing, OEM power management, physical Android and iOS devices.",
+    "Supported older installed apps (historical library compatibility is separately qualified).",
+    "Interactive-movie/export-UI cases as applicable.",
+    "Remaining delivery exhaustion/mirror migration, manual fallback and isolated backup restoration.",
+    "Nontechnical human review/pilot and production rights, baseline, capacity/cost ownership."
+  ]
+}

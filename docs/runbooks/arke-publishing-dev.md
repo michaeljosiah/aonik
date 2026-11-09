@@ -1280,6 +1280,61 @@ manual fallback and backup restoration, nontechnical review/human pilot, and
 production ownership/rights/baseline/capacity/cost approval. Production and the
 GitHub mirror remain unchanged.
 
+## Android background notification rehearsal — 9 November 2026
+
+The owner selected the emulator for this batch. Original synthetic **Notification
+Garden Dev 403** base and chapter-2 part passed real Studio freeze/upload/receipt
+services, deployed private verification and exact package readback, separate test
+reviewer decisions and dev publication at serials **16 and 17**. This is automated
+synthetic testing, not a human editorial walkthrough or production rights approval.
+
+The ordinary Android 16 / API 36 x86_64 dev app passed permission denial/grant,
+one daily task with the Wi-Fi-only constraint, native background delivery, exact
+inbox ZIP verification and an unchanged library until foreground startup. Cold
+and same-process warm notification taps opened **Garden chapters**, imported the
+part once, consumed the inbox and did not autoplay. A repeated successful worker
+kept the same notification creation/update times and inbox. Notify-off cancelled
+the job. Existing Paper Garden story/comic/audio saves and Lantern Garden progress
+remained unchanged. After a forced withdrawal refresh, the retained new chapter
+played with both emulator Wi-Fi and mobile data disabled and no default network.
+Native media controls paused it; networking was restored.
+
+The rehearsal found that audio-service registration could warm the main Flutter
+engine during a worker, starting Home and prematurely importing the part. The
+first fix waited after media initialization, which exposed a stalled handshake
+after worker cancellation. [Player PR #71](https://github.com/michaeljosiah/ArkePlayer/pull/71)
+waits for the first resumed lifecycle **before media/UI initialization**. It is
+merged as `368600aad909abd8bf8c18276858ea61d2ae9bd7`. All three
+[CI jobs](https://github.com/michaeljosiah/ArkePlayer/actions/runs/42706988452)
+passed; local app tests passed **434 / 13 existing skips**, with focused lifecycle
+tests, static analysis and formatting also passing.
+
+Each replacement used matching dev identity/signature, full private-data backups
+and `adb install -r`; no uninstall or clear-data occurred in this batch. Only the
+new synthetic world was reset to its backed-up base to repeat the same approved
+part. The daily check was accelerated by changing only backed-up dev WorkSpec
+`last_enqueue_time` and cache `fetchedAt`, preserving interval, task inputs and
+constraints. This is not a natural 24-hour or OEM scheduling test. The long-lived,
+resource-constrained emulator incurred cold-start ANRs and execution-quota/network
+deferral; persisted work recovered after reboot. A temporary System UI ANR cleared
+after waiting. Host storage exhaustion was resolved by removing inactive generated
+test builds and retaking the affected evidence. These interruptions are retained
+in the record, not counted as passing attempts.
+
+Withdrawal operation `33668aff-1e58-415d-b531-75c316f28744` committed at serial
+**18**, retiring the base/part sequence. Both real Studio receipts report
+**Withdrawn / complete**, and Player fetched the empty feed while retaining all
+three installed worlds. The temporary reviewer session is signed out, Notify is
+off and no daily task remains. Production and the GitHub mirror are unchanged.
+
+The [sanitized notification evidence](evidence/arke-player-notifications-2026-11-09.json)
+records hashes, operations, actual failure/recovery paths and backup identities.
+This supersedes the earlier OS-background-notification-pending note for this
+emulator only. Physical Android/iOS, supported older installed applications,
+natural/OEM scheduling, applicable interactive-movie/export UI, remaining delivery
+faults/mirror migration, human walkthrough/pilot, isolated backup restoration and
+production readiness remain open. Keep #403 and Player #50 open.
+
 ## Validation of this preparation
 
 For the 7 November storage fix, the solution build passed with zero errors and
@@ -1303,7 +1358,7 @@ creators have active tenant links and completed email/profile gates. Core Player
 install, device discovery/reading, cold-launch offline access, hold, withdrawal and
 forced refresh passed for this one synthetic base EPUB. The transient Worker
 readback fault, same-operation retry and serial-4 withdrawal are also qualified;
-dev discovery is now empty at serial 15 after the later format rehearsal.
+dev discovery is now empty at serial 18 after the later notification rehearsal.
 Configured cross-tenant, no-party,
 missing/malformed authentication and genuine token-expiry boundaries are qualified.
 Consenting human pilot actors, remaining delivery failure cases, the remaining live/device consumer checks, audited
