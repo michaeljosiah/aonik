@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Player background notification qualification (#403):** Recorded the Android emulator permission, native worker, retry/reboot, duplicate, warm/cold tap, cancellation and offline-retention checks. Player PR #71 fixes premature foreground imports and a stalled media handshake during headless startup. Synthetic receipts are withdrawn at empty dev serial 18; physical-device and production gates remain open.
+
 - **Arke live format qualification (#403):** Recorded the completed dev base/part/story/comic publication, current/legacy reader checks, Android saved-choice/page continuity, withdrawal retention and deployed cascading-receipt repair. Includes exact package/operation evidence and explicit device-recovery, physical-device and human-pilot limits. Player #51 and the opt-in device rehearsal are merged.
 
 - **Publishing withdrawal receipts (#403):** Cascading base/part withdrawal now updates every affected current receipt. Exact authorised replay reconciles stale receipts left by older workers without changing the committed operation or catalogue serial, while preserving newer revisions and other live editions.
