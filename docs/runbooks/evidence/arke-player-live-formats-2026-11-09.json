@@ -1,0 +1,616 @@
+{
+  "checkedAtUtc": "2026-11-09T20:27:06.608115+00:00",
+  "issue": 403,
+  "environment": "dev",
+  "channel": "arke-worlds-dev",
+  "world": "paper-garden-dev-403",
+  "status": "live-part-story-comic-withdrawal-passed",
+  "authority": {
+    "scope": "User-authorised autonomous synthetic dev tests with separate creator and reviewer accounts.",
+    "manualEditorialAcceptance": false,
+    "productionApproval": false
+  },
+  "provenance": {
+    "authoring": "Original Mina text, geometric artwork and quiet AAC test tones written with Studio package writer/readback and export records.",
+    "workflow": "Actual Studio freeze/upload/receipt services, real Auth0 identities, deployed AONIK verifier/review/delivery, anonymous Player HTTPS installs.",
+    "limitations": [
+      "Not interactive Studio authoring UI or production export compiler qualification.",
+      "Audio is synthetic tone media, not human narration."
+    ]
+  },
+  "player51": {
+    "pr": "https://github.com/michaeljosiah/ArkePlayer/pull/68",
+    "mergeCommit": "71f954d60fe9ef4d1775b17039d849b6722aa8e2",
+    "ci": "https://github.com/michaeljosiah/ArkePlayer/actions/runs/42674508231/attempts/2",
+    "worldTestsPassed": 393,
+    "allThreeCiJobs": "passed"
+  },
+  "playerDeviceTest": {
+    "pr": "https://github.com/michaeljosiah/ArkePlayer/pull/69",
+    "mergeCommit": "c9163c052dd7d897ea177210bafdb54032a9d60e",
+    "ci": "https://github.com/michaeljosiah/ArkePlayer/actions/runs/42686184867",
+    "allThreeCiJobs": "passed"
+  },
+  "releases": [
+    {
+      "kind": "base",
+      "receiptId": "c8f7442d-9b12-4f93-b444-c933765e2cca",
+      "revisionId": "9a70105c-d7a8-4863-a9ed-f77316594d13",
+      "revisionNumber": 1,
+      "edition": "2026-11-09",
+      "sha256": "dcdc6d79f75a430a425e4870b38c8ba4aa7ff9a334082ebef15f850edf212117",
+      "bytes": 99723,
+      "fingerprint": "fa24b7c7a9922603652fcfd316ed63bd3354a7ae27611b55cab422c7c2aaeb3a",
+      "reviewDigest": "d864189d3d720f35c5a442f0c4a2ab0c56e6b8478e2fc20d326a58c98695d47c",
+      "verificationReportId": "c61a9a58-5cf4-436b-9837-6fb87b4ec154",
+      "verificationCode": "verified",
+      "privateReadback": {
+        "status": 200,
+        "bytes": 99723,
+        "sha256": "dcdc6d79f75a430a425e4870b38c8ba4aa7ff9a334082ebef15f850edf212117"
+      },
+      "approvalId": "23993687-f571-48aa-ac0c-cf2e9701e202",
+      "approvalReplaySameId": true,
+      "operations": [
+        {
+          "id": "e2ce4cdc-26ba-4247-b215-8a537a6609c5",
+          "kind": "publish",
+          "status": "committed",
+          "code": "published",
+          "attempts": 1,
+          "committedSerial": 9,
+          "createdAt": "2026-11-09T18:34:17.3320503",
+          "completedAt": "2026-11-09T18:34:26.6854571"
+        },
+        {
+          "id": "0ea8ea16-f77f-4cae-adfd-2db1e5576397",
+          "kind": "withdraw",
+          "status": "committed",
+          "code": "withdrawn",
+          "attempts": 1,
+          "committedSerial": 15,
+          "createdAt": "2026-11-09T19:19:21.4086496",
+          "completedAt": "2026-11-09T19:19:24.5483366",
+          "cascadedFrom": "part"
+        }
+      ],
+      "operationReplaySameIds": true
+    },
+    {
+      "kind": "part",
+      "receiptId": "ba04f808-452f-45a1-89d6-07ee63370392",
+      "revisionId": "6e213ef9-5156-4743-bbd4-93f5ed274e44",
+      "revisionNumber": 1,
+      "edition": "2026-11-09-2",
+      "sha256": "174d1a6485e96014ead28712241c98e9e616a0f65c7edf74e6e503396eb37d9a",
+      "bytes": 98478,
+      "fingerprint": "7a0b11df744a1230c2c0083b055b9a9801210256a8f7768ede6da7b6c5711a1f",
+      "reviewDigest": "8085b48fab504f0ca9f8ca72bc93c4137ae991bceb1efa0a6e302db20b718988",
+      "verificationReportId": "ea0c6b10-7c97-4c33-bab8-057a19ed3bbd",
+      "verificationCode": "verified",
+      "privateReadback": {
+        "status": 200,
+        "bytes": 98478,
+        "sha256": "174d1a6485e96014ead28712241c98e9e616a0f65c7edf74e6e503396eb37d9a"
+      },
+      "approvalId": "4c91c0f9-e0ee-48c7-a3b3-f0e6332248aa",
+      "approvalReplaySameId": true,
+      "operations": [
+        {
+          "id": "aefd323d-54d0-44f2-a996-2c65cac6567d",
+          "kind": "publish",
+          "status": "committed",
+          "code": "published",
+          "attempts": 1,
+          "committedSerial": 10,
+          "createdAt": "2026-11-09T18:37:38.448699",
+          "completedAt": "2026-11-09T18:37:40.1348352"
+        },
+        {
+          "id": "0ea8ea16-f77f-4cae-adfd-2db1e5576397",
+          "kind": "withdraw",
+          "status": "committed",
+          "code": "withdrawn",
+          "attempts": 1,
+          "committedSerial": 15,
+          "createdAt": "2026-11-09T19:19:21.4086496",
+          "completedAt": "2026-11-09T19:19:24.5483366"
+        }
+      ],
+      "operationReplaySameIds": true
+    },
+    {
+      "kind": "story",
+      "receiptId": "c62d63a2-8142-4e38-8807-5b3fe6df8981",
+      "revisionId": "12a20c05-c0b1-45f3-9727-73a3a740266e",
+      "revisionNumber": 1,
+      "edition": "2026-11-09",
+      "sha256": "81797d67c58552bbc6b9cc321e9455bbb7ec5888103a0d2870d5327b2af96c08",
+      "bytes": 10349,
+      "fingerprint": "95d1806c60a5e9d13387bfc95ffe300f180ac7344f2a0e4df014a3163cf97fa9",
+      "reviewDigest": "0f5942e9e49c4281e2d4a142a569b04325c59d257e897e83ffa5ec9beb1e37c2",
+      "verificationReportId": "8e471bae-ced2-4e89-a356-c93cd467f3ed",
+      "verificationCode": "verified",
+      "privateReadback": {
+        "status": 200,
+        "bytes": 10349,
+        "sha256": "81797d67c58552bbc6b9cc321e9455bbb7ec5888103a0d2870d5327b2af96c08"
+      },
+      "approvalId": "0e8199ed-cd78-4667-a95e-6b41c8ebc311",
+      "approvalReplaySameId": true,
+      "operations": [
+        {
+          "id": "bfaf869f-711a-4e17-9567-57dc06f7c173",
+          "kind": "publish",
+          "status": "committed",
+          "code": "published",
+          "attempts": 1,
+          "committedSerial": 11,
+          "createdAt": "2026-11-09T18:40:29.0412809",
+          "completedAt": "2026-11-09T18:40:32.7553167"
+        },
+        {
+          "id": "82a6252c-6ed2-4d32-8734-8d1feb059661",
+          "kind": "withdraw",
+          "status": "committed",
+          "code": "withdrawn",
+          "attempts": 1,
+          "committedSerial": 14,
+          "createdAt": "2026-11-09T19:17:03.8330217",
+          "completedAt": "2026-11-09T19:17:04.3474524"
+        }
+      ],
+      "operationReplaySameIds": true
+    },
+    {
+      "kind": "comic",
+      "receiptId": "889f3bfe-006a-43c0-9289-42c520f7beaf",
+      "revisionId": "87e32d6e-513e-4a9d-85c3-1c4a3aa629e4",
+      "revisionNumber": 1,
+      "edition": "2026-11-09",
+      "sha256": "c5e3991842a41cf7592cb703f6d7de70383b927d2a046effcfd53af1d0b29ac2",
+      "bytes": 10597,
+      "fingerprint": "2148feebcf0c6064c838ff625938a1a8cd4f015dd2fcc3e8dc5b57a6f787f6a5",
+      "reviewDigest": "ce2c0a8bfc657943d752aebb1456ada35b3572b6d43e67a6824341cf5a2e257f",
+      "verificationReportId": "3cf4675d-8e0c-4bbe-bd9d-48c0dfb223f4",
+      "verificationCode": "verified",
+      "privateReadback": {
+        "status": 200,
+        "bytes": 10597,
+        "sha256": "c5e3991842a41cf7592cb703f6d7de70383b927d2a046effcfd53af1d0b29ac2"
+      },
+      "approvalId": "15f9b472-e256-4dc7-bf86-f1ebc7e5b0f0",
+      "approvalReplaySameId": true,
+      "operations": [
+        {
+          "id": "1e8bcd9c-bbdf-4587-965f-83f6e1d9d4cd",
+          "kind": "publish",
+          "status": "committed",
+          "code": "published",
+          "attempts": 1,
+          "committedSerial": 12,
+          "createdAt": "2026-11-09T18:41:01.7758977",
+          "completedAt": "2026-11-09T18:41:03.2319358"
+        },
+        {
+          "id": "907d6af1-ea03-4d89-8c57-3a20c9a63222",
+          "kind": "withdraw",
+          "status": "committed",
+          "code": "withdrawn",
+          "attempts": 1,
+          "committedSerial": 13,
+          "createdAt": "2026-11-09T19:16:39.328248",
+          "completedAt": "2026-11-09T19:16:44.2765643"
+        }
+      ],
+      "operationReplaySameIds": true
+    }
+  ],
+  "currentReader": {
+    "at": "2026-11-09T18:43:52.454876Z",
+    "phase": "install",
+    "scope": "Real Player services against anonymous dev HTTPS; native UI evidence is separate.",
+    "part": {
+      "basePlaceRetained": true,
+      "baseCoverRetained": true,
+      "chapterCount": 2,
+      "durationMs": 24000,
+      "repeatNoDownload": true
+    },
+    "story": {
+      "installed": true,
+      "unsupportedVersionNoDownload": true,
+      "repeatNoDownload": true,
+      "cliMatchesLivePin": true,
+      "fingerprint": "95d1806c60a5e9d13387bfc95ffe300f180ac7344f2a0e4df014a3163cf97fa9",
+      "sha256": "81797d67c58552bbc6b9cc321e9455bbb7ec5888103a0d2870d5327b2af96c08"
+    },
+    "comic": {
+      "installed": true,
+      "unsupportedVersionNoDownload": true,
+      "repeatNoDownload": true,
+      "cliMatchesLivePin": true,
+      "fingerprint": "2148feebcf0c6064c838ff625938a1a8cd4f015dd2fcc3e8dc5b57a6f787f6a5",
+      "sha256": "c5e3991842a41cf7592cb703f6d7de70383b927d2a046effcfd53af1d0b29ac2"
+    },
+    "requests": [
+      "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/44fb5573-f8ff-4e2c-a181-621d8ffd3cd4",
+      "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/54df94c6-e8dc-4840-895f-3b2934b62697",
+      "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/b145b452-b7b6-48ee-a83c-cca5c6f5754a",
+      "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/b9ec38de-169c-4d05-9cac-139812dc980a"
+    ],
+    "passed": true
+  },
+  "legacyReader": {
+    "at": "2026-11-09T18:52:08.698897Z",
+    "reader": "03a261bda82bc6ec07d66f980506143ecba430a8",
+    "baseAndPartInstalled": true,
+    "chapterCount": 2,
+    "storyAndComicGenericPins": false,
+    "unsupportedDownloads": 0,
+    "requests": [
+      "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/44fb5573-f8ff-4e2c-a181-621d8ffd3cd4",
+      "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/54df94c6-e8dc-4840-895f-3b2934b62697"
+    ]
+  },
+  "nativePart": {
+    "basePlace": {
+      "progress": 0.659,
+      "updatedAt": "2026-11-09T18:37:05.806574Z",
+      "positionMs": 7908,
+      "locator": "chapter-1"
+    },
+    "afterChapterTwoPlayback": {
+      "progress": 0.8250416666666667,
+      "updatedAt": "2026-11-09T18:40:12.579309Z",
+      "positionMs": 7801,
+      "locator": "chapter-2"
+    },
+    "coverRetained": true,
+    "chapters": [
+      {
+        "title": "Plant a paper star",
+        "startMs": 0,
+        "id": "chapter-1"
+      },
+      {
+        "title": "A second lantern",
+        "startMs": 12000,
+        "id": "chapter-2"
+      }
+    ],
+    "durationMs": 24000,
+    "scope": "Normal dev app discovery, install and native AAC playback before the later test-runner storage interruption."
+  },
+  "nativeReaders": {
+    "install": {
+      "checkedAtUtc": "2026-11-09T19:16:16.458979Z",
+      "phase": "install",
+      "catalogueSerial": 12,
+      "world": "paper-garden-dev-403",
+      "installedAtStart": {
+        "garden-choices": true,
+        "garden-comic": true
+      },
+      "storyRoute": [
+        "ch_friend"
+      ],
+      "storyScene": "sc_friend",
+      "comicPage": 1,
+      "offlineNetworkClients": 0,
+      "audioAndUnrelatedWorldsUnchanged": true,
+      "device": "BE2A.250530.026.D1"
+    },
+    "withdrawn": {
+      "checkedAtUtc": "2026-11-09T19:39:15.872980Z",
+      "phase": "withdrawn",
+      "catalogueSerial": 15,
+      "world": "paper-garden-dev-403",
+      "installedAtStart": {
+        "garden-choices": true,
+        "garden-comic": true
+      },
+      "storyRoute": [
+        "ch_friend"
+      ],
+      "storyScene": "sc_friend",
+      "comicPage": 1,
+      "offlineNetworkClients": 0,
+      "audioAndUnrelatedWorldsUnchanged": true,
+      "device": "BE2A.250530.026.D1"
+    }
+  },
+  "deviceInterruption": {
+    "reason": "Flutter install failed for insufficient emulator storage and automatically uninstalled the dev app.",
+    "scope": "Synthetic dev library only; not uninterrupted native retention.",
+    "files": [
+      {
+        "path": "library/worlds/paper-garden-dev-403/_parts/1/audio/tone2.m4a",
+        "bytes": 96389,
+        "sha256": "216af077e517bf6daf986221e982dcf80f10f9b36e1f09b8beca0b77560c140d"
+      },
+      {
+        "path": "library/worlds/paper-garden-dev-403/_parts/1/listening.json",
+        "bytes": 470,
+        "sha256": "a35e745aa1fa1c3c6b47f9fdd4a0c0fb0a925999c5816a6e96917e0ac125aa83"
+      },
+      {
+        "path": "library/worlds/paper-garden-dev-403/_parts/1/world.json",
+        "bytes": 846,
+        "sha256": "488a23f38b185cbfa3471ab584d3f36b48890052de2be1978d8fcd99215dced0"
+      },
+      {
+        "path": "library/worlds/paper-garden-dev-403/audio/tone1.m4a",
+        "bytes": 95400,
+        "sha256": "1d98c70e0499cfcbabe04d7e06582a97cae81ef4f22783b10394208e3ce85b4f"
+      },
+      {
+        "path": "library/worlds/paper-garden-dev-403/listening.json",
+        "bytes": 536,
+        "sha256": "d9febd796293f3887fbcd83b7dec9986790ae5eb486258032b877e470d22df26"
+      },
+      {
+        "path": "library/worlds/paper-garden-dev-403/pictures/p1.png",
+        "bytes": 2052,
+        "sha256": "1b985f306517220e1109af14d6c855547d7842e05c560ba8c5da9100f2089849"
+      },
+      {
+        "path": "library/worlds/paper-garden-dev-403/world.json",
+        "bytes": 836,
+        "sha256": "fca01acfccf45c6302f1596397ca798396721c82004aef684d70610a7e9a7c92"
+      },
+      {
+        "path": "library/worlds/lantern-garden-dev-403/book.epub",
+        "bytes": 1176545,
+        "sha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e"
+      },
+      {
+        "path": "library/worlds/lantern-garden-dev-403/key-art.png",
+        "bytes": 1176020,
+        "sha256": "9d5101c3698c0f000021e71848c7b31ec12a8a824eb8a93fe4cf8f661339b81f"
+      },
+      {
+        "path": "library/worlds/lantern-garden-dev-403/world.json",
+        "bytes": 707,
+        "sha256": "a33ecc84bd5c4d928396224aa8c63ff7d119dd2404d5a4c2e76a0edb4906b241"
+      }
+    ],
+    "nativeLibraryMatchesCheckpoint": true,
+    "nativeMediaVerified": 10
+  },
+  "receiptRepair": {
+    "checkedAtUtc": "2026-11-09T20:27:06.224587+00:00",
+    "pr": "https://github.com/michaeljosiah/aonik/pull/415",
+    "ci": {
+      "url": "https://github.com/michaeljosiah/aonik/actions/runs/42686674558",
+      "headSha": "d48d12e351ea4dc1368a9eee0fb5acecdf4163a1",
+      "attempt": 2,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "cleanHostValidation": {
+      "dotnetPassed": 5377.0,
+      "dotnetSkipped": 5.0,
+      "adminUiPassed": 690
+    },
+    "imageBuild": "https://github.com/michaeljosiah/aonik/actions/runs/42686715788",
+    "deployments": [
+      {
+        "name": "aonik-dev-worker",
+        "sourceCommit": "d48d12e351ea4dc1368a9eee0fb5acecdf4163a1",
+        "mergeCommit": "6984034312d9e7ba8be15b712621bb90730c3fe6",
+        "imageBuildRun": 42686715788,
+        "previousRevision": "aonik-dev-worker--arke403-03ba5abf",
+        "previousImage": "aonikdevacr.azurecr.io/aonik-worker@sha256:802a5a2f113cbb75c20444fc34c1546d880c7f1de0ba156754867c112e0a61fc",
+        "image": "aonikdevacr.azurecr.io/aonik-worker@sha256:e7ddfd89502433b45b24775316e9e3490b7cad2e684a9b2a5ab28117398b9224",
+        "channelFlags": {
+          "Publishing__Channels__arke-worlds-dev__PublicCatalogueEnabled": "true",
+          "Publishing__Channels__arke-worlds-dev__Enabled": "true",
+          "Publishing__Channels__arke-worlds-dev__ReviewEnabled": "true",
+          "Publishing__Channels__arke-worlds-dev__LegacyMirrorEnabled": "false",
+          "Publishing__Channels__arke-worlds-dev__DeliveryEnabled": "true"
+        },
+        "revision": "aonik-dev-worker--0000374",
+        "configurationUnchanged": true,
+        "deployedAtUtc": "2026-11-09T20:25:02.1191229Z"
+      },
+      {
+        "name": "aonik-dev-api",
+        "sourceCommit": "d48d12e351ea4dc1368a9eee0fb5acecdf4163a1",
+        "mergeCommit": "6984034312d9e7ba8be15b712621bb90730c3fe6",
+        "imageBuildRun": 42686715788,
+        "previousRevision": "aonik-dev-api--arke403-03ba5abf",
+        "previousImage": "aonikdevacr.azurecr.io/aonik-api@sha256:d03b1e85529682c1680703255a4d07ea9739e4fade2c079d02a5c56a9a712262",
+        "image": "aonikdevacr.azurecr.io/aonik-api@sha256:598080f4c60da30e5945f36192b96e06f9078a7b375b8bfb1c514dc416e14208",
+        "channelFlags": {
+          "Publishing__Channels__arke-worlds-dev__PublicCatalogueEnabled": "true",
+          "Publishing__Channels__arke-worlds-dev__Enabled": "true",
+          "Publishing__Channels__arke-worlds-dev__ReviewEnabled": "true",
+          "Publishing__Channels__arke-worlds-dev__LegacyMirrorEnabled": "false",
+          "Publishing__Channels__arke-worlds-dev__DeliveryEnabled": "true"
+        },
+        "revision": "aonik-dev-api--0000384",
+        "configurationUnchanged": true,
+        "deployedAtUtc": "2026-11-09T20:25:10.3746254Z"
+      }
+    ],
+    "readyRevisions": [
+      {
+        "image": "aonikdevacr.azurecr.io/aonik-api@sha256:598080f4c60da30e5945f36192b96e06f9078a7b375b8bfb1c514dc416e14208",
+        "latest": "aonik-dev-api--0000384",
+        "name": "aonik-dev-api",
+        "ready": "aonik-dev-api--0000384",
+        "state": "Succeeded"
+      },
+      {
+        "image": "aonikdevacr.azurecr.io/aonik-worker@sha256:e7ddfd89502433b45b24775316e9e3490b7cad2e684a9b2a5ab28117398b9224",
+        "latest": "aonik-dev-worker--0000374",
+        "name": "aonik-dev-worker",
+        "ready": "aonik-dev-worker--0000374",
+        "state": "Succeeded"
+      }
+    ],
+    "temporaryReviewerSignedOut": true,
+    "baseReceiptBefore": "published",
+    "baseEditionAlreadyWithdrawn": true,
+    "baseReceiptAfter": "withdrawn",
+    "exactReplayOperation": "0ea8ea16-f77f-4cae-adfd-2db1e5576397",
+    "sameOperationOnRepeat": true,
+    "catalogueSerialBefore": 15,
+    "catalogueSerialAfter": 15,
+    "operationSetUnchanged": true,
+    "creatorReceipts": [
+      {
+        "kind": "base",
+        "receipt": "c8f7442d-9b12-4f93-b444-c933765e2cca",
+        "status": "withdrawn",
+        "transfer": "complete",
+        "refreshedAt": "2026-11-09T20:25:40.533Z",
+        "requests": [
+          {
+            "path": "/publishing/submissions/c8f7442d-9b12-4f93-b444-c933765e2cca",
+            "method": "GET",
+            "status": 200
+          },
+          {
+            "path": "/publishing/submissions/c8f7442d-9b12-4f93-b444-c933765e2cca/decisions",
+            "method": "GET",
+            "status": 200
+          }
+        ]
+      },
+      {
+        "kind": "part",
+        "receipt": "ba04f808-452f-45a1-89d6-07ee63370392",
+        "status": "withdrawn",
+        "transfer": "complete",
+        "refreshedAt": "2026-11-09T20:14:32.249Z",
+        "requests": [
+          {
+            "path": "/publishing/submissions/ba04f808-452f-45a1-89d6-07ee63370392",
+            "method": "GET",
+            "status": 200
+          },
+          {
+            "path": "/publishing/submissions/ba04f808-452f-45a1-89d6-07ee63370392/decisions",
+            "method": "GET",
+            "status": 200
+          }
+        ]
+      },
+      {
+        "kind": "story",
+        "receipt": "c62d63a2-8142-4e38-8807-5b3fe6df8981",
+        "status": "withdrawn",
+        "transfer": "complete",
+        "refreshedAt": "2026-11-09T20:14:35.420Z",
+        "requests": [
+          {
+            "path": "/publishing/submissions/c62d63a2-8142-4e38-8807-5b3fe6df8981",
+            "method": "GET",
+            "status": 200
+          },
+          {
+            "path": "/publishing/submissions/c62d63a2-8142-4e38-8807-5b3fe6df8981/decisions",
+            "method": "GET",
+            "status": 200
+          }
+        ]
+      },
+      {
+        "kind": "comic",
+        "receipt": "889f3bfe-006a-43c0-9289-42c520f7beaf",
+        "status": "withdrawn",
+        "transfer": "complete",
+        "refreshedAt": "2026-11-09T20:14:37.755Z",
+        "requests": [
+          {
+            "path": "/publishing/submissions/889f3bfe-006a-43c0-9289-42c520f7beaf",
+            "method": "GET",
+            "status": 200
+          },
+          {
+            "path": "/publishing/submissions/889f3bfe-006a-43c0-9289-42c520f7beaf/decisions",
+            "method": "GET",
+            "status": 200
+          }
+        ]
+      }
+    ],
+    "localValidation": {
+      "build": "passed, zero errors",
+      "applicationTestsPassed": 3555,
+      "sqlServerTestsPassed": 270,
+      "focusedWithdrawalTestsPassed": 28,
+      "publishingEndpointTestsPassed": 19,
+      "limitations": [
+        "Initial full run exhausted local Windows disk; disposable build outputs cleared and full SQL suite then passed.",
+        "Broad local API retries timed out on unrelated ledger and other endpoints, including with limited concurrency, and were stopped. These are not represented as a clean local full-suite pass.",
+        "Initial CI attempt remained unassigned in the hosted-runner queue and was cancelled; the identical full workflow passed on retry."
+      ]
+    }
+  },
+  "normalAppRestoration": {
+    "checkedAtUtc": "2026-11-09T19:43:31.473702+00:00",
+    "normalDevApkSha256": "9dc90f838353e333b8c18c3b4e86887ff8d0f3f8152b66ee70268c1c2eedcdf2",
+    "replaceOnlyInstallSucceeded": true,
+    "libraryExactlyMatchesPostTestBackup": true,
+    "worlds": [
+      "paper-garden-dev-403",
+      "lantern-garden-dev-403"
+    ]
+  },
+  "offlineRetention": {
+    "at": "2026-11-09T19:30:28.856876Z",
+    "phase": "withdrawn",
+    "scope": "Real Player services against anonymous dev HTTPS; native UI evidence is separate.",
+    "catalogueSerial": 15,
+    "worlds": 0,
+    "offlineReopened": true,
+    "savedPlacesRetained": true,
+    "offlineFiles": {
+      "\\worlds\\paper-garden-dev-403\\audio\\tone1.m4a": "1d98c70e0499cfcbabe04d7e06582a97cae81ef4f22783b10394208e3ce85b4f",
+      "\\worlds\\paper-garden-dev-403\\listening.json": "d9febd796293f3887fbcd83b7dec9986790ae5eb486258032b877e470d22df26",
+      "\\worlds\\paper-garden-dev-403\\pictures\\p1.png": "1b985f306517220e1109af14d6c855547d7842e05c560ba8c5da9100f2089849",
+      "\\worlds\\paper-garden-dev-403\\world.json": "fca01acfccf45c6302f1596397ca798396721c82004aef684d70610a7e9a7c92",
+      "\\worlds\\paper-garden-dev-403\\_parts\\1\\audio\\tone2.m4a": "216af077e517bf6daf986221e982dcf80f10f9b36e1f09b8beca0b77560c140d",
+      "\\worlds\\paper-garden-dev-403\\_parts\\1\\listening.json": "a35e745aa1fa1c3c6b47f9fdd4a0c0fb0a925999c5816a6e96917e0ac125aa83",
+      "\\worlds\\paper-garden-dev-403\\_parts\\1\\world.json": "488a23f38b185cbfa3471ab584d3f36b48890052de2be1978d8fcd99215dced0",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-choices\\pictures\\p1.png": "1b985f306517220e1109af14d6c855547d7842e05c560ba8c5da9100f2089849",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-choices\\pictures\\p2.png": "8ff1a3feed85a811876f690d998123fbcdadceee0102b324b0fc7d4bbc47be48",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-choices\\pictures\\p3.png": "32cc55c89491877646a4841ec8d460b6585a4982d51684b977b1d4ced48921c5",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-choices\\story.json": "be6c29da9e19c612da356fc2a2d32baea5580d7f0e1ec5b70a7f61b1318c2a16",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-choices\\world.json": "26777a435e98cd85f068946c74f379f986143a20590401a9e5aef6f961fc1c18",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-comic\\comic.json": "44d96bd33a003e7d2d371a583eedd50a47ae0c81491ffde44cca7d0be2d831f9",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-comic\\pages\\page1.png": "a1d81be905a8a17386ebfaa25738afb3ad44f131473f2e6f77e438d6ba607c93",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-comic\\pages\\page2.png": "18482d0563eac1a46bc0b113c15689341a81070253f359f6ff3680e294dc8bc0",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-comic\\pages\\page3.png": "89f669828cc8c01ba7c81cf90da916cee181e52d19b113198b74ea189de6bd6b",
+      "\\worlds\\paper-garden-dev-403\\_productions\\garden-comic\\world.json": "f6a635c5f2e2f4398db748c32e399e975a0bb5ea55cb37438a404e6e3345ff30"
+    },
+    "requests": [
+      "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/catalogue.json"
+    ],
+    "passed": true
+  },
+  "finalCatalogue": {
+    "version": 2,
+    "serial": 15,
+    "worlds": []
+  },
+  "scopeLimits": [
+    "Android emulator, not physical-device or OS scheduled notification qualification.",
+    "Offline reader test denies Dart HTTP client creation; it is not an airplane-mode or native-radio test.",
+    "Historical reader uses real legacy libraries, not an installed legacy application.",
+    "Native library was explicitly restored after the Flutter installer fallback; no claim of uninterrupted native retention across that failure.",
+    "Full private files/preferences backups and replace-only installs used after recovery."
+  ],
+  "remaining": [
+    "Supported physical devices and Android scheduled/background notification delivery.",
+    "Interactive-movie video and production export-UI walkthrough where required.",
+    "Delivery exhaustion/remaining fault cases, optional mirror migration, manual fallback and isolated backup restoration.",
+    "Nontechnical reviewer walkthrough and consenting human pilot.",
+    "Production catalogue ownership/rights baseline, capacity/cost/limits and cutover."
+  ],
+  "productionMutation": false,
+  "githubMirrorEnabled": false
+}
