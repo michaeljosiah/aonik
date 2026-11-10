@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Interactive-movie qualification (#403):** Verified real Studio export/submission, exact dev approval, all three native Player video clips, both choices/endings, replay, saved progress and cold offline retention after withdrawal at empty serial 26. Player #74 fixes standalone story-world installation and a native scene-loading race. Recorded failed attempts and verified checkpoints; production and the legacy mirror remain unchanged.
+
 - **Studio export UI qualification (#403):** Verified the actual current desktop book export, frozen-edition submission, separate reviewer approval/publication, native Player update and saved-position retention. Withdrawal leaves empty dev serial 24; installed content remains readable after a cold offline restart and Studio shows Withdrawn / complete. Repaired only the unpackaged rehearsal's FFmpeg path configuration; no runtime code changed. Recorded exact hashes, checkpoints and the remaining interactive-movie/production scope.
 
 - **Historical Player qualification (#403 / Player #50):** Recorded native chapter addition, safe unsupported story/comic selection, exact book-locator retention across an edition update and cold offline reading in an isolated historical-source build. The unchanged released APK separately passes chapter playback and unsupported-format fallback through its existing feed, including recovery from an emulator memory interruption. Existing dev Player data stays byte-identical. Evidence distinguishes local catalogue replay from live publication and records the historical EPUB completion defect already fixed in current Player #66.

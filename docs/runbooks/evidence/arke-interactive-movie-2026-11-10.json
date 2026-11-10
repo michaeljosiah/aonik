@@ -1,0 +1,768 @@
+{
+  "checkedAtUtc": "2026-11-10T22:21:44.957158+00:00",
+  "issue": 403,
+  "status": "interactive-movie-native-dev-passed-and-withdrawn",
+  "operator": "Owner-authorised automated dev test using separate creator/reviewer accounts; not production human editorial clearance.",
+  "worldId": "motion-garden-dev-403-2",
+  "productionId": "paper-lights-movie",
+  "receiptId": "3fd7a300-061c-4ab6-a834-47ab2ec79345",
+  "revisionId": "cf49c2ad-edf1-46d6-af9d-24f585967c10",
+  "revision": 1,
+  "reviewDigest": "565ccfb761475f210c340c4016f6877d5f7b575e80fd98654ded5e189025b4c1",
+  "archiveBytes": 412922,
+  "archiveSha256": "9dd5e6f1d4f072d717dbb7479d67017a605c2db25651e59bb87c0c54683c9180",
+  "packageFingerprint": "6a3becceacd341d81ee2d5b43c23a6f60cb5fb81157641b26e4755daef106e54",
+  "assets": [
+    {
+      "id": "c001",
+      "path": "clips/c001.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 133605,
+      "sha256": "bf0c464bd0d1754c94f777e1e2c3a5b5d8a6359771f5d850d9a3b9c7b3c8d444"
+    },
+    {
+      "id": "c002",
+      "path": "clips/c002.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 132802,
+      "sha256": "8d7bd2228c8921db3dc5191ede6aa5fe56a4be4193426c3cd1bf5e9bea9c353e"
+    },
+    {
+      "id": "c003",
+      "path": "clips/c003.mp4",
+      "mediaType": "video/mp4",
+      "byteLength": 133352,
+      "sha256": "7a1a5ad57c1e822df36d28c49f5716959dc8ee93c89f708768d5feb013255407"
+    },
+    {
+      "id": "cover",
+      "path": "cover.jpg",
+      "mediaType": "image/jpeg",
+      "byteLength": 9226,
+      "sha256": "e736be83a6b07f783c9eb3e1f72553d14902bac1703f180019f05912e9b8fc46"
+    },
+    {
+      "id": "story",
+      "path": "story.json",
+      "mediaType": "application/vnd.arke.story+json",
+      "byteLength": 1274,
+      "sha256": "a07b35a7be235481e9f157f29089bcf8b013823a49d15a6e69fc40150126ebad"
+    }
+  ],
+  "studio": {
+    "version": "0.5.116",
+    "commit": "f0ebe7704e15c3d8e8eed23b818978a09296ef9a",
+    "export": {
+      "compiler": "arke-studio/arke-player-story-export",
+      "compilerVersion": 1,
+      "studio": "0.5.116",
+      "exportId": "ap_01M73HTNWAVR0WYGS57S0V2N3K",
+      "exportedAt": "2026-11-10T20:19:11.545Z",
+      "story": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+      "routingVersion": 1,
+      "originals": {
+        "cover": "17b43486f8b8162680175d2e9080efa91b94a6d2fe6877da789f5609d102a407"
+      }
+    },
+    "bothPreviewBranches": true,
+    "ordinaryExportSubmissionAndReceiptUi": true,
+    "receiptAfterWithdrawal": "withdrawn / complete",
+    "previewProvenance": "Automated UI traversal; the existing preview transport labels interactive provenance human, which is not a claim of human execution."
+  },
+  "publication": {
+    "channel": "arke-worlds-dev",
+    "serial": 25,
+    "publishOperationPrefix": "70c8a59d",
+    "exactApprovalAndPublishThroughReviewerUi": true,
+    "privateCopyMatches": true,
+    "publicPins": {
+      "archive": {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/d34e7706-ad30-4c1c-b5ab-84cf40a4c843",
+        "byteLength": 412922,
+        "sha256": "9dd5e6f1d4f072d717dbb7479d67017a605c2db25651e59bb87c0c54683c9180",
+        "edition": "2026-11-10-ap_01M73HTNWAVR0WYGS57S0V2N3K",
+        "fingerprint": "6a3becceacd341d81ee2d5b43c23a6f60cb5fb81157641b26e4755daef106e54",
+        "version": 1,
+        "contentType": "application/zip",
+        "verified": true
+      },
+      "artwork": {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/6b02659b-b2ea-494c-b7eb-1fbf45dd662c",
+        "byteLength": 9226,
+        "sha256": "e736be83a6b07f783c9eb3e1f72553d14902bac1703f180019f05912e9b8fc46",
+        "contentType": "image/jpeg",
+        "verified": true
+      }
+    },
+    "withdrawal": {
+      "checkedAtUtc": "2026-11-10T22:12:42.774855+00:00",
+      "serial": 26,
+      "worldCount": 0,
+      "retainedImmutableArtifacts": {
+        "archive": {
+          "status": 200,
+          "byteLength": 412922,
+          "sha256": "9dd5e6f1d4f072d717dbb7479d67017a605c2db25651e59bb87c0c54683c9180"
+        },
+        "artwork": {
+          "status": 200,
+          "byteLength": 9226,
+          "sha256": "e736be83a6b07f783c9eb3e1f72553d14902bac1703f180019f05912e9b8fc46"
+        }
+      },
+      "scope": "Withdrawn from discovery; cached immutable URLs and installed copies remain usable.",
+      "operationPrefix": "257be786",
+      "attempts": 1
+    }
+  },
+  "player": {
+    "sourceCommit": "4e3a06f",
+    "pullRequest": "https://github.com/michaeljosiah/ArkePlayer/pull/74",
+    "fixes": [
+      "#73: verified standalone story worlds without a root world package",
+      "#75: serialized native scene loads; stale requests cannot pause the selected branch"
+    ],
+    "harnessCommit": "9dc61e8fbb6689f75439901c4d170b62581fc3fe",
+    "nativeTestApks": {
+      "onlineAndOfflineSha256": "21c4f221a14906b795f522aab3ede762537b9168b5a5a04ad5103d6dc4a21c54",
+      "finalPauseTimingSha256": "63745fd24a127b5d15254dafede077728800c623dc2b04092665b8ed5ddbdf61"
+    },
+    "normalApkSha256": "32a36b883bdf9d8123c4da7a8d55b3c8b9d482df279ae826bb89a2a927782eaa",
+    "device": "Isolated Android 16/API 36 x86_64 emulator, 12 GiB data partition",
+    "realVideo": "File-backed VideoPlayer/ExoPlayer with changing rendered frames/timecodes, native positions and both branch endings; no media/provider/HTTP fake.",
+    "phases": {
+      "install": {
+        "phase": "install",
+        "checkedAtUtc": "2026-11-10T22:08:19.072735Z",
+        "world": "motion-garden-dev-403-2",
+        "saveBeforePlaybackPhase": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "choosing": true,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T21:59:43.697043Z"
+        },
+        "installedBeforePlaybackPhase": true,
+        "seedNativePositionsMs": [
+          782,
+          2213
+        ],
+        "sunNativePositionMs": 1259,
+        "friendNativePositionMs": 1348,
+        "pausedAtMs": 2072,
+        "bothEndings": true,
+        "persistedSave": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 2072,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:09:26.490616Z"
+        },
+        "installedWorld": {
+          "id": "motion-garden-dev-403-2",
+          "edition": "",
+          "name": "Motion Garden Dev 403",
+          "keyArt": "worlds/motion-garden-dev-403-2/_cover",
+          "byteLength": 419485,
+          "installedAt": "2026-11-10T21:42:39.343328Z",
+          "productions": [
+            {
+              "id": "paper-lights-movie",
+              "title": "Mina chooses a light",
+              "picture": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/cover.jpg",
+              "story": {
+                "document": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/story.json",
+                "kind": "movie",
+                "shape": "16:9",
+                "scenes": 3,
+                "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a"
+              },
+              "package": {
+                "edition": "2026-11-10-ap_01M73HTNWAVR0WYGS57S0V2N3K",
+                "fingerprint": "6a3becceacd341d81ee2d5b43c23a6f60cb5fb81157641b26e4755daef106e54",
+                "byteLength": 410259,
+                "installedAt": "2026-11-10T21:42:40.010392Z",
+                "folder": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie"
+              }
+            }
+          ]
+        }
+      },
+      "offline": {
+        "phase": "offline",
+        "checkedAtUtc": "2026-11-10T22:10:08.888316Z",
+        "world": "motion-garden-dev-403-2",
+        "savedBeforeRestart": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 2072,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:09:26.490616Z"
+        },
+        "resumedNativePositionsMs": [
+          2072,
+          2843
+        ],
+        "pausedAtMs": 4946,
+        "persistedSave": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 4946,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:10:16.492767Z"
+        },
+        "installedWorld": {
+          "id": "motion-garden-dev-403-2",
+          "edition": "",
+          "name": "Motion Garden Dev 403",
+          "keyArt": "worlds/motion-garden-dev-403-2/_cover",
+          "byteLength": 419485,
+          "installedAt": "2026-11-10T21:42:39.343328Z",
+          "productions": [
+            {
+              "id": "paper-lights-movie",
+              "title": "Mina chooses a light",
+              "picture": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/cover.jpg",
+              "story": {
+                "document": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/story.json",
+                "kind": "movie",
+                "shape": "16:9",
+                "scenes": 3,
+                "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a"
+              },
+              "package": {
+                "edition": "2026-11-10-ap_01M73HTNWAVR0WYGS57S0V2N3K",
+                "fingerprint": "6a3becceacd341d81ee2d5b43c23a6f60cb5fb81157641b26e4755daef106e54",
+                "byteLength": 410259,
+                "installedAt": "2026-11-10T21:42:40.010392Z",
+                "folder": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie"
+              }
+            }
+          ]
+        },
+        "network": {
+          "phase": "offline",
+          "checkedAtUtc": "2026-11-10T22:10:08.975167+00:00",
+          "wifi": "0",
+          "mobileData": "0",
+          "defaultNetwork": "Active default network: none",
+          "driverExit": 0,
+          "restoredWifi": "1",
+          "restoredMobileData": "1"
+        }
+      },
+      "refresh": {
+        "phase": "refresh",
+        "checkedAtUtc": "2026-11-10T22:12:51.453902Z",
+        "world": "motion-garden-dev-403-2",
+        "withdrawnSerial": 26,
+        "persistedSave": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 4946,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:10:16.492767Z"
+        },
+        "installedWorld": {
+          "id": "motion-garden-dev-403-2",
+          "edition": "",
+          "name": "Motion Garden Dev 403",
+          "keyArt": "worlds/motion-garden-dev-403-2/_cover",
+          "byteLength": 419485,
+          "installedAt": "2026-11-10T21:42:39.343328Z",
+          "productions": [
+            {
+              "id": "paper-lights-movie",
+              "title": "Mina chooses a light",
+              "picture": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/cover.jpg",
+              "story": {
+                "document": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/story.json",
+                "kind": "movie",
+                "shape": "16:9",
+                "scenes": 3,
+                "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a"
+              },
+              "package": {
+                "edition": "2026-11-10-ap_01M73HTNWAVR0WYGS57S0V2N3K",
+                "fingerprint": "6a3becceacd341d81ee2d5b43c23a6f60cb5fb81157641b26e4755daef106e54",
+                "byteLength": 410259,
+                "installedAt": "2026-11-10T21:42:40.010392Z",
+                "folder": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie"
+              }
+            }
+          ]
+        }
+      },
+      "withdrawn": {
+        "phase": "withdrawn",
+        "checkedAtUtc": "2026-11-10T22:20:31.023237Z",
+        "world": "motion-garden-dev-403-2",
+        "savedBeforeRestart": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 1505,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:19:42.660284Z"
+        },
+        "withdrawnSerial": 26,
+        "resumedNativePositionsMs": [
+          1505,
+          2389
+        ],
+        "pausedAtMs": 2389,
+        "persistedSave": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 2389,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:20:35.658088Z"
+        },
+        "installedWorld": {
+          "id": "motion-garden-dev-403-2",
+          "edition": "",
+          "name": "Motion Garden Dev 403",
+          "keyArt": "worlds/motion-garden-dev-403-2/_cover",
+          "byteLength": 419485,
+          "installedAt": "2026-11-10T21:42:39.343328Z",
+          "productions": [
+            {
+              "id": "paper-lights-movie",
+              "title": "Mina chooses a light",
+              "picture": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/cover.jpg",
+              "story": {
+                "document": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/story.json",
+                "kind": "movie",
+                "shape": "16:9",
+                "scenes": 3,
+                "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a"
+              },
+              "package": {
+                "edition": "2026-11-10-ap_01M73HTNWAVR0WYGS57S0V2N3K",
+                "fingerprint": "6a3becceacd341d81ee2d5b43c23a6f60cb5fb81157641b26e4755daef106e54",
+                "byteLength": 410259,
+                "installedAt": "2026-11-10T21:42:40.010392Z",
+                "folder": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie"
+              }
+            }
+          ]
+        },
+        "network": {
+          "phase": "withdrawn",
+          "checkedAtUtc": "2026-11-10T22:20:32.681075+00:00",
+          "wifi": "0",
+          "mobileData": "0",
+          "defaultNetwork": "Active default network: none",
+          "driverExit": 0,
+          "restoredWifi": "1",
+          "restoredMobileData": "1"
+        }
+      }
+    },
+    "replayRecovery": {
+      "phase": "replay",
+      "checkedAtUtc": "2026-11-10T22:19:36.944191Z",
+      "world": "motion-garden-dev-403-2",
+      "pausedAtMs": 1505,
+      "persistedSave": {
+        "version": 1,
+        "route": [
+          "ch_friend"
+        ],
+        "scene": "sc_friend",
+        "at": 1505,
+        "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+        "updatedAt": "2026-11-10T22:19:42.660284Z"
+      },
+      "installedWorld": {
+        "id": "motion-garden-dev-403-2",
+        "edition": "",
+        "name": "Motion Garden Dev 403",
+        "keyArt": "worlds/motion-garden-dev-403-2/_cover",
+        "byteLength": 419485,
+        "installedAt": "2026-11-10T21:42:39.343328Z",
+        "productions": [
+          {
+            "id": "paper-lights-movie",
+            "title": "Mina chooses a light",
+            "picture": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/cover.jpg",
+            "story": {
+              "document": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie/story.json",
+              "kind": "movie",
+              "shape": "16:9",
+              "scenes": 3,
+              "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a"
+            },
+            "package": {
+              "edition": "2026-11-10-ap_01M73HTNWAVR0WYGS57S0V2N3K",
+              "fingerprint": "6a3becceacd341d81ee2d5b43c23a6f60cb5fb81157641b26e4755daef106e54",
+              "byteLength": 410259,
+              "installedAt": "2026-11-10T21:42:40.010392Z",
+              "folder": "worlds/motion-garden-dev-403-2/_productions/paper-lights-movie"
+            }
+          }
+        ]
+      }
+    },
+    "installedAssetsUnchanged": true,
+    "checkpoints": [
+      {
+        "file": "403-movie-installed-before-playback.tar",
+        "bytes": 719360,
+        "sha256": "9ac5005aa356d8bd0a98e7a7930aca5e9b7f08a5d20e6b3f07d8fec22b0ce246",
+        "savedMovie": null
+      },
+      {
+        "file": "403-movie-native-online.tar",
+        "bytes": 1804800,
+        "sha256": "2f3a1057707a058ec7bec383acc443fa68b520dd54593248c6ee5ae3d372ad13",
+        "savedMovie": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 2072,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:09:26.490616Z"
+        }
+      },
+      {
+        "file": "403-movie-native-offline.tar",
+        "bytes": 1929216,
+        "sha256": "deff5f20c00e88181128764f7af48bc733c77463194ab60acec9269b06c54cb6",
+        "savedMovie": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 4946,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:10:16.492767Z"
+        }
+      },
+      {
+        "file": "403-movie-native-refreshed.tar",
+        "bytes": 1928192,
+        "sha256": "dbae3c5aeb8b848b241e00a45cc78b96fd90c296e0b9f4c5082b51e87a2fa3ec",
+        "savedMovie": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 4946,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:10:16.492767Z"
+        }
+      },
+      {
+        "file": "403-movie-native-replay.tar",
+        "bytes": 2164224,
+        "sha256": "5c724e8f6b521a1f871ca703833e89d532407e8dd16abc988c160b8d74364323",
+        "savedMovie": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 1505,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:19:42.660284Z"
+        }
+      },
+      {
+        "file": "403-movie-native-withdrawn.tar",
+        "bytes": 2174464,
+        "sha256": "50903803641110d2c882c2020caf2a65e06ea3b300ebb2aee2a9f48f8528ce8a",
+        "savedMovie": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 2389,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:20:35.658088Z"
+        }
+      },
+      {
+        "file": "403-movie-normal-restored.tar",
+        "bytes": 2174464,
+        "sha256": "50903803641110d2c882c2020caf2a65e06ea3b300ebb2aee2a9f48f8528ce8a",
+        "savedMovie": {
+          "version": 1,
+          "route": [
+            "ch_friend"
+          ],
+          "scene": "sc_friend",
+          "at": 2389,
+          "fingerprint": "sha256:1c36d05f872d4046e7f66aad8e05551b7a4ec6a6d16936d172499aa392c90b3a",
+          "updatedAt": "2026-11-10T22:20:35.658088Z"
+        }
+      }
+    ],
+    "originalEmulatorPreservedSha256": "85f8bb6872afae5c72df081e6b804b577ced8eb51b29edb3fb2fc12ab9a59f01",
+    "deviceSetup": "Original dev APK replacement refused for insufficient storage, without uninstall or data clear. Original library stayed byte-identical. Temporary compatibility fixture was retired with keep-data uninstall after full APK/data backup. A fresh emulator ran the movie checks; final normal APK restored in place.",
+    "captureFallback": "Windows emulator capture failed FrameArrived; used standard native Flutter integration screenshots and controller assertions. Windows reviewer/Studio captures remain actual UI observations.",
+    "failedAttempts": [
+      "Harness expected autoplay after Start; corrected to wait for install and press Play.",
+      "Replay exposed stale-controller observation and real overlapping scene-load race. Kept failure logs; delayed-load regression fails before repair and passes after.",
+      "First post-withdrawal cold run resumed real video but missed Pause as controls faded. Overall failed; a normal-control replay prepared the final cold rerun without restoring or injecting progress."
+    ]
+  },
+  "validation": {
+    "pureDartPassed": 450,
+    "appPassed": 439,
+    "appExistingSkips": 13,
+    "storyPassed": 38,
+    "storyOptionalPackageSkips": 3,
+    "strictAnalysis": "passed",
+    "format": "passed",
+    "designGate": "passed",
+    "nativePhasesPassed": [
+      "install",
+      "offline",
+      "refresh",
+      "withdrawn"
+    ]
+  },
+  "scopeLimits": [
+    "Emulator dev qualification only; no physical Android/iOS or OEM qualification.",
+    "Production rights/ownership, audited catalogue baseline, mirror migration and realistic capacity/cost remain separate.",
+    "Production and the legacy mirror were not changed. Withdrawal removes discovery; immutable artifacts and installed copies are retained."
+  ],
+  "captureManifest": [
+    {
+      "file": "player-before-publication-0.jpg",
+      "bytes": 24816,
+      "sha256": "d0bc5c2239348fd3ec4a1a4aed6eaa04f94080d1fa09125331c76ad0b4ee7279"
+    },
+    {
+      "file": "player-before-publication-1.jpg",
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    {
+      "file": "player-standalone-hidden-before-fix-0.jpg",
+      "bytes": 25880,
+      "sha256": "ff1b57d8ce9a8fc0afb12529f0acd3ec1aa3a7be88fc8e79955c1817243c93f1"
+    },
+    {
+      "file": "player-standalone-hidden-before-fix-1.jpg",
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    {
+      "file": "public-artwork.jpg",
+      "bytes": 9226,
+      "sha256": "e736be83a6b07f783c9eb3e1f72553d14902bac1703f180019f05912e9b8fc46"
+    },
+    {
+      "file": "reviewer-approval-confirmation-0.jpg",
+      "bytes": 135597,
+      "sha256": "3a75f75dbd027e9c71e69ce158700a410805d7c318c65967819fdde8af928aa0"
+    },
+    {
+      "file": "reviewer-approved-0.jpg",
+      "bytes": 139686,
+      "sha256": "0fdba6f6ee14b404ec3ba82bdb6c77fb530f2be5f15e034f285377dea6b0ec7e"
+    },
+    {
+      "file": "reviewer-publication-queued-0.jpg",
+      "bytes": 138623,
+      "sha256": "6833c9ca5f7da19eb59892b387cd5c0cc639fe149a77813e492c92cf28e949e2"
+    },
+    {
+      "file": "reviewer-published-activity-0.jpg",
+      "bytes": 124690,
+      "sha256": "5b15bdec19f579cda8612c07f0a18d3478fcdbc26565f3f7aeb73474103eecb4"
+    },
+    {
+      "file": "reviewer-validation-0.jpg",
+      "bytes": 130041,
+      "sha256": "c085dfc8a7e8abeae217aace5bfb8ccc8cb5ef5f12a5169c53f28ede6babc9e0"
+    },
+    {
+      "file": "reviewer-verified-revision-0.jpg",
+      "bytes": 144159,
+      "sha256": "d6d4cf70b498a4e29e03af139dab8df38b471d686c512619dba7ee8b4fd5d829"
+    },
+    {
+      "file": "reviewer-withdrawal-confirmation-0.jpg",
+      "bytes": 145047,
+      "sha256": "2bbc3bad449523c447e9cb4e70de11acc9f36e772fd0c6a903df5c0b37680111"
+    },
+    {
+      "file": "reviewer-withdrawal-queued-0.jpg",
+      "bytes": 149182,
+      "sha256": "c7051b1111844f7fa50cf6fe3fa55471d9aa76df34740fd22db2a48f79644448"
+    },
+    {
+      "file": "reviewer-withdrawn-serial26-0.jpg",
+      "bytes": 149109,
+      "sha256": "36a0b4904d2d2e73323f24250a768edf386f204b259efa9381273e2f862d8d01"
+    },
+    {
+      "file": "studio-export-made-0.jpg",
+      "bytes": 80158,
+      "sha256": "30f37c03d556100146e33ad3e4eb072bd3e0b80b83c371d424158496eedf68b8"
+    },
+    {
+      "file": "studio-export-plan-0.jpg",
+      "bytes": 77218,
+      "sha256": "47d6bbb653cf29e45603d31f70a0074b4523a8afdc32d455d38374b6122291f1"
+    },
+    {
+      "file": "studio-friend-complete-0.jpg",
+      "bytes": 60336,
+      "sha256": "df44d7a5a87d7f0a90b0975ded11efb5b23b148585bfefff93f09e8451858609"
+    },
+    {
+      "file": "studio-imported-source-0.jpg",
+      "bytes": 66288,
+      "sha256": "bf02d5fdf60b65017c6b2f18ed810fa88aa60faf744b560ce9b57dd384dac927"
+    },
+    {
+      "file": "studio-preview-choice-0.jpg",
+      "bytes": 49980,
+      "sha256": "b98dea56f38414032f1f15bb6e1730c6861b93f50ca4c357e9c3ea801b93741c"
+    },
+    {
+      "file": "studio-published-receipt-0.jpg",
+      "bytes": 78760,
+      "sha256": "36b87e1d06ae808555ab04bf3accde2fa36c134e49fb4eec3ce67d19f7e0432d"
+    },
+    {
+      "file": "studio-receipt-in-review-0.jpg",
+      "bytes": 79648,
+      "sha256": "274360b5177cffe8147009328794cf49a2545cbad58f8cfb7ab9e406722c51aa"
+    },
+    {
+      "file": "studio-submission-declaration-0.jpg",
+      "bytes": 98425,
+      "sha256": "1f7897c1a4b6112d987f1d25836383cc5befd380ed6178c544e1f7122061dbb9"
+    },
+    {
+      "file": "studio-sun-complete-0.jpg",
+      "bytes": 59669,
+      "sha256": "80ae95cd3d7497c37a5bd3bb8539a49aa1dd469d563db3d750a9dc724cf1b1d0"
+    },
+    {
+      "file": "studio-sun-ending-0.jpg",
+      "bytes": 51631,
+      "sha256": "f6cbc3bdfb37d54d03c5147d181304243e1e60e5e9a1f310622339c64d0b80ca"
+    },
+    {
+      "file": "studio-withdrawn-receipt-0.jpg",
+      "bytes": 78988,
+      "sha256": "3dd80f7e61144d5287ba9676e744167ccd7cd5ec2aa97677d33d78660b3fda69"
+    },
+    {
+      "file": "native-pass/install-choices.png",
+      "bytes": 119397,
+      "sha256": "b8c33bac7262c0ce8dffdf051aaeaea8cc98d9bced32a064291f553bf1fefabf"
+    },
+    {
+      "file": "native-pass/install-discovery.png",
+      "bytes": 170879,
+      "sha256": "41d529e3f8a0a3d08ee5751fcb3377df35983170589a0374b36e4bbbc747db11"
+    },
+    {
+      "file": "native-pass/install-friend-ending.png",
+      "bytes": 138575,
+      "sha256": "224e43e6515847821dc28bd640ff54de1078a8a39121e54d12959d792659b401"
+    },
+    {
+      "file": "native-pass/install-friend-playing.png",
+      "bytes": 111000,
+      "sha256": "27c940c08cc8baf8bb00776dc4aef793f44990fa35b67c06a00b539db7b98701"
+    },
+    {
+      "file": "native-pass/install-installed.png",
+      "bytes": 187018,
+      "sha256": "acf89ea45316fe746eb2ea10e686f750915f8e2c50a9583f5005660f01dd7c7b"
+    },
+    {
+      "file": "native-pass/install-seed-frame-a.png",
+      "bytes": 76305,
+      "sha256": "c6ba000e581bd8baa9b4aa7bbd3f18a674d205cc8d346432d5b788893e18a601"
+    },
+    {
+      "file": "native-pass/install-seed-frame-b.png",
+      "bytes": 77059,
+      "sha256": "263c83be3909e0a3d37caf55711c2ecdaf262eaed989b0600bb545aff535672a"
+    },
+    {
+      "file": "native-pass/install-sun-ending.png",
+      "bytes": 135789,
+      "sha256": "f96522869e99935c9c868a25f8854100629183d74b3676d01ee7aa159a47439a"
+    },
+    {
+      "file": "native-pass/install-sun-playing.png",
+      "bytes": 112423,
+      "sha256": "d82a820f72dcb36d3e72432469c71e8a2ded323af0bf2475d0f98b626fa62961"
+    },
+    {
+      "file": "native-pass/install.json",
+      "bytes": 1996,
+      "sha256": "d543bee81305a800fe2abb12d20415db0cfbc4be14685c9ef02a6f1aee3730b7"
+    },
+    {
+      "file": "native-pass/offline-resumed-frame.png",
+      "bytes": 111669,
+      "sha256": "ad2ccb6e9f4ee9680f59b00a26a35d48e0645d031f6cf5d240bd656514702c44"
+    },
+    {
+      "file": "native-pass/offline.json",
+      "bytes": 1861,
+      "sha256": "03dd0086500a1dc560944e220cc4ef4350a93a0a4418c2b40afb65f4b0f2e0bf"
+    },
+    {
+      "file": "native-pass/refresh.json",
+      "bytes": 1536,
+      "sha256": "1405fb34c2cba6840eaaa676d0bda2e4031dd9bcc53a56079764694459b4cf1a"
+    },
+    {
+      "file": "native-pass/replay-prepared-frame.png",
+      "bytes": 111668,
+      "sha256": "0e022c9c5a638e688fa1c54b57fd10a55ed2220d6b5aae8f0c5e13207f51f3de"
+    },
+    {
+      "file": "native-pass/replay.json",
+      "bytes": 1532,
+      "sha256": "7b226e0118c19f61a9aab67b1603d28b6d5d2a406cbf3afc383dca85112d71dd"
+    },
+    {
+      "file": "native-pass/withdrawn-resumed-frame.png",
+      "bytes": 112016,
+      "sha256": "e9ef05d86e5ba055586b3adf4af06391acebcb28fac8901aebc3512114cf59a7"
+    },
+    {
+      "file": "native-pass/withdrawn.json",
+      "bytes": 1888,
+      "sha256": "be073460cbe87097f5d88b4f82a25e3210e2aff07d4e18e69af5429119789911"
+    }
+  ]
+}
