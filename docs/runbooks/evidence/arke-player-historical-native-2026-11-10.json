@@ -1,0 +1,529 @@
+{
+  "checkedAt": "2026-11-10T14:00:51.858363+00:00",
+  "issue": 403,
+  "playerIssue": 50,
+  "status": "historical-native-cache-replay-passed-with-recorded-legacy-limitations",
+  "scope": "Ordinary native historical Player on Android 16/API36 emulator, locally replayed catalogue snapshots and real retained approved dev HTTPS artifacts. Not a new live publication or production cutover.",
+  "historicalBuild": {
+    "historicalSource": "03a261bda82bc6ec07d66f980506143ecba430a8",
+    "isolatedAppId": "studio.arke.player.compat403",
+    "changes": [
+      "apps/arke_player/android/app/build.gradle.kts",
+      "apps/arke_player/android/app/src/main/AndroidManifest.xml",
+      "apps/arke_player/lib/features/worlds/application/worlds.dart",
+      "apps/arke_player/assets/worlds/catalogue.json"
+    ],
+    "patchSha256": "32214e19b79d71cecf2c25c8da0fad636da9d0672ac814028d9f48ff31653589",
+    "readerAndServiceLogicChanged": false,
+    "fixtureProtocol": "Seed only this isolated app catalogue cache with saved dev catalogue snapshots; use retained approved AONIK HTTPS artifacts. Capture every seed and never describe snapshots as current live catalogue responses.",
+    "apkSha256": "f9565833f12613fda6695de36521934e0ff5a57f62104ff2fe988f402c04c060",
+    "apkBytes": 51630756,
+    "buildMode": "profile",
+    "flutterVersion": "3.41.3",
+    "flutterTarget": "android-x64",
+    "debuggableForPrivateCheckpointReadback": true,
+    "providersOverridden": false
+  },
+  "catalogueReplay": {
+    "checkedAt": "2026-11-10T13:24:02.844195+00:00",
+    "scope": "Local cache replay, retained approved dev HTTPS artifacts; NOT current live publication",
+    "catalogueSerialsAreSynthetic": [
+      100,
+      101,
+      102,
+      103
+    ],
+    "originalSerials": [
+      5,
+      7,
+      9,
+      10,
+      12
+    ],
+    "sourceFiles": [
+      "output\\arke-studio-2391\\output\\dev-403\\formats-20261109-r2",
+      "output/research/403-dev-catalogue-serial5.json",
+      "output/arke-studio-2391/output/dev-403/player-update-withdrawn-review.json"
+    ],
+    "pins": [
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/46ddb128-c2d8-430f-b264-6fee2be3a1de",
+        "status": 200,
+        "bytes": 1176020,
+        "sha256": "9d5101c3698c0f000021e71848c7b31ec12a8a824eb8a93fe4cf8f661339b81f"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/977f46aa-1749-45f0-9df1-33d8175827c7",
+        "status": 200,
+        "bytes": 2354240,
+        "sha256": "10047792c721bdb60da54aedf10c281265d360151e760e3a6415c323e49a362c"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/44fb5573-f8ff-4e2c-a181-621d8ffd3cd4",
+        "status": 200,
+        "bytes": 99723,
+        "sha256": "dcdc6d79f75a430a425e4870b38c8ba4aa7ff9a334082ebef15f850edf212117"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/34e6b947-e241-48ef-b43a-35d02d7fd447",
+        "status": 200,
+        "bytes": 2052,
+        "sha256": "1b985f306517220e1109af14d6c855547d7842e05c560ba8c5da9100f2089849"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/54df94c6-e8dc-4840-895f-3b2934b62697",
+        "status": 200,
+        "bytes": 98478,
+        "sha256": "174d1a6485e96014ead28712241c98e9e616a0f65c7edf74e6e503396eb37d9a"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/229fc2a0-03c5-4be0-8686-23b2cdd4e41c",
+        "status": 200,
+        "bytes": 2052,
+        "sha256": "1b985f306517220e1109af14d6c855547d7842e05c560ba8c5da9100f2089849"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/b145b452-b7b6-48ee-a83c-cca5c6f5754a",
+        "status": 200,
+        "bytes": 10349,
+        "sha256": "81797d67c58552bbc6b9cc321e9455bbb7ec5888103a0d2870d5327b2af96c08"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/9bc855d5-af9d-491d-b377-b8f848329560",
+        "status": 200,
+        "bytes": 2459,
+        "sha256": "a1d81be905a8a17386ebfaa25738afb3ad44f131473f2e6f77e438d6ba607c93"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/b9ec38de-169c-4d05-9cac-139812dc980a",
+        "status": 200,
+        "bytes": 10597,
+        "sha256": "c5e3991842a41cf7592cb703f6d7de70383b927d2a046effcfd53af1d0b29ac2"
+      },
+      {
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/53463342-3e67-4d82-8a15-f17a97424a09",
+        "status": 200,
+        "bytes": 2354240,
+        "sha256": "c6253edce1162fa70c1ac01f5b99d9c125c5f9c266c2375aacb2d6fc2653850b"
+      }
+    ],
+    "productionMutation": false,
+    "devCatalogueMutation": false
+  },
+  "part": {
+    "baseSavedPosition": {
+      "progress": 0.2554166666666667,
+      "updatedAt": "2026-11-10T13:29:17.515861Z",
+      "positionMs": 3065,
+      "locator": "chapter-1"
+    },
+    "allSavedPositionsExactlyPreservedOnImport": true,
+    "chapterCount": 2,
+    "partCount": 1,
+    "nativeNewChapterAndContinueActionsVerified": true,
+    "nativeAddedChapter": "A second lantern",
+    "nativeAddedChapterSavedPosition": {
+      "progress": 0.92125,
+      "updatedAt": "2026-11-10T13:30:31.364834Z",
+      "positionMs": 10110,
+      "locator": "chapter-2"
+    }
+  },
+  "unsupportedFormats": {
+    "storyId": "garden-choices",
+    "comicId": "garden-comic",
+    "actualCardSelections": "Both fall back to installed world with only the supported audio production. No unsupported reader or standalone install action.",
+    "libraryIndexAndMediaByteIdentical": true,
+    "newLibraryFiles": 0,
+    "newUnsupportedItems": 0,
+    "networkNonFetchProof": "Prior exact-source real-HTTPS service test captured only base/part requests. This native batch verifies unchanged installed files; it is not a new packet-capture assertion.",
+    "presentationLimitation": "Historical Discover labels unknown story/comic kinds as Book."
+  },
+  "edition": {
+    "from": "2026-11-07",
+    "to": "2026-11-08",
+    "nativeUpdateActionVerified": true,
+    "allSavedPositionsExactlyPreservedBeforeReopen": true,
+    "savedBookPosition": {
+      "progress": 0.0,
+      "updatedAt": "2026-11-10T13:34:41.419545Z",
+      "locator": "epubcfi(/6/4!/4/2/2/1:0)"
+    },
+    "bookFinishedBeforeUpdate": false,
+    "nativeReopenedAtSavedTitleSection": true,
+    "oldEditionDuringDownload": "2026-11-07",
+    "worldCount": 2,
+    "itemCount": 2,
+    "audioItemWorldAndMediaUnchanged": true,
+    "newBookSha256": "a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e"
+  },
+  "offline": {
+    "checkedAt": "2026-11-10T13:38:47.9726968Z",
+    "wifi": "0",
+    "mobileData": "0",
+    "defaultNetwork": "Active default network: none",
+    "coldProcessStart": true,
+    "nativeUpdatedBookLoadedAtSameSavedTitleSection": true,
+    "installedMediaByteIdentical": true
+  },
+  "legacyEpubLimitation": {
+    "observed": "Historical reader marks final chapter finished on its first page, even when page 1 of 2 is displayed. Reopening a finished item starts at its cover.",
+    "alreadyFixedInCurrentPlayer": "https://github.com/michaeljosiah/ArkePlayer/pull/66",
+    "testCheckpoint": "For the edition-retention check, normal UI navigation saved the earlier title section (not the cover); its exact CFI, timestamp and unfinished flag survive the update. Historical percentage is 0.0. No index/progress was seeded.",
+    "historicalReaderPatched": false
+  },
+  "existingDevPlayer": {
+    "appId": "studio.arke.player.dev",
+    "allPrivateDirectoriesByteIdentical": true,
+    "archiveBytes": 3856896,
+    "archiveSha256": "925b81468f8bf1377e15489e593bae0a2fc46ccf4bdfc02dc0aae237f14cf4af",
+    "uninstalled": false,
+    "cleared": false,
+    "apkReplaced": false
+  },
+  "releasedApkSupplement": {
+    "originalRelease": "v0.1.0-preview.20261026.update",
+    "source": "03a261bda82bc6ec07d66f980506143ecba430a8",
+    "packageId": "studio.arke.player",
+    "apkSha256": "aa170dcb0b19a24548b34d5ce4b434165bb709ec85f6a6b13a94660a491c61e2",
+    "signingCertificateSha256": "c161b145275983926c2de54f2f6392a22c12774d012db1614f300696da784475",
+    "binaryModified": false,
+    "catalogueEndpointChanged": false,
+    "firstAdditionalDownloadInterrupted": "Android LOW_MEMORY process exit at 2026-11-10T13:27:18.302; earlier Red Quiet download retained. Keeping the other test app stopped allowed the foreground retry to complete.",
+    "foregroundRetry": "Normal UI installed The Undersong base and part, displayed 65 MB and exactly two chapters, and played chapter 2 Slack water through the native player. Paused normally after 13 seconds within chapter 2.",
+    "nativeMediaSession": {
+      "state": "PAUSED",
+      "positionMs": 885061,
+      "positionScope": "Concatenated production, not chapter-relative",
+      "title": "The Ledger of Nights"
+    },
+    "expectedHostedPins": {
+      "base": {
+        "bytes": 26508341,
+        "sha256": "6a5ccfb24e844867358254ac2385adf1484448deec57bae1e0c83888b3cb5a0f",
+        "edition": "2026-10-29-2"
+      },
+      "part": {
+        "bytes": 38246282,
+        "sha256": "f98c11ecbafcb65537bc9b095c7081c7d64c26410ffa2a94c366606091f21db3",
+        "edition": "2026-10-29",
+        "chapter": "slack-water"
+      }
+    },
+    "unsupportedComic": {
+      "id": "the-ledger-of-nights-redrawn",
+      "actualInteraction": "Selected The Ledger of Nights, drawn in Discover / Read; returned safely to the installed Undersong world, with only the supported audiobook. No comic reader or standalone install action."
+    },
+    "unsupportedStory": {
+      "id": "first-contact",
+      "actualInteraction": "Selected First Contact in Discover / Play; returned safely to the installed Red Quiet world, with only the supported audiobook. No story reader or standalone install action."
+    },
+    "previousReleasedAudioRetained": "The Red Quiet still displays Continue / Chapter 1 / 0:58 without starting playback.",
+    "privateCacheOrFilesExtracted": false,
+    "exactPrivateCatalogueSerialClaimed": false,
+    "networkNonFetchClaimed": false,
+    "productionFeedChanged": false,
+    "finalWifiEnabled": true,
+    "finalMobileDataEnabled": true,
+    "finalExistingDevArchiveSha256": "925b81468f8bf1377e15489e593bae0a2fc46ccf4bdfc02dc0aae237f14cf4af"
+  },
+  "productionMutation": false,
+  "devCatalogueMutation": false,
+  "mirrorMutation": false,
+  "limits": [
+    "Configured rebuild is not the unchanged signed release binary.",
+    "Local cache serials 100-103 are replay fixtures, not AONIK publication serials.",
+    "No natural 24-hour background scheduling, iOS, physical Android or OEM coverage.",
+    "Production audited baseline, rights/ownership, mirror migration and capacity acceptance remain separate."
+  ],
+  "localEvidenceHashes": {
+    "build-isolation.patch": {
+      "bytes": 13711,
+      "sha256": "32214e19b79d71cecf2c25c8da0fad636da9d0672ac814028d9f48ff31653589"
+    },
+    "device-base.tar": {
+      "bytes": 3841536,
+      "sha256": "82e5ca646fbd2b1335626410945b8ccf13fae0b5bf394f068ac37b5878b9b2aa"
+    },
+    "device-before-update.tar": {
+      "bytes": 3972608,
+      "sha256": "bfc52c186a2a34e5382a819252ad6338f1357540f4a2e1728fcbe65749d0d60c"
+    },
+    "device-formats.tar": {
+      "bytes": 3964416,
+      "sha256": "941b9ce390b1a217e88eaaf395e9a21ec244af4a5e638bf337fa38a23a5ce431"
+    },
+    "device-offline.tar": {
+      "bytes": 3980800,
+      "sha256": "44d5cf55948b3b503acc0a20119d91d8bd5e4bc9506f88be70e08bfe62f754c8"
+    },
+    "device-part-imported.tar": {
+      "bytes": 3951616,
+      "sha256": "7d12445d1eee46f5ab4c5cdc64fc5803c334493fb0f1d0a5e467359d6da704ca"
+    },
+    "device-part-played.tar": {
+      "bytes": 3951616,
+      "sha256": "9763edc281d6ca8fdd20eb8d472361e99295754715c45d2353b5c9e8f9fdd280"
+    },
+    "device-updated.tar": {
+      "bytes": 3972608,
+      "sha256": "57b28b03380856e499d0cd533ea94a1787d8e8eeed4814ad8d1c9d77ad360583"
+    },
+    "device-updating.tar": {
+      "bytes": 6328832,
+      "sha256": "22c625d6ea1e25305198f8bedc6c76dabd28690e2473d4bba7297ee6bc2f5bbe"
+    },
+    "offline-network.json": {
+      "bytes": 144,
+      "sha256": "a18be061c82250b5d6d80cb50ec71640756377ad8a52fc2a0849527f2b6d443e"
+    },
+    "released-exit-info.txt": {
+      "bytes": 909,
+      "sha256": "5a546e898003efecc597fdbd1e04948836d209274b9b156ba01104efd2a02de2"
+    },
+    "released-part-media-session.txt": {
+      "bytes": 3118,
+      "sha256": "68a2e9785cee065d26efccb6057af3b228c468c6f5e3b13b6ff103924fb95b86"
+    },
+    "screens/compat-base-audio-paused-0.jpg": {
+      "bytes": 32901,
+      "sha256": "debe9ead9c660fad48ec85d646eac18d34b6b2ab3c21196c9d06a69332e45e24"
+    },
+    "screens/compat-base-audio-paused-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-base-book-text-0.jpg": {
+      "bytes": 77434,
+      "sha256": "05de05401314d1998c86ff7eb12379b296eb4cf5931457a0970ae71a0eb9db1b"
+    },
+    "screens/compat-base-book-text-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-base-catalogue-0.jpg": {
+      "bytes": 40796,
+      "sha256": "39113b103bc9e210c43635833e5761c07ed324820652772b94d410863d049ea7"
+    },
+    "screens/compat-base-catalogue-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-book-earlier-section-0.jpg": {
+      "bytes": 37784,
+      "sha256": "aa14c88628fe729a97d0482e6917ac794ab2d13accfbf981992c28322dc562df"
+    },
+    "screens/compat-book-earlier-section-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-book-two-pages-before-update-0.jpg": {
+      "bytes": 75189,
+      "sha256": "20e01c314fe15322eea493c6acd63997e94b46e25ec1a1f778b48da8207b4011"
+    },
+    "screens/compat-book-two-pages-before-update-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-comic-safe-world-fallback-0.jpg": {
+      "bytes": 49065,
+      "sha256": "c4af164e58cd4db35b32cede8541d3468534826e43e724be40e49310ca9389ea"
+    },
+    "screens/compat-comic-safe-world-fallback-1.jpg": {
+      "bytes": 4053,
+      "sha256": "ec4369dc995a13df6b389db402c3f4adb291f3e44eec065876c12c5578384363"
+    },
+    "screens/compat-edition-available-0.jpg": {
+      "bytes": 58666,
+      "sha256": "bc1669b16d0a8fac89cb979e8fb97d7d9c75e08fabbcdd7ac191fb5baccb61df"
+    },
+    "screens/compat-edition-available-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-edition-installed-0.jpg": {
+      "bytes": 53855,
+      "sha256": "e783b45a31b8f29cb855e33dfac23cc18e7d70c629e1f4e220590568143e71eb"
+    },
+    "screens/compat-edition-installed-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-edition-resumed-0.jpg": {
+      "bytes": 37613,
+      "sha256": "5ff553ccc4e8dc00b054d38ae234f15acd8f6488a00cf35be65e949bfcc345f7"
+    },
+    "screens/compat-edition-resumed-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-part-new-chapter-0.jpg": {
+      "bytes": 51109,
+      "sha256": "602e69d7cb9982ebde35a022d2a82851709cbe49bae6fcad33f92956bebcd3c5"
+    },
+    "screens/compat-part-new-chapter-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-part-playing-0.jpg": {
+      "bytes": 29497,
+      "sha256": "388451085fd15f8cc2b43952c9d085efad316c377206a0352ae09b0eec3244ff"
+    },
+    "screens/compat-part-playing-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-part-resume-preserved-0.jpg": {
+      "bytes": 47043,
+      "sha256": "cd198288fd6ec302b3dab5e67e3d69f2a18accf3e223d3a69ecf0915c61c6b86"
+    },
+    "screens/compat-part-resume-preserved-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-story-safe-world-fallback-0.jpg": {
+      "bytes": 49089,
+      "sha256": "3ed01d45a612ae2349452327995e1b742d3a788bc01673569a243fad2c96a796"
+    },
+    "screens/compat-story-safe-world-fallback-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-unsupported-story-card-0.jpg": {
+      "bytes": 47078,
+      "sha256": "37dbc085f55b756cb6e868ff669a52f38b67b08870539fab4c5240fdfebd6a31"
+    },
+    "screens/compat-unsupported-story-card-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-updated-book-cold-offline-0.jpg": {
+      "bytes": 27255,
+      "sha256": "82792ff360f94d25de21a57abb506cb9f2aa83b23ef783a5ccdda739736ae603"
+    },
+    "screens/compat-updated-book-cold-offline-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/compat-updated-book-offline-loaded-0.jpg": {
+      "bytes": 37447,
+      "sha256": "0ed5a180968942b4595ac29af6c3d66c47d581713d0a6ca6fee887fe6cb6923b"
+    },
+    "screens/compat-updated-book-offline-loaded-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-download-interrupted-low-memory-0.jpg": {
+      "bytes": 67294,
+      "sha256": "ceac29c4b6c9482d3b14b7e2d57413f87a0c0ab47f54ec80e8e86747b47b0348"
+    },
+    "screens/released-download-interrupted-low-memory-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-part-continue-preserved-0.jpg": {
+      "bytes": 58057,
+      "sha256": "981112b4a74409bfdb599f786e094bc283c87b38d92259642ccb3ca4d3c66056"
+    },
+    "screens/released-part-continue-preserved-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-part-native-paused-0.jpg": {
+      "bytes": 76672,
+      "sha256": "58340a59f994a350ec5ca41a164e504a7f6a05aed785ec3e727b1abeb3aec52a"
+    },
+    "screens/released-part-native-paused-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-part-native-playing-0.jpg": {
+      "bytes": 76706,
+      "sha256": "5e08eb09a7bd3b79056ed743aab37eafdb8b9f3f11650e65b195753b6591934a"
+    },
+    "screens/released-part-native-playing-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-red-quiet-position-retained-0.jpg": {
+      "bytes": 58321,
+      "sha256": "44bc59a08b27ec8e89255b0e74fb9bd847f6a41e0393276108dcfac23679dc6a"
+    },
+    "screens/released-red-quiet-position-retained-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-two-chapters-0.jpg": {
+      "bytes": 52451,
+      "sha256": "096b69bb1674c75b39011eae4ee140201549230d2095765b1233a3d3cb0f8f5c"
+    },
+    "screens/released-two-chapters-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-undersong-available-0.jpg": {
+      "bytes": 53780,
+      "sha256": "0c5f5d647eb52cffeafb6c0e6d27264cd0fc220e512b230c6874d3f04d10b894"
+    },
+    "screens/released-undersong-available-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-undersong-installed-0.jpg": {
+      "bytes": 71602,
+      "sha256": "bb779f556dfe73883dbcf2dfbd3b6c7d5a2dc24bc0eb3c23971ef3f6c44e5128"
+    },
+    "screens/released-undersong-installed-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-unsupported-comic-card-0.jpg": {
+      "bytes": 56097,
+      "sha256": "bf195b71f5ad57502fbe570703fc8a89a93a6efc2a48911df6f170a5c005b06e"
+    },
+    "screens/released-unsupported-comic-card-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-unsupported-comic-safe-fallback-0.jpg": {
+      "bytes": 67450,
+      "sha256": "8b1dc0b41eeb31e07608da304c0548a1431efcd59a6f6c64b7639bbff73c0404"
+    },
+    "screens/released-unsupported-comic-safe-fallback-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-unsupported-story-card-0.jpg": {
+      "bytes": 50063,
+      "sha256": "458483f1763c47a6647bfa2197315bf0a76bc4f2ca002f50e0e5788539a70622"
+    },
+    "screens/released-unsupported-story-card-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "screens/released-unsupported-story-safe-fallback-0.jpg": {
+      "bytes": 70799,
+      "sha256": "a1d93e1ac903a6760253fe04ed15288363725776075297e0c7af138f2739d9c2"
+    },
+    "screens/released-unsupported-story-safe-fallback-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "seed-base.json": {
+      "bytes": 259,
+      "sha256": "03a006b93e4e4892514f7b9d461688ebcb106c7705c12a7ec103aca669e06573"
+    },
+    "seed-edition.json": {
+      "bytes": 259,
+      "sha256": "99d50e6f1ddb650832ecf6112fddea8e3a883d08ba8afbae8d08d6aefacc9c6b"
+    },
+    "seed-formats.json": {
+      "bytes": 259,
+      "sha256": "1a5406882b208223e110010340b591eb2066d1c5c12afb1805b0624b31e6efd5"
+    },
+    "seed-part.json": {
+      "bytes": 259,
+      "sha256": "189261f2e1ea96c7145caa7c1768c97a99a035ec23831e8247b591a6647b30e9"
+    }
+  }
+}

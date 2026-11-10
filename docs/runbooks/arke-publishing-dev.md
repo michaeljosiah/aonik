@@ -3,6 +3,98 @@
 This record separates deployment from end-to-end qualification. No production
 catalogue migration or public release is authorised by the dev rehearsal.
 
+## Historical native Player qualification — 10 November 2026
+
+The ordinary Android UI built from historical source
+`03a261bda82bc6ec07d66f980506143ecba430a8` now qualifies the additional chapter,
+unsupported story/comic selections and book edition update on the selected
+Android 16/API36 emulator. This supplements the unchanged signed October 26 APK's
+discovery/install/cold-offline audio check. The unchanged APK also passed the
+additional native chapter and unsupported-format checks below. These remain two
+distinct tests, with different catalogue sources.
+
+The historical source rebuild changes only application ID, visible app label,
+catalogue endpoint and an empty bundled baseline. It installs as
+`studio.arke.player.compat403`, alongside both existing apps. Reader, installer,
+library, dependencies and lockfile are unchanged; there are no provider overrides
+or injected reading positions. Flutter 3.41.3 produced the ordinary x64 profile
+APK, SHA-256 `f9565833f12613fda6695de36521934e0ff5a57f62104ff2fe988f402c04c060`.
+This configured rebuild is not represented as the unchanged signed release.
+
+The live dev feed remains empty serial **22**. Saved, previously published dev
+catalogues are replayed locally as cache serials **100–103** in this isolated app
+only. Ten retained approved artifact URLs were fetched independently and every
+byte length/SHA-256 matched. The app downloads the same real HTTPS artifacts.
+No new edition, cloud catalogue, production feed or legacy mirror is published.
+
+- The native base chapter saved **3,065ms**, locator `chapter-1`. On the next
+  launch, the foreground importer added chapter 2 exactly once; every saved
+  position, including the unrelated book, remained identical. The actual screen
+  retained **Continue · Chapter 1 · 0:03**, showed the new chapter, and played
+  **A second lantern**, subsequently paused at **10,110ms** within chapter 2.
+- Actual selections of the unsupported story and comic cards return to the
+  installed world, with only its supported audio production. The complete library
+  index and installed media remain byte-identical, with no new library files or
+  unsupported items. The old Discover screen labels these unknown kinds **Book**;
+  that is a historical presentation limitation. The earlier exact-source service
+  trace proves no story/comic package fetch; this native check is not a new
+  network packet capture.
+- The book's normal **Update** action changes edition **2026-11-07 → 2026-11-08**.
+  The saved CFI, percentage, timestamp and unfinished flag are identical before
+  reopening; the audio item, world and media are unchanged. There are exactly two
+  worlds and two items. The updated EPUB SHA-256 matches the prior live rehearsal:
+  `a47f988bdf1602d1bf173c12036189161279529c0abfb3bd0ffef3964517dc5e`.
+  The native reader opens at the saved title section rather than the cover, both
+  online and after a cold process start with both radios off and no default network.
+
+The historical EPUB reader also reproduces the already-fixed final-chapter
+completion defect from [Player #66](https://github.com/michaeljosiah/ArkePlayer/pull/66):
+it can mark page 1 of 2 finished and subsequently start from the cover. The update
+check therefore separately uses an earlier, unfinished title section reached
+through the real UI; its historical percentage is 0.0 and its exact CFI is
+`epubcfi(/6/4!/4/2/2/1:0)`. No progress is written by the fixture helper. This
+qualifies locator retention without claiming the historical completion bug is
+fixed. Use a current Player build for the corrected reading behavior.
+
+The unchanged signed APK (`studio.arke.player`, version code 2001, SHA-256
+`aa170dcb0b19a24548b34d5ce4b434165bb709ec85f6a6b13a94660a491c61e2`)
+separately installed **The Undersong** base and chapter part through its existing
+read-only GitHub feed. The first download was interrupted by a recorded Android
+`LOW_MEMORY` exit at **13:27:18 UTC**, while the other test app was running.
+Keeping that app stopped allowed a normal foreground retry to complete. The
+released UI then showed **65 MB**, exactly two chapters, and played **Slack water**
+natively; it was paused at **0:13** within chapter 2. Android reports the paused
+concatenated-production position as **885,061ms**, not a chapter-relative time.
+
+In that unchanged APK, selecting **The Ledger of Nights, drawn** in Discover / Read
+and **First Contact** in Discover / Play safely returned to their installed world
+pages with only the supported audiobook. Neither opened an unsupported reader or
+offered a separate unsupported download. The earlier Red Quiet listening position
+still displays **Continue · Chapter 1 · 0:58**. This non-debuggable APK's private
+files/cache were not extracted: no exact cached serial or new network non-fetch
+claim is made. Its production catalogue and all remote artifacts remain unchanged.
+Playback is paused and both radios are restored.
+
+For reproduction, back up every existing app's private files/preferences first.
+Build the historical checkout with the four isolation-only changes above and
+verify its distinct application ID before installing; never uninstall or clear
+an existing app to recover an install failure. Launch it once, then cold-stop
+only the isolated app and save its previous `files/catalogue.json`. Replace that
+file atomically with `{ "fetchedAt": "<current UTC>", "list": <saved catalogue> }`,
+recording the original catalogue provenance and artificial replay serial. Resume
+the ordinary app and use its actual install/read/play/update controls. Take full
+private-directory checkpoints before and after each phase, compare saved records
+and media, and restore the emulator's prior radio settings after offline checks.
+Keep other test apps stopped while downloading on a memory-constrained emulator.
+
+The existing `studio.arke.player.dev` app's files, preferences and no-backup data
+remain byte-identical: **3,856,896 bytes**, SHA-256
+`925b81468f8bf1377e15489e593bae0a2fc46ccf4bdfc02dc0aae237f14cf4af`.
+The [sanitized evidence](evidence/arke-player-historical-native-2026-11-10.json)
+records build/fixture provenance, exact checkpoints, observed limitations and
+capture hashes. No physical Android/iOS, natural/OEM scheduling, production
+baseline/rights acceptance or legacy mirror cutover is implied by this replay.
+
 ## Delivery exhaustion and isolated restore — 10 November 2026
 
 The final-attempt regression found that the publication handler previously relied
