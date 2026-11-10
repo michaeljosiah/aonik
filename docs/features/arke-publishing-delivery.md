@@ -87,6 +87,14 @@ Each channel has a separate expiring mirror claim. Every event/retry loads the *
 
 ## Editable designs and reproducible checks
 
+The admin manifest must include the server-evaluated `PublishingReviewPolicy`,
+`PublishingManagementPolicy`, `PublishingPublishPolicy` and
+`PublishingWithdrawPolicy`. The Arke Worlds profile also requires the publishing
+module and the appropriate stored permission. An assigned API reviewer can otherwise
+be blocked by navigation even when the publishing endpoints authorise them. The
+manifest integration tests cover each publishing permission and a tenant admin
+without publishing access; no client-side role inference or endpoint bypass is used.
+
 - [Dedicated editable canvas](../../Templates/aonik-admin-starterkit/publishing.html), also included in the full canvas; [review gallery](../../Templates/aonik-admin-starterkit/marketing/publishing.html).
 - Fourteen native React artboards: queue, exact review, package, rights, history, approval confirmation, stale review, forbidden review, publication readiness, publication confirmation, catalogue, uncertain retry, withdrawal and mirror hold. Twenty-eight light/dark exports plus real Admin UI review captures are in the marketing screenshots directory. All records/rights references there are fictional.
 - `src/Aonik.AdminUi/src/pages/arke/publishing/PublishingViews.tsx` is the shared presentational source. `build-publishing-design.mjs` bundles it and the actual application icon renderer for the kit and copies the same CSS. Edit fixtures/layouts through the canvas; regenerate the shared bundle after changing application views. No application API adapter is included in the artboard bundle. The shared view deliberately retains semantic native selects, tables and checkboxes so the React-only canvas renders the exact same controls. Localised guardrail exceptions record this boundary; semantic-token contrast, keyboard navigation, confirmation gates and browser focus checks still apply.
