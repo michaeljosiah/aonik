@@ -3,6 +3,64 @@
 This record separates deployment from end-to-end qualification. No production
 catalogue migration or public release is authorised by the dev rehearsal.
 
+## Production catalogue baseline audit — 10 November 2026
+
+The remaining technical baseline item in [Player #50](https://github.com/michaeljosiah/ArkePlayer/issues/50)
+now passes. The previous serial-51/52 comparison was historical: merged Player
+[#72](https://github.com/michaeljosiah/ArkePlayer/pull/72) already ships the existing
+public serial **53**. At Player commit `bc2358a3baef408681397ac1baca87608b93f07c`,
+the hosted and bundled files are byte-identical: 14,317 bytes, SHA-256
+`3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4`.
+No catalogue edit, serial increment, public upload or application release was needed.
+
+Read-only anonymous downloads checked all **31 public pins**: **13 archives**
+(1,550,002,765 bytes) and **18 artwork files**. Every length and SHA-256 matches
+both the catalogue and GitHub release metadata across ten releases. Artwork
+decodes as images. Studio's Latest release remains `v0.5.116`.
+
+The actual current Player reader accepts all 13 archive structures/documents,
+world and production identities, capabilities, edition fingerprints and the
+Undersong part's exact base/number/chapter linkage. Its `extractAsset` and
+`AssetCheck` verify all **1,812 embedded assets**, totaling 1,549,248,700 bytes.
+The catalogue, shared-channel and refresh suites pass **29 tests**. These checks
+verify package integrity and compatibility; they do not replay every production
+asset through a native decoder or establish new distribution rights. The earlier
+current/historical device and synthetic movie evidence remains separately scoped.
+
+The [audit evidence](evidence/arke-catalogue-baseline-2026-11-10.json),
+[frozen catalogue](evidence/arke-catalogue-audit-2026-11-10/hosted-catalogue.json)
+and [reproduction instructions](evidence/arke-catalogue-audit-2026-11-10/README.md)
+retain the exact inputs and read-only verification scripts. The live catalogue
+was fetched again after verification and remained byte-identical. This qualifies
+the existing Player baseline, not an AONIK production import or legacy mirror cutover.
+
+### Production capacity handoff
+
+[AONIK #428](https://github.com/michaeljosiah/aonik/issues/428) tracks measured
+capacity qualification before those packages can enter the isolated verifier:
+
+| Package | Archive bytes | Largest asset bytes | Assets |
+| --- | ---: | ---: | ---: |
+| Undersong chapter part | 38,246,282 | 19,793,645 | 47 |
+| Legend of Dumah world | 184,588,133 | 30,743,667 | 239 |
+| Embers of the Fallen world | 126,832,165 | 26,407,051 | 62 |
+| Na Love or Juju world | 1,107,515,522 | 48,587,809 | 1,144 |
+
+All four exceed the current isolated transport's **32 MiB archive / 16 MiB asset**
+bounds; the largest also exceeds the transport and Dart verifier's **1,024-asset**
+cap. The session uses sealed memfd input, 64 MiB scratch, a 45-second CPU/deadline
+bound and a 2 GiB child address-space limit. Raising channel settings alone cannot
+qualify these packages. Review material also has bounded asset-ID coverage that
+must be exercised at the selected scale. Use representative original synthetic
+fixtures, retain isolation and fail-closed limits, measure concurrency/cost, and
+rehearse interruption and cleanup before changing deployed limits.
+
+Rights/namespace ownership, exact production approvals, the authoritative import
+and serial floor, deliberate legacy-mirror migration and operational cutover remain
+with epic #397 and the original launch gates. Public availability and matching
+hashes are not a new rights declaration. No production or dev configuration,
+publication state or installed Player data changed during this audit.
+
 ## Interactive-movie rehearsal — 10 November 2026
 
 Motion Garden Dev 403 uses three original synthetic H.264/AAC clips (12 seconds,
@@ -73,9 +131,10 @@ installs. Windows capture repeatedly failed, so native Flutter screenshots and
 decoder assertions provide the device evidence; Studio and AONIK retain their
 actual desktop UI captures. Production and the legacy mirror remain unchanged.
 
-Interactive-movie dev acceptance is complete. Remaining production work is the
-audited catalogue baseline and rights/ownership, deliberate mirror migration,
-realistic package capacity/cost and operational cutover. This result does not
+Interactive-movie dev acceptance is complete. The subsequent audit above qualifies
+the existing Player baseline. Remaining production work is rights/ownership,
+authoritative import and deliberate mirror migration, realistic package
+capacity/cost and operational cutover. This result does not
 qualify physical Android/iOS or natural/OEM scheduling.
 
 ## Actual Studio export UI to Player — 10 November 2026

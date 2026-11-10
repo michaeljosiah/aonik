@@ -1,0 +1,1306 @@
+{
+  "schemaVersion": 1,
+  "checkedAtUtc": "2026-11-10T23:07:26.785024+00:00",
+  "scope": "Read-only integrity and compatibility audit of an already-published Player catalogue; not AONIK production admission or distribution-rights clearance.",
+  "playerCommit": "bc2358a3baef408681397ac1baca87608b93f07c",
+  "baselineUpdatePr": "https://github.com/michaeljosiah/ArkePlayer/pull/72",
+  "aonikSourceCommit": "a2aeb7f095331e01bc3f19a50a304d1956058d42",
+  "catalogue": {
+    "version": 2,
+    "serial": 53,
+    "worlds": 5,
+    "byteLength": 14317,
+    "sha256": "3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4",
+    "hostedEqualsBundled": true,
+    "finalHostedReadbackMatches": true,
+    "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/catalogue.json"
+  },
+  "totals": {
+    "archiveCount": 13,
+    "archiveBytes": 1550002765,
+    "pictureCount": 18,
+    "pictureBytes": 5871929,
+    "embeddedAssetCount": 1812,
+    "embeddedAssetBytes": 1549248700
+  },
+  "publicPins": {
+    "checkedAtUtc": "2026-11-10T23:01:39.901782+00:00",
+    "serial": 53,
+    "catalogueSha256": "3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4",
+    "anonymous": true,
+    "writesToRemote": false,
+    "pins": [
+      {
+        "location": "/worlds/0/pins/keyArt",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-keyArt-20261024.jpg",
+        "byteLength": 183862,
+        "sha256": "e3b91a196743ac9e9363a74b0655448c3d692438710dd3839c13ccfb31b558e9",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1672,
+          "height": 941
+        }
+      },
+      {
+        "location": "/worlds/0/productions/0/pins/picture",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-picture-20261024.jpg",
+        "byteLength": 223676,
+        "sha256": "e3154e34ad1e87d12154d7731266507892e797ebb5acae528e7d638eb80c9fa8",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1280,
+          "height": 720
+        }
+      },
+      {
+        "location": "/worlds/0/productions/0/pins/tall",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-tall-20261024.jpg",
+        "byteLength": 576958,
+        "sha256": "198bf9b2f21fab778401622397efae22a57615a775ccd479736bc5e0004f6776",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1024,
+          "height": 1536
+        }
+      },
+      {
+        "location": "/worlds/0/productions/1/pins/tall",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-tall-20261030.jpg",
+        "byteLength": 524097,
+        "sha256": "02d20fdf110a8d8d8f9ec2a68039f8d4cd4859d30b461eab36d6a6fa97167068",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1024,
+          "height": 1536
+        }
+      },
+      {
+        "location": "/worlds/0/productions/1/comic",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-26-chapter-3/the-ledger-of-nights-redrawn-comic-2026-11-01.zip",
+        "byteLength": 6753206,
+        "sha256": "3b728ab247a94a65cd7efb924be01c10de06a49e648907aa437c98b624f96884",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/0/package",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-29-revised-chapter-1-portraits/the-undersong-player-2026-10-29-2.zip",
+        "byteLength": 26508341,
+        "sha256": "6a5ccfb24e844867358254ac2385adf1484448deec57bae1e0c83888b3cb5a0f",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/0/package/parts/0",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-29-revised-chapter-2/the-undersong-part-2026-10-29.zip",
+        "byteLength": 38246282,
+        "sha256": "f98c11ecbafcb65537bc9b095c7081c7d64c26410ffa2a94c366606091f21db3",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/0/guide",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-22-r1/the-undersong-guide-2026-10-22.zip",
+        "byteLength": 3625221,
+        "sha256": "ff02694633fa49e2a742e69a42dc5f87ae5f66dddd41e18c64f1b4e6a0115123",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/1/pins/keyArt",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-keyArt-20261024.jpg",
+        "byteLength": 206972,
+        "sha256": "7946424399bdcf27cd03a8e752a0c7dd384adb1eb6487c49fced3ce279591aee",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1672,
+          "height": 716
+        }
+      },
+      {
+        "location": "/worlds/1/productions/0/pins/picture",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-picture-20261024.jpg",
+        "byteLength": 252781,
+        "sha256": "5e63b2f4e27b70f9bb9afc0fa7eb14f1b41555e48318a3a1528988d48a1ce888",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1800,
+          "height": 750
+        }
+      },
+      {
+        "location": "/worlds/1/productions/0/pins/tall",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-tall-20261024.jpg",
+        "byteLength": 599305,
+        "sha256": "612938f535be0f3445ccbc0533e0bbef1e3a6b37e096c9c2b9e945276439aec8",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1024,
+          "height": 1536
+        }
+      },
+      {
+        "location": "/worlds/1/package",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/legend-of-dumah-2026-10-22-r1/legend-of-dumah-player-2026-10-25.zip",
+        "byteLength": 184588133,
+        "sha256": "81c5f6b8c296753fe21f5c0c4cf93540496d1aac73b50793475dec4dd7a03613",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/1/guide",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/legend-of-dumah-2026-10-22-r1/legend-of-dumah-guide-2026-10-23-2.zip",
+        "byteLength": 1934982,
+        "sha256": "99eb0e765e01eaf7421a0c690159480557c234c93cd47139ad901c2754315239",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/2/pins/keyArt",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-keyArt-20261024.jpg",
+        "byteLength": 163611,
+        "sha256": "99da6f43deeb87d2efc3e0cd17770f33c2b74f106d3408e1cc52d6e7b6fcaf2d",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1122,
+          "height": 1402
+        }
+      },
+      {
+        "location": "/worlds/2/productions/0/pins/picture",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-picture-20261024.jpg",
+        "byteLength": 177567,
+        "sha256": "eaa4a1dcda7edde17da2570d34d4e8e91c4cd2da4efd7b66f10f1e1b54fe3acd",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1280,
+          "height": 720
+        }
+      },
+      {
+        "location": "/worlds/2/productions/0/pins/tall",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-tall-20261024.jpg",
+        "byteLength": 317512,
+        "sha256": "6ee6a57f83422a238826feb74c69086aea24921d3ed1b837a7df34389eeb2a50",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1024,
+          "height": 1536
+        }
+      },
+      {
+        "location": "/worlds/2/productions/1/story",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/first-contact-story-2026-10-29-2.zip",
+        "byteLength": 25235634,
+        "sha256": "3d9bf6a53fafff6ba47a1bb306a4b80c9a3db260449503d36aff9288ca2e4d61",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/2/productions/1/pins/picture",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-first-contact-picture-20261028.jpg",
+        "byteLength": 205028,
+        "sha256": "093f9561e98cc8f85b392ec390a3b42925497474bda1884a4ce8bf4a6d290e03",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1280,
+          "height": 720
+        }
+      },
+      {
+        "location": "/worlds/2/productions/1/pins/tall",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-first-contact-tall-20261028.jpg",
+        "byteLength": 306659,
+        "sha256": "95991ce6c0c063a34410b686847d31ff273a9d1307a4adf09f76b4f316542bf7",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1024,
+          "height": 1536
+        }
+      },
+      {
+        "location": "/worlds/2/package",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/the-red-quiet-player-2026-10-24-2.zip",
+        "byteLength": 22839186,
+        "sha256": "1781cb578e2dd1755020840dd4b39dc11ca926e1436a372e8016218c490ae579",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/2/guide",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/the-red-quiet-guide-2026-10-23.zip",
+        "byteLength": 1131799,
+        "sha256": "bba813092c1180e74c7cea42cb0c8fd1b98afe3b01790c536cfc732e9189fcc0",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/3/pins/keyArt",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-keyArt-20261024.jpg",
+        "byteLength": 164652,
+        "sha256": "a82e22f04649850d3db0c2f5bd1beea7f0c35bd2796a0f8e96bd7d9b39699ef2",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1672,
+          "height": 941
+        }
+      },
+      {
+        "location": "/worlds/3/productions/0/pins/picture",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-picture-20261024.jpg",
+        "byteLength": 403653,
+        "sha256": "6479b8626c88c5ef6c6262330de61d1814ca21c80bc084e62eb5f5136565eaf9",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1280,
+          "height": 720
+        }
+      },
+      {
+        "location": "/worlds/3/productions/0/pins/tall",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-tall-20261024.jpg",
+        "byteLength": 627604,
+        "sha256": "82c925ac3efadce48be845b8809a634e86a2813527365a44ff1cec3333e53fed",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1024,
+          "height": 1536
+        }
+      },
+      {
+        "location": "/worlds/3/package",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/embers-of-the-fallen-2026-10-23-r1/embers-of-the-fallen-player-2026-10-24-3.zip",
+        "byteLength": 126832165,
+        "sha256": "6f9715e501fc2c88cc530bc7629e5e25b8b1ee3e62e195bfbad956c859625404",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/3/guide",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/embers-of-the-fallen-2026-10-23-r1/embers-of-the-fallen-guide-2026-10-23-2.zip",
+        "byteLength": 648495,
+        "sha256": "9d99ecacc5350fadaab941f34992e77c3c9c385eb764b07d295cf450710c931a",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/4/pins/keyArt",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-keyArt-20261031.jpg",
+        "byteLength": 639117,
+        "sha256": "bf0730e39e861b32ff920c8cae750bf220381220c9f49edd1a98b6aae5ed29e5",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1672,
+          "height": 941
+        }
+      },
+      {
+        "location": "/worlds/4/productions/0/pins/picture",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-picture-20261031.jpg",
+        "byteLength": 136759,
+        "sha256": "620d7632e6624bbebdce0f0ed884d9d7a96f8f8f9629fcf64817aafad9bf45dd",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 1280,
+          "height": 720
+        }
+      },
+      {
+        "location": "/worlds/4/productions/0/pins/tall",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-tall-20261031.jpg",
+        "byteLength": 162116,
+        "sha256": "7c91f350409faeb5bac3cd273eb5a2be921b629dd1c499e97edd3d06379394a9",
+        "kind": "picture",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true,
+        "image": {
+          "format": "JPEG",
+          "width": 480,
+          "height": 720
+        }
+      },
+      {
+        "location": "/worlds/4/package",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/na-love-or-juju-2026-11-10-r1/na-love-or-juju-player-2026-11-10.zip",
+        "byteLength": 1107515522,
+        "sha256": "6a2f4469d4215e85c7e82f016b3355ead29a7cf57bcf35af5fa39919c86c9c2f",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      },
+      {
+        "location": "/worlds/4/guide",
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/na-love-or-juju-2026-11-09-r1/na-love-or-juju-guide-2026-11-09.zip",
+        "byteLength": 4143799,
+        "sha256": "f2f2072c1407fd9db3b0e996bd422709595a10efaf15e3e426a65c784c9995bb",
+        "kind": "archive",
+        "anonymousDownload": true,
+        "freshDownload": true,
+        "verified": true
+      }
+    ]
+  },
+  "readerVerification": {
+    "checkedAtUtc": "2026-11-10T23:03:06.717470Z",
+    "serial": 53,
+    "catalogueSha256": "3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4",
+    "readerCommit": "bc2358a3baef408681397ac1baca87608b93f07c",
+    "passed": true,
+    "packages": [
+      {
+        "worldId": "the-undersong",
+        "role": "world",
+        "productionId": null,
+        "archiveSha256": "6a5ccfb24e844867358254ac2385adf1484448deec57bae1e0c83888b3cb5a0f",
+        "archiveBytes": 26508341,
+        "schemaVersion": 2,
+        "edition": "2026-10-29-2",
+        "fingerprint": "938868d9ee5a7bfe22422f1ddd2042126357a6d260810e4912f035bcbe872615",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 51,
+        "verifiedAssetBytes": 26486449,
+        "largestAssetBytes": 14145855,
+        "mediaTypes": {
+          "audio/mp4": 1,
+          "image/jpeg": 48,
+          "application/epub+zip": 1,
+          "application/vnd.arke.listening+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "the-undersong",
+        "role": "part",
+        "productionId": "the-ledger-of-nights",
+        "archiveSha256": "f98c11ecbafcb65537bc9b095c7081c7d64c26410ffa2a94c366606091f21db3",
+        "archiveBytes": 38246282,
+        "schemaVersion": 4,
+        "edition": "2026-10-29",
+        "fingerprint": "d92e9c17e4b5dc5df5ebb162b8830467582ef430442a604b7b82e5c98557e539",
+        "baseFingerprint": "938868d9ee5a7bfe22422f1ddd2042126357a6d260810e4912f035bcbe872615",
+        "partNumber": 1,
+        "assetCount": 47,
+        "verifiedAssetBytes": 38225945,
+        "largestAssetBytes": 19793645,
+        "mediaTypes": {
+          "audio/mp4": 1,
+          "image/jpeg": 41,
+          "image/png": 3,
+          "application/epub+zip": 1,
+          "application/vnd.arke.listening+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "the-undersong",
+        "role": "guide",
+        "productionId": null,
+        "archiveSha256": "ff02694633fa49e2a742e69a42dc5f87ae5f66dddd41e18c64f1b4e6a0115123",
+        "archiveBytes": 3625221,
+        "schemaVersion": 3,
+        "edition": "2026-10-22",
+        "fingerprint": "46d71fc28ab0ae820b06288e78a632dc1deb76a914826286445551a704f484f0",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 29,
+        "verifiedAssetBytes": 3612712,
+        "largestAssetBytes": 185717,
+        "mediaTypes": {
+          "image/jpeg": 28,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "the-undersong",
+        "role": "comic",
+        "productionId": "the-ledger-of-nights-redrawn",
+        "archiveSha256": "3b728ab247a94a65cd7efb924be01c10de06a49e648907aa437c98b624f96884",
+        "archiveBytes": 6753206,
+        "schemaVersion": 7,
+        "edition": "2026-11-01",
+        "fingerprint": "5ec0bd1fdc5e4b372d83ff165611d8e6ce219706b59673d532bf8f2d0d7dbe2a",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 17,
+        "verifiedAssetBytes": 6746893,
+        "largestAssetBytes": 483587,
+        "mediaTypes": {
+          "image/jpeg": 16,
+          "application/vnd.arke.comic+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "legend-of-dumah",
+        "role": "world",
+        "productionId": null,
+        "archiveSha256": "81c5f6b8c296753fe21f5c0c4cf93540496d1aac73b50793475dec4dd7a03613",
+        "archiveBytes": 184588133,
+        "schemaVersion": 3,
+        "edition": "2026-10-25",
+        "fingerprint": "f52b50451c79023b86eec5cb2631510c3b14cd020174d7090fd440191e33454e",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 239,
+        "verifiedAssetBytes": 184488116,
+        "largestAssetBytes": 30743667,
+        "mediaTypes": {
+          "audio/mp4": 5,
+          "image/jpeg": 230,
+          "image/png": 2,
+          "application/vnd.arke.listening+json": 1,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "legend-of-dumah",
+        "role": "guide",
+        "productionId": null,
+        "archiveSha256": "99eb0e765e01eaf7421a0c690159480557c234c93cd47139ad901c2754315239",
+        "archiveBytes": 1934982,
+        "schemaVersion": 3,
+        "edition": "2026-10-23-2",
+        "fingerprint": "23742a9786f481fe6197262b8941c90f16390029122eb52fb64b9d4e94cca7a2",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 13,
+        "verifiedAssetBytes": 1928837,
+        "largestAssetBytes": 275683,
+        "mediaTypes": {
+          "image/jpeg": 12,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "the-red-quiet",
+        "role": "world",
+        "productionId": null,
+        "archiveSha256": "1781cb578e2dd1755020840dd4b39dc11ca926e1436a372e8016218c490ae579",
+        "archiveBytes": 22839186,
+        "schemaVersion": 3,
+        "edition": "2026-10-24-2",
+        "fingerprint": "e23d532d5eee284e7885c992b81838425be33439a27a8ece723384db9cd5a8b5",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 31,
+        "verifiedAssetBytes": 22825690,
+        "largestAssetBytes": 16586634,
+        "mediaTypes": {
+          "audio/mp4": 1,
+          "image/jpeg": 27,
+          "application/epub+zip": 1,
+          "application/vnd.arke.listening+json": 1,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "the-red-quiet",
+        "role": "guide",
+        "productionId": null,
+        "archiveSha256": "bba813092c1180e74c7cea42cb0c8fd1b98afe3b01790c536cfc732e9189fcc0",
+        "archiveBytes": 1131799,
+        "schemaVersion": 3,
+        "edition": "2026-10-23",
+        "fingerprint": "dcbc3059105a75e13603450be41347ad8b17feac106b8b6e4eb42219bac8562d",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 9,
+        "verifiedAssetBytes": 1127383,
+        "largestAssetBytes": 192352,
+        "mediaTypes": {
+          "image/jpeg": 8,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "the-red-quiet",
+        "role": "story",
+        "productionId": "first-contact",
+        "archiveSha256": "3d9bf6a53fafff6ba47a1bb306a4b80c9a3db260449503d36aff9288ca2e4d61",
+        "archiveBytes": 25235634,
+        "schemaVersion": 6,
+        "edition": "2026-10-29-2",
+        "fingerprint": "95f41938036e705e9ab006add2b7974ed76d0893c460625fe5799a0801ccf2f7",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 134,
+        "verifiedAssetBytes": 25185227,
+        "largestAssetBytes": 388560,
+        "mediaTypes": {
+          "image/jpeg": 62,
+          "audio/mp4": 71,
+          "application/vnd.arke.story+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "embers-of-the-fallen",
+        "role": "world",
+        "productionId": null,
+        "archiveSha256": "6f9715e501fc2c88cc530bc7629e5e25b8b1ee3e62e195bfbad956c859625404",
+        "archiveBytes": 126832165,
+        "schemaVersion": 3,
+        "edition": "2026-10-24-3",
+        "fingerprint": "17c3ae182b0d8d4bd8136d179a121ef6b4403f77864112449ac2f9d661d3e581",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 62,
+        "verifiedAssetBytes": 126805798,
+        "largestAssetBytes": 26407051,
+        "mediaTypes": {
+          "audio/mp4": 5,
+          "image/jpeg": 54,
+          "application/epub+zip": 1,
+          "application/vnd.arke.listening+json": 1,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "embers-of-the-fallen",
+        "role": "guide",
+        "productionId": null,
+        "archiveSha256": "9d99ecacc5350fadaab941f34992e77c3c9c385eb764b07d295cf450710c931a",
+        "archiveBytes": 648495,
+        "schemaVersion": 3,
+        "edition": "2026-10-23-2",
+        "fingerprint": "d89b607c26924a261c46d59793e07fc68c53e6bdef9340847163a7b7ce43db9f",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 10,
+        "verifiedAssetBytes": 643371,
+        "largestAssetBytes": 164652,
+        "mediaTypes": {
+          "image/jpeg": 9,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "na-love-or-juju",
+        "role": "world",
+        "productionId": null,
+        "archiveSha256": "6a2f4469d4215e85c7e82f016b3355ead29a7cf57bcf35af5fa39919c86c9c2f",
+        "archiveBytes": 1107515522,
+        "schemaVersion": 3,
+        "edition": "2026-11-10",
+        "fingerprint": "217c639f341f177afffe7cf230b93335f5d5c3599d22e40d427d5e338c8db4e0",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 1144,
+        "verifiedAssetBytes": 1107039870,
+        "largestAssetBytes": 48587809,
+        "mediaTypes": {
+          "audio/mp4": 29,
+          "image/jpeg": 1055,
+          "image/png": 57,
+          "application/epub+zip": 1,
+          "application/vnd.arke.listening+json": 1,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "na-love-or-juju",
+        "role": "guide",
+        "productionId": null,
+        "archiveSha256": "f2f2072c1407fd9db3b0e996bd422709595a10efaf15e3e426a65c784c9995bb",
+        "archiveBytes": 4143799,
+        "schemaVersion": 3,
+        "edition": "2026-11-09",
+        "fingerprint": "0b411549d60500bfbd01597f05d9c5972938bead86ee49168bbfc2f41d709b6e",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 26,
+        "verifiedAssetBytes": 4132409,
+        "largestAssetBytes": 527462,
+        "mediaTypes": {
+          "image/jpeg": 22,
+          "audio/mp4": 3,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      }
+    ],
+    "failures": []
+  },
+  "releaseProvenance": {
+    "checkedAtUtc": "2026-11-10T23:03:37.938732+00:00",
+    "latestReleaseTag": "v0.5.116",
+    "assets": [
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-keyArt-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114886,
+        "createdAt": "2026-10-24T19:29:39Z",
+        "updatedAt": "2026-10-24T19:29:39Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "e3b91a196743ac9e9363a74b0655448c3d692438710dd3839c13ccfb31b558e9",
+        "byteLength": 183862,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-picture-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114888,
+        "createdAt": "2026-10-24T19:29:39Z",
+        "updatedAt": "2026-10-24T19:29:39Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "e3154e34ad1e87d12154d7731266507892e797ebb5acae528e7d638eb80c9fa8",
+        "byteLength": 223676,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-tall-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673252365,
+        "createdAt": "2026-10-24T20:37:08Z",
+        "updatedAt": "2026-10-24T20:37:08Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "198bf9b2f21fab778401622397efae22a57615a775ccd479736bc5e0004f6776",
+        "byteLength": 576958,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-tall-20261030.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 693455610,
+        "createdAt": "2026-10-30T21:20:51Z",
+        "updatedAt": "2026-10-30T21:20:52Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "02d20fdf110a8d8d8f9ec2a68039f8d4cd4859d30b461eab36d6a6fa97167068",
+        "byteLength": 524097,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-keyArt-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114848,
+        "createdAt": "2026-10-24T19:29:38Z",
+        "updatedAt": "2026-10-24T19:29:38Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "7946424399bdcf27cd03a8e752a0c7dd384adb1eb6487c49fced3ce279591aee",
+        "byteLength": 206972,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-picture-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114852,
+        "createdAt": "2026-10-24T19:29:38Z",
+        "updatedAt": "2026-10-24T19:29:38Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "5e63b2f4e27b70f9bb9afc0fa7eb14f1b41555e48318a3a1528988d48a1ce888",
+        "byteLength": 252781,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-tall-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673219396,
+        "createdAt": "2026-10-24T20:21:43Z",
+        "updatedAt": "2026-10-24T20:21:44Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "612938f535be0f3445ccbc0533e0bbef1e3a6b37e096c9c2b9e945276439aec8",
+        "byteLength": 599305,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-keyArt-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114878,
+        "createdAt": "2026-10-24T19:29:38Z",
+        "updatedAt": "2026-10-24T19:29:39Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "99da6f43deeb87d2efc3e0cd17770f33c2b74f106d3408e1cc52d6e7b6fcaf2d",
+        "byteLength": 163611,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-picture-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114876,
+        "createdAt": "2026-10-24T19:29:38Z",
+        "updatedAt": "2026-10-24T19:29:39Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "eaa4a1dcda7edde17da2570d34d4e8e91c4cd2da4efd7b66f10f1e1b54fe3acd",
+        "byteLength": 177567,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-tall-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114884,
+        "createdAt": "2026-10-24T19:29:39Z",
+        "updatedAt": "2026-10-24T19:29:39Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "6ee6a57f83422a238826feb74c69086aea24921d3ed1b837a7df34389eeb2a50",
+        "byteLength": 317512,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-first-contact-picture-20261028.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 686201030,
+        "createdAt": "2026-10-28T20:09:29Z",
+        "updatedAt": "2026-10-28T20:09:29Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "093f9561e98cc8f85b392ec390a3b42925497474bda1884a4ce8bf4a6d290e03",
+        "byteLength": 205028,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-first-contact-tall-20261028.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 686201031,
+        "createdAt": "2026-10-28T20:09:29Z",
+        "updatedAt": "2026-10-28T20:09:29Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "95991ce6c0c063a34410b686847d31ff273a9d1307a4adf09f76b4f316542bf7",
+        "byteLength": 306659,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-keyArt-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114851,
+        "createdAt": "2026-10-24T19:29:38Z",
+        "updatedAt": "2026-10-24T19:29:38Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "a82e22f04649850d3db0c2f5bd1beea7f0c35bd2796a0f8e96bd7d9b39699ef2",
+        "byteLength": 164652,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-picture-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114849,
+        "createdAt": "2026-10-24T19:29:38Z",
+        "updatedAt": "2026-10-24T19:29:38Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "6479b8626c88c5ef6c6262330de61d1814ca21c80bc084e62eb5f5136565eaf9",
+        "byteLength": 403653,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-tall-20261024.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 673114850,
+        "createdAt": "2026-10-24T19:29:38Z",
+        "updatedAt": "2026-10-24T19:29:38Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "82c925ac3efadce48be845b8809a634e86a2813527365a44ff1cec3333e53fed",
+        "byteLength": 627604,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-keyArt-20261031.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 696338890,
+        "createdAt": "2026-10-31T19:55:19Z",
+        "updatedAt": "2026-10-31T19:55:19Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "bf0730e39e861b32ff920c8cae750bf220381220c9f49edd1a98b6aae5ed29e5",
+        "byteLength": 639117,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-picture-20261031.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 696338888,
+        "createdAt": "2026-10-31T19:55:19Z",
+        "updatedAt": "2026-10-31T19:55:19Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "620d7632e6624bbebdce0f0ed884d9d7a96f8f8f9629fcf64817aafad9bf45dd",
+        "byteLength": 136759,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-tall-20261031.jpg",
+        "releaseId": 421029115,
+        "tag": "arke-player-worlds",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 696338887,
+        "createdAt": "2026-10-31T19:55:19Z",
+        "updatedAt": "2026-10-31T19:55:19Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "7c91f350409faeb5bac3cd273eb5a2be921b629dd1c499e97edd3d06379394a9",
+        "byteLength": 162116,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/embers-of-the-fallen-2026-10-23-r1/embers-of-the-fallen-player-2026-10-24-3.zip",
+        "releaseId": 422339496,
+        "tag": "embers-of-the-fallen-2026-10-23-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 672963296,
+        "createdAt": "2026-10-24T18:16:15Z",
+        "updatedAt": "2026-10-24T18:16:28Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "6f9715e501fc2c88cc530bc7629e5e25b8b1ee3e62e195bfbad956c859625404",
+        "byteLength": 126832165,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/embers-of-the-fallen-2026-10-23-r1/embers-of-the-fallen-guide-2026-10-23-2.zip",
+        "releaseId": 422339496,
+        "tag": "embers-of-the-fallen-2026-10-23-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 670508886,
+        "createdAt": "2026-10-23T21:50:00Z",
+        "updatedAt": "2026-10-23T21:50:01Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "9d99ecacc5350fadaab941f34992e77c3c9c385eb764b07d295cf450710c931a",
+        "byteLength": 648495,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/legend-of-dumah-2026-10-22-r1/legend-of-dumah-player-2026-10-25.zip",
+        "releaseId": 421314902,
+        "tag": "legend-of-dumah-2026-10-22-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 675023299,
+        "createdAt": "2026-10-25T12:43:31Z",
+        "updatedAt": "2026-10-25T12:43:50Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "81c5f6b8c296753fe21f5c0c4cf93540496d1aac73b50793475dec4dd7a03613",
+        "byteLength": 184588133,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/legend-of-dumah-2026-10-22-r1/legend-of-dumah-guide-2026-10-23-2.zip",
+        "releaseId": 421314902,
+        "tag": "legend-of-dumah-2026-10-22-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 670301398,
+        "createdAt": "2026-10-23T20:22:54Z",
+        "updatedAt": "2026-10-23T20:22:54Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "99eb0e765e01eaf7421a0c690159480557c234c93cd47139ad901c2754315239",
+        "byteLength": 1934982,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/na-love-or-juju-2026-11-09-r1/na-love-or-juju-guide-2026-11-09.zip",
+        "releaseId": 439480487,
+        "tag": "na-love-or-juju-2026-11-09-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 728481448,
+        "createdAt": "2026-11-09T18:16:42Z",
+        "updatedAt": "2026-11-09T18:16:43Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "f2f2072c1407fd9db3b0e996bd422709595a10efaf15e3e426a65c784c9995bb",
+        "byteLength": 4143799,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/na-love-or-juju-2026-11-10-r1/na-love-or-juju-player-2026-11-10.zip",
+        "releaseId": 440291151,
+        "tag": "na-love-or-juju-2026-11-10-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 731239009,
+        "createdAt": "2026-11-10T11:45:03Z",
+        "updatedAt": "2026-11-10T11:46:54Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "6a2f4469d4215e85c7e82f016b3355ead29a7cf57bcf35af5fa39919c86c9c2f",
+        "byteLength": 1107515522,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/first-contact-story-2026-10-29-2.zip",
+        "releaseId": 421970212,
+        "tag": "the-red-quiet-2026-10-23-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 689293687,
+        "createdAt": "2026-10-29T17:13:39Z",
+        "updatedAt": "2026-10-29T17:13:43Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "3d9bf6a53fafff6ba47a1bb306a4b80c9a3db260449503d36aff9288ca2e4d61",
+        "byteLength": 25235634,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/the-red-quiet-player-2026-10-24-2.zip",
+        "releaseId": 421970212,
+        "tag": "the-red-quiet-2026-10-23-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 672944879,
+        "createdAt": "2026-10-24T18:06:20Z",
+        "updatedAt": "2026-10-24T18:06:22Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "1781cb578e2dd1755020840dd4b39dc11ca926e1436a372e8016218c490ae579",
+        "byteLength": 22839186,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/the-red-quiet-guide-2026-10-23.zip",
+        "releaseId": 421970212,
+        "tag": "the-red-quiet-2026-10-23-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 669450797,
+        "createdAt": "2026-10-23T14:55:05Z",
+        "updatedAt": "2026-10-23T14:55:06Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "bba813092c1180e74c7cea42cb0c8fd1b98afe3b01790c536cfc732e9189fcc0",
+        "byteLength": 1131799,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-22-r1/the-undersong-guide-2026-10-22.zip",
+        "releaseId": 420832339,
+        "tag": "undersong-2026-10-22-r1",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 666884548,
+        "createdAt": "2026-10-22T19:41:08Z",
+        "updatedAt": "2026-10-22T19:41:09Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "ff02694633fa49e2a742e69a42dc5f87ae5f66dddd41e18c64f1b4e6a0115123",
+        "byteLength": 3625221,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-26-chapter-3/the-ledger-of-nights-redrawn-comic-2026-11-01.zip",
+        "releaseId": 424127091,
+        "tag": "undersong-2026-10-26-chapter-3",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 698361046,
+        "createdAt": "2026-11-01T13:01:51Z",
+        "updatedAt": "2026-11-01T13:01:52Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "3b728ab247a94a65cd7efb924be01c10de06a49e648907aa437c98b624f96884",
+        "byteLength": 6753206,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-29-revised-chapter-1-portraits/the-undersong-player-2026-10-29-2.zip",
+        "releaseId": 427806346,
+        "tag": "undersong-2026-10-29-revised-chapter-1-portraits",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 688413211,
+        "createdAt": "2026-10-29T11:56:25Z",
+        "updatedAt": "2026-10-29T11:56:28Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "6a5ccfb24e844867358254ac2385adf1484448deec57bae1e0c83888b3cb5a0f",
+        "byteLength": 26508341,
+        "githubDigestMatches": true
+      },
+      {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-29-revised-chapter-2/the-undersong-part-2026-10-29.zip",
+        "releaseId": 428019202,
+        "tag": "undersong-2026-10-29-revised-chapter-2",
+        "draft": false,
+        "prerelease": false,
+        "assetId": 688927646,
+        "createdAt": "2026-10-29T15:06:18Z",
+        "updatedAt": "2026-10-29T15:06:22Z",
+        "publisherLogin": "michaeljosiah",
+        "sha256": "f98c11ecbafcb65537bc9b095c7081c7d64c26410ffa2a94c366606091f21db3",
+        "byteLength": 38246282,
+        "githubDigestMatches": true
+      }
+    ]
+  },
+  "checks": {
+    "actualPlayerPackageReader": true,
+    "allEmbeddedAssetsHashed": true,
+    "worldProductionIdentity": true,
+    "editionFingerprints": true,
+    "partBaseNumberChapters": true,
+    "pictureDecode": true,
+    "anonymousPublicDownloads": true,
+    "githubReleaseDigests": true,
+    "catalogueChannelRefreshTestsPassed": 29
+  },
+  "productionCapacity": {
+    "followup": "https://github.com/michaeljosiah/aonik/issues/428",
+    "sessionArchiveLimitBytes": 33554432,
+    "sessionAssetLimitBytes": 16777216,
+    "verifierAssetCountLimit": 1024,
+    "overLimits": [
+      {
+        "worldId": "the-undersong",
+        "role": "part",
+        "productionId": "the-ledger-of-nights",
+        "archiveSha256": "f98c11ecbafcb65537bc9b095c7081c7d64c26410ffa2a94c366606091f21db3",
+        "archiveBytes": 38246282,
+        "schemaVersion": 4,
+        "edition": "2026-10-29",
+        "fingerprint": "d92e9c17e4b5dc5df5ebb162b8830467582ef430442a604b7b82e5c98557e539",
+        "baseFingerprint": "938868d9ee5a7bfe22422f1ddd2042126357a6d260810e4912f035bcbe872615",
+        "partNumber": 1,
+        "assetCount": 47,
+        "verifiedAssetBytes": 38225945,
+        "largestAssetBytes": 19793645,
+        "mediaTypes": {
+          "audio/mp4": 1,
+          "image/jpeg": 41,
+          "image/png": 3,
+          "application/epub+zip": 1,
+          "application/vnd.arke.listening+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "legend-of-dumah",
+        "role": "world",
+        "productionId": null,
+        "archiveSha256": "81c5f6b8c296753fe21f5c0c4cf93540496d1aac73b50793475dec4dd7a03613",
+        "archiveBytes": 184588133,
+        "schemaVersion": 3,
+        "edition": "2026-10-25",
+        "fingerprint": "f52b50451c79023b86eec5cb2631510c3b14cd020174d7090fd440191e33454e",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 239,
+        "verifiedAssetBytes": 184488116,
+        "largestAssetBytes": 30743667,
+        "mediaTypes": {
+          "audio/mp4": 5,
+          "image/jpeg": 230,
+          "image/png": 2,
+          "application/vnd.arke.listening+json": 1,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "embers-of-the-fallen",
+        "role": "world",
+        "productionId": null,
+        "archiveSha256": "6f9715e501fc2c88cc530bc7629e5e25b8b1ee3e62e195bfbad956c859625404",
+        "archiveBytes": 126832165,
+        "schemaVersion": 3,
+        "edition": "2026-10-24-3",
+        "fingerprint": "17c3ae182b0d8d4bd8136d179a121ef6b4403f77864112449ac2f9d661d3e581",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 62,
+        "verifiedAssetBytes": 126805798,
+        "largestAssetBytes": 26407051,
+        "mediaTypes": {
+          "audio/mp4": 5,
+          "image/jpeg": 54,
+          "application/epub+zip": 1,
+          "application/vnd.arke.listening+json": 1,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      },
+      {
+        "worldId": "na-love-or-juju",
+        "role": "world",
+        "productionId": null,
+        "archiveSha256": "6a2f4469d4215e85c7e82f016b3355ead29a7cf57bcf35af5fa39919c86c9c2f",
+        "archiveBytes": 1107515522,
+        "schemaVersion": 3,
+        "edition": "2026-11-10",
+        "fingerprint": "217c639f341f177afffe7cf230b93335f5d5c3599d22e40d427d5e338c8db4e0",
+        "baseFingerprint": null,
+        "partNumber": null,
+        "assetCount": 1144,
+        "verifiedAssetBytes": 1107039870,
+        "largestAssetBytes": 48587809,
+        "mediaTypes": {
+          "audio/mp4": 29,
+          "image/jpeg": 1055,
+          "image/png": 57,
+          "application/epub+zip": 1,
+          "application/vnd.arke.listening+json": 1,
+          "application/vnd.arke.guide+json": 1
+        },
+        "passed": true
+      }
+    ]
+  },
+  "reproductionFiles": [
+    {
+      "path": "docs/runbooks/evidence/arke-catalogue-audit-2026-11-10/download.py",
+      "sha256": "a47d593a5679842b3dda9fc5c1c45fe350bd2d74dd2362a2fc3994fa1d0602ed"
+    },
+    {
+      "path": "docs/runbooks/evidence/arke-catalogue-audit-2026-11-10/hosted-catalogue.json",
+      "sha256": "3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4"
+    },
+    {
+      "path": "docs/runbooks/evidence/arke-catalogue-audit-2026-11-10/verify.dart",
+      "sha256": "9a6c36f1a1a7f9e09712d5de2fa2d56e8264aa22d63dd406d21a47eabcd27c75"
+    }
+  ],
+  "unchanged": [
+    "hosted production catalogue",
+    "public release assets",
+    "production and dev runtime configuration",
+    "publishing approvals and receipt states",
+    "installed Player data",
+    "GitHub mirror configuration"
+  ],
+  "limits": [
+    "No new rights or editorial approval",
+    "No AONIK production baseline import",
+    "No full native playback of every production asset in this batch",
+    "No sandbox capacity or load qualification",
+    "No production release or mirror cutover"
+  ]
+}
