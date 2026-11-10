@@ -1,0 +1,438 @@
+{
+  "checkedAt": "2026-11-10T14:39:52.469474+00:00",
+  "issue": 403,
+  "status": "actual-studio-export-ui-to-aonik-to-player-passed-and-withdrawn",
+  "scope": "Actual Studio v0.5.116 UI export to AONIK dev; source fixture already authored. Not manual authoring or production clearance.",
+  "studioCommit": "f0ebe7704e15c3d8e8eed23b818978a09296ef9a",
+  "studioVersion": "0.5.116",
+  "exportId": "ap_01M72WN8VRP6S1AGDRYRW3W09B",
+  "candidateId": "f4fbb414-ccda-49de-9aca-70ef465e834f",
+  "receiptId": "81b0d1e9-f6d3-4540-b3e0-cde35ed19d8f",
+  "revisionId": "6c81f8ca-1f73-4109-84e8-8515ade02298",
+  "revisionNumber": 1,
+  "reviewDigest": "4379c0479840b2f812e0aae17aa383a195ad44694b405be69f29ee8c86d2c3df",
+  "archiveBytes": 2349285,
+  "archiveSha256": "e7abcfa8dc8f207878fba4fb2dcbda7da2337935f69be5dc34d447d0a9790463",
+  "exportedAt": "2026-11-10T14:09:14.520Z",
+  "privateDownloadedCopyMatches": true,
+  "serverPackageVerified": true,
+  "publicReleaseSerial": 23,
+  "allCreatorActionsThroughUi": true,
+  "reviewAndPublicationThroughUi": true,
+  "setupFix": "Unpackaged rehearsal launch had no FFmpeg; configured explicit installed FFmpeg/FFprobe 8.1.1 paths, then rebuilt current merged Studio. No product code changes.",
+  "sourceFixture": "Previously authored original synthetic Mina story and geometric artwork; this batch qualifies real export/submission UI, not manual authoring.",
+  "package": {
+    "exportSidecar": {
+      "kind": "arke-player",
+      "exportId": "ap_01M72WN8VRP6S1AGDRYRW3W09B",
+      "exportedAt": "2026-11-10T14:09:14.520Z",
+      "productionId": "the-first-lantern",
+      "title": "Lantern Garden Dev 403",
+      "bytes": 2349285,
+      "sha256": "e7abcfa8dc8f207878fba4fb2dcbda7da2337935f69be5dc34d447d0a9790463",
+      "holds": "the book",
+      "chapters": 0,
+      "pictures": 0,
+      "book": true,
+      "guide": false,
+      "release": {
+        "edition": "2026-11-10",
+        "fingerprint": "da5289f3eeba53c9d38c07976fdb529ddd50a233e58850e1d3c3b79e3e9c34dc",
+        "chapters": []
+      }
+    },
+    "archiveEntries": [
+      "world.json",
+      "book.epub",
+      "key-art.png"
+    ],
+    "publicPins": [
+      {
+        "artifact": "package",
+        "bytes": 2349285,
+        "sha256": "e7abcfa8dc8f207878fba4fb2dcbda7da2337935f69be5dc34d447d0a9790463",
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/15759a7f-791c-43e1-8ddd-207fa16e8ad6"
+      },
+      {
+        "artifact": "keyArt",
+        "bytes": 1173417,
+        "sha256": "d86c114788bebe1c5171e97aa35267a368f07097c4b1864354e28ea26eb8d099",
+        "url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/94a315e2-23e2-4229-b064-67b44e1b04b4"
+      }
+    ]
+  },
+  "workflow": [
+    "Studio Make package",
+    "Review frozen edition and included files",
+    "Confirm dev declaration and submit",
+    "Upload complete and receipt in review",
+    "Separate reviewer inspects private ZIP, artwork, validation and rights",
+    "Exact-revision approval",
+    "Separate publication confirmation",
+    "Player Check for updates and Update",
+    "Catalogue withdrawal",
+    "Player refresh and cold offline reading",
+    "Studio Refresh receipt to Withdrawn / complete"
+  ],
+  "reviewScope": "Owner-authorised autonomous dev test using separate creator/reviewer identities. Not an independent human editorial or production rights approval.",
+  "operations": {
+    "publishUiPrefix": "f5ea3ec6",
+    "publishAttempts": 1,
+    "publishSerial": 23,
+    "withdrawUiPrefix": "7b43ec64",
+    "withdrawSerial": 24,
+    "finalWorldCount": 0,
+    "studioReceiptStatus": "withdrawn"
+  },
+  "player": {
+    "appId": "studio.arke.player.dev",
+    "platform": "Android 16 / API 36 emulator",
+    "existingQualifiedApkSha256": "c0594fd0f2ae22ffab397a3d2716766602bf32d8ea503241f88bf799599d1f46",
+    "apkReplaced": false,
+    "uninstalled": false,
+    "dataCleared": false,
+    "libraryOrProgressSeeded": false,
+    "allSavedPositionsExactlyPreservedBeforeReopen": true,
+    "bookPositionBeforeReopen": {
+      "place": {
+        "progress": 1.0,
+        "updatedAt": "2026-11-09T16:06:29.614275Z",
+        "locator": "epubcfi(/6/6!/4/2/2/1:0)"
+      },
+      "finished": false
+    },
+    "worldCount": 4,
+    "itemCount": 4,
+    "unrelatedItemsWorldsMediaStoryChoicesComicPagesAndPreferencesExactlyPreserved": true,
+    "nativeOnlineResume": "Opened A Small Beginning at the preserved CFI.",
+    "completionAfterReading": "This real export renders the final chapter as page 1 of 1. Opening it legitimately marks the item finished; the next cold open starts at the cover. Offline Contents opens the complete chapter. This is not the historical page-1-of-2 completion defect.",
+    "nativeColdOfflineReadingAfterWithdrawal": true,
+    "offlineNetwork": {
+      "checkedAt": "2026-11-10T14:35:44.973509+00:00",
+      "wifi": "0",
+      "mobileData": "0",
+      "defaultNetwork": [
+        "Active default network: none"
+      ],
+      "foreground": [
+        "topResumedActivity=ActivityRecord{234855005 u0 studio.arke.player.dev/studio.arke.arke_player.MainActivity t78}"
+      ]
+    },
+    "restoredRadios": {
+      "checkedAt": "2026-11-10T14:38:55.629544+00:00",
+      "wifi": "1",
+      "mobileData": "1"
+    },
+    "allInstalledMediaUnchangedByWithdrawalAndOfflineReading": true
+  },
+  "checkpoints": {
+    "before": {
+      "file": "403-before-studio-export-ui-20261110.tar",
+      "bytes": 3856896,
+      "sha256": "925b81468f8bf1377e15489e593bae0a2fc46ccf4bdfc02dc0aae237f14cf4af"
+    },
+    "updated": {
+      "file": "403-studio-ui-updated-20261110.tar",
+      "bytes": 5027328,
+      "sha256": "10c0822883836600651027ec2eabab61e068b220b3532d2495e610b64fa79836"
+    },
+    "withdrawn": {
+      "file": "403-studio-ui-withdrawn-20261110.tar",
+      "bytes": 3853312,
+      "sha256": "743dd01e38913f9bdc1b7f729f6b0b5dbbed7c75913074f3140b2a7ad57b5529"
+    },
+    "offline": {
+      "file": "403-studio-ui-offline-20261110.tar",
+      "bytes": 3862016,
+      "sha256": "c698634cc0e58c69810868f001d4ccb222810d69fcb3fec44ec72f25b74a1ee2"
+    },
+    "final": {
+      "file": "403-studio-ui-final-20261110.tar",
+      "bytes": 3862016,
+      "sha256": "c698634cc0e58c69810868f001d4ccb222810d69fcb3fec44ec72f25b74a1ee2"
+    }
+  },
+  "runtimeProductCodeChanged": false,
+  "productionChanged": false,
+  "legacyMirrorChanged": false,
+  "limits": [
+    "Actual book export UI only; prior part/story/comic qualification used real Studio services.",
+    "Interactive movie native decoding/choices and its export UI remain outstanding.",
+    "Production audited baseline, rights/ownership, mirror migration and capacity/cost acceptance remain separate.",
+    "No physical Android/iOS, OEM scheduling or full runtime disaster-recovery cutover claim."
+  ],
+  "localEvidenceHashes": {
+    "aonik-publication-complete-0.jpg": {
+      "bytes": 126459,
+      "sha256": "3921d9259625cb719d2f3a2fe84f6e54e1f2515e560336f52cd6ca8cfdc96031"
+    },
+    "aonik-publication-complete.json": {
+      "bytes": 23065,
+      "sha256": "f4c873877fa5c43cba11428b28aa8e8d51e8a3c83cb8c7163884f70b4356b8dc"
+    },
+    "aonik-withdrawal-complete-0.jpg": {
+      "bytes": 148969,
+      "sha256": "4eee250e856ba588707b5f8ff172b68c8db733ee93836a3100b24859eb2809c1"
+    },
+    "aonik-withdrawal-complete.json": {
+      "bytes": 68294,
+      "sha256": "81421d838b8efef7ca798df9e4271a66553481a2e6d290d72a6bb8c2e66ca9d3"
+    },
+    "aonik-withdrawal-confirmed-0.jpg": {
+      "bytes": 147823,
+      "sha256": "edbb08207706a5ceee5a28d61c55b414191f089ad2fef103401577ea2ea1c9d3"
+    },
+    "aonik-withdrawal-confirmed.json": {
+      "bytes": 10096,
+      "sha256": "c405235146c90686c7b264cd21a9d4190f3c8b6c5f24eaf47ed8b21cfcbf58f2"
+    },
+    "book-export-missing-ffmpeg-0.jpg": {
+      "bytes": 72957,
+      "sha256": "fecaf9ae1bb2eee2a5de7c6690d435f4ba972b54940f9469268c0186e770fbd7"
+    },
+    "book-export-missing-ffmpeg.json": {
+      "bytes": 5604,
+      "sha256": "30aa3beb9f862051e00fc7187bd15d22464fd93345555d2042d2859a2e0993af"
+    },
+    "book-package-options-0.jpg": {
+      "bytes": 73291,
+      "sha256": "7008109e7b13168bd99f0fb2a9ddc36d5a9119ae03dd91b8d4e3c859cf2946b1"
+    },
+    "book-package-options.json": {
+      "bytes": 5531,
+      "sha256": "6b2d1db2df8a5007e994c63ecb926d1a12cca2d4fafb2255694673b53f10a535"
+    },
+    "catalogue-released.json": {
+      "bytes": 1326,
+      "sha256": "418e4c27047b6d367a7f7eaaeef3e62c3f82d6a38bb80667513c5dfc0219ae50"
+    },
+    "catalogue-withdrawn.json": {
+      "bytes": 56,
+      "sha256": "138b663cf4e7ae2605258313a2209828a2cdb8af0219f62a641cc21211586b50"
+    },
+    "current-aonik-package-verified-0.jpg": {
+      "bytes": 129824,
+      "sha256": "d357c660ac9a199d8a6ff8ca48f9b95eff35d0b654eeafddcdde521a3ebd61a0"
+    },
+    "current-aonik-package-verified.json": {
+      "bytes": 20070,
+      "sha256": "0650ef55013c4a6dc70f96471b6d5e146e69013188266d6c7c7035374736a86d"
+    },
+    "current-aonik-reviewer-handoff-0.jpg": {
+      "bytes": 147515,
+      "sha256": "eee2d8fd6f061c2b70df8712262e01811b8efc6ee7638a467d03258d20710761"
+    },
+    "current-aonik-reviewer-handoff.json": {
+      "bytes": 26975,
+      "sha256": "0b69792d3100e916630d8594a24a18c3e4125e2f82ce17bc79197ace2b407edb"
+    },
+    "current-aonik-rights-reviewed-0.jpg": {
+      "bytes": 134996,
+      "sha256": "851212f40ec6a10211cc0b3255ec66300a54467bf2627fe142a708f3f392a079"
+    },
+    "current-aonik-rights-reviewed.json": {
+      "bytes": 20434,
+      "sha256": "9352876c59f6453493a91a93cdbf619a807700edb173fb5657e90766846afd92"
+    },
+    "current-book-export-complete-0.jpg": {
+      "bytes": 73911,
+      "sha256": "b562ad84d16b5f115bc7620202f8953f1668540c48eba8fc3624005bc713afce"
+    },
+    "current-book-export-complete.json": {
+      "bytes": 2938,
+      "sha256": "f1108fb64d0cbd34963c72aeb0e8f70fd003ef88930a1d83e23f7952654f5272"
+    },
+    "current-book-package-options-0.jpg": {
+      "bytes": 73299,
+      "sha256": "3e01966b7d08a20a5c5144a22818309511dfefdfb2aebef9935b41430799d0ed"
+    },
+    "current-book-package-options.json": {
+      "bytes": 5530,
+      "sha256": "f64c7694ce28c3900bdc4f1bbcb3ad8b4f59045c99d80099a396d53d7b9f28ec"
+    },
+    "current-dev-declaration-confirmed-0.jpg": {
+      "bytes": 96859,
+      "sha256": "4f9bea1399d0d502d42b2e59d4c48f7f2d7e11e4104f5b327587916b7b988777"
+    },
+    "current-dev-declaration-confirmed.json": {
+      "bytes": 7148,
+      "sha256": "031fd62ec1c108ba967082853a08a62573c9c3b51e24ea662023dd91c1f09a74"
+    },
+    "current-dev-publication-confirmed-0.jpg": {
+      "bytes": 132155,
+      "sha256": "9fdb16a38dc2d5d0d7b427210af3bcf3f012865162de28d638585e5bd25d2841"
+    },
+    "current-dev-publication-confirmed.json": {
+      "bytes": 9945,
+      "sha256": "2b30d7387a04fc1b3a8c946fce0200e02c2320abf89c53da1a860851fe168bcb"
+    },
+    "current-frozen-edition-review-0.jpg": {
+      "bytes": 89365,
+      "sha256": "67833df97a3de74e66ea2eaf8b5512d2b11a067aa7700c959ea35ee369e13e15"
+    },
+    "current-frozen-edition-review.json": {
+      "bytes": 5910,
+      "sha256": "9ce1265187c56e4539099bc7709d816f94780ced5d9e35881f167e035e25bc9c"
+    },
+    "current-review-decision-confirmed-0.jpg": {
+      "bytes": 135106,
+      "sha256": "d44eba6922e4ef0597ad23a4205ee267abcf3b54fc994da04a921cd64f6a4f44"
+    },
+    "current-review-decision-confirmed.json": {
+      "bytes": 10900,
+      "sha256": "54c238fb863739fbc32739d369682e54ef8475fd4cdbf73b4be4c2b03c39cce7"
+    },
+    "current-studio-version-0.jpg": {
+      "bytes": 65085,
+      "sha256": "de558f8cddb602aef231b364ec0a7ebacfaf3c9bffc8ed582e8f9dba08bf5160"
+    },
+    "current-studio-version.json": {
+      "bytes": 2918,
+      "sha256": "3f8e31a258dc2b223862dc14899b1a71fed2882761849178aad6f0f9b0d641f2"
+    },
+    "current-ui-receipt-in-review-0.jpg": {
+      "bytes": 73662,
+      "sha256": "8f369e68ee4727ef4fffe4a44250315b31eea233abb3d1e9640b4964177893bb"
+    },
+    "current-ui-receipt-in-review.json": {
+      "bytes": 16375,
+      "sha256": "e96bbbf8f782284b5e47d7a523502edf9a1dbe6ea9074fcc0bd5010842c54be7"
+    },
+    "current-ui-submission-saved-0.jpg": {
+      "bytes": 98062,
+      "sha256": "ff2e60009a81647ebc44395cd43bf4680de7c2c9e6a926197bf1978b8f3c7305"
+    },
+    "current-ui-submission-saved.json": {
+      "bytes": 7418,
+      "sha256": "8d7fec9450949a190ad7c7466f80c05c9d40f3009712907be7826bcbafb78acc"
+    },
+    "current-ui-upload-complete-0.jpg": {
+      "bytes": 74207,
+      "sha256": "a8a23dfeac4d07deb3c930fbab77649f8a6651e4d6d066f185949a5c0d0b3799"
+    },
+    "current-ui-upload-complete.json": {
+      "bytes": 16399,
+      "sha256": "f84b3ab3c5119ece0cc7a00fddd79aaa6325dcd85432178a19ca6db866330e24"
+    },
+    "offline-network.json": {
+      "bytes": 302,
+      "sha256": "8287e93e91c11327e900d57762ebc91ec7bd56aaf31226b752cc96d4d73c2621"
+    },
+    "player-newer-edition-detected-0.jpg": {
+      "bytes": 28545,
+      "sha256": "5593687679b21933bf9307395f337d32c02428018b254fe217318132e33da525"
+    },
+    "player-newer-edition-detected-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "player-newer-edition-detected.json": {
+      "bytes": 2766,
+      "sha256": "bd8fda5ca0dabe5d2c3d844ea94898ab61439d1ed8249179467e2b4251dfd540"
+    },
+    "player-offline-book-open-0.jpg": {
+      "bytes": 38835,
+      "sha256": "3acea4872d701bafc8ceddb5d178ccbf83ab35a3bcd8596765ac9fb9909bb71b"
+    },
+    "player-offline-book-open-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "player-offline-book-open.json": {
+      "bytes": 275,
+      "sha256": "db4d4cbad1942b17343ffa692f4189ec0552d617e6d017c9821889483f64a8e8"
+    },
+    "player-offline-chapter-readable-0.jpg": {
+      "bytes": 78090,
+      "sha256": "5f988bac046e21b15e56fe7890e2b7634f96a5d386af5d0a2e89c47dee6ca1cb"
+    },
+    "player-offline-chapter-readable-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "player-offline-chapter-readable.json": {
+      "bytes": 275,
+      "sha256": "1f861587571a7cc3a450f2c47e5f4007bfcf3fd07bb3338f46b41aa94d4fb51b"
+    },
+    "player-offline-cold-start-0.jpg": {
+      "bytes": 35697,
+      "sha256": "9fbe9a875de63b7329902833319f4f200378d40229cf29b44d36bb5b462a23c8"
+    },
+    "player-offline-cold-start-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "player-offline-cold-start.json": {
+      "bytes": 275,
+      "sha256": "fd0bb9784c8bbd758b5dbf6cbbc3c47b5d1f842d6da79ded68e970f7956dc3a1"
+    },
+    "player-offline-retained-library-0.jpg": {
+      "bytes": 52263,
+      "sha256": "f5ab272145c2d64a71df81169e1dc5dc0dff388509cad94690afdc3349bcd6d0"
+    },
+    "player-offline-retained-library-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "player-offline-retained-library.json": {
+      "bytes": 275,
+      "sha256": "a805b8df5b11c5548ab8baaadc742c6f7d176f6f2ddea8803d3b25b9d6c50c95"
+    },
+    "player-online-resumed-chapter-0.jpg": {
+      "bytes": 77715,
+      "sha256": "d5266d041dd1ca3f34a303ec254eeb93cd36be6ade2eee6f327cf08c109d63aa"
+    },
+    "player-online-resumed-chapter-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "player-online-resumed-chapter.json": {
+      "bytes": 2766,
+      "sha256": "2b51a69cbee8703e9d7aebbe87bf1d4202fb3769885437f4ad7de8c627f69210"
+    },
+    "player-update-completed-0.jpg": {
+      "bytes": 43753,
+      "sha256": "2c8cb8d928d2891bd138c1c53d3c44f0e164a7501876ceeac9083029201502bf"
+    },
+    "player-update-completed-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "player-update-completed.json": {
+      "bytes": 2766,
+      "sha256": "9deafdac5a3bf318c2312c6a3d78f59ce22a3fb567f8351ed2a073e06e0e3af7"
+    },
+    "player-update-offered-0.jpg": {
+      "bytes": 37513,
+      "sha256": "9b673dd1f5bab044c934d8fea798b211723dac304f3078331b9fb1e2877c474d"
+    },
+    "player-update-offered-1.jpg": {
+      "bytes": 4017,
+      "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464"
+    },
+    "player-update-offered.json": {
+      "bytes": 2766,
+      "sha256": "3b3dad3a76f557c1d238ff449907f45099581549aa78382c26a667ee9be15a23"
+    },
+    "public-readback.json": {
+      "bytes": 636,
+      "sha256": "c0165096c64412cbdb6f117da7b25822f738423437afae9b1fbdf7638e1fa9dc"
+    },
+    "radios-restored.json": {
+      "bytes": 93,
+      "sha256": "61e0ab94e77b99aa8bd83fdd21628104b6ce8d1ce5c7e7385a3abfa87785f486"
+    },
+    "run-state.json": {
+      "bytes": 1097,
+      "sha256": "0c6e8e4a472837c8d587515b2198df8bcef07c13e4168d8507fd08836f06cc60"
+    },
+    "studio-receipt-withdrawn-0.jpg": {
+      "bytes": 81995,
+      "sha256": "b8d3f6a1e99881ebd2192a5b6c32bad3bee5da1392b36d1c26462eda27726575"
+    },
+    "studio-receipt-withdrawn.json": {
+      "bytes": 16845,
+      "sha256": "e157f31fe0a2ccedcc81ff71da543a2b0208b51eb1caf6de1c9f24f237321ab6"
+    }
+  }
+}

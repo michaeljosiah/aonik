@@ -3,6 +3,80 @@
 This record separates deployment from end-to-end qualification. No production
 catalogue migration or public release is authorised by the dev rehearsal.
 
+## Actual Studio export UI to Player — 10 November 2026
+
+Studio **0.5.116**, merged source
+`f0ebe7704e15c3d8e8eed23b818978a09296ef9a`, now passes the ordinary desktop
+book-export and submission journey against the deployed AONIK reviewer UI and
+ordinary Android Player. This closes the book export-UI gap: the earlier format
+rehearsals used Studio's actual services. The source world was already authored
+synthetic material; this is not a manual-authoring or interactive-movie test.
+
+The isolated unpackaged Studio launch initially reported **Needs ffmpeg**. Set
+its documented `ARKE_FFMPEG` and `ARKE_FFPROBE` paths to the installed FFmpeg 8.1.1
+tools and rebuild the current merged desktop. The resulting ordinary **Make
+package** action succeeds. This was a local rehearsal setup repair, with no
+runtime product code or tracked Studio configuration change.
+
+The actual UI path was Worlds → Lantern Garden → The First Lantern → Audiobook
+→ Publish → Other exports / Arke Player → Whole world / The book → Make package.
+Export `ap_01M72WN8VRP6S1AGDRYRW3W09B` contains only `world.json`, `book.epub`
+and `key-art.png`; no voice generation or third-party media was used.
+
+| Identity | Verified value |
+| --- | --- |
+| Edition | `2026-11-10` |
+| Export time | `2026-11-10T14:09:14.520Z` |
+| Archive | 2,349,285 bytes |
+| Archive SHA-256 | `e7abcfa8dc8f207878fba4fb2dcbda7da2337935f69be5dc34d447d0a9790463` |
+| Receipt / revision | `81b0d1e9-f6d3-4540-b3e0-cde35ed19d8f` / 1 |
+| Revision ID | `6c81f8ca-1f73-4109-84e8-8515ade02298` |
+| Review digest | `4379c0479840b2f812e0aae17aa383a195ad44694b405be69f29ee8c86d2c3df` |
+| Package fingerprint | `da5289f3eeba53c9d38c07976fdb529ddd50a233e58850e1d3c3b79e3e9c34dc` |
+
+Creator 1 used **Review frozen edition**, inspected the included files, confirmed
+the dev-only declaration and submitted through Studio. Upload finished and
+**Refresh receipt** showed **In review / complete**. The separate reviewer account
+used the actual AONIK UI to inspect the artwork, validation and rights, download
+the private ZIP, approve the exact revision and separately queue publication.
+The downloaded private archive and both public artifact pins match the export
+byte-for-byte. These are owner-authorised automated dev test decisions, not an
+independent human editorial decision or production distribution clearance.
+
+Publication `f5ea3ec6…` completed in one delivery attempt at **serial 23**. Player's
+normal **Check for updates** and **Update** controls installed the new edition.
+Before reopening, every saved position, timestamp and completion flag is exactly
+unchanged. The book retained `epubcfi(/6/6!/4/2/2/1:0)`, progress `1.0`, timestamp
+`2026-11-09T16:06:29.614275Z`, and its unfinished flag. The actual reader opened
+**A Small Beginning** at that CFI. All three unrelated worlds/items, their media,
+story choices, comic page, revealed chapters and preferences remain unchanged.
+
+This export renders the final chapter on **page 1 of 1**. Reading it legitimately
+marks the item finished, so its later cold open starts at the cover. This differs
+from the historical page-1-of-2 defect documented below. After withdrawal
+`7b43ec64…` committed **empty serial 24**, Player refreshed that empty feed while
+retaining all four installed worlds. With both radios disabled, no default
+network and a cold process start, the installed cover opened and **Contents →
+A Small Beginning** rendered the complete chapter offline. Installed media stayed
+byte-identical across withdrawal and offline reading. Both radios are restored;
+no APK replacement, uninstall, data clear or injected reading position occurred.
+Studio's actual **Refresh receipt** now shows **Withdrawn / complete**.
+
+The [sanitized evidence](evidence/arke-studio-export-ui-2026-11-10.json) records
+five private-directory checkpoints, exact artifact pins and 68 local capture/file
+hashes. Local assertions compare all saved positions before reopening, every
+unrelated world/item/media file and preferences, story/comic state, public/private
+archive identity, installed EPUB/artwork bytes, final empty catalogue and network
+restoration. Raw private checkpoints, screenshots and account state are not
+committed. The retained dev Player APK is the previously qualified notification
+build; production and the legacy mirror remain unchanged.
+
+Next qualify applicable interactive-movie export, real native clip decoding and
+choices. The audited production baseline/rights/ownership, deliberate mirror
+migration and capacity/cost acceptance remain separate. Neither this result nor
+the historical replay below claims physical Android/iOS, natural/OEM scheduling
+or full runtime disaster-recovery cutover.
+
 ## Historical native Player qualification — 10 November 2026
 
 The ordinary Android UI built from historical source
