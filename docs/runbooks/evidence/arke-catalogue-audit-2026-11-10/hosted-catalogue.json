@@ -1,0 +1,202 @@
+{
+  "version": 2,
+  "serial": 53,
+  "feature": { "world": "the-red-quiet" },
+  "band": "the-undersong",
+  "worlds": [
+    {
+      "id": "the-undersong",
+      "name": "The Undersong",
+      "genres": ["Fantasy"],
+      "age": "16+",
+      "replaces": ["undersong"],
+      "logline": "A drowned god still sings beneath the harbour.",
+      "keyArt": "assets/worlds/undersong/key-art.jpg",
+      "pins": { "keyArt": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-keyArt-20261024.jpg", "byteLength": 183862, "sha256": "e3b91a196743ac9e9363a74b0655448c3d692438710dd3839c13ccfb31b558e9" } },
+      "productions": [
+        { "id": "the-ledger-of-nights", "title": "The Ledger of Nights", "kind": "Audiobook · Revised Chapters 1–2 · 34 m 55 s", "picture": "assets/worlds/undersong/ledger-of-nights.jpg", "tall": "assets/worlds/undersong/cover-tall.jpg",
+          "pins": {
+            "picture": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-picture-20261024.jpg", "byteLength": 223676, "sha256": "e3154e34ad1e87d12154d7731266507892e797ebb5acae528e7d638eb80c9fa8" },
+            "tall": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-tall-20261024.jpg", "byteLength": 576958, "sha256": "198bf9b2f21fab778401622397efae22a57615a775ccd479736bc5e0004f6776" }
+          } },
+        { "id": "the-ledger-of-nights-redrawn", "title": "The Ledger of Nights, drawn", "kind": "Graphic novel · 16 pages", "tall": "assets/worlds/undersong/ledger-drawn-tall.jpg",
+          "pins": {
+            "tall": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-undersong-tall-20261030.jpg", "byteLength": 524097, "sha256": "02d20fdf110a8d8d8f9ec2a68039f8d4cd4859d30b461eab36d6a6fa97167068" }
+          },
+          "comic": {
+            "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-26-chapter-3/the-ledger-of-nights-redrawn-comic-2026-11-01.zip",
+            "byteLength": 6753206,
+            "sha256": "3b728ab247a94a65cd7efb924be01c10de06a49e648907aa437c98b624f96884",
+            "edition": "2026-11-01",
+            "fingerprint": "5ec0bd1fdc5e4b372d83ff165611d8e6ce219706b59673d532bf8f2d0d7dbe2a",
+            "version": 1
+          } }
+      ],
+      "package": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-29-revised-chapter-1-portraits/the-undersong-player-2026-10-29-2.zip",
+        "byteLength": 26508341,
+        "sha256": "6a5ccfb24e844867358254ac2385adf1484448deec57bae1e0c83888b3cb5a0f",
+        "edition": "2026-10-29-2",
+        "fingerprint": "938868d9ee5a7bfe22422f1ddd2042126357a6d260810e4912f035bcbe872615",
+        "parts": [
+          {
+            "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-29-revised-chapter-2/the-undersong-part-2026-10-29.zip",
+            "byteLength": 38246282,
+            "sha256": "f98c11ecbafcb65537bc9b095c7081c7d64c26410ffa2a94c366606091f21db3",
+            "edition": "2026-10-29",
+            "fingerprint": "d92e9c17e4b5dc5df5ebb162b8830467582ef430442a604b7b82e5c98557e539",
+            "released": "2026-10-29",
+            "production": "the-ledger-of-nights",
+            "chapters": [
+              {
+                "id": "slack-water",
+                "number": 2,
+                "title": "Slack water"
+              }
+            ]
+          }
+        ]
+      },
+      "guide": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/undersong-2026-10-22-r1/the-undersong-guide-2026-10-22.zip",
+        "byteLength": 3625221,
+        "sha256": "ff02694633fa49e2a742e69a42dc5f87ae5f66dddd41e18c64f1b4e6a0115123",
+        "edition": "2026-10-22",
+        "fingerprint": "46d71fc28ab0ae820b06288e78a632dc1deb76a914826286445551a704f484f0"
+      }
+    },
+    {
+      "id": "legend-of-dumah",
+      "name": "Legend of Dumah",
+      "genres": ["Fantasy"],
+      "age": "16+",
+      "logline": "Twice the world has stood at the edge of ending. The third time begins with a thief in the City of Light.",
+      "keyArt": "assets/worlds/legend-of-dumah/key-art.jpg",
+      "pins": { "keyArt": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-keyArt-20261024.jpg", "byteLength": 206972, "sha256": "7946424399bdcf27cd03a8e752a0c7dd384adb1eb6487c49fced3ce279591aee" } },
+      "productions": [
+        { "title": "Whispers from the Void", "kind": "Audiobook · 1 h 44 m", "picture": "assets/worlds/legend-of-dumah/whispers-from-the-void.jpg", "tall": "assets/worlds/legend-of-dumah/cover-tall.jpg",
+          "pins": {
+            "picture": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-picture-20261024.jpg", "byteLength": 252781, "sha256": "5e63b2f4e27b70f9bb9afc0fa7eb14f1b41555e48318a3a1528988d48a1ce888" },
+            "tall": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/legend-of-dumah-tall-20261024.jpg", "byteLength": 599305, "sha256": "612938f535be0f3445ccbc0533e0bbef1e3a6b37e096c9c2b9e945276439aec8" }
+          } }
+      ],
+      "package": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/legend-of-dumah-2026-10-22-r1/legend-of-dumah-player-2026-10-25.zip",
+        "byteLength": 184588133,
+        "sha256": "81c5f6b8c296753fe21f5c0c4cf93540496d1aac73b50793475dec4dd7a03613",
+        "edition": "2026-10-25",
+        "fingerprint": "f52b50451c79023b86eec5cb2631510c3b14cd020174d7090fd440191e33454e"
+      },
+      "guide": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/legend-of-dumah-2026-10-22-r1/legend-of-dumah-guide-2026-10-23-2.zip",
+        "byteLength": 1934982,
+        "sha256": "99eb0e765e01eaf7421a0c690159480557c234c93cd47139ad901c2754315239",
+        "edition": "2026-10-23-2",
+        "fingerprint": "23742a9786f481fe6197262b8941c90f16390029122eb52fb64b9d4e94cca7a2"
+      }
+    },
+    {
+      "id": "the-red-quiet",
+      "name": "The Red Quiet",
+      "genres": ["Sci-fi"],
+      "age": "16+",
+      "logline": "A colony crash-lands on a moon its survey called dead. The moon is not empty, and the Mistress was here first.",
+      "keyArt": "assets/worlds/the-red-quiet/key-art.jpg",
+      "pins": { "keyArt": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-keyArt-20261024.jpg", "byteLength": 163611, "sha256": "99da6f43deeb87d2efc3e0cd17770f33c2b74f106d3408e1cc52d6e7b6fcaf2d" } },
+      "productions": [
+        { "title": "The Red Quiet", "kind": "Audiobook · Book · 15 m", "picture": "assets/worlds/the-red-quiet/cover.jpg", "tall": "assets/worlds/the-red-quiet/cover-tall.jpg",
+          "pins": {
+            "picture": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-picture-20261024.jpg", "byteLength": 177567, "sha256": "eaa4a1dcda7edde17da2570d34d4e8e91c4cd2da4efd7b66f10f1e1b54fe3acd" },
+            "tall": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-tall-20261024.jpg", "byteLength": 317512, "sha256": "6ee6a57f83422a238826feb74c69086aea24921d3ed1b837a7df34389eeb2a50" }
+          } },
+        { "id": "first-contact", "title": "First Contact", "kind": "Visual novel · 15 scenes",
+          "story": {
+            "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/first-contact-story-2026-10-29-2.zip",
+            "byteLength": 25235634,
+            "sha256": "3d9bf6a53fafff6ba47a1bb306a4b80c9a3db260449503d36aff9288ca2e4d61",
+            "edition": "2026-10-29-2",
+            "fingerprint": "95f41938036e705e9ab006add2b7974ed76d0893c460625fe5799a0801ccf2f7",
+            "version": 1
+          },
+          "pins": {
+            "picture": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-first-contact-picture-20261028.jpg", "byteLength": 205028, "sha256": "093f9561e98cc8f85b392ec390a3b42925497474bda1884a4ce8bf4a6d290e03" },
+            "tall": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/the-red-quiet-first-contact-tall-20261028.jpg", "byteLength": 306659, "sha256": "95991ce6c0c063a34410b686847d31ff273a9d1307a4adf09f76b4f316542bf7" }
+          } }
+      ],
+      "package": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/the-red-quiet-player-2026-10-24-2.zip",
+        "byteLength": 22839186,
+        "sha256": "1781cb578e2dd1755020840dd4b39dc11ca926e1436a372e8016218c490ae579",
+        "edition": "2026-10-24-2",
+        "fingerprint": "e23d532d5eee284e7885c992b81838425be33439a27a8ece723384db9cd5a8b5"
+      },
+      "guide": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/the-red-quiet-2026-10-23-r1/the-red-quiet-guide-2026-10-23.zip",
+        "byteLength": 1131799,
+        "sha256": "bba813092c1180e74c7cea42cb0c8fd1b98afe3b01790c536cfc732e9189fcc0",
+        "edition": "2026-10-23",
+        "fingerprint": "dcbc3059105a75e13603450be41347ad8b17feac106b8b6e4eb42219bac8562d"
+      }
+    },
+    {
+      "id": "embers-of-the-fallen",
+      "name": "Embers of the Fallen",
+      "genres": ["Thriller"],
+      "age": "16+",
+      "logline": "When a covert military-scientific team investigating impossible spatial anomalies in the Swiss Alps retrieves a living organism from beyond known reality, they trigger a biological nightmare that threatens to break containment. As they race to stop it, they discover another armed expedition in the valley—one that knows far more about the ancient machinery beneath the mountain than it will reveal.",
+      "keyArt": "assets/worlds/embers-of-the-fallen/key-art.jpg",
+      "pins": { "keyArt": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-keyArt-20261024.jpg", "byteLength": 164652, "sha256": "a82e22f04649850d3db0c2f5bd1beea7f0c35bd2796a0f8e96bd7d9b39699ef2" } },
+      "productions": [
+        { "title": "Threshold — Book One", "kind": "Audiobook · Book · 1 h 54 m", "picture": "assets/worlds/embers-of-the-fallen/cover.jpg", "tall": "assets/worlds/embers-of-the-fallen/cover-tall.jpg",
+          "pins": {
+            "picture": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-picture-20261024.jpg", "byteLength": 403653, "sha256": "6479b8626c88c5ef6c6262330de61d1814ca21c80bc084e62eb5f5136565eaf9" },
+            "tall": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/embers-of-the-fallen-tall-20261024.jpg", "byteLength": 627604, "sha256": "82c925ac3efadce48be845b8809a634e86a2813527365a44ff1cec3333e53fed" }
+          } }
+      ],
+      "package": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/embers-of-the-fallen-2026-10-23-r1/embers-of-the-fallen-player-2026-10-24-3.zip",
+        "byteLength": 126832165,
+        "sha256": "6f9715e501fc2c88cc530bc7629e5e25b8b1ee3e62e195bfbad956c859625404",
+        "edition": "2026-10-24-3",
+        "fingerprint": "17c3ae182b0d8d4bd8136d179a121ef6b4403f77864112449ac2f9d661d3e581"
+      },
+      "guide": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/embers-of-the-fallen-2026-10-23-r1/embers-of-the-fallen-guide-2026-10-23-2.zip",
+        "byteLength": 648495,
+        "sha256": "9d99ecacc5350fadaab941f34992e77c3c9c385eb764b07d295cf450710c931a",
+        "edition": "2026-10-23-2",
+        "fingerprint": "d89b607c26924a261c46d59793e07fc68c53e6bdef9340847163a7b7ce43db9f"
+      }
+    },
+    {
+      "id": "na-love-or-juju",
+      "name": "Na Love or Juju",
+      "genres": ["Romance"],
+      "age": "18+",
+      "logline": "Ife cannot make a man want her. She can only make wanting her cost him everything. Now the most disciplined man in Lagos is buying her a car she never asked for, and his best friend has found a trail of ruined men behind her. Is Ade truly in love? Or has his heart been twisted by something far darker?",
+      "keyArt": "assets/worlds/na-love-or-juju/key-art.jpg",
+      "pins": { "keyArt": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-keyArt-20261031.jpg", "byteLength": 639117, "sha256": "bf0730e39e861b32ff920c8cae750bf220381220c9f49edd1a98b6aae5ed29e5" } },
+      "productions": [
+        { "title": "Na love or Juju", "kind": "Audiobook · Book · 12 h 21 m", "picture": "assets/worlds/na-love-or-juju/cover.jpg", "tall": "assets/worlds/na-love-or-juju/cover-tall.jpg",
+          "pins": {
+            "picture": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-picture-20261031.jpg", "byteLength": 136759, "sha256": "620d7632e6624bbebdce0f0ed884d9d7a96f8f8f9629fcf64817aafad9bf45dd" },
+            "tall": { "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/arke-player-worlds/na-love-or-juju-tall-20261031.jpg", "byteLength": 162116, "sha256": "7c91f350409faeb5bac3cd273eb5a2be921b629dd1c499e97edd3d06379394a9" }
+          } }
+      ],
+      "package": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/na-love-or-juju-2026-11-10-r1/na-love-or-juju-player-2026-11-10.zip",
+        "byteLength": 1107515522,
+        "sha256": "6a2f4469d4215e85c7e82f016b3355ead29a7cf57bcf35af5fa39919c86c9c2f",
+        "edition": "2026-11-10",
+        "fingerprint": "217c639f341f177afffe7cf230b93335f5d5c3599d22e40d427d5e338c8db4e0"
+      },
+      "guide": {
+        "url": "https://github.com/michaeljosiah/ArkeStudio/releases/download/na-love-or-juju-2026-11-09-r1/na-love-or-juju-guide-2026-11-09.zip",
+        "byteLength": 4143799,
+        "sha256": "f2f2072c1407fd9db3b0e996bd422709595a10efaf15e3e426a65c784c9995bb",
+        "edition": "2026-11-09",
+        "fingerprint": "0b411549d60500bfbd01597f05d9c5972938bead86ee49168bbfc2f41d709b6e"
+      }
+    }
+  ]
+}

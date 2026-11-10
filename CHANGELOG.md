@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Player production baseline audit (#50):** Verified hosted and bundled serial 53 byte-for-byte, all 31 anonymous public pins and all 1,812 embedded assets with the real Player reader. The existing merged baseline needs no replacement. Recorded exact provenance and the measured package/asset/count limits that production intake must qualify in #428; publishing, rights approval and mirror configuration remain unchanged.
+
 - **Interactive-movie qualification (#403):** Verified real Studio export/submission, exact dev approval, all three native Player video clips, both choices/endings, replay, saved progress and cold offline retention after withdrawal at empty serial 26. Player #74 fixes standalone story-world installation and a native scene-loading race. Recorded failed attempts and verified checkpoints; production and the legacy mirror remain unchanged.
 
 - **Studio export UI qualification (#403):** Verified the actual current desktop book export, frozen-edition submission, separate reviewer approval/publication, native Player update and saved-position retention. Withdrawal leaves empty dev serial 24; installed content remains readable after a cold offline restart and Studio shows Withdrawn / complete. Repaired only the unpackaged rehearsal's FFmpeg path configuration; no runtime code changed. Recorded exact hashes, checkpoints and the remaining interactive-movie/production scope.
