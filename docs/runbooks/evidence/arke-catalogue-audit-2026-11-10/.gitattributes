@@ -1,0 +1,4 @@
+# Preserve the audited bytes and script hashes on Windows checkouts.
+hosted-catalogue.json -text
+download.py text eol=lf
+verify.dart text eol=lf
