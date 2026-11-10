@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Publishing retry exhaustion (#403):** Record `dead-letter` / `attempt-limit` on the final failed delivery attempt, without depending on another outbox dispatch. Preserve the approved revision and immutable assets for an audited bounded retry; regression coverage also enforces the ten-cycle manual retry limit and exact replay.
+
 - **Deployed publishing reviewer acceptance (#402/#403):** Completed the owner-approved automated dev UI revision, approval, hold/removal, release and withdrawal journey, plus Player cold offline retention. Both discovered fixes are deployed, the editable canvas bundle is synchronized, and the synthetic release is withdrawn at empty serial 20. Separate human dev walkthroughs are no longer required; remaining operational/production qualification is tracked explicitly.
 
 - **Publishing activity outcomes (#402/#403):** Show successful hold and hold-removal results explicitly instead of the generic incomplete-check warning.

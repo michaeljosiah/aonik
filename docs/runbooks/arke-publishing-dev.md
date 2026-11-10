@@ -810,8 +810,10 @@ traffic within the Container Apps environment.
    `Block -Apply` records the empty baseline and arms a detached restore watchdog
    before adding one named `/32` deny rule. It temporarily denies all API requests
    from that source, so keep other Worker-to-API work out of the rehearsal window.
-   The default deadline is 600 seconds;
-   `-AutoRestoreSeconds 60` is available for recovery qualification. The deadline
+   The default deadline is 600 seconds; an automatic-exhaustion test may explicitly
+   select up to 3,600 seconds to cover the existing exponential backoff without
+   changing Worker retry settings. `-AutoRestoreSeconds 60` is available for watchdog
+   recovery qualification. The deadline
    starts the restore; Azure's control-plane update can take additional time.
 3. Qualify the fault against the retained artifact before publishing: Worker
    readback must return 403, while operator health/catalogue reads remain 200.

@@ -142,12 +142,84 @@ public class PublicationDeliveryTests
     public async Task AttemptLimit_Should_RequireAnAuditedExplicitRetry_WithoutChangingIntent()
     {
         using var h=new PublicationScenario();h.Settings.Delivery.MaxAttempts=1;await h.InitialiseAsync();var r=await h.ApproveAsync();var op=await h.Service.PublishAsync(r.Id,await h.RequestAsync(r.Id));
-        h.Store.FailReadback=true;await h.Invoking(x=>x.DeliverAsync(op.Id)).Should().ThrowAsync<IOException>();await h.DeliverAsync(op.Id);
+        h.Store.FailReadback=true;await h.DeliverAsync(op.Id);
         var dead=await h.Db.PublicationOperations.SingleAsync(o=>o.Id==op.Id);dead.Status.Should().Be("dead-letter");
         var command=new PublicationActionRequest(Guid.NewGuid(),Convert.ToBase64String(dead.RowVersion),"Public transport restored; reconcile retained assets");
         await h.Service.RetryAsync(op.Id,command);h.Store.FailReadback=false;await h.DeliverAsync(op.Id);
         (await h.Service.RetryAsync(op.Id,command)).Status.Should().Be("committed");
         (await h.Db.PublicationOperations.CountAsync(o=>o.Kind=="retry"&&o.ParentOperationId==op.Id)).Should().Be(1);(await h.HeadAsync()).Should().Contain("\"serial\":53");
+    }
+    [Theory]
+    [InlineData(1)]
+    [InlineData(6)]
+    [InlineData(10)]
+    public async Task LastFailedAttempt_Should_RecordDeadLetter_WithoutAnotherOutboxDispatch(int maxAttempts)
+    {
+        // Arrange
+        using var h = new PublicationScenario();
+        h.Settings.Delivery.MaxAttempts = maxAttempts;
+        await h.InitialiseAsync();
+        var receipt = await h.ApproveAsync();
+        var operation = await h.Service.PublishAsync(receipt.Id, await h.RequestAsync(receipt.Id));
+        var head = await h.HeadAsync();
+        h.Store.FailReadback = true;
+        for (var attempt = 1; attempt < maxAttempts; attempt++)
+            await h.Invoking(x => x.DeliverAsync(operation.Id)).Should().ThrowAsync<IOException>();
+
+        // Act
+        await h.DeliverAsync(operation.Id);
+
+        // Assert
+        var exhausted = await h.Db.PublicationOperations.SingleAsync(o => o.Id == operation.Id);
+        exhausted.Status.Should().Be("dead-letter");
+        exhausted.Code.Should().Be("attempt-limit");
+        exhausted.Attempts.Should().Be(maxAttempts);
+        exhausted.ClaimToken.Should().BeNull();
+        exhausted.ClaimExpiresAt.Should().BeNull();
+        (await h.Db.Submissions.SingleAsync(s => s.Id == receipt.Id)).Status.Should().Be(SubmissionStatuses.Approved);
+        (await h.HeadAsync()).Should().Be(head);
+        (await h.Db.PublishedEditions.CountAsync()).Should().Be(0);
+        var verifications = h.Store.Verifications;
+        await h.DeliverAsync(operation.Id);
+        h.Store.Verifications.Should().Be(verifications);
+    }
+
+    [Fact]
+    public async Task ManualRetryLimit_Should_RefuseEleventhCycle_AndKeepExactReplayIdempotent()
+    {
+        // Arrange
+        using var h = new PublicationScenario();
+        h.Settings.Delivery.MaxAttempts = 1;
+        await h.InitialiseAsync();
+        var receipt = await h.ApproveAsync();
+        var operation = await h.Service.PublishAsync(receipt.Id, await h.RequestAsync(receipt.Id));
+        var head = await h.HeadAsync();
+        h.Store.FailReadback = true;
+        await h.DeliverAsync(operation.Id);
+        PublicationActionRequest command = null!;
+        for (var cycle = 1; cycle <= 10; cycle++)
+        {
+            var current = await h.Db.PublicationOperations.SingleAsync(o => o.Id == operation.Id);
+            command = new(Guid.NewGuid(), Convert.ToBase64String(current.RowVersion), $"Retry cycle {cycle}");
+            await h.Service.RetryAsync(operation.Id, command);
+            await h.DeliverAsync(operation.Id);
+        }
+        var exhausted = await h.Db.PublicationOperations.SingleAsync(o => o.Id == operation.Id);
+        var eleventh = new PublicationActionRequest(Guid.NewGuid(), Convert.ToBase64String(exhausted.RowVersion), "Retry cycle 11");
+
+        // Act
+        await h.Service.Invoking(s => s.RetryAsync(operation.Id, eleventh)).Should()
+            .ThrowAsync<PublishingException>().Where(e => e.Code == "publication-retry-limit");
+        var replay = await h.Service.RetryAsync(operation.Id, command);
+
+        // Assert
+        replay.Id.Should().Be(operation.Id);
+        replay.Status.Should().Be("dead-letter");
+        exhausted.RetryCycles.Should().Be(10);
+        exhausted.Attempts.Should().Be(1);
+        (await h.Db.PublicationOperations.CountAsync(o => o.Kind == "retry" && o.ParentOperationId == operation.Id)).Should().Be(10);
+        (await h.HeadAsync()).Should().Be(head);
+        (await h.Db.PublishedEditions.CountAsync()).Should().Be(0);
     }
     [Fact]
     public async Task Baseline_Should_RefuseUnqualifiedLegacyNamespace()

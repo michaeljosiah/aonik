@@ -59,8 +59,11 @@ internal sealed class PublicationDeliveryHandler(IPublishingDataContext db,Publi
             {
                 var current=await db.PublicationOperations.SingleAsync(o=>o.TenantId==tenant&&o.Id==operation.Id,ct);
                 if(current.Status=="committed"||current.ClaimToken!=token)return false;
-                current.Status=transient?"uncertain":"held";current.Code=code;current.ClaimToken=null;current.ClaimExpiresAt=null;
-                await RestoreSubmissionAsync(current,ct);await db.SaveChangesAsync(ct);return transient;
+                // Persist exhaustion on the final failure; the outbox may never dispatch this event again.
+                var exhausted=transient&&current.Attempts>=Math.Clamp(options.Value.Delivery.MaxAttempts,1,10);
+                current.Status=exhausted?"dead-letter":transient?"uncertain":"held";
+                current.Code=exhausted?"attempt-limit":code;current.ClaimToken=null;current.ClaimExpiresAt=null;
+                await RestoreSubmissionAsync(current,ct);await db.SaveChangesAsync(ct);return transient&&!exhausted;
             },recordLimit.Token);
             if(retry)throw new IOException("Publication requires a reconciled delivery retry.");
         }

@@ -4,8 +4,8 @@ param(
     [Parameter(Mandatory)][ValidateSet('Preview', 'Block', 'Restore')][string]$Action,
     [string]$WorkerSourceIp,
     [string]$StatePath = (Join-Path $PSScriptRoot '../output/research/403-delivery-fault-state.json'),
-    [ValidateRange(60, 900)][int]$AutoRestoreSeconds = 600,
-    [ValidateRange(0, 900)][int]$RestoreAfterSeconds = 0,
+    [ValidateRange(60, 3600)][int]$AutoRestoreSeconds = 600,
+    [ValidateRange(0, 3600)][int]$RestoreAfterSeconds = 0,
     [switch]$Apply
 )
 
