@@ -25,7 +25,67 @@ correlation `arke-403-ui-20261110`. Existing settings and user-role assignments 
 read back unchanged; the module reapply wrote no disabling rows and preserved
 existing defaults. No schema or financial data changed. The temporary single-client
 SQL firewall rule was removed in `finally`. This is configuration preparation;
-the deployed UI journey still needs verification after the manifest fix is deployed.
+the deployed UI journey was subsequently verified as recorded below.
+
+### Deployed reviewer and Player acceptance
+
+[PR #418](https://github.com/michaeljosiah/aonik/pull/418) is merged as
+`a8b6919c8372593d5fcea540819d9c9369e9684c`. Its CI and image scan passed;
+API revision `aonik-dev-api--0000385` is healthy. The image-only rollout preserved
+all 85 environment entries. The reviewer can now reach the actual submission queue
+and catalogue through the Arke Worlds menu.
+
+The original synthetic **Review Garden Dev 403** passed the deployed Edge UI journey:
+private package download and verified artwork/inventory; rights and audience review;
+request changes; a fresh Studio revision under the same receipt; exact-revision
+approval; hold and hold removal; separate publication; and catalogue withdrawal.
+The private UI download and public artifact both match Studio's frozen archive
+`7bae38aad3244ea813ea287ab0aae336e9cd6f08aa8beba74b6fef852b8b61df` (99,725 bytes).
+Revision 2 retains those bytes and adds explicit dev-only scope to the summary,
+producing a different review digest. Studio receives the creator-facing message,
+while the reviewer history retains the internal assessment. Editorial, hold,
+release and withdrawal writes used the actual deployed UI, with no intercepted
+responses or API harness for those actions. Creator freeze/upload/receipt checks
+used Studio's actual services through the existing isolated harness.
+
+Approval and hold/removal left empty serial 18 unchanged. Publication committed
+serial **19**; withdrawal committed **empty serial 20**. Studio's revised receipt
+`9bede8c3-8141-4e1c-89b0-962dd39cfd27` now reports **withdrawn / complete**.
+The Android 16/API 36 emulator discovered and installed the actual HTTPS edition,
+played its synthetic chapter, fetched the withdrawal, and retained its downloaded
+copy. With Wi-Fi and mobile data disabled and no active default network, a cold
+process restart reached the Offline home and opened the local chapter for native
+playback. Networking is restored and Player is paused; no APK replacement, uninstall
+or data clear occurred in this batch.
+
+All three prior library positions and all three prior world records are unchanged.
+The previous story/comic files and preferences are byte-identical; 53 prior private
+files are unchanged and none were removed. One prior audiobook refreshed only its
+save timestamp. Full before/after private-directory backups and local screen captures
+are recorded by hash in the [sanitized evidence](evidence/arke-reviewer-ui-2026-11-10.json).
+Raw browser captures remain local because they include unrelated tab chrome.
+
+The live journey also exposed successful hold outcomes using a generic incomplete-check
+warning. [PR #419](https://github.com/michaeljosiah/aonik/pull/419), merged as
+`8f7136b46acbd437ecdd6e73e7ec3c9a4c1a0cc7`, corrects both labels. Its CI/image scan
+passed, dev Admin UI revision `aonik-dev-adminui--0000370` is healthy with its
+configuration unchanged, and the actual recorded operations now show the correct
+success messages. The shared editable-artboard bundle is regenerated; all 14 scenes
+and 28 light/dark exports pass verification.
+
+Validation: solution build has zero errors; final local .NET project runs total
+5,374 passed / 12 existing skips. The initial parallel solution run hit API request
+timeouts; the complete 791-test API rerun passed with two xUnit threads. All 15
+manifest tests and 690 Admin UI tests pass, as do UI production build, design and
+contrast checks. Both fix PRs passed independent GitHub CI.
+
+This completes the owner-approved automated deployed-UI acceptance for #402.
+#403 remains open for the remaining technical/operational matrix: supported older
+installed applications and applicable interactive-movie/export-UI checks; remaining
+delivery failure/exhaustion, deliberate mirror migration, manual fallback and isolated
+server-backup restoration; and production baseline/rights/ownership/capacity/cost
+qualification. Physical-device/OEM coverage is not claimed. A separate human dev
+walkthrough is no longer an outstanding gate. Production and the mirror are unchanged.
 
 ## Deployed application
 

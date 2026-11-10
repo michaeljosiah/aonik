@@ -6,6 +6,16 @@ An editorial approval does not publish anything. An independent, assigned publis
 
 ## Staff journey
 
+The deployed dev journey passed on 10 November 2026 using separate test accounts,
+under the owner's acceptance of autonomous testing in place of a human walkthrough.
+The actual UI exercised private inspection, request-changes/revision, approval,
+hold/removal, release and withdrawal; Player installed the release and played its
+retained copy after an offline cold start. Dev is back to empty serial 20.
+The [runbook and exact evidence](../runbooks/arke-publishing-dev.md#deployed-reviewer-and-player-acceptance)
+record the navigation/configuration fixes, rollout, preserved reading positions
+and remaining #403 operational/production qualification. Production approval policy
+is unchanged.
+
 1. Open **Arke Worlds → Creator submissions**. Search the server-side queue by title, creator or world, or filter its status. The queue contains only submissions the assigned reviewer may inspect.
 2. Open the current revision. **Overview** identifies the creator, audience, edition and immutable digests. **Package & preview** shows verified file identities and a privately fetched PNG/JPEG cover. Download the complete private package to inspect its contents; arbitrary EPUB, HTML and media documents are not executed inside the admin application. Package and image access are audited.
 3. Inspect **Validation**, **Rights & audience** and **History**. The history separates internal editorial reasons from creator-facing messages. Upload activity and verifier results come from the service.
