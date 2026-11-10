@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Publishing activity outcomes (#402/#403):** Show successful hold and hold-removal results explicitly instead of the generic incomplete-check warning.
+
 - **Publishing navigation policies (#402/#403):** Include the evaluated review, management, publish and withdrawal policies in the admin manifest so authorised Arke Worlds staff can reach the live publishing screens. TenantAdmin alone still grants no publishing permission.
 
 - **Player background notification qualification (#403):** Recorded the Android emulator permission, native worker, retry/reboot, duplicate, warm/cold tap, cancellation and offline-retention checks. Player PR #71 fixes premature foreground imports and a stalled media handshake during headless startup. Synthetic receipts are withdrawn at empty dev serial 18; physical-device and production gates remain open.
