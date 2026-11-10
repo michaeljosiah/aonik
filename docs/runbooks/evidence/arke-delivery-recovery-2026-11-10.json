@@ -1,0 +1,607 @@
+{
+  "recordedAtUtc": "2026-11-10T11:31:44.428865+00:00",
+  "scope": "Owner-authorised autonomous synthetic dev qualification. Separate creator and reviewer test identities; real deployed approval/release/retry/withdraw controls. No production or legacy mirror changes.",
+  "issues": [
+    "aonik#403",
+    "aonik#397"
+  ],
+  "channel": "arke-worlds-dev",
+  "fix": {
+    "pullRequest": "https://github.com/michaeljosiah/aonik/pull/421",
+    "sourceCommit": "30370ffb968d7f5712b30a35086bc4eba4fdcd91",
+    "problem": "Final transient failure previously required another delivery dispatch to record attempt-limit; the outbox could stop first.",
+    "result": "The final allowed failure records publication dead-letter/attempt-limit and releases the claim in the same transaction. The outbox completes this handled terminal outcome; an audited explicit retry is required."
+  },
+  "workerDeployment": {
+    "sourceCommit": "30370ffb968d7f5712b30a35086bc4eba4fdcd91",
+    "mergeCommit": "8014cd3370a82583abfeac2d02da953443fef7bf",
+    "imageBuildRun": 42798266572,
+    "previousRevision": "aonik-dev-worker--0000374",
+    "previousImage": "aonikdevacr.azurecr.io/aonik-worker@sha256:e7ddfd89502433b45b24775316e9e3490b7cad2e684a9b2a5ab28117398b9224",
+    "image": "aonikdevacr.azurecr.io/aonik-worker@sha256:e55e8c161319b63f94e13cc16abf96b4c21a0dff4c1ba064be9a254f8c59c3af",
+    "environmentSha256": "940496e5e1ef82023b4baf7f5deaa84904339e434686ec5964fc2f510bb91ec0",
+    "environmentCount": 46,
+    "apiUnchanged": true,
+    "adminUiUnchanged": true,
+    "mirrorEnabled": false,
+    "revision": "aonik-dev-worker--0000375",
+    "configurationUnchanged": true,
+    "deployedAtUtc": "2026-11-10T10:57:38.9177585Z"
+  },
+  "finalHealthAndCleanup": {
+    "checkedAt": "2026-11-10T11:30:58.5046831Z",
+    "apiHealth": 200,
+    "feed": {
+      "version": 2,
+      "serial": 22,
+      "worlds": []
+    },
+    "apps": [
+      {
+        "name": "aonik-dev-api",
+        "provisioning": "Succeeded",
+        "revision": "aonik-dev-api--0000385",
+        "status": "Running"
+      },
+      {
+        "name": "aonik-dev-worker",
+        "provisioning": "Succeeded",
+        "revision": "aonik-dev-worker--0000375",
+        "status": "Running"
+      },
+      {
+        "name": "aonik-dev-adminui",
+        "provisioning": "Succeeded",
+        "revision": "aonik-dev-adminui--0000370",
+        "status": "Running"
+      }
+    ],
+    "ipRestrictions": null,
+    "processes": [
+      {
+        "id": 522152,
+        "exists": false
+      },
+      {
+        "id": 524376,
+        "exists": false
+      }
+    ]
+  },
+  "independentStorageCleanupVerification": {
+    "at": "2026-11-10T11:26:19.990535+00:00",
+    "removed": [
+      "recovery403-20261110-intake",
+      "intake@2026-11-10T10:14:53.0000000Z",
+      "recovery403-20261110-delivery",
+      "delivery@2026-11-10T10:14:55.0000000Z",
+      "intake/recovery-403-20261110"
+    ],
+    "liveShares": [
+      "intake",
+      "delivery"
+    ]
+  },
+  "sharedUiLabelValidation": {
+    "adminUiTests": 690,
+    "productionBuild": "passed; existing large-chunk warning",
+    "designGuardrails": "passed",
+    "contrast": "passed",
+    "editableArtboards": 14,
+    "lightDarkExports": 28,
+    "deployment": "Pending the final UI-only image rollout; no UI deployment claim in this record."
+  },
+  "delivery": {
+    "verifiedAt": "2026-11-10T11:25:32.380500+00:00",
+    "receiptId": "ccec17c2-c65d-4a94-a3bc-a4661f362923",
+    "revisionId": "b7fc0212-a56a-49b2-8649-b9805b9a5092",
+    "operationId": "154e4327-cec6-4fe6-9b56-faa03666c442",
+    "automaticAttemptLimit": 6,
+    "exhaustedAt": "2026-11-10T11:16:39.752983",
+    "terminalCheckpointAt": "2026-11-10T11:18:03.4751338Z",
+    "catalogueUnchangedWhileFailed": true,
+    "publicationDeadLetterCode": "attempt-limit",
+    "originalOutboxCompleted": true,
+    "manualRetryAuditId": "920e1ed1-55c3-4382-a64d-766b9b98375c",
+    "sameOperationRecovered": true,
+    "sameArtifactIds": true,
+    "retryCycles": 1,
+    "recoveryAttempts": 1,
+    "releaseSerial": 21,
+    "withdrawalSerial": 22,
+    "finalReceiptStatus": "withdrawn",
+    "singleEditionRecord": true,
+    "activeDeliveries": 0,
+    "artifacts": [
+      {
+        "Id": "75e0d2d4-2b28-4597-8570-1556ecf68721",
+        "AssetId": "",
+        "Sha256": "7bae38aad3244ea813ea287ab0aae336e9cd6f08aa8beba74b6fef852b8b61df",
+        "Bytes": 99725,
+        "Url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/75e0d2d4-2b28-4597-8570-1556ecf68721",
+        "ReadyAt": "2026-11-10T11:01:02.420459",
+        "PublicVerifiedAt": "2026-11-10T11:19:40.6471019"
+      },
+      {
+        "Id": "c3464b5b-387e-4018-a529-ed3e230b1b50",
+        "AssetId": "p1",
+        "Sha256": "1b985f306517220e1109af14d6c855547d7842e05c560ba8c5da9100f2089849",
+        "Bytes": 2052,
+        "Url": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/publishing/channels/arke-worlds-dev/assets/c3464b5b-387e-4018-a529-ed3e230b1b50",
+        "ReadyAt": "2026-11-10T11:19:40.7476717",
+        "PublicVerifiedAt": "2026-11-10T11:19:40.8055923"
+      }
+    ],
+    "manualRetryCapCoverage": "Automated service tests accept cycles 1\u201310, reject 11, and replay cycle 10 without another event; this live batch exercises one manual retry.",
+    "editorialDecisionId": "393e3dc1-2e61-40d2-bc04-33602cb096a7",
+    "reviewDigest": "3cf68e51c069a7368359a2fb74ac2911503dfeb16a4789685992755683acf87a"
+  },
+  "publicReadback": {
+    "at": "2026-11-10T11:20:52.8038172Z",
+    "artifacts": [
+      {
+        "bytes": 99725,
+        "matches": true,
+        "sha256": "7bae38aad3244ea813ea287ab0aae336e9cd6f08aa8beba74b6fef852b8b61df",
+        "id": "75e0d2d4-2b28-4597-8570-1556ecf68721"
+      },
+      {
+        "bytes": 2052,
+        "matches": true,
+        "sha256": "1b985f306517220e1109af14d6c855547d7842e05c560ba8c5da9100f2089849",
+        "id": "c3464b5b-387e-4018-a529-ed3e230b1b50"
+      }
+    ]
+  },
+  "creatorFinalReceipt": {
+    "at": "2026-11-10T11:23:41.944Z",
+    "receiptId": "ccec17c2-c65d-4a94-a3bc-a4661f362923",
+    "status": "withdrawn",
+    "transfer": "complete",
+    "source": "Actual Studio CreatorPublishingService and normal test-account session"
+  },
+  "player": {
+    "at": "2026-11-10T11:24:12.502919+00:00",
+    "before": {
+      "file": "403-recovery-device-before.tar",
+      "bytes": 3856896,
+      "sha256": "f5836c5aa00ee909d419260eb8bcc10b7b2e87e7d620a6eb8d825d64fef999c6"
+    },
+    "after": {
+      "file": "403-recovery-device-after.tar",
+      "bytes": 3856896,
+      "sha256": "925b81468f8bf1377e15489e593bae0a2fc46ccf4bdfc02dc0aae237f14cf4af"
+    },
+    "catalogues": {
+      "fault": {
+        "fetchedAt": "2026-11-10T11:07:27.472676Z",
+        "serial": 20,
+        "worldIds": []
+      },
+      "published": {
+        "fetchedAt": "2026-11-10T11:20:55.958389Z",
+        "serial": 21,
+        "worldIds": [
+          "review-garden-dev-403"
+        ]
+      },
+      "withdrawn": {
+        "fetchedAt": "2026-11-10T11:23:44.513566Z",
+        "serial": 22,
+        "worldIds": []
+      }
+    },
+    "libraryRecordUnchanged": true,
+    "worldCount": 4,
+    "retainedMediaFiles": 31,
+    "allRetainedMediaFilesByteIdentical": true,
+    "changedPreferenceFiles": [],
+    "apkReplaced": false,
+    "appDataCleared": false,
+    "allRefreshesThroughNormalUi": true
+  },
+  "fault": {
+    "appName": "aonik-dev-api",
+    "ruleName": "arke-dev-403-readback-rehearsal",
+    "ipAddressRange": "100.100.0.59/32",
+    "workerReplica": "aonik-dev-worker--0000375-94ddc8946-dkv7z",
+    "autoRestoreSeconds": 1800,
+    "appliedAt": "2026-11-10T11:00:07.8234653Z",
+    "restoredAt": "2026-11-10T11:18:47.1528927Z",
+    "originalBaselineRestored": true
+  },
+  "restore": {
+    "request": {
+      "at": "2026-11-10T10:14:57.8474327Z",
+      "subscription": "336d38e2-bb96-4510-a4c5-5c313139eef9",
+      "resourceGroup": "rg-aonik-dev-uksouth",
+      "server": "aonik-dev-sql",
+      "sourceDatabase": "aonik",
+      "destinationDatabase": "aonik-403-restore-20261110",
+      "restorePoint": "2026-11-10T10:10:00Z",
+      "sku": "S0",
+      "catalogueSerial": 20,
+      "storageAccount": "ankpubxkhim4xqiopna",
+      "snapshots": [
+        {
+          "share": "intake",
+          "snapshot": "2026-11-10T10:14:53.0000000Z"
+        },
+        {
+          "share": "delivery",
+          "snapshot": "2026-11-10T10:14:55.0000000Z"
+        }
+      ],
+      "sourceUnchanged": true,
+      "noRuntimeConnectedToRestore": true,
+      "restoreRequestedAt": "2026-11-10T10:15:04.4966583Z",
+      "restoreRequestAccepted": true
+    },
+    "verification": {
+      "at": "2026-11-10T10:47:23.744134+00:00",
+      "restorePoint": "2026-11-10T10:10:00Z",
+      "restoredDatabase": "aonik-403-restore-20261110",
+      "tables": {
+        "AnkPublicationChannels": 1,
+        "AnkPublicationCatalogueSnapshots": 21,
+        "AnkPublicationSubmissions": 12,
+        "AnkSubmissionRevisions": 15,
+        "AnkEditorialDecisions": 14,
+        "AnkEditorialReviewSnapshots": 14,
+        "AnkPublicationUploadSessions": 19,
+        "AnkPublicationUploadParts": 30,
+        "AnkPublicationValidationReports": 14,
+        "AnkPublicationOperations": 25,
+        "AnkPublicationArtifacts": 20,
+        "AnkPublishedEditions": 11,
+        "AnkPublicationNamespaces": 4
+      },
+      "rows": 200,
+      "allFieldsMatch": true,
+      "restoredCatalogueSerial": 20,
+      "publicArtifactRecordsBoundToRestoredFiles": 20,
+      "completedPrivatePackagesBoundToRestoredFiles": 14,
+      "privateShareFiles": 41,
+      "publicShareFiles": 21,
+      "sourceSha256": "f569524e3cc75be9e1765219f25c8c9e5af353a930df6cda3e80298a5b18fa0d",
+      "restoreSha256": "d3cb6445e6ed24ddd9b3a5f2dfefeaafe84b29fdb0b5b17a0f43498ad06b3717",
+      "runtimeCutoverPerformed": false
+    },
+    "storageIdentityAndPrivateHandoff": {
+      "intake": {
+        "locationId": "d1a3cdeea4ec8ff3b4821b6f072326523b68d7da685d90073e3245036aecf461",
+        "markerPreserved": true,
+        "logicalMountPath": "/mnt/aonik-publishing-private",
+        "recordsMatched": 19
+      },
+      "delivery": {
+        "locationId": "129fc9766dac6e7a5e75966e553c166bfb9f484e08e22fde2b5ff24365658425",
+        "markerPreserved": true,
+        "logicalMountPath": "/mnt/aonik-publishing-public",
+        "recordsMatched": 20
+      },
+      "manualIntake": {
+        "receiptId": "9bede8c3-8141-4e1c-89b0-962dd39cfd27",
+        "revisionId": "6ed02ac5-7c7a-48c1-958f-e3b80caf18b1",
+        "sha256": "7bae38aad3244ea813ea287ab0aae336e9cd6f08aa8beba74b6fef852b8b61df",
+        "bytes": 99725,
+        "decisionId": "f3481131-c5e1-4a19-9d69-6731b4a033f4",
+        "reviewDigest": "6ba6a7e0254f5207d836302c745f7c98285347066bd668224828572f400e4a77",
+        "currentStatus": "withdrawn",
+        "retainedForPrivateRecoveryOnly": true
+      }
+    },
+    "studioPackageCheck": {
+      "at": "2026-11-10T10:47:45.149Z",
+      "ok": true,
+      "bytes": 99725,
+      "sha256": "7bae38aad3244ea813ea287ab0aae336e9cd6f08aa8beba74b6fef852b8b61df"
+    },
+    "sqlCleanup": {
+      "target": "/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.Sql/servers/aonik-dev-sql/databases/aonik-403-restore-20261110",
+      "creationDate": "2026-11-10T10:46:00.913+00:00",
+      "status": "Online",
+      "verifiedRows": 200,
+      "sourceDatabase": "aonik",
+      "sourceUnchanged": true,
+      "runtimeNeverRepointed": true,
+      "apply": true,
+      "deletedAt": "2026-11-10T10:49:08.2781005Z",
+      "sourceStillExists": true
+    },
+    "storageCleanup": {
+      "at": "2026-11-10T11:24:59.572455+00:00",
+      "targets": [
+        {
+          "kind": "isolated-restored-share",
+          "name": "recovery403-20261110-intake"
+        },
+        {
+          "kind": "isolated-restored-share",
+          "name": "recovery403-20261110-delivery"
+        },
+        {
+          "kind": "owned-rehearsal-snapshot",
+          "share": "intake",
+          "snapshot": "2026-11-10T10:14:53.0000000Z"
+        },
+        {
+          "kind": "owned-rehearsal-snapshot",
+          "share": "delivery",
+          "snapshot": "2026-11-10T10:14:55.0000000Z"
+        },
+        {
+          "kind": "owned-private-probe-directory",
+          "share": "intake",
+          "directory": "recovery-403-20261110",
+          "files": 48
+        }
+      ],
+      "liveSharesPreserved": true,
+      "otherSnapshotsPreserved": true,
+      "apply": true,
+      "completedAt": "2026-11-10T11:25:00.533819+00:00"
+    }
+  },
+  "localScreenEvidence": {
+    "captures": [
+      {
+        "name": "approval-confirmation-0.jpg",
+        "sha256": "6e394f86e8209e4123960e6393dc010a7ff719c3e14d8eb0449247c4d3562bae",
+        "bytes": 135414
+      },
+      {
+        "name": "approval-confirmation.json",
+        "sha256": "91628a5aa78dde9ab806bbd10d38206188d41d005e4db783545c79f980de690a",
+        "bytes": 10996
+      },
+      {
+        "name": "approval-submitted-0.jpg",
+        "sha256": "ea84a40efa2705411eeef5283124c923abdd67db5355d98627c336d4847504de",
+        "bytes": 134672
+      },
+      {
+        "name": "approval-submitted.json",
+        "sha256": "4028a1498ae0afbeaa3ac9dd0f95de11702801dccb8e20e943e1bec1b3af0e4e",
+        "bytes": 24845
+      },
+      {
+        "name": "deadletter-six-attempts-0.jpg",
+        "sha256": "c94c7b316cada089d585f21ba6a39bf680f5edaefc8a51c6d92e8a091de5abed",
+        "bytes": 138237
+      },
+      {
+        "name": "deadletter-six-attempts.json",
+        "sha256": "ed80d8fbec4cac8cbf4cb4c5e348a458a07afda31e0127027a586bdd5b39ecc5",
+        "bytes": 24006
+      },
+      {
+        "name": "delivery-backoff-ui-0.jpg",
+        "sha256": "62910fab7bab3864d7e34c4e30ecf9604b6864fc635a54092d470852a94d2c9a",
+        "bytes": 125070
+      },
+      {
+        "name": "delivery-backoff-ui.json",
+        "sha256": "4c1a03a81114089bcbfe148c4846667cf338f3b0e3e7aa9df8d896d22b2e5a79",
+        "bytes": 24060
+      },
+      {
+        "name": "fifth-attempt-waiting-0.jpg",
+        "sha256": "82354416fb840ce86eb2bf99ed6976d48fe8f7d2f91d05923ab8568cebb8793f",
+        "bytes": 138407
+      },
+      {
+        "name": "fifth-attempt-waiting.json",
+        "sha256": "ff400ed6873679b3094ccfbd7b76a5bb7328a2b80588e2d080e4f35e130b98f5",
+        "bytes": 24060
+      },
+      {
+        "name": "player-before-recovery-0.jpg",
+        "sha256": "df5992ef2a1da65e1c728ed6b0b482ec65108ba5516610252a57699557874357",
+        "bytes": 41104
+      },
+      {
+        "name": "player-before-recovery-1.jpg",
+        "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464",
+        "bytes": 4017
+      },
+      {
+        "name": "player-before-recovery.json",
+        "sha256": "7771e35b2c808e1ff611f75a4f16515ee12887a18721760304e22d2ba96b1014",
+        "bytes": 275
+      },
+      {
+        "name": "player-discovers-recovered-release-0.jpg",
+        "sha256": "b9ee93fe2315abe921f95a0204e030bc91b078bfe74d71fe1a4fe7b1dfdb3af7",
+        "bytes": 35042
+      },
+      {
+        "name": "player-discovers-recovered-release-1.jpg",
+        "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464",
+        "bytes": 4017
+      },
+      {
+        "name": "player-discovers-recovered-release.json",
+        "sha256": "02c877c437e295676687adeeb42c915a2439865383db7f02855e2d69a46e784a",
+        "bytes": 275
+      },
+      {
+        "name": "player-empty-after-withdrawal-0.jpg",
+        "sha256": "f10ee25085999cf44369cd346c386083fa4f826a462e06a3224f444ff18620fb",
+        "bytes": 29093
+      },
+      {
+        "name": "player-empty-after-withdrawal-1.jpg",
+        "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464",
+        "bytes": 4017
+      },
+      {
+        "name": "player-empty-after-withdrawal.json",
+        "sha256": "b5f4428e8df464069c16e52b5eb3437117e843d638498d591ff45deb3374e937",
+        "bytes": 275
+      },
+      {
+        "name": "player-empty-discovery-during-fault-0.jpg",
+        "sha256": "0c67610252545fe5cb6fc759b41157e79354c93265134787019626f048658c96",
+        "bytes": 29071
+      },
+      {
+        "name": "player-empty-discovery-during-fault-1.jpg",
+        "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464",
+        "bytes": 4017
+      },
+      {
+        "name": "player-empty-discovery-during-fault.json",
+        "sha256": "cbedd6cc8c5e8bebdc041d10fc298280cc8b27e45bee009e36a028d97b794c57",
+        "bytes": 275
+      },
+      {
+        "name": "player-refresh-during-fault-0.jpg",
+        "sha256": "85b74170ee5a6304a485c458dd593fd4b12732d1fe55d4eaa44239027fe825df",
+        "bytes": 44133
+      },
+      {
+        "name": "player-refresh-during-fault-1.jpg",
+        "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464",
+        "bytes": 4017
+      },
+      {
+        "name": "player-refresh-during-fault.json",
+        "sha256": "e99b2a7f8ea4aafa7486a20596df3f5f83686154c95d78f2ee16caf338c5a94f",
+        "bytes": 275
+      },
+      {
+        "name": "player-refresh-fault-complete-0.jpg",
+        "sha256": "b61b51a5513a64e6eae7178dc3b770ca280704e53cb1f300a8a6dc64cc146ece",
+        "bytes": 44127
+      },
+      {
+        "name": "player-refresh-fault-complete-1.jpg",
+        "sha256": "8acdff5f31b6b11095884f4334570cdf7bf493c6abb864e1884606cced49a464",
+        "bytes": 4017
+      },
+      {
+        "name": "player-refresh-fault-complete.json",
+        "sha256": "127a0bd9b7eaaadd31dd7b18017d5bcc8aaa5becd927402f640a20cb12fb1899",
+        "bytes": 275
+      },
+      {
+        "name": "publication-confirmation-0.jpg",
+        "sha256": "e613ca5a0367e77128a6c1e6f67149711f848dd266d56535f31938c0a2a4a0a0",
+        "bytes": 131599
+      },
+      {
+        "name": "publication-confirmation.json",
+        "sha256": "36f9b8092dd156e5a854cc2098428473094bed4535270bbec3de341ca7d415c7",
+        "bytes": 10105
+      },
+      {
+        "name": "publication-requested-0.jpg",
+        "sha256": "0e55697c577fefac41d1f8deddd56ffc8da2d68a738595e59e4abedc07ec19d2",
+        "bytes": 133271
+      },
+      {
+        "name": "publication-requested.json",
+        "sha256": "9245ea172bc8dbdc7ce66eba351f7b43c35cb34ecf2bf041033f83f291a19e57",
+        "bytes": 24938
+      },
+      {
+        "name": "retry-confirmation-0.jpg",
+        "sha256": "8ec0872f75dc0e5a87faba1678e10ea74cc2ec26393c8b9861645b386f267d83",
+        "bytes": 133644
+      },
+      {
+        "name": "retry-confirmation.json",
+        "sha256": "9a2e6b5182a70e63eb90e16aacf1c0ee523279dcf859a2226755836f89acd831",
+        "bytes": 10354
+      },
+      {
+        "name": "retry-submitted-0.jpg",
+        "sha256": "d05e828646ef5d0d6967b9448a12722b6daf5e3bf0f5ecf92a0a82839b902d9d",
+        "bytes": 132526
+      },
+      {
+        "name": "retry-submitted.json",
+        "sha256": "529abaa11e427e4740219d4a92affbf03c42622b8953449322d72488f92a8e3e",
+        "bytes": 23873
+      },
+      {
+        "name": "review-exact-revision-0.jpg",
+        "sha256": "89c017b30446da95580b4ee9e13ff70796fc2fe9507154fad92fa09d50f63576",
+        "bytes": 141599
+      },
+      {
+        "name": "review-exact-revision.json",
+        "sha256": "90a5b61f4f1e08a582faa93a5fb959faca665d2353704355ba0083ae1102c8c1",
+        "bytes": 26980
+      },
+      {
+        "name": "rights-audience-0.jpg",
+        "sha256": "8fbf69c687bfaf5f9059c90bf27b7a7c20c8366de7f8934cc1293782dee7453b",
+        "bytes": 134027
+      },
+      {
+        "name": "rights-audience.json",
+        "sha256": "1372331c4f656d1c1f547c65447fdd8b25e701c2be6cf4dee19f70f4649f3ec1",
+        "bytes": 20395
+      },
+      {
+        "name": "same-operation-committed-21-0.jpg",
+        "sha256": "c82b675ddfddfa35925c925a48b7d9f5f404dd1f9e30d53a5b6b8bd01c52acc7",
+        "bytes": 128781
+      },
+      {
+        "name": "same-operation-committed-21.json",
+        "sha256": "8ba05f4d857ba634e0d3a827f21399f618bb56873172fa28f34e1837ce724704",
+        "bytes": 23486
+      },
+      {
+        "name": "withdrawal-confirmation-0.jpg",
+        "sha256": "920967bfb10ea216754557c05f7e129187acf87789fa07a10b1657c53ff3e0a9",
+        "bytes": 145657
+      },
+      {
+        "name": "withdrawal-confirmation.json",
+        "sha256": "78d8f1c08d0a93bd18ad701eed4c91b191f964eb7b2ea3abdd6e5b1aa925aed3",
+        "bytes": 10267
+      },
+      {
+        "name": "withdrawal-submitted-0.jpg",
+        "sha256": "e4dec74550a7355a1a302ed4b4ed2ec824baa5f56704adafaf4c55cc06b81e53",
+        "bytes": 150688
+      },
+      {
+        "name": "withdrawal-submitted.json",
+        "sha256": "2a40626014c64a4821ca57f297b98e19ef3c4f43cf6447d24f769c44396fab79",
+        "bytes": 64495
+      }
+    ],
+    "rawCapturesRemainPrivate": "Browser chrome contains unrelated tabs. Only capture hashes are committed."
+  },
+  "validation": {
+    "localPublishingTests": 139,
+    "localSolutionBuildErrors": 0,
+    "ciBackendPassed": 5385,
+    "ciBackendExistingSkips": 5,
+    "ciApiPassed": 791,
+    "ciAdminUiPassed": 690,
+    "ciRun": "https://github.com/michaeljosiah/aonik/actions/runs/42798257792",
+    "imageScanRun": "https://github.com/michaeljosiah/aonik/actions/runs/42798266572",
+    "ciFirstAttempt": "One API host startup test failed with FastEndpoints shared JsonSerializerOptions read-only exception; the complete failed backend job was rerun without source changes and passed. Not represented as an uninterrupted first-pass success.",
+    "ciFollowUp": "https://github.com/michaeljosiah/aonik/issues/422"
+  },
+  "diagnosticThrottle": {
+    "observedAtUtc": "2026-11-10T11:07:43Z",
+    "service": "Container Apps diagnostic WebSocket",
+    "status": 429,
+    "retryAfterSeconds": 600,
+    "handling": "Stopped repeated diagnostic connections; used actual deployed publication UI during cooldown; independent restore watchdog remained active."
+  },
+  "limitations": [
+    "One live manual retry; ten-cycle bound and exact-request replay additionally covered by automated service tests.",
+    "Restored SQL and files were compared in isolation; no runtime cutover, regional failover or production RTO claim.",
+    "Snapshots follow the SQL restore point and include unreferenced immutable files; no cross-service atomic-backup claim.",
+    "Private fallback ZIP and review handoff verified; withdrawn receipts remain terminal. No manual production upload or legacy mirror migration tested.",
+    "Earlier emulator compatibility evidence remains valid; this batch does not add physical-device/OEM or installed historical-app coverage."
+  ]
+}

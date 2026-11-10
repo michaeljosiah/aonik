@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Publishing recovery qualification (#403):** Verified six-attempt exhaustion, recovery of the same operation/artifacts, Player discovery and withdrawal at empty dev serial 22 with all saved library data preserved. An isolated SQL/files restore matched 200 publishing records and all 62 files, with a verified private intake handoff and cleanup. Correct the successful `retry-queued` outcome text in the application and shared editable design bundle.
+
 - **Publishing retry exhaustion (#403):** Record `dead-letter` / `attempt-limit` on the final failed delivery attempt, without depending on another outbox dispatch. Preserve the approved revision and immutable assets for an audited bounded retry; regression coverage also enforces the ten-cycle manual retry limit and exact replay.
 
 - **Deployed publishing reviewer acceptance (#402/#403):** Completed the owner-approved automated dev UI revision, approval, hold/removal, release and withdrawal journey, plus Player cold offline retention. Both discovered fixes are deployed, the editable canvas bundle is synchronized, and the synthetic release is withdrawn at empty serial 20. Separate human dev walkthroughs are no longer required; remaining operational/production qualification is tracked explicitly.
