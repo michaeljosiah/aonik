@@ -3,6 +3,146 @@
 This record separates deployment from end-to-end qualification. No production
 catalogue migration or public release is authorised by the dev rehearsal.
 
+## Delivery exhaustion and isolated restore — 10 November 2026
+
+The final-attempt regression found that the publication handler previously relied
+on another outbox dispatch to record exhaustion. If the outbox stopped at the
+same attempt bound, the operation could remain `uncertain`. PR #421 now records
+`dead-letter` / `attempt-limit` on the final transient failure itself, releases
+its claim and returns the receipt to approved state in that transaction. The
+handled terminal outcome completes the original outbox message; a separate,
+audited manual retry is needed to resume delivery. No schema changed.
+
+Local verification passed all 139 publishing tests and the solution build.
+GitHub CI's backend rerun passed 5,385 tests with five existing skips; the Admin
+UI suite passed 690 tests. The first CI attempt hit an unrelated API host-startup
+serializer error, tracked in #422; record both attempts rather than implying an
+uninterrupted first-pass result. The image build and security scan passed.
+
+The Worker-only image rollout uses merged commit
+`8014cd3370a82583abfeac2d02da953443fef7bf`, scanned source
+`30370ffb968d7f5712b30a35086bc4eba4fdcd91`, and healthy revision `0000375`.
+All 46 Worker environment entries are unchanged. API `0000385`, Admin UI `0000370`,
+the six-attempt publishing limit, ordinary exponential backoff and disabled mirror
+remain unchanged. The retiring Worker replica was confirmed absent before the fault.
+
+For monitoring, prefer the deployed publication activity screen and normal
+service reads. Repeated Container Apps diagnostic WebSocket connections can return
+429 with `Retry-After: 600`; stop that probe and honor the cooldown. The live
+rehearsal encountered this diagnostic limit, switched to the deployed activity
+screen, and kept the separate restore watchdog running. Do not alter retry timing
+or bypass cloud throttling merely to speed up evidence collection.
+
+### Live exhaustion, recovery and withdrawal
+
+The original synthetic Review Garden archive was submitted through Studio's real
+freeze/upload/receipt services under new receipt
+`ccec17c2-c65d-4a94-a3bc-a4661f362923`, revision 1. The deployed reviewer inspected
+the private download and recorded the exact independent test-account decision
+under the owner's autonomous dev authority. Publication, retry and withdrawal
+used the real deployed UI confirmations.
+
+The bounded fault denied only the fixed Worker's observed `100.100.0.59/32`
+source. Its readback returned 403 while normal clients returned 200. A separate
+30-minute restore watchdog was armed before the rule was created. Normal
+backoff ran without changing limits: the sixth failed attempt recorded
+`dead-letter` / `attempt-limit` at 11:16:39 UTC. The operation claim was cleared,
+the receipt remained approved, and empty catalogue serial **20** was unchanged.
+The original outbox event completed this handled terminal result after five
+retryable failures; it did not require a seventh delivery dispatch.
+
+After explicit rule removal and a successful Worker 200 readback, the deployed
+**Retry same operation** confirmation recovered operation
+`154e4327-cec6-4fe6-9b56-faa03666c442` on its first attempt. Retry audit
+`920e1ed1-55c3-4382-a64d-766b9b98375c` retains the reason and original operation
+reference. Both artifact IDs, hashes and URLs are unchanged; the existing archive's
+ready timestamp is preserved. Exactly one edition committed at serial **21**.
+Independent downloads match the 99,725-byte approved ZIP and 2,052-byte artwork.
+The ten-cycle manual retry boundary and exact-request replay pass service tests;
+this live batch exercises one manual retry, not ten live cycles.
+
+The ordinary Android emulator fetched serial 20 during the fault, discovered the
+recovered edition at serial 21, and fetched empty serial **22** after the UI
+withdrawal. All four saved worlds, library/reading records, 31 retained media files
+and preferences are unchanged. No APK replacement or data clear occurred.
+Studio's final authenticated receipt refresh reports **withdrawn / complete**.
+There are no active deliveries, the ingress baseline is restored and the watchdog
+has exited. Production and the GitHub mirror remain unchanged.
+
+The live retry audit exposed a wording defect: `retry-queued` fell back to the
+generic incomplete-check warning. The shared runtime/design presentation now
+explicitly describes the queued reconciliation. All 690 Admin UI tests pass;
+all 14 editable scenes and 28 light/dark exports verify against the regenerated
+shared bundle. This is a presentation change; retry permissions and execution
+remain server-enforced.
+
+See [sanitized exact evidence](evidence/arke-delivery-recovery-2026-11-10.json)
+for operation/artifact IDs, before/after Player checkpoints, approval provenance,
+database/file comparisons, runtime hashes and cleanup records. Raw downloads,
+database rows and browser screenshots remain private local evidence.
+
+### Isolated backup restore and private handoff
+
+The rehearsal restored Azure SQL `aonik` to a new, isolated S0 database at
+**2026-11-10T10:10:00Z**. Azure accepted the request at 10:14:58 and the restored
+database became readable at approximately 10:46 UTC. The running API and Worker
+kept their original connection strings throughout. No application was switched
+to the restored database and no production recovery-time objective is inferred.
+
+Both publishing Azure Files shares were snapshotted at 10:14:53–55 and restored
+into separate private shares. Every restored file was downloaded again and
+compared byte for byte: **41 private files / 29,484,564 bytes** and **21 delivery
+files / 14,648,840 bytes**. These immutable-file snapshots follow the SQL restore
+point; additional unreferenced bytes do not become published records.
+
+A SELECT-only probe used the existing dev API network and database credential,
+without opening a SQL firewall rule. All **200 publishing rows across 13 tables**
+match the saved source checkpoint in every field, including row versions. The
+restored catalogue head is empty serial **20**. All 20 public artifact records
+and all 14 completed private upload packages resolve to the restored files with
+the expected length and SHA-256. Both `.store-id` markers and their derived
+storage location identities are preserved at the canonical logical mount paths.
+
+The restored private Review Garden archive also passes Studio's real
+`checkWorldPackageZip` verifier. The private handoff records its receipt,
+revision, exact editorial decision/digest, package hash and current withdrawn
+status. This proves recovery of a verifiable intake package and its review
+evidence; it does not authorize republishing a withdrawn receipt or qualify a
+manual production mirror upload.
+
+For a real recovery:
+
+1. Hold new publishing admission and delivery through the normal audited
+   configuration process. Record the canonical catalogue serial/head, database
+   restore point, source share snapshots, storage identity markers and image
+   versions. Retain the existing environment for investigation.
+2. Restore SQL into a new database and files into new private shares. Compare
+   publishing records, operation claims, approval digests, catalogue snapshots,
+   package/artifact hashes and all referenced paths. Account for objects created
+   between the database restore point and file snapshot; never infer a release
+   from the presence of files alone.
+3. Preserve `.store-id` and the logical mount paths
+   `/mnt/aonik-publishing-private` and `/mnt/aonik-publishing-public`. A different
+   path/marker deliberately changes the location identity and blocks delivery;
+   do not rewrite database identities to bypass that guard.
+4. Reconcile the highest serial already served to consumers before any runtime
+   cutover. Never serve a restored lower serial as a public rollback. Perform a
+   separately authorized cutover and recovery by a new canonical serial, with
+   exact approval, namespace and policy checks still enforced.
+5. If cloud publication remains unavailable, retain the verified private ZIP,
+   manifest, hash, receipt/revision and rights/review evidence for an operator
+   handoff. Current withdrawn/held/rejected state remains authoritative. Do not
+   bypass approval, copy arbitrary Studio workspaces, or publish through the
+   legacy mirror as an improvised fallback.
+6. After verification and retention of sanitized evidence, remove only the
+   rehearsal's isolated databases/shares/snapshots and probe files. Verify the
+   original resources, ingress rules, mirror setting and application connections.
+
+Azure SQL's configured seven-day point-in-time retention and Azure Files share
+snapshots are separate mechanisms. This rehearsal verifies their recovered data
+together; it does not establish cross-resource atomic backups, a full runtime
+disaster-recovery cutover, regional failover, or production capacity/cost readiness.
+
 ## Acceptance standard and reviewer UI — 10 November 2026
 
 The owner accepts autonomous end-to-end testing with the development test accounts
@@ -81,10 +221,12 @@ contrast checks. Both fix PRs passed independent GitHub CI.
 
 This completes the owner-approved automated deployed-UI acceptance for #402.
 #403 remains open for the remaining technical/operational matrix: supported older
-installed applications and applicable interactive-movie/export-UI checks; remaining
-delivery failure/exhaustion, deliberate mirror migration, manual fallback and isolated
-server-backup restoration; and production baseline/rights/ownership/capacity/cost
-qualification. Physical-device/OEM coverage is not claimed. A separate human dev
+installed applications and applicable interactive-movie/export-UI checks; deliberate
+mirror migration and production baseline/rights/ownership/capacity/cost qualification.
+The later recovery section above qualifies live attempt exhaustion, one audited
+retry, isolated database/files restoration and a private verified intake handoff.
+It does not qualify a full runtime disaster-recovery cutover or manual production
+publication. Physical-device/OEM coverage is not claimed. A separate human dev
 walkthrough is no longer an outstanding gate. Production and the mirror are unchanged.
 
 ## Deployed application
