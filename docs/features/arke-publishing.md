@@ -4,6 +4,22 @@ Full target specification: [Spec 100](../specifications/100.arke-player-publishi
 
 Studio retains local authoring and the owning Player exporter. AONIK becomes the private submission, human review and approved catalogue authority. Player retains verified installation and offline use.
 
+## Current qualification — 10 November 2026
+
+The owner-approved automated deployed reviewer journey for #402 is complete.
+Separate dev creator/reviewer accounts exercised the actual UI through private
+inspection, request changes, revised submission, exact approval, hold/removal,
+publication and withdrawal. Player discovered and installed the release, retained
+it after withdrawal and played it after a cold offline restart. Existing reading
+positions and story/comic saves are preserved. Navigation and activity-label fixes
+are merged and deployed; dev is empty at serial 20, with production/mirror unchanged.
+
+See the [operator record](../runbooks/arke-publishing-dev.md#deployed-reviewer-and-player-acceptance)
+and [sanitized evidence](../runbooks/evidence/arke-reviewer-ui-2026-11-10.json).
+#403 and Player #50 retain their remaining technical/operational and production
+qualification; separate human dev walkthrough/pilot requirements were waived by the
+owner. The slice records below describe their historical implementation boundaries.
+
 ## Delivery issues
 
 Parent epic: [AONIK #397](https://github.com/michaeljosiah/aonik/issues/397).

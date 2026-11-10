@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Deployed publishing reviewer acceptance (#402/#403):** Completed the owner-approved automated dev UI revision, approval, hold/removal, release and withdrawal journey, plus Player cold offline retention. Both discovered fixes are deployed, the editable canvas bundle is synchronized, and the synthetic release is withdrawn at empty serial 20. Separate human dev walkthroughs are no longer required; remaining operational/production qualification is tracked explicitly.
+
 - **Publishing activity outcomes (#402/#403):** Show successful hold and hold-removal results explicitly instead of the generic incomplete-check warning.
 
 - **Publishing navigation policies (#402/#403):** Include the evaluated review, management, publish and withdrawal policies in the admin manifest so authorised Arke Worlds staff can reach the live publishing screens. TenantAdmin alone still grants no publishing permission.

@@ -1,0 +1,447 @@
+{
+  "recordedAtUtc": "2026-11-10T07:45:42.981965+00:00",
+  "scope": "Autonomous synthetic development acceptance; owner waived separate human walkthrough/pilot on 10 November. Separate test-account identities and server exact-revision gates remain enforced.",
+  "issues": [
+    "aonik#402",
+    "aonik#403",
+    "ArkePlayer#50"
+  ],
+  "channel": "arke-worlds-dev",
+  "apiDeployment": {
+    "sourceCommit": "0fdec03cb4143a8d5e8ed1c1bb72a244dc68d389",
+    "mergeCommit": "a8b6919c8372593d5fcea540819d9c9369e9684c",
+    "imageBuildRun": 42771327725,
+    "previousRevision": "aonik-dev-api--0000384",
+    "previousImage": "aonikdevacr.azurecr.io/aonik-api@sha256:598080f4c60da30e5945f36192b96e06f9078a7b375b8bfb1c514dc416e14208",
+    "image": "aonikdevacr.azurecr.io/aonik-api@sha256:0c4c538ebf8d5f303c1457ef7019a4ad2e645713132b7c2861cf5fafb52b1913",
+    "environmentSha256": "09039db7ce805df17971b4da6cdcc991cfab3c59fe880e8d94b55dceadb00168",
+    "environmentCount": 85,
+    "workerUnchanged": true,
+    "adminUiUnchanged": true,
+    "mirrorEnabled": false,
+    "revision": "aonik-dev-api--0000385",
+    "configurationUnchanged": true,
+    "deployedAtUtc": "2026-11-10T07:09:34.7188024Z"
+  },
+  "apiHealth": {
+    "at": "2026-11-10T07:11:30.1794632Z",
+    "revision": "aonik-dev-api--0000385",
+    "health": "Healthy",
+    "running": "Running",
+    "httpStatus": 200
+  },
+  "devTenantConfiguration": {
+    "at": "2026-11-10T06:50:28.7975253Z",
+    "tenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
+    "before": {
+      "BusinessType": "base",
+      "AppliedPackVersion": 1,
+      "modules": []
+    },
+    "after": {
+      "BusinessType": "arke-worlds",
+      "AppliedPackVersion": 2,
+      "modules": [
+        {
+          "ModuleId": "subscriptions",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "documents",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "workspaces",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "agents",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "finance",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "ordering",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "groups",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "ai",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "platform",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        },
+        {
+          "ModuleId": "publishing",
+          "IsEnabled": true,
+          "Source": "pack",
+          "Reason": "pack:arke-worlds@v2"
+        }
+      ]
+    },
+    "moduleActions": [
+      "Re-applied config pack 'arke-worlds' v2 additively: ensured enabled platform, ordering, ai, agents, finance, subscriptions, groups, workspaces, publishing, documents; existing module defaults preserved"
+    ],
+    "Actions": [
+      "Applied 1 tenant setting(s)",
+      "Applied config pack 'arke-worlds' v2"
+    ],
+    "existingSettingsPreserved": true,
+    "userRolesUnchanged": true,
+    "schemaUnchanged": true,
+    "devOnly": true
+  },
+  "fixture": {
+    "title": "Review Garden Dev 403",
+    "worldId": "review-garden-dev-403",
+    "edition": "2026-11-10",
+    "receiptId": "9bede8c3-8141-4e1c-89b0-962dd39cfd27",
+    "revisionOneId": "edff2acb-939f-4c59-af6d-f6fef02d0865",
+    "revisionTwoId": "6ed02ac5-7c7a-48c1-958f-e3b80caf18b1",
+    "finalStatus": "withdrawn",
+    "archive": {
+      "sha256": "7bae38aad3244ea813ea287ab0aae336e9cd6f08aa8beba74b6fef852b8b61df",
+      "bytes": 99725,
+      "source": "Deployed reviewer UI private package download",
+      "matchesStudioFrozenArchive": true,
+      "files": [
+        "world.json",
+        "audio/tone1.m4a",
+        "listening.json",
+        "pictures/p1.png"
+      ]
+    },
+    "revisionOneDigest": "c6a3b36389e30f0114b0b3d2626a905cbfcfefbe9d2bef0751290ea4a10b5a64",
+    "revisionTwoDigest": "6ba6a7e0254f5207d836302c745f7c98285347066bd668224828572f400e4a77",
+    "provenance": "Original Mina paper-star story, geometric artwork and quiet synthetic test tone; no third-party material or human voice.",
+    "creatorUserId": "a86d992b-872d-4fcd-b88d-0156ee122a5f",
+    "reviewerUserId": "fea74a2f-3261-47f7-a8ca-359ec0f3f373",
+    "creatorDecisions": [
+      {
+        "revisionId": "6ed02ac5-7c7a-48c1-958f-e3b80caf18b1",
+        "decision": "approve",
+        "message": "",
+        "decidedAt": "2026-11-10T07:17:06.2375361"
+      },
+      {
+        "revisionId": "edff2acb-939f-4c59-af6d-f6fef02d0865",
+        "decision": "request-changes",
+        "message": "Please revise the summary to state: Dev-only distribution; no production permission. Keep the verified original archive unchanged.",
+        "decidedAt": "2026-11-10T07:14:03.8807893"
+      }
+    ]
+  },
+  "reviewerUi": {
+    "actualDeployedApplication": true,
+    "interceptedApiResponses": false,
+    "editorialAndPublicationWrites": "Actual Edge UI controls; no API harness writes for review, hold, release or withdrawal.",
+    "creatorSide": "Actual Studio package writer, frozen-edition, resumable-upload and receipt services through the isolated dev harness and existing Creator 1 session; not a claim of interactive authoring/export UI coverage.",
+    "checks": [
+      "Assigned channel and in-review queue",
+      "Exact revision and private artwork",
+      "Authenticated private ZIP download matches Studio",
+      "Server verification and complete asset inventory",
+      "Rights, attribution and audience declarations",
+      "Request changes with internal assessment and separate creator message",
+      "Studio receives only creator-facing decision; immutable revision 2 under same receipt",
+      "History retains revision 1 decision; metadata changes produce a new review digest",
+      "Exact revision 2 approval with all three confirmations",
+      "Approval leaves empty public serial 18 unchanged",
+      "Hold blocks both publish controls; removal restores eligibility",
+      "Separate confirmed release commits serial 19",
+      "Catalogue UI retains edition and operation provenance",
+      "Separate confirmed withdrawal commits empty serial 20",
+      "Studio observes withdrawn receipt"
+    ],
+    "operationIdPrefixesVisibleInUi": {
+      "hold": "70fb1e86",
+      "releaseHold": "07275649",
+      "publish": "baf566f9"
+    },
+    "labelCorrection": {
+      "pullRequest": 419,
+      "sourceCommit": "ff381c590fd75d09db8cd84be0e95377b0dabfba",
+      "reason": "Successful future-publication-held and hold-cleared codes fell back to an incomplete-check warning.",
+      "deployedScreenVerified": true
+    },
+    "screenshots": [
+      {
+        "label": "review-queue",
+        "at": "2026-11-10T07:11:58.601Z",
+        "localImage": "review-queue-0.jpg",
+        "sha256": "540414ebdb43a8c603638c55f5371d7ef4ef4184da79e3840e902a526936007a"
+      },
+      {
+        "label": "revision-one-overview",
+        "at": "2026-11-10T07:12:18.169Z",
+        "localImage": "revision-one-overview-0.jpg",
+        "sha256": "f6b351c53125ee82ce8de76c85cb6483c19f8f4940cc9aa9ace449dacd308c26"
+      },
+      {
+        "label": "revision-one-validation",
+        "at": "2026-11-10T07:13:01.448Z",
+        "localImage": "revision-one-validation-0.jpg",
+        "sha256": "4483e661cd1fcee426a580757cde78d1bd308e10377455fae5926c75819d77db"
+      },
+      {
+        "label": "revision-one-rights",
+        "at": "2026-11-10T07:13:09.281Z",
+        "localImage": "revision-one-rights-0.jpg",
+        "sha256": "8ae505fcbf8249181e34e4360b1307e89f0c6b16c6924d196673812a057f4f8f"
+      },
+      {
+        "label": "revision-one-changes-requested",
+        "at": "2026-11-10T07:14:43.237Z",
+        "localImage": "revision-one-changes-requested-0.jpg",
+        "sha256": "b8981c60aad61ac59bdc0a21cad9c185e1da28b46432ee74740372b6818d877a"
+      },
+      {
+        "label": "revision-two-history",
+        "at": "2026-11-10T07:15:41.831Z",
+        "localImage": "revision-two-history-0.jpg",
+        "sha256": "a6a21597ed18f04030202df8aab9219341f24bc5a407712a38c19c9753ea6b46"
+      },
+      {
+        "label": "revision-two-overview",
+        "at": "2026-11-10T07:15:53.017Z",
+        "localImage": "revision-two-overview-0.jpg",
+        "sha256": "d43a1d028f40f7fb57dc208d45fdc29438648567af4f116ee2819bbd575b4aa1"
+      },
+      {
+        "label": "revision-two-approval-confirmation",
+        "at": "2026-11-10T07:16:57.302Z",
+        "localImage": "revision-two-approval-confirmation-0.jpg",
+        "sha256": "c05903c3de98e5bf197223f389e635f449e534e0d9da4955c4b6df394781473c"
+      },
+      {
+        "label": "publication-held",
+        "at": "2026-11-10T07:18:15.828Z",
+        "localImage": "publication-held-0.jpg",
+        "sha256": "2d8dff5a0c12efbd781e0bee6185a1f20d1712185b571f9a7038712b70dfbdeb"
+      },
+      {
+        "label": "publication-hold-cleared",
+        "at": "2026-11-10T07:19:24.629Z",
+        "localImage": "publication-hold-cleared-0.jpg",
+        "sha256": "4a08e98475b5e8a22b89a3f0cd1b457f16d458ad39a07436e72ffd22d54f6c8c"
+      },
+      {
+        "label": "dev-release-confirmation",
+        "at": "2026-11-10T07:20:11.782Z",
+        "localImage": "dev-release-confirmation-0.jpg",
+        "sha256": "cd75346a120412959db937fa68fcfd03895526242de6f9a7d8c86d5953b5fae4"
+      },
+      {
+        "label": "dev-publication-result",
+        "at": "2026-11-10T07:20:43.513Z",
+        "localImage": "dev-publication-result-0.jpg",
+        "sha256": "f0efd69df55c2d66483ccfda06eb427f6e4c06c33d90d4fa5b2ea3a448da5ce6"
+      },
+      {
+        "label": "catalogue-published-review-garden",
+        "at": "2026-11-10T07:27:58.950Z",
+        "localImage": "catalogue-published-review-garden-0.jpg",
+        "sha256": "2a636bdb8341ca9013bfdc9de95740c3c9872351fc48cbe5f5e407760aec97ef"
+      },
+      {
+        "label": "dev-withdrawal-confirmation",
+        "at": "2026-11-10T07:28:21.681Z",
+        "localImage": "dev-withdrawal-confirmation-0.jpg",
+        "sha256": "775888995597cdca20032a6c34bd843bb5ae9df76578dba2750ca239392efadf"
+      },
+      {
+        "label": "catalogue-withdrawn-review-garden",
+        "at": "2026-11-10T07:29:26.530Z",
+        "localImage": "catalogue-withdrawn-review-garden-0.jpg",
+        "sha256": "b75b2fc82a7dc7005a800558785fd991bd7f42b3f1ca0982881a4a440f0f4988"
+      },
+      {
+        "label": "player-discovers-review-garden",
+        "at": "2026-11-10T07:25:22.881Z",
+        "localImage": "player-discovers-review-garden-0.jpg",
+        "sha256": "2b8be07f93f0f3610706d3de766d7f5b89dd6f97c985a0145285ebca13f12db5"
+      },
+      {
+        "label": "player-review-garden-playing",
+        "at": "2026-11-10T07:26:45.277Z",
+        "localImage": "player-review-garden-playing-0.jpg",
+        "sha256": "762631c58633b678a038ad386d2d3a09c802a82b5db5df56aa7f9a6a10e9bddb"
+      },
+      {
+        "label": "player-withdrawn-world-retained-offline",
+        "at": "2026-11-10T07:31:40.798Z",
+        "localImage": "player-withdrawn-world-retained-offline-0.jpg",
+        "sha256": "a2d6d463c04799071a904cb8154cbd7f99ed68d19176dc6b532914254249cbba"
+      },
+      {
+        "label": "player-cold-offline-home",
+        "at": "2026-11-10T07:34:15.899Z",
+        "localImage": "player-cold-offline-home-0.jpg",
+        "sha256": "13a5cde037ba8420ea421c215048795137f7e17f1c002d97961690f87df1d8d1"
+      },
+      {
+        "label": "player-review-garden-final-paused",
+        "at": "2026-11-10T07:35:43.317Z",
+        "localImage": "player-review-garden-final-paused-0.jpg",
+        "sha256": "2578a199c2e224b3cbf59c862f7f66797afd6f1d52e974b653e000ed79538dac"
+      },
+      {
+        "label": "activity-labels-corrected",
+        "at": "2026-11-10T07:44:19.102Z",
+        "localImage": "activity-labels-corrected-0.jpg",
+        "sha256": "859967092708e4f415103f0d4335a250dd6b001c13c8e520377d3b68ae9b65d3"
+      }
+    ],
+    "rawScreenshots": "Retained locally under output/research/403-ui-screens; full browser captures include unrelated tab chrome and are deliberately not committed."
+  },
+  "publicDelivery": {
+    "publishedSerial": 19,
+    "withdrawnSerial": 20,
+    "finalWorlds": [],
+    "artifactReadback": {
+      "at": "2026-11-10T07:24:23.8061951Z",
+      "serial": 19,
+      "sha256": "7bae38aad3244ea813ea287ab0aae336e9cd6f08aa8beba74b6fef852b8b61df",
+      "bytes": 99725,
+      "exactMatch": true
+    },
+    "mirrorEnabled": false,
+    "productionUnchanged": true
+  },
+  "player": {
+    "device": "Android 16 / API 36 Pixel 9 x64 emulator",
+    "applicationId": "studio.arke.player.dev",
+    "apkReplacedThisBatch": false,
+    "appDataCleared": false,
+    "checks": [
+      "Force refresh discovers serial 19",
+      "Install actual immutable HTTPS package",
+      "Explicit Play reaches native PLAYING and verified artwork",
+      "Force refresh receives empty serial 20 without deleting downloads",
+      "Downloaded edition opens from Library with both radios off",
+      "Cold process restart reaches Offline home and retained library",
+      "Cold Play starts at position 355ms and buffers the full 12000ms local chapter with no default network",
+      "Existing reading/playback positions, world records, story/comic save files and preferences are unchanged; one prior item refreshes only its save timestamp",
+      "Networking restored; Notify remains off and no daily job is scheduled"
+    ],
+    "initialNativePlayback": "state=PlaybackState {state=PLAYING(3), position=8110, buffered position=12000, speed=1.0, updated=34215056, actions=16252927, custom actions=[Action:mName='Rewind, mIcon=2131165264, mExtras=null, Action:mName='Fast Forward, mIcon=2131165263, mExtras=null], active item id=-1, error=null}\n      metadata: size=8, description=Garden chapters, null, null",
+    "offlineState": {
+      "at": "2026-11-10T07:31:22.8780343Z",
+      "wifi": "0",
+      "mobileData": "0",
+      "defaultNetwork": "Active default network: none"
+    },
+    "coldOfflineNativePlayback": "state=PlaybackState {state=PLAYING(3), position=355, buffered position=12000, speed=1.0, updated=34698616, actions=16252927, custom actions=[Action:mName='Rewind, mIcon=2131165264, mExtras=null, Action:mName='Fast Forward, mIcon=2131165263, mExtras=null], active item id=-1, error=null}\n      metadata: size=8, description=Garden chapters, null, null",
+    "offlinePlaybackReadback": {
+      "at": "2026-11-10T07:35:06.4696906Z",
+      "defaultNetwork": "Active default network: none",
+      "media": "      state=PlaybackState {state=PLAYING(3), position=12019, buffered position=12019, speed=1.0, updated=34711097, actions=16252927, custom actions=[Action:mName='Rewind, mIcon=2131165264, mExtras=null, Action:mName='Fast Forward, mIcon=2131165263, mExtras=null], active item id=-1, error=null}\n      metadata: size=8, description=Garden chapters, null, null",
+      "coldStart": true,
+      "catalogueSerial": 20
+    },
+    "radioRestored": {
+      "at": "2026-11-10T07:35:25.0473464Z",
+      "wifi": "1",
+      "mobileData": "1"
+    },
+    "previousItemPositionsUnchanged": 3,
+    "previousWorldsUnchanged": 3,
+    "saveTimestampOnlyUpdates": [
+      {
+        "itemId": "notification-garden-dev-403.garden-chapters.listening",
+        "before": "2026-11-09T22:06:34.766444Z",
+        "after": "2026-11-10T07:26:24.720264Z",
+        "positionAndProgressUnchanged": true
+      }
+    ],
+    "previousPrivateFilesUnchanged": 53,
+    "changedPriorFiles": [
+      "files/arke-worlds-dev/library/library.json",
+      "files/arke-worlds-dev/catalogue.json",
+      "files/profileInstalled",
+      "no_backup/androidx.work.workdb-wal",
+      "no_backup/androidx.work.workdb-shm"
+    ],
+    "removedFiles": [],
+    "backupBefore": {
+      "bytes": 3743744,
+      "sha256": "61e617a51b208c91716c74375e7d7d51629b34b95c40ffd1a147e4271d43c493"
+    },
+    "backupAfter": {
+      "bytes": 3856896,
+      "sha256": "f5836c5aa00ee909d419260eb8bcc10b7b2e87e7d620a6eb8d825d64fef999c6"
+    }
+  },
+  "validation": {
+    "solutionBuildErrors": 0,
+    "localDotnetPassed": 5374,
+    "localDotnetSkipped": 12,
+    "manifestTestsPassed": 15,
+    "apiRerunPassed": 791,
+    "apiRerunReason": "Initial parallel solution attempt had request timeouts; complete API rerun passed with two xUnit threads.",
+    "adminUiTestsPassed": 690,
+    "adminUiProductionBuild": "passed",
+    "designGuardrails": "passed",
+    "contrast": "passed",
+    "editableArtboardsPassed": 14,
+    "lightDarkExportsPassed": 28,
+    "apiCiRun": 42771303447,
+    "apiImageScanRun": 42771327725,
+    "adminUiCiRun": 42774939492,
+    "adminUiImageScanRun": 42774936543
+  },
+  "remainingScope": [
+    "Physical Android/iOS and OEM scheduling are not claimed; owner selected emulator",
+    "Supported older installed apps and applicable interactive-movie/export-UI cases",
+    "Remaining delivery failure/exhaustion, deliberate mirror migration, manual fallback and isolated server-backup restoration",
+    "Production rights/ownership/baseline and capacity/cost approval remain separate; no further human dev walkthrough required"
+  ],
+  "adminUiDeployment": {
+    "sourceCommit": "ff381c590fd75d09db8cd84be0e95377b0dabfba",
+    "mergeCommit": "8f7136b46acbd437ecdd6e73e7ec3c9a4c1a0cc7",
+    "imageBuildRun": 42774936543,
+    "previousRevision": "aonik-dev-adminui--arke403-03ba5abf",
+    "previousImage": "aonikdevacr.azurecr.io/aonik-adminui@sha256:8f1e54f3e48b63c084d395c5d9a5af19a5183c08000574269e716c85e719d10e",
+    "image": "aonikdevacr.azurecr.io/aonik-adminui@sha256:774cd760621b73fc9afc895c90a6b19e8e047906962fc3f5ae4c101ed08b568d",
+    "environmentSha256": "2c21f90b5ef238cb788dfa8bd44f8fbebd926234d53222ff0b1e887afcec4889",
+    "environmentCount": 1,
+    "workerUnchanged": true,
+    "apiUnchanged": true,
+    "mirrorConfigurationUntouched": true,
+    "revision": "aonik-dev-adminui--0000370",
+    "configurationUnchanged": true,
+    "deployedAtUtc": "2026-11-10T07:41:54.0999918Z"
+  },
+  "adminUiHealth": {
+    "at": "2026-11-10T07:43:01.8982074Z",
+    "revision": "aonik-dev-adminui--0000370",
+    "health": "Healthy",
+    "running": "Running",
+    "httpStatus": 200
+  }
+}
