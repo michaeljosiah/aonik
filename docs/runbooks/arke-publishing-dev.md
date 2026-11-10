@@ -3,6 +3,81 @@
 This record separates deployment from end-to-end qualification. No production
 catalogue migration or public release is authorised by the dev rehearsal.
 
+## Interactive-movie rehearsal — 10 November 2026
+
+Motion Garden Dev 403 uses three original synthetic H.264/AAC clips (12 seconds,
+640 × 360, 24 fps each), geometric animation, captions, visible timecode and generated
+tones. All clips pass full decode and frame-count checks. Studio 0.5.116's real
+desktop preview traversed both choices and endings; its ordinary export and
+submission controls produced receipt `3fd7a300-061c-4ab6-a834-47ab2ec79345`, revision 1.
+The exact archive is 412,922 bytes, SHA-256
+`9dd5e6f1d4f072d717dbb7479d67017a605c2db25651e59bb87c0c54683c9180`; review digest
+`565ccfb761475f210c340c4016f6877d5f7b575e80fd98654ded5e189025b4c1`.
+
+The owner explicitly authorised this exact revision's automated dev approval,
+publication, playback/choice/progress/offline tests and withdrawal. The separate
+reviewer test account approved and published it through the deployed AONIK UI.
+Publication `70c8a59d…` completed in one attempt at dev serial **25**. Private and
+public archive copies and public artwork match their pins. This is automated
+dev testing, not a human editorial walkthrough or production rights clearance.
+
+The live test found [Player #73](https://github.com/michaeljosiah/ArkePlayer/issues/73):
+a valid standalone movie was cached but hidden because discovery and installation
+required a root world edition. [Player #74](https://github.com/michaeljosiah/ArkePlayer/pull/74)
+uses the existing P22/P25 controls to install all supported standalone productions
+atomically, without inventing a root edition or changing a `story` pin into a
+`package`. A checked cover remains local after withdrawal; a later world edition
+preserves the standalone content. [SPEC-058 revision 18](https://github.com/michaeljosiah/arke-studio-specs/pull/145)
+records that contract. Local checks pass 450 pure-Dart tests, 439 app tests with
+13 existing skips, strict analysis, formatting and the design gate.
+
+Native replay also exposed [Player #75](https://github.com/michaeljosiah/ArkePlayer/issues/75):
+an older final-frame load could pause the newly selected scene. PR #74 serializes
+reel requests, ignores superseded seeks/play/pause and waits for native work before
+disposal. A delayed-load regression fails before the repair and passes after it;
+38 story tests pass with three optional package-fixture skips.
+
+The actual Android integration run uses the real app, verified local media,
+VideoPlayer/ExoPlayer, widget gestures and file-backed saves, with no provider,
+HTTP or media fake. The opening clip advances from **782 to 2,213 ms** with
+different rendered frames/timecodes. Both choices reach their endings, Back to
+last choice works, and a fresh friend-branch replay pauses at **2,072 ms**. A cold
+restart with both radios off and no default network resumes at exactly **2,072 ms**,
+advances, and saves **4,946 ms**. The previous harness autoplay/controller errors
+and the reproduced native race remain in the failure evidence.
+
+Reviewer withdrawal `257be786…` completes in one attempt at **empty serial 26**.
+Player fetches that serial with the exact **4,946 ms** save unchanged. Studio's
+actual Refresh receipt shows **Withdrawn / complete**. Immutable archive/artwork
+URLs still return the approved bytes, as designed; withdrawal removes discovery
+and does not revoke cached URLs or downloaded copies. The first post-withdrawal
+offline attempt resumed successfully but missed Pause as controls faded; its
+overall result is failed, and the corrected cold rerun is recorded separately.
+
+The corrected rerun uses ordinary Continue → Back to last choice → friend controls
+to prepare a **1,505 ms** save. After another cold start, with both radios off,
+no default network and empty serial 26 cached, it resumes at exactly **1,505 ms**,
+advances to **2,389 ms**, pauses and persists the same branch. Networking is restored.
+All installed package files remain byte-identical across seven checkpoints, and
+restoring the ordinary dev APK in place preserves the final save exactly. The
+[sanitized evidence](evidence/arke-interactive-movie-2026-11-10.json) includes native
+pass files, network observations, package/checkpoint/capture hashes and failures.
+
+The original emulator refused an APK replacement for insufficient space. Its
+four-world dev library remains byte-identical (full backup SHA-256
+`85f8bb6872afae5c72df081e6b804b577ced8eb51b29edb3fb2fc12ab9a59f01`), with no dev-app
+uninstall or data clear. Only the separate temporary compatibility fixture was
+retired with keep-data uninstall after full APK/data backups. Movie checks use
+a fresh Android 16/API 36 emulator with a 12 GiB data partition and replace-only
+installs. Windows capture repeatedly failed, so native Flutter screenshots and
+decoder assertions provide the device evidence; Studio and AONIK retain their
+actual desktop UI captures. Production and the legacy mirror remain unchanged.
+
+Interactive-movie dev acceptance is complete. Remaining production work is the
+audited catalogue baseline and rights/ownership, deliberate mirror migration,
+realistic package capacity/cost and operational cutover. This result does not
+qualify physical Android/iOS or natural/OEM scheduling.
+
 ## Actual Studio export UI to Player — 10 November 2026
 
 Studio **0.5.116**, merged source
