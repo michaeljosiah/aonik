@@ -9,7 +9,9 @@ The ordinary Android UI built from historical source
 `03a261bda82bc6ec07d66f980506143ecba430a8` now qualifies the additional chapter,
 unsupported story/comic selections and book edition update on the selected
 Android 16/API36 emulator. This supplements the unchanged signed October 26 APK's
-previous discovery/install/cold-offline audio check. These are two distinct tests.
+discovery/install/cold-offline audio check. The unchanged APK also passed the
+additional native chapter and unsupported-format checks below. These remain two
+distinct tests, with different catalogue sources.
 
 The historical source rebuild changes only application ID, visible app label,
 catalogue endpoint and an empty bundled baseline. It installs as
@@ -53,6 +55,25 @@ through the real UI; its historical percentage is 0.0 and its exact CFI is
 `epubcfi(/6/4!/4/2/2/1:0)`. No progress is written by the fixture helper. This
 qualifies locator retention without claiming the historical completion bug is
 fixed. Use a current Player build for the corrected reading behavior.
+
+The unchanged signed APK (`studio.arke.player`, version code 2001, SHA-256
+`aa170dcb0b19a24548b34d5ce4b434165bb709ec85f6a6b13a94660a491c61e2`)
+separately installed **The Undersong** base and chapter part through its existing
+read-only GitHub feed. The first download was interrupted by a recorded Android
+`LOW_MEMORY` exit at **13:27:18 UTC**, while the other test app was running.
+Keeping that app stopped allowed a normal foreground retry to complete. The
+released UI then showed **65 MB**, exactly two chapters, and played **Slack water**
+natively; it was paused at **0:13** within chapter 2. Android reports the paused
+concatenated-production position as **885,061ms**, not a chapter-relative time.
+
+In that unchanged APK, selecting **The Ledger of Nights, drawn** in Discover / Read
+and **First Contact** in Discover / Play safely returned to their installed world
+pages with only the supported audiobook. Neither opened an unsupported reader or
+offered a separate unsupported download. The earlier Red Quiet listening position
+still displays **Continue · Chapter 1 · 0:58**. This non-debuggable APK's private
+files/cache were not extracted: no exact cached serial or new network non-fetch
+claim is made. Its production catalogue and all remote artifacts remain unchanged.
+Playback is paused and both radios are restored.
 
 For reproduction, back up every existing app's private files/preferences first.
 Build the historical checkout with the four isolation-only changes above and
