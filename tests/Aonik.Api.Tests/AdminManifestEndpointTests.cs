@@ -195,6 +195,29 @@ public class AdminManifestEndpointTests : IClassFixture<CustomWebApplicationFact
         manifest.AllowedPolicies.Should().NotContain("PlatformAdmin");
     }
 
+    [Theory]
+    [InlineData("Publishing.Review", true, false, false)]
+    [InlineData("Publishing.Publish", false, true, false)]
+    [InlineData("Publishing.Withdraw", false, false, true)]
+    [InlineData("Invoice.Read", false, false, false)]
+    public async Task AdminManifest_Should_ReportPublishingPoliciesForGrantedPermissions(
+        string permission, bool review, bool publish, bool withdraw)
+    {
+        // Arrange: TenantAdmin alone must not grant publishing access.
+        var client = await _factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create()
+            .WithTenant(Guid.NewGuid()).WithRoles("TenantAdmin").WithPermissions(permission));
+
+        // Act
+        var manifest = await client.GetFromJsonAsync<AdminManifestResponse>("/admin/manifest");
+
+        // Assert
+        manifest!.AllowedPolicies.Contains("PublishingReviewPolicy").Should().Be(review);
+        manifest.AllowedPolicies.Contains("PublishingPublishPolicy").Should().Be(publish);
+        manifest.AllowedPolicies.Contains("PublishingWithdrawPolicy").Should().Be(withdraw);
+        manifest.AllowedPolicies.Contains("PublishingManagementPolicy").Should().Be(review || publish || withdraw);
+        manifest.Permissions.Should().Equal(permission);
+    }
+
     private async Task<HttpClient> CreateTenantAdminClientAsync(Guid tenantId)
     {
         var client = await _factory.CreateAuthenticatedClientAsync(

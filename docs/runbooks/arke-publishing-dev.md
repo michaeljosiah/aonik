@@ -3,6 +3,30 @@
 This record separates deployment from end-to-end qualification. No production
 catalogue migration or public release is authorised by the dev rehearsal.
 
+## Acceptance standard and reviewer UI — 10 November 2026
+
+The owner accepts autonomous end-to-end testing with the development test accounts
+and waived separate human checks on 10 November. Earlier requirements in this record
+for a nontechnical walkthrough or consenting-human dev pilot are superseded for dev
+acceptance. Preserve separate creator/reviewer identities, exact-revision approval
+and release confirmations, and evidence of the actual deployed screens. This does
+not authorise production distribution or claim physical-device/OEM coverage.
+
+The first deployed reviewer UI attempt exposed two independent prerequisites:
+the tenant still selected the generic `base` profile, and `/admin/manifest` omitted
+all publishing policies even when the server granted the review permissions.
+The manifest fix evaluates the existing publishing policies without weakening any
+permission or endpoint check. Its 15 manifest API regressions pass.
+
+At 06:50 UTC, a guarded operator tool applied the installed `arke-worlds` v2 pack
+to the exact Arke Kidz dev tenant using the existing additive `IConfigPackApplier`.
+It selected the Arke Worlds profile and recorded `ArkeDevBusinessPackApplied` with
+correlation `arke-403-ui-20261110`. Existing settings and user-role assignments were
+read back unchanged; the module reapply wrote no disabling rows and preserved
+existing defaults. No schema or financial data changed. The temporary single-client
+SQL firewall rule was removed in `finally`. This is configuration preparation;
+the deployed UI journey still needs verification after the manifest fix is deployed.
+
 ## Deployed application
 
 The latest configuration release `a6dc2e1d50db8e6dfc689c6fd409dfed78029b62`

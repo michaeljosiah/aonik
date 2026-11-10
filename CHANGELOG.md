@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Publishing navigation policies (#402/#403):** Include the evaluated review, management, publish and withdrawal policies in the admin manifest so authorised Arke Worlds staff can reach the live publishing screens. TenantAdmin alone still grants no publishing permission.
+
 - **Player background notification qualification (#403):** Recorded the Android emulator permission, native worker, retry/reboot, duplicate, warm/cold tap, cancellation and offline-retention checks. Player PR #71 fixes premature foreground imports and a stalled media handshake during headless startup. Synthetic receipts are withdrawn at empty dev serial 18; physical-device and production gates remain open.
 
 - **Arke live format qualification (#403):** Recorded the completed dev base/part/story/comic publication, current/legacy reader checks, Android saved-choice/page continuity, withdrawal retention and deployed cascading-receipt repair. Includes exact package/operation evidence and explicit device-recovery, physical-device and human-pilot limits. Player #51 and the opt-in device rehearsal are merged.
