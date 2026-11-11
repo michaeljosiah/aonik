@@ -95,6 +95,15 @@ The canonical database snapshot is authoritative. `LegacyMirrorEnabled` defaults
 
 Each channel has a separate expiring mirror claim. Every event/retry loads the **latest canonical head**, compares the remote serial/content, and uses the remote blob SHA to condition the Contents update. The adapter uses the [GitHub Contents API's required replacement SHA](https://docs.github.com/en/rest/repos/contents#create-or-update-file-contents); CAS conflicts reconcile again. A higher remote serial or different content at the same serial holds the mirror for operator reconciliation. A delayed older worker cannot overwrite a newer mirror through a stale SHA. Unknown write outcomes are resolved by reading the remote again. Mirror failures do not roll back a committed canonical release. No GitHub mirror write is performed by local verification.
 
+That `contents` mode does not update the release asset used by installed Players.
+For that endpoint, `LegacyMirrorMode=release` makes AONIK a credential-free observer;
+the separately serialized Actions bridge writes the release using its own
+short-lived repository token. Missing/lower bytes remain `mirror-release-pending`.
+Only exact anonymous readback confirms sync. Promotion preserves immutable serial
+fences and previous assets but has a brief non-atomic filename gap. See the
+[release cutover and handoff runbook](../runbooks/arke-publishing-handoff.md) for
+the sole-writer requirement, recovery, configuration and production gates.
+
 ## Editable designs and reproducible checks
 
 The admin manifest must include the server-evaluated `PublishingReviewPolicy`,

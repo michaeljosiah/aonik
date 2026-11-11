@@ -1,0 +1,35 @@
+name: Mirror approved AONIK catalogue
+description: Reconcile the committed catalogue to a serialized GitHub release feed
+inputs:
+  tag:
+    description: Pre-provisioned non-Latest release tag in the caller repository
+    required: true
+  canonical-url:
+    description: Qualified public AONIK channel catalogue URL
+    required: true
+  baseline-serial:
+    description: Qualified serial floor
+    required: true
+  baseline-sha256:
+    description: Exact baseline SHA-256
+    required: true
+  evidence:
+    description: Output file for sanitized confirmation
+    default: mirror-result.json
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        MIRROR_SCRIPT: ${{ github.action_path }}/mirror.py
+        MIRROR_TAG: ${{ inputs.tag }}
+        CANONICAL_URL: ${{ inputs.canonical-url }}
+        BASELINE_SERIAL: ${{ inputs.baseline-serial }}
+        BASELINE_SHA256: ${{ inputs.baseline-sha256 }}
+        EVIDENCE_PATH: ${{ inputs.evidence }}
+      run: |
+        python "$MIRROR_SCRIPT" \
+          --repository "$GITHUB_REPOSITORY" --tag "$MIRROR_TAG" \
+          --canonical-url "$CANONICAL_URL" \
+          --baseline-serial "$BASELINE_SERIAL" --baseline-sha256 "$BASELINE_SHA256" \
+          --evidence "$EVIDENCE_PATH"

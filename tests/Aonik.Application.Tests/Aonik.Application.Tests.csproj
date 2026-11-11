@@ -50,5 +50,6 @@
 
   <ItemGroup>
     <Content Include="..\Aonik.TestSupport\Publishing\Fixtures\**\*" Link="PublishingFixtures\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\..\docs\runbooks\evidence\arke-catalogue-audit-2026-11-10\hosted-catalogue.json" Link="PublishingFixtures\production-baseline-53.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

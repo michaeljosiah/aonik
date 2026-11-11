@@ -13,6 +13,41 @@ namespace Aonik.Application.Tests.Publishing;
 public class PublicationMirrorTests
 {
     [Fact]
+    public async Task ExternalReleaseBridge_Should_StayPendingUntilExactPublicHeadIsObserved()
+    {
+        using var h = new PublicationScenario();
+        h.Settings.Channels["arke-worlds"].LegacyMirrorEnabled = true;
+        h.Settings.Channels["arke-worlds"].LegacyMirrorMode = "release";
+        await h.InitialiseAsync();
+        var snapshot = await h.Db.CatalogueSnapshots.SingleAsync();
+        var mirror = new ReleaseObserver();
+        var handler = new PublicationMirrorHandler(h.Db, mirror, Microsoft.Extensions.Options.Options.Create(h.Settings), new TestTenantProvider(h.Tenant), h.Clock);
+        var message = new PublicationCatalogueCommittedEvent(snapshot.Id, h.Clock.UtcNow, h.Tenant, "arke-worlds", 52);
+
+        await handler.Invoking(x => x.HandleAsync(message)).Should().ThrowAsync<IOException>();
+
+        var state = await h.Db.PublicationChannels.SingleAsync();
+        state.MirrorStatus.Should().Be("retryable");
+        state.MirrorCode.Should().Be("mirror-release-pending");
+        state.MirroredSerial.Should().BeNull();
+        mirror.Json = snapshot.Json;
+        await handler.HandleAsync(message);
+        state = await h.Db.PublicationChannels.SingleAsync();
+        state.MirrorStatus.Should().Be("synced");
+        state.MirroredSerial.Should().Be(52);
+        (await h.HeadAsync()).Should().Be(snapshot.Json);
+    }
+
+    private sealed class ReleaseObserver : ILegacyCatalogueMirror
+    {
+        public string? Json;
+        public Task<LegacyMirrorHead> ReadAsync(PublishingChannelOptions channel, CancellationToken cancellationToken = default)
+            => Task.FromResult(new LegacyMirrorHead(null, Json));
+        public Task CompareAndSwapAsync(PublishingChannelOptions channel, string? expectedRevision, string json, CancellationToken cancellationToken = default)
+            => throw new PublishingException(409, "mirror-release-pending", "External bridge has not completed.");
+    }
+
+    [Fact]
     public async Task HistoricalMirrorEvent_Should_ReconcileLatestHead_AndRecoverLostResponse()
     {
         using var h=new PublicationScenario();h.Settings.Channels["arke-worlds"].LegacyMirrorEnabled=true;await h.InitialiseAsync();
