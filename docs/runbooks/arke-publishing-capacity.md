@@ -5,6 +5,11 @@ catalogue ZIP (1,107,515,522 bytes), largest asset (48,587,809 bytes) and invent
 (1,144 assets), with approximately 45%, 38% and 79% headroom respectively. It is
 not a change to production channel enablement or editorial rights.
 
+The [11 November serial-54 follow-up audit](evidence/arke-catalogue-baseline-2026-11-11.json)
+observed a newer largest package of 1,118,528,131 bytes / 1,165 assets, with a
+47,926,047-byte largest asset. These dimensions also fit the qualified limits
+below. This read-only public audit does not submit or approve those packages.
+
 | Limit | Existing session profile | `large-v1` |
 |---|---:|---:|
 | ZIP bytes | 32 MiB | 1,536 MiB |

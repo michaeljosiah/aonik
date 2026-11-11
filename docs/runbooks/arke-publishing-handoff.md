@@ -1,6 +1,6 @@
 # Arke publishing authority handoff
 
-This closes the engineering gaps found after #403 and #428 under epic #397 and
+This addresses the engineering gaps found after #403 and #428 under epic #397 and
 follow-up #431. Production activation remains a distinct owner decision. The
 current Azure inventory contains `rg-aonik-dev-uksouth` only; there is no qualified
 AONIK production deployment to point Studio or Player at.
@@ -85,12 +85,23 @@ release; it does not bypass the serialized writer or editorial approval.
 
 ## Baseline and rights inventory
 
-The audited source is serial **53**, SHA-256
+The original audited source was serial **53**, SHA-256
 `3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4`:
 five worlds, thirteen package pins, eighteen artwork pins and 1,812 embedded assets.
 The source bytes and integrity evidence are under
 `docs/runbooks/evidence/arke-catalogue-audit-2026-11-10` and the adjacent audit JSON.
 Public availability establishes neither ownership nor a new rights declaration.
+
+The live head advanced to **54** during the 11 November handoff checks through
+already-merged Player #78. The [follow-up audit](evidence/arke-catalogue-baseline-2026-11-11.json)
+verifies its exact SHA-256
+`716f3457dd831d9402b862c76ce750fd7f997f3c48440fce5166b52ba6017957`,
+31 pins and 1,833 embedded assets with both current and previous Player readers.
+Only Na Love or Juju's world and guide pins changed. Hosted and bundled bytes match.
+Use the [serial-54 ownership projection](evidence/arke-baseline-ownership-serial54-template-2026-11-11.json)
+for the latest preparation, preserving the original audit and template as history.
+Production Party and private rights-reference fields remain null. A cutover must
+qualify the current highest serial again; serial 53 is no longer the live head.
 
 The [unapproved ownership template](evidence/arke-baseline-ownership-template-2026-11-11.json)
 contains the base production/chapter projection read from hash-checked audited
@@ -184,7 +195,8 @@ The engineering evidence cannot supply these business decisions:
 - Resolve Michael Josiah's production Party and the private permission reference
   covering retention/distribution of the existing exact public editions and artwork.
 - Which production tenant/channel/origin and accountable deployment/budget owner
-  should be used? No production Azure resource group currently exists.
+  should be used? No qualified production Azure resource group was found in the
+  accessible subscription inventory.
 - Michael Josiah is the designated reviewer/support contact. Confirm a production
   contact address, independent editorial coverage where required, backup coverage
   and whether the three-working-day response target is staffed. The existing
@@ -199,6 +211,11 @@ The engineering evidence cannot supply these business decisions:
 These decisions are not evidence of two external creators or a Play-installed
 production pilot. Launch tickets AONIK #395, Studio #2213 and Player #24 keep that
 scope. The owner accepted autonomous test-account/emulator evidence for #403.
+
+The [production proposal](arke-production-proposal.md) makes the target deployment,
+configuration prerequisites and cost assumptions reviewable. Issue #434 tracks its
+remaining owner decisions and actual cutover; the epic stays open until those
+production gates are resolved.
 
 ## Verification record
 
@@ -236,8 +253,27 @@ FastEndpoints returned 400 while trying to deserialize an empty body. The bridge
 now emits content type only for requests carrying bytes and limits GitHub version
 headers to GitHub API hosts. Eighteen recovery/transport tests pass, including this
 regression, and the corrected transport retrieves the exact dev catalogue. Scheduled
-mirroring was disabled while correcting it. Final bridge/observer readback and
-configuration restoration still need to be recorded; production remains disabled.
+mirroring was disabled while correcting it. PR #433 merged the fix after green CI.
+
+The [actual-source dev mirror evidence](evidence/arke-dev-mirror-2026-11-11.json)
+records successful bridge run `43056912292`: exact canonical serial 26, SHA-256
+`3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f`.
+Authenticated AONIK reconciliation then reached `synced / latest-head-confirmed`
+with mirrored serial 26. Repeat run `43057800631` reported `promoted: false` and
+retained both asset IDs. Application Latest stayed `v0.1.1` / release `320999757`.
+API `0000392` and Worker `0000382` are ready with their exact pre-rehearsal mirror
+settings and images restored. Health is 200; the public feed remains 37 bytes,
+empty serial 26. The temporary reviewer session was signed out and its encrypted
+credential removed. The last synced observer record is historical, not an indication
+that mirroring remains enabled.
+
+The repository bridge switch is disabled. The isolated prerelease
+`michaeljosiah/aonik:aonik-publishing-dev-mirror` is retained with only the two empty
+test-catalogue assets: automatic approval review rejected deleting the remote release
+and tag without explicit deletion authority. No production release was modified.
+The separate twelve-case fault rehearsal above covers interrupted promotion and
+serial conflicts; this empty-feed run establishes actual-source/observer integration,
+not a new claim of an approved edition being published.
 
 `PublicationBaselineTests` exercises the actual frozen serial-53 input through
 the service with synthetic test-only owner mappings. These tests are not a

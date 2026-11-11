@@ -1,0 +1,108 @@
+{
+  "scope": "Dev canonical catalogue to isolated GitHub release and AONIK observer; no production cutover",
+  "recordedAt": "2026-11-11T16:29:32.7266688Z",
+  "failedRun": {
+    "runId": "43053870065",
+    "code": "canonical-http-400",
+    "cause": "Bodyless catalogue GET carried Content-Type: application/json",
+    "assetsUploaded": 0,
+    "fixedByPullRequest": 433
+  },
+  "pendingObservation": {
+    "at": "2026-11-11T15:59:24Z",
+    "status": "retryable",
+    "code": "mirror-release-pending",
+    "mirroredSerial": null
+  },
+  "initialBridge": {
+    "status": "synced",
+    "serial": 26,
+    "sha256": "3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f",
+    "promoted": true,
+    "repository": "michaeljosiah/aonik",
+    "tag": "aonik-publishing-dev-mirror",
+    "runId": "43056912292",
+    "sourceCommit": "27011e644026dade3108ad2a40497868c2e02d56"
+  },
+  "repeatBridge": {
+    "status": "synced",
+    "serial": 26,
+    "sha256": "3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f",
+    "promoted": false,
+    "repository": "michaeljosiah/aonik",
+    "tag": "aonik-publishing-dev-mirror",
+    "runId": "43057800631",
+    "sourceCommit": "27011e644026dade3108ad2a40497868c2e02d56"
+  },
+  "unchangedAssetsAfterReplay": {
+    "assets": [
+      {
+        "digest": "sha256:3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f",
+        "id": 736115998,
+        "name": "aonik-catalogue-26-3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f.json",
+        "size": 37
+      },
+      {
+        "digest": "sha256:3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f",
+        "id": 736116034,
+        "name": "catalogue.json",
+        "size": 37
+      }
+    ],
+    "id": 441894791,
+    "prerelease": true,
+    "tag_name": "aonik-publishing-dev-mirror"
+  },
+  "observer": {
+    "at": "2026-11-11T16:24:05.990Z",
+    "channel": "arke-worlds-dev",
+    "status": "synced",
+    "code": "latest-head-confirmed",
+    "mirroredSerial": 26,
+    "retryOperationId": "1465ee98-d92e-4823-8f25-36971ef75078"
+  },
+  "applicationLatest": {
+    "releaseIdBeforeAndAfter": 320999757,
+    "tagBeforeAndAfter": "v0.1.1",
+    "unchanged": true
+  },
+  "restoration": {
+    "checkedAt": "2026-11-11T16:29:32.7266688Z",
+    "apps": [
+      {
+        "app": "aonik-dev-api",
+        "readyRevision": "aonik-dev-api--0000392",
+        "image": "aonikdevacr.azurecr.io/aonik-api@sha256:8778ce0bc45449d2cd9bf6ba1dc1e36d7b6c117d3c03e467c7de15a02ed4f168",
+        "exactMirrorSettingsRestored": true
+      },
+      {
+        "app": "aonik-dev-worker",
+        "readyRevision": "aonik-dev-worker--0000382",
+        "image": "aonikdevacr.azurecr.io/aonik-worker@sha256:c4042cd5517ce4ca6ca8f59ec2fbd4157e6502d3620ccde2978fa8f23a332244",
+        "exactMirrorSettingsRestored": true
+      }
+    ],
+    "repositoryBridgeEnabled": false,
+    "healthStatus": 200,
+    "catalogueSerial": 26,
+    "catalogueSha256": "3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f",
+    "catalogueBytes": 37,
+    "publicWorlds": 0,
+    "temporaryReviewerCredentialRemoved": true
+  },
+  "rehearsalReleaseDisposition": {
+    "retained": true,
+    "reason": "Remote release/tag deletion was rejected by automatic approval review; the disabled release retains only the empty test catalogue.",
+    "releaseId": 441894791,
+    "tag": "aonik-publishing-dev-mirror",
+    "prerelease": true,
+    "bridgeEnabled": false
+  },
+  "productionReleaseModified": false,
+  "productionBridgeEnabled": false,
+  "limitations": [
+    "Empty dev serial 26 proves exact-source transport, observer and replay integration; approved-edition delivery is covered separately by #403.",
+    "Interrupted promotion and stale/conflicting serials were separately rehearsed in run 42947720150.",
+    "The last synced observer record is historical; runtime mirroring is disabled after restoration."
+  ]
+}

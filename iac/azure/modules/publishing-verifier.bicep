@@ -1,35 +1,41 @@
-@description('Dedicated dev qualification image; always provide an immutable ACR digest.')
+@description('Qualified verifier image; always provide an immutable digest from the target registry.')
 param verifierImage string
 
 param location string = 'uksouth'
-param poolName string = 'aonikdevpublishing'
+param workloadName string = 'aonik'
+@allowed(['dev', 'staging', 'prod'])
+param environmentName string = 'dev'
+param poolName string = '${workloadName}${environmentName}publishing'
+param tags object = {}
 @allowed(['standard', 'large-v1'])
 param capacityProfile string = 'standard'
 var large = capacityProfile == 'large-v1'
+var namePrefix = '${workloadName}-${environmentName}'
+var resourceTags = union({ environment: environmentName, purpose: 'publishing-verification' }, tags)
 
 resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
-  name: 'aonikdevacr'
+  name: replace('${namePrefix}acr', '-', '')
 }
 
 resource api 'Microsoft.App/containerApps@2024-03-01' existing = {
-  name: 'aonik-dev-api'
+  name: '${namePrefix}-api'
 }
 resource worker 'Microsoft.App/containerApps@2024-03-01' existing = {
-  name: 'aonik-dev-worker'
+  name: '${namePrefix}-worker'
 }
 
 // No private storage bindings, VNet credentials or existing AI sandbox policy.
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
-  name: 'aonik-dev-publishing-acae'
+  name: '${namePrefix}-publishing-acae'
   location: location
-  tags: { environment: 'dev', purpose: 'publishing-verification-403' }
+  tags: resourceTags
   properties: {
     workloadProfiles: [{ name: 'Consumption', workloadProfileType: 'Consumption' }]
   }
 }
 
 resource pullIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'aonik-dev-publishing-pull-id'
+  name: '${namePrefix}-publishing-pull-id'
   location: location
 }
 var acrPullRole = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
@@ -46,7 +52,7 @@ resource pull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 resource pool 'Microsoft.App/sessionPools@2025-02-02-preview' = {
   name: poolName
   location: location
-  tags: { environment: 'dev', purpose: 'publishing-verification-403' }
+  tags: resourceTags
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: { '${pullIdentity.id}': {} }
