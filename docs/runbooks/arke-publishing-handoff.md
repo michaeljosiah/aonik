@@ -85,12 +85,23 @@ release; it does not bypass the serialized writer or editorial approval.
 
 ## Baseline and rights inventory
 
-The audited source is serial **53**, SHA-256
+The original audited source was serial **53**, SHA-256
 `3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4`:
 five worlds, thirteen package pins, eighteen artwork pins and 1,812 embedded assets.
 The source bytes and integrity evidence are under
 `docs/runbooks/evidence/arke-catalogue-audit-2026-11-10` and the adjacent audit JSON.
 Public availability establishes neither ownership nor a new rights declaration.
+
+The live head advanced to **54** during the 11 November handoff checks through
+already-merged Player #78. The [follow-up audit](evidence/arke-catalogue-baseline-2026-11-11.json)
+verifies its exact SHA-256
+`716f3457dd831d9402b862c76ce750fd7f997f3c48440fce5166b52ba6017957`,
+31 pins and 1,833 embedded assets with both current and previous Player readers.
+Only Na Love or Juju's world and guide pins changed. Hosted and bundled bytes match.
+Use the [serial-54 ownership projection](evidence/arke-baseline-ownership-serial54-template-2026-11-11.json)
+for the latest preparation, preserving the original audit and template as history.
+Production Party and private rights-reference fields remain null. A cutover must
+qualify the current highest serial again; serial 53 is no longer the live head.
 
 The [unapproved ownership template](evidence/arke-baseline-ownership-template-2026-11-11.json)
 contains the base production/chapter projection read from hash-checked audited

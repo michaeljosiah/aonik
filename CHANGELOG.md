@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Arke handoff baseline (#431/#434):** Re-audit the already-published serial 54 after its Na Love or Juju world/guide update. All 31 pins, 13 packages and 1,833 embedded assets pass current and previous Player readers. Preserve serial-53 history and prepare an unapproved serial-54 ownership projection so a later cutover cannot use the stale head.
+
 - **Arke production preparation (#434):** Parameterize verifier resource names and role-assignment targets by environment, add compile-only production parameters for the qualified large profile, and include standalone modules/parameter files in Bicep CI. Record the proposed deployment sequence and retail cost assumptions; production identity, rights and spend approval remain pending.
 
 - **Arke release bridge requests (#431):** Omit body content headers on anonymous catalogue GETs, avoiding FastEndpoints' empty-JSON-body rejection. Keep JSON and asset upload content types on requests that actually carry a body, and limit GitHub version headers to GitHub API hosts. The actual dev feed now passes exact-byte release mirroring, authenticated observer confirmation and repeat-without-promotion checks; temporary settings are restored with the test bridge disabled.

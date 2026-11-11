@@ -55,10 +55,11 @@ cover standalone modules and environment parameter files, not only the main stac
    synthetic production qualification fixture before admitting existing content.
 5. Create Michael Josiah's production Party and resolve the five namespace mappings.
    Retain the approved private distribution-evidence reference. The previously audited
-   catalogue is serial 53, SHA-256
-   `3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4`;
+   catalogue advanced to serial 54, SHA-256
+   `716f3457dd831d9402b862c76ce750fd7f997f3c48440fce5166b52ba6017957`;
    re-read and re-audit the latest version before import. Preserve every original
-   public pin, ID and byte. Do not re-upload the existing 31 pins unnecessarily.
+   public pin, ID and byte. The follow-up audit verifies all 31 pins and 1,833
+   embedded assets. Do not re-upload the existing pins unnecessarily.
 6. Back up and prove restoration of matching SQL/private/public data. Agree retention,
    response coverage and the staffed private intake route. A contact's name alone
    does not prove mailbox readiness or a staffed response target.
