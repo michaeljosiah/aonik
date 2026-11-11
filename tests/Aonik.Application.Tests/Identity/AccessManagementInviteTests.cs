@@ -45,6 +45,9 @@ public class AccessManagementInviteTests
             user.ExternalSubject.Should().Be("auth0|creator");
             user.InviteAcceptedUtc.Should().BeNull();
             (await context.UserRoles.CountAsync(role => role.UserId == user.Id)).Should().Be(0);
+            (await service.GetUserAsync(user.Id))!.Status.Should().Be("Invited");
+            (await service.ListUsersAsync(new ListUsersRequest(Status: "Invited"))).Items.Should().ContainSingle(item => item.UserId == user.Id);
+            (await service.ListUsersAsync(new ListUsersRequest(Status: "Active"))).Items.Should().BeEmpty();
         }
     }
 

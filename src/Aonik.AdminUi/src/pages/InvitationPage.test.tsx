@@ -43,6 +43,12 @@ it('accepts only on an explicit action with the signed-in token and invited tena
   expect(element.textContent).toContain('Invitation accepted');
   expect(window.location.search).not.toContain('invite');
 });
+it('preserves the invitation when switching away from a signed-in account', async () => {
+  auth.isAuthenticated = true;
+  await render(); await click('Use another account');
+  expect(auth.login).toHaveBeenCalledWith({ returnTo: '/signin?invite=one-shot&tenant=tenant-a', prompt: 'login' });
+  expect(auth.logout).not.toHaveBeenCalled(); expect(request).not.toHaveBeenCalled();
+});
 it('shows an expired invitation remedy and never reports successful access', async () => {
   auth.isAuthenticated = true;
   request.mockResolvedValue({ ok: false, json: async () => ({ accepted: false, failureReason: 'invite_expired' }) });

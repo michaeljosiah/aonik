@@ -512,7 +512,6 @@ function AuthenticatedApp() {
         <ApiAuthSetup />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/signin" element={<InvitationPage />} />
           <Route path="/setup-guides" element={<AppLayout />} />
           <Route path="/setup-guides/:slug" element={<AppLayout />} />
           <Route path="/*" element={<SetupWizardPage />} />
@@ -526,7 +525,6 @@ function AuthenticatedApp() {
       <ApiAuthSetup />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
-          <Route path="/signin" element={<InvitationPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />
         <Route
           path="/select-organization"
@@ -575,6 +573,12 @@ function AuthenticatedApp() {
 const DevUiPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevUiPage')) : null;
 const DevShellPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevShellPage')) : null;
 
+function ApplicationEntry() {
+  const location = useLocation();
+  // Invitees must be able to finish access before membership/admin bootstrap runs.
+  return location.pathname === '/signin' ? <InvitationPage /> : <AuthenticatedApp />;
+}
+
 function App() {
   const devPath = import.meta.env.DEV ? window.location.pathname : '';
   const DevPage = devPath.startsWith('/dev/ui') ? DevUiPage : devPath.startsWith('/dev/shell') ? DevShellPage : null;
@@ -597,7 +601,7 @@ function App() {
                   <AdminModulesProvider><DevPage /></AdminModulesProvider>
                 </Suspense>
               ) : (
-                <AuthenticatedApp />
+                <ApplicationEntry />
               )}
               <Toaster position="top-right" />
             </div>

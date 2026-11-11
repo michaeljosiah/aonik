@@ -22,6 +22,8 @@ export interface AuthUser {
 export interface LoginOptions {
   /** Local invitation route restored after the browser IdP redirect. */
   returnTo?: string;
+  /** Ask Auth0 to select credentials again while retaining the invitation return path. */
+  prompt?: 'login';
   // Forwarded to the IdP as `login_hint` (Auth0) / `loginHint` (MSAL). The
   // mock provider ignores it. Captured up-front by the login page so the
   // user doesn't have to retype their email after the IdP redirect.
@@ -254,6 +256,7 @@ function useAuth0Auth(): AuthContextType {
       const authorizationParams = {
         ...auth0Config.authorizationParams,
         ...(options?.loginHint ? { login_hint: options.loginHint } : {}),
+        ...(options?.prompt ? { prompt: options.prompt } : {}),
       };
       if (isElectron) {
         await loginWithPopup({ authorizationParams });

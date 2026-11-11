@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 /** The invitation stays in the IdP return state until its one-shot acceptance succeeds. */
 export function InvitationPage() {
   const location = useLocation();
-  const { isAuthenticated, isLoading, user, login, logout, getAccessToken } = useAuth();
+  const { isAuthenticated, isLoading, user, login, getAccessToken } = useAuth();
   const query = new URLSearchParams(location.search);
   const inviteToken = query.get('invite');
   const tenantId = query.get('tenant');
@@ -44,10 +44,10 @@ export function InvitationPage() {
     }
   }
 
-  async function signIn() {
+  async function signIn(switchAccount = false) {
     setBusy(true);
     setError(null);
-    try { await login({ returnTo: `${location.pathname}${location.search}` }); }
+    try { await login({ returnTo: `${location.pathname}${location.search}`, ...(switchAccount ? { prompt: 'login' as const } : {}) }); }
     catch { setError('Could not start sign-in. Please try again.'); }
     finally { setBusy(false); }
   }
@@ -66,7 +66,7 @@ export function InvitationPage() {
             {isAuthenticated ? <>
               <p className="text-sm">Signed in as <strong>{user?.email}</strong></p>
               <Button onClick={() => void accept()} disabled={busy || isLoading}>{busy ? 'Accepting…' : 'Accept invitation'}</Button>
-              <Button variant="ghost" onClick={() => void logout()} disabled={busy}>Use another account</Button>
+              <Button variant="ghost" onClick={() => void signIn(true)} disabled={busy}>Use another account</Button>
             </> : <Button onClick={() => void signIn()} disabled={busy || isLoading}>Sign in or create account</Button>}
           </>}
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
