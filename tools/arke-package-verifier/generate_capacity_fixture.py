@@ -44,17 +44,20 @@ def png_blocks(base, size):
     yield base[-12:]
 
 
-def generate(destination, target_bytes, asset_count, largest_asset, world):
+def generate(destination, target_bytes, asset_count, largest_asset, world, path_padding=0):
     if not 2 <= asset_count <= 2049:
         raise ValueError("Use 2..2049 assets (2049 is the rejection fixture)")
+    if not 0 <= path_padding <= 180:
+        raise ValueError("Path padding must be within 0..180 characters")
     images = asset_count - 1
+    padding = ''.join('x' * min(90, path_padding - start) + '/' for start in range(0, path_padding, 90))
     document = encoded({"format": "arke-comic", "version": 1, "reading": "ltr", "aspect": "1:1", "language": "en",
                         "chapters": [{"title": "Colour Garden capacity rehearsal", "pages": [
                             {"picture": f"p{i:04d}", "alt": f"Original geometric colour field {i + 1}."} for i in range(images)]}]})
     assets = {"comic": {"path": "comic.json", "mediaType": "application/vnd.arke.comic+json",
                         "byteLength": len(document), "sha256": hashlib.sha256(document).hexdigest()}}
     for i in range(images):
-        assets[f"p{i:04d}"] = {"path": f"pictures/p{i:04d}.png", "mediaType": "image/png",
+        assets[f"p{i:04d}"] = {"path": f"pictures/{padding}p{i:04d}.png", "mediaType": "image/png",
                                "byteLength": largest_asset, "sha256": "0" * 64}
     manifest = {"format": "arke-world-package", "schemaVersion": 7, "id": world, "edition": "capacity-428-v1",
                 "name": "Colour Garden Dev 428", "alone": True,
@@ -109,5 +112,6 @@ if __name__ == "__main__":
     parser.add_argument("--assets", type=int, required=True)
     parser.add_argument("--largest-asset", type=int, default=64 * 1024 * 1024)
     parser.add_argument("--world", default="colour-garden-dev-428")
+    parser.add_argument("--path-padding", type=int, default=0, help="Bounded long paths exercise report-size refusal")
     args = parser.parse_args()
-    generate(args.output, args.bytes, args.assets, args.largest_asset, args.world)
+    generate(args.output, args.bytes, args.assets, args.largest_asset, args.world, args.path_padding)

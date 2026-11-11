@@ -6,7 +6,7 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
-- **Publishing capacity (#428):** Add an explicit bounded large-package profile across intake, isolated verification, review evidence and queue leases. Reuse the ZIP directory while preserving the pinned reader's asset checks; add asynchronous verification polling, abandoned-upload deadlines and scratch cleanup after forced termination. Studio compatibility and dev capacity qualification are tracked with the corresponding runbook.
+- **Publishing capacity (#428):** Add an explicit bounded 1.5 GiB / 2,048-asset profile across intake, isolated verification, review evidence and queue leases. Reuse the ZIP directory while preserving the pinned reader's asset checks; add asynchronous verification polling, abandoned-upload deadlines and scratch cleanup after forced termination. Dev Studio uploads and exact review snapshots pass the baseline, full boundary and small-package fixtures; oversized reports fail closed. Add clear capacity refusal messages to the application and shared design view. The runbook records fault recovery, measured resources and dedicated-node cost estimates.
 
 - **Player production baseline audit (#50):** Verified hosted and bundled serial 53 byte-for-byte, all 31 anonymous public pins and all 1,812 embedded assets with the real Player reader. The existing merged baseline needs no replacement. Recorded exact provenance and the measured package/asset/count limits that production intake must qualify in #428; publishing, rights approval and mirror configuration remain unchanged.
 

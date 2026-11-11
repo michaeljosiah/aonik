@@ -109,7 +109,8 @@ unavailable, never as measured zero.
 Private intake reserves logical archive bytes. During assembly, parts and the
 assembled archive coexist, so provision at least twice retained-byte quotas plus
 temporary write headroom. The dev large profile reserves 6 GiB per creator and
-12 GiB per tenant with a 32 GiB private intake share; it is not an increase to
+12 GiB per tenant with a 32 GiB private intake share and at most 32 retained
+packages per creator; it is not an increase to
 production quotas. Existing upload sessions retain their originally issued part
 size when new sessions move to 8 MiB parts. Session memory
 includes the sealed input as well as the child and scratch.
@@ -119,6 +120,33 @@ large session is bounded at 2 vCPU / 4 GiB and 1,200 seconds; the pool caps conc
 sessions at two and keeps one warm. Actual provider billing is based on the custom
 session pool's resources; measured child CPU alone is not an Azure invoice.
 See [Azure Container Apps billing](https://learn.microsoft.com/en-us/azure/container-apps/billing).
+
+Custom sessions use dedicated **E16 nodes (16 vCPU / 128 GiB)**. On 11 November,
+Azure reported `nodeCount=1` for each of the large and retained standard dev pools.
+The UK South GBP retail meters retrieved that day were GBP 0.0608 per vCPU-hour,
+GBP 0.005 per GiB-hour and GBP 0.0752 per dedicated-management hour. One E16 node
+therefore estimates **GBP 1.6128/hour compute**, plus applicable management:
+`16 * 0.0608 + 128 * 0.005`. With one management charge the estimate is
+**GBP 1.688/hour, or GBP 1,232.24 for 730 hours**. Both dev pools retain nodes, so
+their combined compute alone is GBP 3.2256/hour. These are public retail estimates,
+not the subscription's discounted invoice; taxes, storage transactions/capacity,
+registry, logs, API/Worker and applicable bandwidth charges are additional.
+
+For a continuously warm node, allocate that pool's hourly infrastructure cost
+across its completed jobs; do not call the 34-second reader execution the entire
+cost of a job. At the measured 269.42-second boundary session, a serial, fully
+occupied pool would complete about 13.36 jobs/hour: about GBP 0.126 per job with
+the illustrative management charge, before the additional costs above. At one
+job/hour that allocation becomes GBP 1.688/job. This is a utilization model,
+not a production throughput guarantee or invoice. Monitor `nodeCount`, retries,
+queue latency and actual Azure Cost Management charges. Keep maximum concurrency
+at two until requalified; retire the unused rollback pool deliberately after its
+retention window rather than assuming idle custom sessions are free.
+
+Sources: [dedicated-session billing](https://learn.microsoft.com/en-us/azure/container-apps/billing#custom-container),
+[pricing units](https://azure.microsoft.com/en-gb/pricing/details/container-apps/)
+and the public [Azure Retail Prices API](https://prices.azure.com/api/retail/prices).
+The selected rates and pool observations are frozen in the capacity evidence.
 
 ## Dev qualification, 11 November 2026
 
@@ -168,5 +196,48 @@ Private Studio upload/resume receipts and reviewer evidence are recorded in
 images came from [qualified build 42932506212](https://github.com/michaeljosiah/aonik/actions/runs/42932506212).
 Local validation passed 5,394 .NET tests (12 environment/integration skips), 36
 Studio publishing tests, Studio lint/typecheck/build, 25 pinned-reader Dart tests
-and 12 Linux sandbox tests. The generated migration applied cleanly to a dedicated
+and 12 Linux sandbox tests. An additional test-only layer on the exact immutable
+image passed 14 sandbox tests, including real 64 MiB tmpfs exhaustion (`ENOSPC`),
+`SIGKILL`, removal of owned scratch and successful subsequent reader jobs. Run it
+with `az acr build --registry <registry> --file Dockerfile --build-arg
+VERIFIER_IMAGE=<qualified-digest> tools/arke-package-verifier/qualification`.
+This layer is never deployed and cannot expose fault programs to HTTP callers.
+The generated migration applied cleanly to a dedicated
 LocalDB database. Production enablement remains separate.
+
+### Private Studio-to-review acceptance
+
+The real Studio account, frozen-preview, publishing and resumable-upload services
+uploaded the fixtures into the dev API. A minimal test world/export sidecar points
+at each original synthetic ZIP; this is a service-level capacity test, not another
+full authoring-UI qualification. The baseline (1,144 assets), boundary (2,048)
+and small compatibility fixture (1 MiB / eight assets) all reached **in-review**.
+The reviewer UI rendered both large inventories through their last asset, private
+artwork and exact archive/review identities. The 2,048-asset server declaration
+retained exactly two rights groups of 1,024 IDs with complete coverage.
+
+The boundary deliberately lost the response after the server stored part four.
+Its next resume began at part five on the same upload, with no duplicate receipt.
+Both concurrent local harnesses later paused during host resource pressure; the
+baseline resumed at part 58 and the boundary at part 343 and both completed.
+No checkpoint failure was reproduced on sequential resume. Preserve that
+distinction: this qualifies recovery, not sustained concurrent desktop throughput.
+The existing boundary session kept its issued 1 MiB parts (1,536 total), while the
+new baseline used 8 MiB parts (133 total). Boundary assembly completed in 41.571 s;
+its final resume, including remaining parts and assembly, took 885.351 s.
+
+A 1.5 GiB + 1 byte API declaration returned `413 package-too-large` before intake.
+A valid 128 MiB / 2,048-asset fixture with long portable paths exceeded the report
+bound and was held instead of exposing an oversized review snapshot. Generate it
+with `--bytes 134217728 --assets 2048 --largest-asset 131072 --path-padding 180`.
+Each path component remains at most 90 characters. Studio separately rejected an
+earlier fixture with a single overlong component; no path protection was relaxed.
+The report test also confirmed retained-package admission: the existing creator's
+20-package allowance returned `429 upload-quota-exceeded`. The explicit dev large
+profile now permits 32 retained packages, still within the same 6 GiB creator /
+12 GiB tenant byte bounds. The same saved receipt resumed successfully after rollout.
+
+No capacity receipt was approved or published. The public dev catalogue remained
+empty at serial **26**, and the legacy mirror remained disabled. Temporary
+operator grants for direct sandbox qualification were removed. API/Worker retain
+their normal scoped service access; no database firewall exception was added.

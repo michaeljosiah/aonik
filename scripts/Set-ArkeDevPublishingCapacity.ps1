@@ -13,7 +13,7 @@ if ($Profile -eq 'standard') {
     $settings['Publishing__Verifier__TimeoutSeconds'] = '45'
     $settings['Publishing__Intake__AssemblyMinutes'] = '10'
 }
-$allowed = '^Publishing__(Verifier__(Provider|CapacityProfile|SessionPoolResourceId|Image|ReaderCommit|MemoryMiB|ScratchMiB|MaxAssets|MaxAssetBytes|MaxDocumentBytes|TimeoutSeconds)|Channels__arke-worlds-dev__MaxPackageBytes|Intake__(MaxCreatorRetainedBytes|MaxTenantRetainedBytes|AssemblyMinutes|PartSizeBytes))$'
+$allowed = '^Publishing__(Verifier__(Provider|CapacityProfile|SessionPoolResourceId|Image|ReaderCommit|MemoryMiB|ScratchMiB|MaxAssets|MaxAssetBytes|MaxDocumentBytes|TimeoutSeconds)|Channels__arke-worlds-dev__MaxPackageBytes|Intake__(MaxCreatorRetainedBytes|MaxTenantRetainedBytes|MaxCreatorPackages|AssemblyMinutes|PartSizeBytes))$'
 if (@($settings.Keys | Where-Object { $_ -notmatch $allowed }).Count) { throw 'Only bounded dev capacity settings may change.' }
 $token = az account get-access-token --resource https://management.azure.com --query accessToken -o tsv
 if ($LASTEXITCODE -ne 0 -or !$token) { throw 'Azure authentication failed.' }

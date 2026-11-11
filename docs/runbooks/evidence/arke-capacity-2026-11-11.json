@@ -1,7 +1,7 @@
 {
   "issue": 428,
   "date": "2026-11-11",
-  "scope": "Isolated dev sandbox capacity qualification; private intake receipts tracked on issue 428",
+  "scope": "Isolated dev sandbox and real Studio service-to-private-intake-to-review capacity qualification",
   "largeIsolation": {
     "utc": "2026-11-11T00:27:33.930009Z",
     "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
@@ -238,5 +238,231 @@
     "observedAfterSeconds": 160
   },
   "runtimeBuild": 42932506212,
-  "privateIntakeShareQuotaGiB": 32
+  "privateIntakeShareQuotaGiB": 32,
+  "costModel": {
+    "date": "2026-11-11",
+    "currency": "GBP",
+    "region": "uksouth",
+    "source": "https://prices.azure.com/api/retail/prices",
+    "filter": "serviceName eq 'Azure Container Apps' and armRegionName eq 'uksouth'",
+    "meters": [
+      {
+        "meterName": "Dedicated Plan Management",
+        "retailPrice": 0.0752,
+        "unitOfMeasure": "1 Hour",
+        "effectiveStartDate": "2023-08-01T00:00:00Z",
+        "meterId": "21029eb9-cf90-583c-beb1-b24054909920",
+        "type": "Consumption"
+      },
+      {
+        "meterName": "Dedicated Memory Usage",
+        "retailPrice": 0.005,
+        "unitOfMeasure": "1 Hour",
+        "effectiveStartDate": "2023-08-01T00:00:00Z",
+        "meterId": "70e5897e-70e9-561a-bd14-672f209eedc5",
+        "type": "Consumption"
+      },
+      {
+        "meterName": "Dedicated vCPU Usage",
+        "retailPrice": 0.0608,
+        "unitOfMeasure": "1 Hour",
+        "effectiveStartDate": "2023-08-01T00:00:00Z",
+        "meterId": "e72b5d1a-ee03-52cf-91fe-04808be7796a",
+        "type": "Consumption"
+      }
+    ],
+    "nodeProfile": "E16",
+    "nodeCpu": 16,
+    "nodeMemoryGiB": 128,
+    "observedLargePoolNodes": 1,
+    "observedStandardPoolNodes": 1,
+    "retailNodeComputePerHour": 1.6128,
+    "illustrativePoolPerHourWithOneManagementCharge": 1.688,
+    "illustrative730HourCost": 1232.24,
+    "boundaryOccupiedSessionSeconds": 269.42,
+    "illustrativeSerialJobsPerHour": 13.362,
+    "illustrativeFullyUtilizedCostPerJob": 0.1263,
+    "actualInvoice": false,
+    "excludes": "Agreement discounts/taxes, Azure Files capacity and transactions, registry, logs, API/Worker, bandwidth and additional applicable management charges."
+  },
+  "privateIntake": [
+    {
+      "fixture": "baseline",
+      "receiptId": "44b3a217-809d-46fa-baae-321e2dbf0a11",
+      "revisionId": "317e1cdc-1002-41b4-869a-64202932d525",
+      "revisionNumber": 1,
+      "candidateId": "a78a873d-de52-4928-82cc-66f6eda919d6",
+      "uploadSessionId": "52a8bde9-c2f1-4ba5-bfcd-e1ea43c1d0f3",
+      "archiveSha256": "c9234b66a89beccd42a45a20b44baeea43db7a81c06c37126af2585a63cee61f",
+      "archiveBytes": 1107515522,
+      "assets": 1144,
+      "status": "in-review",
+      "code": "verified",
+      "completedAt": "2026-11-11T01:15:03.686664",
+      "verifiedAssets": 1144,
+      "rightsGroupCounts": [
+        1024,
+        120
+      ],
+      "rightsCoverageExact": true,
+      "editorialMaterialUtf8Bytes": 9841,
+      "reviewDigest": "aa5eadb8fdec28b36ee7be86f6bf8cd30cae11e09a477e0c644a566cf03d365a",
+      "reviewSnapshotUtf8Bytes": 380976,
+      "reviewReturnedPackageUtf8Bytes": 368133,
+      "presentationRetained": true,
+      "decisions": 0,
+      "reviewResponseSha256": "c6c07e8379527f95ef69038e8116aea16dda4ccb1fbb7ee6d15f5bbb2accfce6"
+    },
+    {
+      "fixture": "boundary",
+      "receiptId": "f58f02e1-4b7c-47a6-846e-c59993140107",
+      "revisionId": "d352a210-0e67-48b4-883c-db2d42dc2b3e",
+      "revisionNumber": 1,
+      "candidateId": "6bba9b9a-c24c-40f9-83d8-fdf3aac67c54",
+      "uploadSessionId": "cba249ed-b48f-4ef6-8610-bcbf16be7349",
+      "archiveSha256": "f35d811686ba02b535af981402d45deb768b912f27979ade9bc8e45d3dde44be",
+      "archiveBytes": 1610612736,
+      "assets": 2048,
+      "status": "in-review",
+      "code": "verified",
+      "completedAt": "2026-11-11T01:31:06.7311346",
+      "verifiedAssets": 2048,
+      "rightsGroupCounts": [
+        1024,
+        1024
+      ],
+      "rightsCoverageExact": true,
+      "editorialMaterialUtf8Bytes": 17073,
+      "reviewDigest": "aec1dfb0a4e4e044d51590f4a3d3b9e9fc1d2c7bdf8e4b525be47cbee5060c3b",
+      "reviewSnapshotUtf8Bytes": 678363,
+      "reviewReturnedPackageUtf8Bytes": 658309,
+      "presentationRetained": true,
+      "decisions": 0,
+      "reviewResponseSha256": "46a742345eabbf32cc6b74d97f7164897497907c9cc7595c25bcdcb02568c383"
+    },
+    {
+      "fixture": "small",
+      "receiptId": "7564fe85-f02c-4424-adcb-dd0e1d0997fb",
+      "revisionId": "b20bd477-2402-4799-91c2-c1285f3fdd8a",
+      "revisionNumber": 1,
+      "candidateId": "f6a698b4-bda3-4098-8679-06e9d069f5c1",
+      "uploadSessionId": "5bddfa15-54ed-49b9-a20a-e9050d4d0a02",
+      "archiveSha256": "0f80cf73c2aeaddb19af1e43ed4f90a3f9a7c908ceb36ec3a2f6adffcc4c2962",
+      "archiveBytes": 1048576,
+      "assets": 8,
+      "status": "in-review",
+      "code": "verified",
+      "completedAt": "2026-11-11T01:20:07.2290756",
+      "verifiedAssets": 8,
+      "rightsGroupCounts": [
+        8
+      ],
+      "rightsCoverageExact": true,
+      "editorialMaterialUtf8Bytes": 523,
+      "reviewDigest": "a7fb72d66fdc5656be3973092f60f06746b9db6cb108e9e01c7fdf543b9eca7b",
+      "reviewSnapshotUtf8Bytes": 6958,
+      "reviewReturnedPackageUtf8Bytes": 3460,
+      "presentationRetained": true,
+      "decisions": 0,
+      "reviewResponseSha256": "8b13ccc6cfc8f866e87ec3db62cec1376627a7fd6bad8c2d24e8c4c987208689"
+    },
+    {
+      "fixture": "output",
+      "receiptId": "b2a9583f-d5e4-4e4b-a06b-1835ebd9b654",
+      "revisionId": "dac00af2-0e76-45d1-94d1-f6624bbd8229",
+      "revisionNumber": 1,
+      "candidateId": "81dbe060-8e1f-436e-a7f4-0e2736b29f96",
+      "uploadSessionId": "67756c5f-8d15-4420-8277-beb7db87a0f0",
+      "archiveSha256": "2d22e7e258c25063db37eb0d8aa64936f0dce15c07a391812ebbc6fdbbfc630d",
+      "archiveBytes": 134217728,
+      "assets": 2048,
+      "status": "held",
+      "code": "report-too-large",
+      "completedAt": "2026-11-11T01:36:33.6737632",
+      "verifiedAssets": 0,
+      "rightsGroupCounts": [
+        1024,
+        1024
+      ],
+      "rightsCoverageExact": true,
+      "editorialMaterialUtf8Bytes": 17073,
+      "reviewDigest": null,
+      "reviewSnapshotUtf8Bytes": 0,
+      "reviewReturnedPackageUtf8Bytes": 282,
+      "presentationRetained": false,
+      "decisions": 0,
+      "reviewResponseSha256": "546d31658191ebb7bb450056d58260f3a1cd39a3453cc53c5c01ff8dd919000a"
+    }
+  ],
+  "studioResume": {
+    "deliberateResponseLossAfterServerStoredPart": 4,
+    "sameCandidateReceiptAndUpload": true,
+    "firstResumeStartsAtPart": 5,
+    "hostResourcePauseLastAcknowledgedPart": 342,
+    "finalResumeStartsAtPart": 343,
+    "boundaryParts": 1536,
+    "boundaryPartBytes": 1048576,
+    "newBaselineParts": 133,
+    "newBaselinePartBytes": 8388608,
+    "baselineResumeStartsAtPart": 58,
+    "boundaryFinalResumeSeconds": 885.351,
+    "boundaryAssemblySeconds": 41.571,
+    "baselineFinalResumeSeconds": 131.279,
+    "duplicateReceiptCreates": 0,
+    "concurrentDesktopThroughputQualified": false,
+    "harness": "Real AonikAccount, CreatorPublishingService, AonikPublishingApi; original synthetic ZIP with minimal WorldStore/export sidecar. No authoring-UI claim."
+  },
+  "additionalKernelFaultQualification": {
+    "acrRun": "dbf",
+    "passedTests": 14,
+    "baseImage": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "deployedTestLayer": false,
+    "faults": [
+      "Actual 64 MiB tmpfs ENOSPC",
+      "Reader SIGKILL after owned scratch write",
+      "Scratch removed and next real-reader job passes after both faults"
+    ],
+    "sourceSha256": "1beba41ceb35363136b8a5e060899fb5715723cf81f984beb2d4f3e3bf71653c"
+  },
+  "apiOverLimit": {
+    "utc": "2026-11-11T01:07:31.201Z",
+    "status": 413,
+    "code": "package-too-large",
+    "declaredPackageBytes": 1610612737
+  },
+  "retainedPackageAdmission": {
+    "initialCode": "upload-quota-exceeded",
+    "http": 429,
+    "previousMaxCreatorPackages": 20,
+    "qualifiedMaxCreatorPackages": 32,
+    "maxCreatorBytes": 6442450944,
+    "maxTenantBytes": 12884901888,
+    "sameReceiptResumed": true,
+    "noReservationBypass": true
+  },
+  "operatorRoleCleanup": {
+    "temporaryOperatorRoles": [
+      {
+        "scope": "/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/sessionPools/aonikdevpublishinglarge",
+        "removed": true
+      },
+      {
+        "scope": "/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/sessionPools/aonikdevpublishing",
+        "removed": true
+      }
+    ],
+    "utc": "2026-11-11T01:03:52.0990579Z"
+  },
+  "finalState": {
+    "devCatalogueSerial": 26,
+    "publicWorlds": 0,
+    "mirror": "disabled",
+    "capacityReceiptsApproved": 0,
+    "capacityReceiptsPublished": 0,
+    "reviewerTemporaryAccountSignedOut": true,
+    "productionChanged": false,
+    "databaseFirewallChanged": false,
+    "apiRevision": "aonik-dev-api--0000389",
+    "workerRevision": "aonik-dev-worker--0000379"
+  }
 }
