@@ -74,7 +74,8 @@ public sealed class DockerPackageVerifier : IPackageVerifier
             policy.MaxDocumentBytes.ToString(System.Globalization.CultureInfo.InvariantCulture), "/scratch",
         ]);
     }
-    private static bool Qualified(PackageVerifierOptions p) => p.ReaderCommit == ReaderPin
+    // The large profile is qualified on Dynamic Sessions; keep the legacy Docker boundary unchanged.
+    private static bool Qualified(PackageVerifierOptions p) => p.CapacityProfile is null && p.ReaderCommit == ReaderPin
         && p.Image is { Length: <= 300 } image && Regex.IsMatch(image, "^[A-Za-z0-9./:_-]+@sha256:[a-f0-9]{64}$")
         && !string.IsNullOrWhiteSpace(p.DockerExecutable) && p.DockerExecutable.Length <= 4096 && !p.DockerExecutable.Contains('\0') && p.TimeoutSeconds is >= 1 and <= 90
         && p.MemoryMiB is >= 64 and <= 1024 && p.ScratchMiB is >= 64 and <= 2048

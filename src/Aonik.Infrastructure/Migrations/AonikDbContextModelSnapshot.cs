@@ -27360,7 +27360,7 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<string>("MaterialJson")
                         .IsRequired()
-                        .HasMaxLength(524288)
+                        .HasMaxLength(2097152)
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("PolicyJson")
@@ -28235,7 +28235,7 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<string>("ResultJson")
                         .IsRequired()
-                        .HasMaxLength(262144)
+                        .HasMaxLength(1048576)
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("RevisionId")

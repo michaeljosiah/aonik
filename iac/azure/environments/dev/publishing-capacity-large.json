@@ -1,0 +1,17 @@
+{
+  "Publishing__Verifier__Provider": "AzureDynamicSessions",
+  "Publishing__Verifier__CapacityProfile": "large-v1",
+  "Publishing__Verifier__SessionPoolResourceId": "/subscriptions/336d38e2-bb96-4510-a4c5-5c313139eef9/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/sessionPools/aonikdevpublishinglarge",
+  "Publishing__Verifier__Image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+  "Publishing__Verifier__ReaderCommit": "27df122566bcdef18126932c15a74112e18b8573",
+  "Publishing__Verifier__MemoryMiB": "4096",
+  "Publishing__Verifier__ScratchMiB": "64",
+  "Publishing__Verifier__MaxAssets": "2048",
+  "Publishing__Verifier__MaxAssetBytes": "67108864",
+  "Publishing__Verifier__MaxDocumentBytes": "4194304",
+  "Publishing__Verifier__TimeoutSeconds": "180",
+  "Publishing__Channels__arke-worlds-dev__MaxPackageBytes": "1610612736",
+  "Publishing__Intake__MaxCreatorRetainedBytes": "6442450944",
+  "Publishing__Intake__MaxTenantRetainedBytes": "12884901888",
+  "Publishing__Intake__AssemblyMinutes": "10"
+}

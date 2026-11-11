@@ -1,6 +1,9 @@
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+
+using Aonik.Publishing.Services;
 
 namespace Aonik.Infrastructure.Messaging.Outbox;
 
@@ -23,6 +26,13 @@ public static class OutboxServiceCollectionExtensions
         params Assembly[] eventAssemblies)
     {
         services.Configure<OutboxOptions>(configuration.GetSection(OutboxOptions.SectionName));
+        services.AddOptions<OutboxOptions>().Configure<IOptions<PublishingOptions>>((outbox, publishing) =>
+        {
+            if (publishing.Value.Verifier.CapacityProfile != PackageCapacity.LargeProfile) return;
+            // Claimed batches run sequentially. Do not lease other messages behind a large verification.
+            outbox.BatchSize = 1;
+            outbox.ClaimLeaseSeconds = Math.Max(outbox.ClaimLeaseSeconds, PackageCapacity.Large.LeaseSeconds + 60);
+        });
 
         services.AddSingleton<IIntegrationEventTypeRegistry>(
             _ => new IntegrationEventTypeRegistry(eventAssemblies));

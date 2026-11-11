@@ -42,7 +42,7 @@ Future<Map<String, Object?>> verifyPackage(
 }) async {
   if (expectedBytes <= 0 ||
       maxAssets < 1 ||
-      maxAssets > 1024 ||
+      maxAssets > 2048 ||
       maxAssetBytes < 1 ||
       maxDocumentBytes < 1)
     throw const VerificationRefused('invalid-worker-limits');
@@ -116,11 +116,17 @@ Future<Map<String, Object?>> verifyPackage(
   if (manifest.assets.keys.any((id) => !used.contains(id)))
     throw const VerificationRefused('unreferenced-asset');
   final scratch = await Directory(scratchRoot).createTemp('verification-');
+  // Reuse the bounded ZIP directory. Reopening it per asset makes high-cardinality packages quadratic.
+  // The pinned reader still validates the package contract, and its checkAsset verifies every extracted byte.
+  final assetInput = InputFileStream(path);
   try {
+    final entries = {
+      for (final entry in ZipDecoder().decodeStream(assetInput)) entry.name: entry,
+    };
     for (final asset in manifest.assets.values) {
       final extracted =
           '${scratch.path}/asset'; // NEVER use an untrusted archive path as a destination.
-      final result = await extractAsset(path, asset, extracted);
+      final result = await _extractCheckedAsset(entries[asset.path], asset, extracted);
       if (result != AssetCheck.matches)
         throw const VerificationRefused('asset-digest-mismatch');
       if (asset.mediaType == 'application/epub+zip') {
@@ -165,6 +171,7 @@ Future<Map<String, Object?>> verifyPackage(
       await File(extracted).delete();
     }
   } finally {
+    assetInput.closeSync();
     await scratch.delete(recursive: true);
   }
   final kind = manifest.part != null
@@ -206,15 +213,35 @@ Future<Map<String, Object?>> verifyPackage(
       'details': {
         for (final p in manifest.productions)
           p.id: {
-            if (manifest.music[p.id] != null) 'musicKind': manifest.music[p.id]!.kind.name,
+            if (manifest.music[p.id] != null)
+              'musicKind': manifest.music[p.id]!.kind.name,
             if (manifest.stories[p.id] != null) 'storyVersion': storyVersion,
             if (manifest.comics[p.id] != null) 'comicVersion': comicVersion,
             if (manifest.listening[p.id] != null)
-              'chapters': [for (final c in manifest.listening[p.id]!.chapters) {'id': c.id, 'number': c.order, 'title': c.title}],
+              'chapters': [
+                for (final c in manifest.listening[p.id]!.chapters)
+                  {'id': c.id, 'number': c.order, 'title': c.title},
+              ],
           },
       },
     },
   };
+}
+
+Future<AssetCheck> _extractCheckedAsset(
+  ArchiveFile? entry,
+  WorldAsset asset,
+  String destination,
+) async {
+  if (entry == null || !entry.isFile) return AssetCheck.missing;
+  if (entry.size != asset.byteLength) return AssetCheck.wrongLength;
+  final output = OutputFileStream(destination);
+  try {
+    entry.writeContent(output);
+  } finally {
+    await output.close();
+  }
+  return checkAsset(asset.asPublicationAsset, () => File(destination).openRead());
 }
 
 // Avoid a new package dependency for an eight-byte signature comparison.

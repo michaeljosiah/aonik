@@ -3,6 +3,9 @@ param verifierImage string
 
 param location string = 'uksouth'
 param poolName string = 'aonikdevpublishing'
+@allowed(['standard', 'large-v1'])
+param capacityProfile string = 'standard'
+var large = capacityProfile == 'large-v1'
 
 resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' existing = {
   name: 'aonikdevacr'
@@ -56,7 +59,7 @@ resource pool 'Microsoft.App/sessionPools@2025-02-02-preview' = {
     sessionNetworkConfiguration: { status: 'EgressDisabled' }
     scaleConfiguration: { maxConcurrentSessions: 2, readySessionInstances: 1 }
     dynamicPoolConfiguration: {
-      lifecycleConfiguration: { lifecycleType: 'OnContainerExit', maxAlivePeriodInSeconds: 300 }
+      lifecycleConfiguration: { lifecycleType: 'OnContainerExit', maxAlivePeriodInSeconds: large ? 1200 : 300 }
     }
     customContainerTemplate: {
       ingress: { targetPort: 8080 }
@@ -64,7 +67,7 @@ resource pool 'Microsoft.App/sessionPools@2025-02-02-preview' = {
       containers: [{
         name: 'verifier'
         image: verifierImage
-        resources: { cpu: 1, memory: '2Gi' }
+        resources: { cpu: large ? 2 : 1, memory: large ? '4Gi' : '2Gi' }
       }]
     }
   }

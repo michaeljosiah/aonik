@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using Aonik.Publishing.Entities;
+using Aonik.Publishing.Services;
 
 namespace Aonik.Publishing.Persistence.Configurations;
 
@@ -20,6 +21,6 @@ public sealed class PublicationValidationReportConfiguration : IEntityTypeConfig
         b.Property(x => x.ReaderCommit).HasMaxLength(40).IsRequired();
         b.Property(x => x.VerifierImage).HasMaxLength(300).IsRequired();
         b.Property(x => x.PolicyJson).HasMaxLength(8000).IsRequired();
-        b.Property(x => x.ResultJson).HasMaxLength(262144).IsRequired();
+        b.Property(x => x.ResultJson).HasMaxLength(PackageCapacity.MaximumReportBytes).IsRequired();
     }
 }

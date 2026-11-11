@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Publishing capacity (#428):** Add an explicit bounded large-package profile across intake, isolated verification, review evidence and queue leases. Reuse the ZIP directory while preserving the pinned reader's asset checks; add asynchronous verification polling, abandoned-upload deadlines and scratch cleanup after forced termination. Studio compatibility and dev capacity qualification are tracked with the corresponding runbook.
+
 - **Player production baseline audit (#50):** Verified hosted and bundled serial 53 byte-for-byte, all 31 anonymous public pins and all 1,812 embedded assets with the real Player reader. The existing merged baseline needs no replacement. Recorded exact provenance and the measured package/asset/count limits that production intake must qualify in #428; publishing, rights approval and mirror configuration remain unchanged.
 
 - **Interactive-movie qualification (#403):** Verified real Studio export/submission, exact dev approval, all three native Player video clips, both choices/endings, replay, saved progress and cold offline retention after withdrawal at empty serial 26. Player #74 fixes standalone story-world installation and a native scene-loading race. Recorded failed attempts and verified checkpoints; production and the legacy mirror remain unchanged.
