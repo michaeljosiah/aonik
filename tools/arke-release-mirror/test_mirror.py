@@ -175,6 +175,40 @@ class MirrorTests(unittest.TestCase):
 
 
 class TransportTests(unittest.TestCase):
+    def test_public_catalogue_get_does_not_declare_a_json_body(self):
+        transport = Transport()
+        requests = []
+        class Response(io.BytesIO):
+            status = 200
+        class Opener:
+            def open(self, request, timeout):
+                requests.append(request)
+                if request.has_header("Content-type"):
+                    raise urllib.error.HTTPError(request.full_url, 400, "empty JSON body", {}, None)
+                return Response(feed(26))
+        transport.opener = Opener()
+        result = transport.request("https://aonik.example/publishing/channels/dev/catalogue.json", accept="application/json")
+        self.assertEqual(result, feed(26))
+        self.assertIsNone(requests[0].data)
+        self.assertIsNone(requests[0].get_header("X-github-api-version"))
+
+    def test_request_bodies_keep_their_content_type(self):
+        for method, content_type in (("PATCH", "application/json"), ("POST", "application/octet-stream")):
+            with self.subTest(method=method):
+                transport = Transport()
+                requests = []
+                class Response(io.BytesIO):
+                    status = 200
+                class Opener:
+                    def open(self, request, timeout):
+                        requests.append(request)
+                        return Response(b"{}")
+                transport.opener = Opener()
+                transport.request("https://api.github.com/example", method=method, data=b"{}", content_type=content_type)
+                self.assertEqual(requests[0].get_header("Content-type"), content_type)
+                self.assertEqual(requests[0].data, b"{}")
+                self.assertEqual(requests[0].get_header("X-github-api-version"), "2022-11-28")
+
     def test_redirect_strips_api_token(self):
         transport = Transport()
         requests = []

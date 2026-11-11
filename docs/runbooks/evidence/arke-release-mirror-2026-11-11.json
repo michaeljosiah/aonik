@@ -1,0 +1,79 @@
+{
+  "repository": "michaeljosiah/aonik",
+  "tag": "aonik-mirror-rehearsal-42947720150-1",
+  "releaseId": 441175201,
+  "runId": "42947720150",
+  "sourceCommit": "454476061afb370eb05549d7f7cd3e0746e9614c",
+  "checks": [
+    {
+      "name": "initial-create-and-anonymous-readback",
+      "status": "synced",
+      "serial": 1,
+      "sha256": "9eda3d757ddd0f64b82519b8932983f32123a402ce16976dc8baf9c3c4d87f0d",
+      "promoted": true
+    },
+    {
+      "name": "higher-serial-promotes-exact-bytes",
+      "status": "synced",
+      "serial": 2,
+      "sha256": "5a6ea177ef081d658103c12611620429a3147d8668b9d51e1ff2997914e7cab7",
+      "promoted": true
+    },
+    {
+      "name": "duplicate-trigger-no-rewrite",
+      "status": "synced",
+      "serial": 2,
+      "sha256": "5a6ea177ef081d658103c12611620429a3147d8668b9d51e1ff2997914e7cab7",
+      "promoted": false
+    },
+    {
+      "name": "stale-trigger-refused",
+      "code": "remote-ahead"
+    },
+    {
+      "name": "same-serial-conflict-held",
+      "code": "same-serial-conflict"
+    },
+    {
+      "name": "lost-retirement-response",
+      "code": "injected-lost-rename-response"
+    },
+    {
+      "name": "missing-live-asset-still-fenced",
+      "code": "remote-ahead"
+    },
+    {
+      "name": "recover-interrupted-promotion",
+      "status": "synced",
+      "serial": 3,
+      "sha256": "9a1c1ece26d703aecbf332b49898979458a573cef0aa41a27870b34aaf503367",
+      "promoted": true
+    },
+    {
+      "name": "lost-promotion-response",
+      "code": "injected-lost-rename-response"
+    },
+    {
+      "name": "recover-committed-unknown-outcome",
+      "status": "synced",
+      "serial": 4,
+      "sha256": "a7282cb5757bbff51b579061b785e81c24fca3ec278f3e56c77134600cc0b770",
+      "promoted": false
+    },
+    {
+      "name": "failed-public-readback",
+      "code": "injected-readback-unavailable"
+    },
+    {
+      "name": "retry-confirms-without-republishing",
+      "status": "synced",
+      "serial": 5,
+      "sha256": "9cfe50cba07228fe806bafda53c5a94b3581bc9cdcf58ed0c219c59745d0c141",
+      "promoted": false
+    }
+  ],
+  "latestUnchanged": true,
+  "finalAssetCount": 10,
+  "passed": true,
+  "isolatedReleaseRemoved": true
+}
