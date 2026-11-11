@@ -9,6 +9,16 @@ This folder provides an Azure-first Infrastructure as Code baseline for AONIK us
 - `modules/network.bicep`: VNet, subnets, private endpoints, private DNS zones (conditional)
 - `stacks/aca/main.bicep`: Container Apps-based runtime stack
 - `environments/{dev|staging|prod}/aca.parameters.json`: environment parameter templates
+- `modules/publishing-verifier.bicep`: isolated package-verification pool, with environment-specific registry, API/Worker role assignments and pull identity
+- `environments/prod/publishing-verifier.bicepparam`: proposed large-profile production pool; compile-only preparation until the production handoff is approved
+
+The verifier module defaults to the existing `aonik` / `dev` resource names. For
+another environment, pass `environmentName` and, when needed, `workloadName` and
+`poolName`. Deploy the runtime stack and import the qualified immutable verifier
+image into that environment's registry first. The module must not borrow dev
+application identities or its registry for production. Its isolated session keeps
+egress disabled and the registry identity unavailable to the running container.
+Only Session Executor and Reader are granted to the target API/Worker identities.
 
 ## AONIK Architectural Alignment
 

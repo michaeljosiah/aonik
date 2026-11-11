@@ -1,6 +1,6 @@
 # Arke publishing authority handoff
 
-This closes the engineering gaps found after #403 and #428 under epic #397 and
+This addresses the engineering gaps found after #403 and #428 under epic #397 and
 follow-up #431. Production activation remains a distinct owner decision. The
 current Azure inventory contains `rg-aonik-dev-uksouth` only; there is no qualified
 AONIK production deployment to point Studio or Player at.
@@ -184,7 +184,8 @@ The engineering evidence cannot supply these business decisions:
 - Resolve Michael Josiah's production Party and the private permission reference
   covering retention/distribution of the existing exact public editions and artwork.
 - Which production tenant/channel/origin and accountable deployment/budget owner
-  should be used? No production Azure resource group currently exists.
+  should be used? No qualified production Azure resource group was found in the
+  accessible subscription inventory.
 - Michael Josiah is the designated reviewer/support contact. Confirm a production
   contact address, independent editorial coverage where required, backup coverage
   and whether the three-working-day response target is staffed. The existing
@@ -199,6 +200,11 @@ The engineering evidence cannot supply these business decisions:
 These decisions are not evidence of two external creators or a Play-installed
 production pilot. Launch tickets AONIK #395, Studio #2213 and Player #24 keep that
 scope. The owner accepted autonomous test-account/emulator evidence for #403.
+
+The [production proposal](arke-production-proposal.md) makes the target deployment,
+configuration prerequisites and cost assumptions reviewable. Issue #434 tracks its
+remaining owner decisions and actual cutover; the epic stays open until those
+production gates are resolved.
 
 ## Verification record
 

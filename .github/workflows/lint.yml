@@ -34,7 +34,7 @@ jobs:
           set -euo pipefail
           errors=0
 
-          for template in iac/azure/stacks/*/main.bicep; do
+          for template in iac/azure/stacks/*/main.bicep iac/azure/modules/*.bicep; do
             echo "::group::$template"
 
             if ! az bicep build --file "$template" --stdout > /dev/null; then
@@ -45,6 +45,14 @@ jobs:
             fi
 
             echo "::endgroup::"
+          done
+
+          for parameters in iac/azure/environments/*/*.bicepparam; do
+            [ -f "$parameters" ] || continue
+            if ! az bicep build-params --file "$parameters" --stdout > /dev/null; then
+              echo "::error file=$parameters::Bicep parameter compilation failed"
+              errors=$((errors + 1))
+            fi
           done
 
           if [ "$errors" -gt 0 ]; then
