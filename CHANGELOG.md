@@ -8,7 +8,7 @@ All notable changes to the AONIK project will be documented in this file.
 
 - **Arke production preparation (#434):** Parameterize verifier resource names and role-assignment targets by environment, add compile-only production parameters for the qualified large profile, and include standalone modules/parameter files in Bicep CI. Record the proposed deployment sequence and retail cost assumptions; production identity, rights and spend approval remain pending.
 
-- **Arke release bridge requests (#431):** Omit body content headers on anonymous catalogue GETs, avoiding FastEndpoints' empty-JSON-body rejection. Keep JSON and asset upload content types on requests that actually carry a body, and limit GitHub version headers to GitHub API hosts.
+- **Arke release bridge requests (#431):** Omit body content headers on anonymous catalogue GETs, avoiding FastEndpoints' empty-JSON-body rejection. Keep JSON and asset upload content types on requests that actually carry a body, and limit GitHub version headers to GitHub API hosts. The actual dev feed now passes exact-byte release mirroring, authenticated observer confirmation and repeat-without-promotion checks; temporary settings are restored with the test bridge disabled.
 
 - **Arke legacy release handoff (#431):** Add a serialized, recoverable bridge for the actual GitHub Release catalogue used by installed Players, plus credential-free AONIK readback and an explicit pending state. Preserve immutable serial fences and prior bytes across interrupted asset promotion. Add fault rehearsals, actual serial-53 import checks, and the production cutover/manual-intake handoff. Activation remains disabled pending production qualification.
 

@@ -242,8 +242,27 @@ FastEndpoints returned 400 while trying to deserialize an empty body. The bridge
 now emits content type only for requests carrying bytes and limits GitHub version
 headers to GitHub API hosts. Eighteen recovery/transport tests pass, including this
 regression, and the corrected transport retrieves the exact dev catalogue. Scheduled
-mirroring was disabled while correcting it. Final bridge/observer readback and
-configuration restoration still need to be recorded; production remains disabled.
+mirroring was disabled while correcting it. PR #433 merged the fix after green CI.
+
+The [actual-source dev mirror evidence](evidence/arke-dev-mirror-2026-11-11.json)
+records successful bridge run `43056912292`: exact canonical serial 26, SHA-256
+`3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f`.
+Authenticated AONIK reconciliation then reached `synced / latest-head-confirmed`
+with mirrored serial 26. Repeat run `43057800631` reported `promoted: false` and
+retained both asset IDs. Application Latest stayed `v0.1.1` / release `320999757`.
+API `0000392` and Worker `0000382` are ready with their exact pre-rehearsal mirror
+settings and images restored. Health is 200; the public feed remains 37 bytes,
+empty serial 26. The temporary reviewer session was signed out and its encrypted
+credential removed. The last synced observer record is historical, not an indication
+that mirroring remains enabled.
+
+The repository bridge switch is disabled. The isolated prerelease
+`michaeljosiah/aonik:aonik-publishing-dev-mirror` is retained with only the two empty
+test-catalogue assets: automatic approval review rejected deleting the remote release
+and tag without explicit deletion authority. No production release was modified.
+The separate twelve-case fault rehearsal above covers interrupted promotion and
+serial conflicts; this empty-feed run establishes actual-source/observer integration,
+not a new claim of an approved edition being published.
 
 `PublicationBaselineTests` exercises the actual frozen serial-53 input through
 the service with synthetic test-only owner mappings. These tests are not a
