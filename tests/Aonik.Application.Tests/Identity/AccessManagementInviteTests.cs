@@ -25,6 +25,66 @@ namespace Aonik.Application.Tests.Identity;
 /// </summary>
 public class AccessManagementInviteTests
 {
+    [Fact]
+    public async Task ResendInviteAsync_Should_RotatePendingInvitationAfterIdentityLinks()
+    {
+        var (service, context, _, _) = CreateService();
+        using (context)
+        {
+            var invited = await service.InviteUserAsync(new InviteUserRequest("creator@example.test"));
+            var user = await context.Users.SingleAsync(user => user.Id == invited.UserId);
+            var originalToken = user.InviteToken;
+            user.ExternalIssuer = "https://example.auth0.com/";
+            user.ExternalSubject = "auth0|creator";
+            await context.SaveChangesAsync();
+
+            var result = await service.ResendInviteAsync(user.Id);
+
+            result.EmailSent.Should().BeTrue();
+            user.InviteToken.Should().NotBe(originalToken);
+            user.ExternalSubject.Should().Be("auth0|creator");
+            user.InviteAcceptedUtc.Should().BeNull();
+            (await context.UserRoles.CountAsync(role => role.UserId == user.Id)).Should().Be(0);
+        }
+    }
+
+    [Fact]
+    public async Task ResendInviteAsync_Should_RejectAcceptedInvitation()
+    {
+        var (service, context, _, _) = CreateService();
+        using (context)
+        {
+            var invited = await service.InviteUserAsync(new InviteUserRequest("creator@example.test"));
+            var user = await context.Users.SingleAsync(user => user.Id == invited.UserId);
+            user.InviteAcceptedUtc = DateTime.UtcNow;
+            await context.SaveChangesAsync();
+
+            var resend = () => service.ResendInviteAsync(user.Id);
+
+            await resend.Should().ThrowAsync<InvalidOperationException>().WithMessage("*unaccepted invitation*");
+        }
+    }
+
+    [Fact]
+    public async Task InviteUserAsync_Should_SendAbsoluteAcceptanceLinkWithInvitedTenant()
+    {
+        var templates = new StubNotificationTemplateService();
+        var (service, context, tenantId, _) = CreateService(templates);
+        using (context)
+        {
+            var result = await service.InviteUserAsync(new InviteUserRequest("creator@example.test"));
+
+            result.EmailSent.Should().BeTrue();
+            var model = System.Text.Json.JsonSerializer.SerializeToElement(templates.LastModel);
+            var link = new Uri(model.GetProperty("inviteUrl").GetString()!);
+            link.GetLeftPart(UriPartial.Path).Should().Be("https://admin.example.test/signin");
+            link.Query.Should().Contain($"tenant={tenantId}");
+            var user = await context.Users.SingleAsync(user => user.Id == result.UserId);
+            link.Query.Should().Contain($"invite={Uri.EscapeDataString(user.InviteToken!)}");
+            user.InviteAcceptedUtc.Should().BeNull();
+        }
+    }
+
     private sealed class TestTenantProvider : ITenantProvider
     {
         private readonly Guid _tenantId;
@@ -103,7 +163,7 @@ public class AccessManagementInviteTests
     }
 
     private static (AccessManagementService Service, PlatformDbContext Context, Guid TenantId, Role TenantAdminRole)
-        CreateService()
+        CreateService(StubNotificationTemplateService? templates = null)
     {
         var tenantId = Guid.NewGuid();
         var actorId = Guid.NewGuid();
@@ -139,9 +199,9 @@ public class AccessManagementInviteTests
             correlationContext,
             new StubProfilePhotoStore(),
             provisioner,
-            new StubNotificationTemplateService(),
+            templates ?? new StubNotificationTemplateService(),
             new StubEmailSender(),
-            Microsoft.Extensions.Options.Options.Create(new UserLifecycleOptions()),
+            Microsoft.Extensions.Options.Options.Create(new UserLifecycleOptions { AdminUiBaseUrl = "https://admin.example.test" }),
             new StubUserSessionBlocklist(),
             new StubIdentityProviderManagementClientFactory(),
             NullLoggerFactory.Instance);
@@ -151,11 +211,16 @@ public class AccessManagementInviteTests
 
     private sealed class StubNotificationTemplateService : INotificationTemplateService
     {
+        public object? LastModel { get; private set; }
+
         public Task<Aonik.Platform.Contracts.Models.Notifications.RenderNotificationTemplateResult> RenderAsync(
             Aonik.Platform.Contracts.Models.Notifications.RenderNotificationTemplateRequest request,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(new Aonik.Platform.Contracts.Models.Notifications.RenderNotificationTemplateResult(
+        {
+            LastModel = request.Model;
+            return Task.FromResult(new Aonik.Platform.Contracts.Models.Notifications.RenderNotificationTemplateResult(
                 "subject", "body", Guid.Empty, null));
+        }
 
         public Task<List<Aonik.Platform.Contracts.Models.Notifications.NotificationTemplateSummary>> ListTemplatesAsync(
             string? channel = null, bool? isActive = null, CancellationToken cancellationToken = default)

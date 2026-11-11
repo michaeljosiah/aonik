@@ -71,7 +71,7 @@
         "Publishing__Channels__arke-worlds-dev__Enabled": "false",
         "Publishing__Channels__arke-worlds-dev__NamespaceAdmissionEnabled": "false",
         "Publishing__Channels__arke-worlds-dev__MaxPackageBytes": "33554432",
-        "Publishing__Channels__arke-worlds-dev__RightsDeclarationVersion": "dev-synthetic-v1",
+        "Publishing__Channels__arke-worlds-dev__RightsDeclarationVersion": "dev-creator-v1",
         "Publishing__Channels__arke-worlds-dev__ReviewEnabled": "false",
         "Publishing__Channels__arke-worlds-dev__ReviewPolicyVersion": "dev-editorial-v1",
         "Publishing__Channels__arke-worlds-dev__DeliveryEnabled": "false",
@@ -82,6 +82,11 @@
         "Publishing__Channels__arke-worlds-dev__BaselineSha256": "6529459358f418c29144281cb1b1fb10361e5792a0e9caf9abd0525cee68d52e",
         "Publishing__Channels__arke-worlds-dev__BaselineEvidenceReference": "docs/runbooks/arke-publishing-dev.md#isolated-channel",
         "Publishing__Channels__arke-worlds-dev__LegacyMirrorEnabled": "false"
+      }
+    },
+    "apiAppSettings": {
+      "value": {
+        "UserLifecycle__AdminUiBaseUrl": "https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io"
       }
     }
   }

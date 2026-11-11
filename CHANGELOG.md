@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Dev creator onboarding (#436):** Add an invitation acceptance page with a preserved sign-in return path, configure absolute dev invitation URLs with tenant context, and verify Auth0 mailbox ownership before an invitee can gain local authority. Allow pending invitations to be resent after identity linking. Advance the dev submission declaration to creator-owned/licensed work with explicit public dev distribution and offline-retention terms. Existing exact-revision review and release gates remain enforced.
+
 - **Arke handoff baseline (#431/#434):** Re-audit the already-published serial 54 after its Na Love or Juju world/guide update. All 31 pins, 13 packages and 1,833 embedded assets pass current and previous Player readers. Preserve serial-53 history and prepare an unapproved serial-54 ownership projection so a later cutover cannot use the stale head.
 
 - **Arke production preparation (#434):** Parameterize verifier resource names and role-assignment targets by environment, add compile-only production parameters for the qualified large profile, and include standalone modules/parameter files in Bicep CI. Record the proposed deployment sequence and retail cost assumptions; production identity, rights and spend approval remain pending.

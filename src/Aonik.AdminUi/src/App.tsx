@@ -1,3 +1,4 @@
+import { InvitationPage } from './pages/InvitationPage';
 import { useEffect, useRef, useState, createElement, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { isElectron, setTitleBarColor } from '@/lib/electron';
@@ -511,6 +512,7 @@ function AuthenticatedApp() {
         <ApiAuthSetup />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/signin" element={<InvitationPage />} />
           <Route path="/setup-guides" element={<AppLayout />} />
           <Route path="/setup-guides/:slug" element={<AppLayout />} />
           <Route path="/*" element={<SetupWizardPage />} />
@@ -524,6 +526,7 @@ function AuthenticatedApp() {
       <ApiAuthSetup />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+          <Route path="/signin" element={<InvitationPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />
         <Route
           path="/select-organization"

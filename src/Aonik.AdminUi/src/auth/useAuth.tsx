@@ -20,6 +20,8 @@ export interface AuthUser {
 }
 
 export interface LoginOptions {
+  /** Local invitation route restored after the browser IdP redirect. */
+  returnTo?: string;
   // Forwarded to the IdP as `login_hint` (Auth0) / `loginHint` (MSAL). The
   // mock provider ignores it. Captured up-front by the login page so the
   // user doesn't have to retype their email after the IdP redirect.
@@ -256,7 +258,9 @@ function useAuth0Auth(): AuthContextType {
       if (isElectron) {
         await loginWithPopup({ authorizationParams });
       } else {
-        await loginWithRedirect({ authorizationParams });
+        const returnTo = options?.returnTo;
+        const localReturnTo = returnTo?.startsWith('/') && !returnTo.startsWith('//') && !returnTo.includes('\\') ? returnTo : undefined;
+        await loginWithRedirect({ authorizationParams, ...(localReturnTo ? { appState: { returnTo: localReturnTo } } : {}) });
       }
     } catch (error) {
       console.error('Auth0 login error:', error);

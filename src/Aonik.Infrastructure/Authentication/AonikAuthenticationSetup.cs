@@ -59,6 +59,9 @@ public static class AonikAuthenticationSetup
         _ = ReadAuthOptions();
 
         services.AddHttpContextAccessor();
+        services.AddHttpClient(Auth0InvitationEmailVerifier.ClientName, client =>
+            { client.Timeout = TimeSpan.FromSeconds(10); client.MaxResponseContentBufferSize = 16384; })
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
         services.Configure<AuthOptions>(configuration.GetSection("Auth"));
         services.AddScoped<IAccountAccessIdentityProofAccessor, AccountAccessIdentityProofAccessor>();
 
@@ -318,6 +321,34 @@ public static class AonikAuthenticationSetup
         }
         else
         {
+            if (string.Equals(issuerProvider, "Auth0", StringComparison.OrdinalIgnoreCase))
+            {
+                // Auth0 API tokens do not necessarily carry email_verified. Read its authenticated
+                // userinfo endpoint before linking by email, including an API-registered invitee
+                // whose identity has already been linked but whose invitation remains unaccepted.
+                var normalizedEmail = email?.ToLowerInvariant();
+                var invite = await dbContext.Users.AsNoTracking().FirstOrDefaultAsync(u =>
+                    u.TenantId == tenantId && u.InviteToken != null && u.InviteAcceptedUtc == null
+                    && ((u.ExternalIssuer == iss && u.ExternalSubject == sub)
+                        || (u.ExternalIssuer == "aonik-bootstrap" && u.Email != null && u.Email.ToLower() == normalizedEmail)),
+                    context.HttpContext.RequestAborted);
+                if (invite is not null)
+                {
+                    var clock = context.HttpContext.RequestServices.GetRequiredService<IClock>();
+                    var client = context.HttpContext.RequestServices.GetRequiredService<IHttpClientFactory>()
+                        .CreateClient(Auth0InvitationEmailVerifier.ClientName);
+                    var verified = !string.IsNullOrWhiteSpace(invite.Email) && invite.InviteExpiresUtc > clock.UtcNow
+                        && await Auth0InvitationEmailVerifier.VerifyAsync(client, authOptions.Auth0.Authority,
+                            jwtToken?.RawData ?? jsonToken?.EncodedToken ?? string.Empty, sub, invite.Email,
+                            context.HttpContext.RequestAborted);
+                    if (!verified)
+                    {
+                        context.HttpContext.Items[AuthFailureReasonItemKey] = "Verify your invited email address and use a current invitation before signing in.";
+                        context.Fail("Verified invitation email is required");
+                        return;
+                    }
+                }
+            }
             user = await userIdentityService.ResolveOrCreateUserAsync(
                 iss, sub, tid, email, tenantId.Value, context.HttpContext.RequestAborted);
         }
