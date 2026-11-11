@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 using Aonik.Publishing.Entities;
+using Aonik.Publishing.Services;
 
 namespace Aonik.Publishing.Persistence.Configurations;
 
@@ -16,7 +17,7 @@ public sealed class EditorialReviewSnapshotConfiguration : IEntityTypeConfigurat
             .HasPrincipalKey(x => new { x.TenantId, x.SubmissionId, x.RevisionId, x.Id }).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(x => new { x.TenantId, x.RevisionId, x.ReviewDigest }).IsUnique();
         b.Property(x => x.ReviewDigest).HasMaxLength(64).IsRequired();
-        b.Property(x => x.MaterialJson).HasMaxLength(524288).IsRequired();
+        b.Property(x => x.MaterialJson).HasMaxLength(PackageCapacity.MaximumReviewBytes).IsRequired();
         b.Property(x => x.PolicyJson).HasMaxLength(16000).IsRequired();
     }
 }

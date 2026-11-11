@@ -119,6 +119,11 @@ internal sealed class CreatorSubmissionService(
             throw new PublishingException(404, "channel-unavailable", "No such submission channel is available.");
         if (channel.MaxPackageBytes <= 0 || string.IsNullOrWhiteSpace(channel.RightsDeclarationVersion))
             throw new PublishingException(503, "channel-not-configured", "The submission channel is not configured for intake.");
+        var verifier = options.Value.Verifier;
+        if (!PackageCapacity.IsKnown(verifier.CapacityProfile)
+            || ((verifier.Provider == "AzureDynamicSessions" || verifier.CapacityProfile is not null)
+                && channel.MaxPackageBytes > PackageCapacity.Resolve(verifier.CapacityProfile).PackageBytes))
+            throw new PublishingException(503, "channel-not-configured", "The channel exceeds its verifier capacity profile.");
         if (request.DeclaredPackageBytes > channel.MaxPackageBytes)
             throw new PublishingException(413, "package-too-large", "Declared package length exceeds the channel limit.");
         if (!string.Equals(request.RightsDeclarationVersion, channel.RightsDeclarationVersion, StringComparison.Ordinal))

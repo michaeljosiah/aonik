@@ -279,6 +279,10 @@ internal sealed class PublicationIntakeService(IPublishingDataContext db, Creato
         if (!Options.Channels.TryGetValue(submission.ChannelKey, out var channel) || !channel.Enabled || channel.TenantId != submission.TenantId)
             throw Problem(404, "channel-unavailable", "The submission channel is not available.");
         if (!channel.NamespaceAdmissionEnabled) throw Problem(503, "namespace-not-configured", "Public namespace admission must be qualified before uploading.");
+        if (!PackageCapacity.IsKnown(Options.Verifier.CapacityProfile)
+            || ((Options.Verifier.Provider == "AzureDynamicSessions" || Options.Verifier.CapacityProfile is not null)
+                && channel.MaxPackageBytes > PackageCapacity.Resolve(Options.Verifier.CapacityProfile).PackageBytes))
+            throw Problem(503, "intake-not-configured", "The channel exceeds its verifier capacity profile.");
         if (revision.DeclaredPackageBytes > channel.MaxPackageBytes || revision.RightsDeclarationVersion != channel.RightsDeclarationVersion)
             throw Problem(409, "channel-policy-changed", "The channel's size or distribution permission policy changed.");
     }

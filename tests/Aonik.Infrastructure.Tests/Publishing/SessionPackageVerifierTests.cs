@@ -134,6 +134,55 @@ public class SessionPackageVerifierTests
         h.Uploaded.ToArray().Should().Equal(h.Bytes);
     }
 
+    [Fact]
+    public async Task LargeProfile_Should_TransferAboveLegacyLimitAndPollSealedJob()
+    {
+        using var h = new Harness(32 * 1024 * 1024 + 17, large: true);
+        (await h.Verify()).Passed.Should().BeTrue();
+        h.SessionCalls.Count(path => path == "/chunk").Should().Be(9);
+        h.SessionCalls.Should().Contain("/result").And.EndWith("/.management/stopSession");
+        h.Uploaded.ToArray().Should().Equal(h.Bytes);
+    }
+
+    [Theory]
+    [InlineData("profile")]
+    [InlineData("nonce")]
+    [InlineData("overflow")]
+    [InlineData("drift")]
+    [InlineData("cleanup")]
+    public async Task LargeProfile_Should_FailClosedAndReclaimSession(string fault)
+    {
+        using var h = new Harness(large: true) { Fault = fault };
+        (await h.Verify()).Passed.Should().BeFalse();
+        h.SessionCalls.Should().EndWith("/.management/stopSession");
+    }
+
+    [Fact]
+    public async Task LargeProfile_Should_RefuseOversizeBeforeAllocating()
+    {
+        using var h = new Harness(large: true) { DeclaredBytes = PackageCapacity.Large.PackageBytes + 1 };
+        (await h.Verify()).Passed.Should().BeFalse();
+        h.ProfileReads.Should().Be(0);
+        h.SessionCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task LargeProfile_Should_RejectStandardPoolResources()
+    {
+        using var h = new Harness(large: true);
+        h.Profile["properties"]!["customContainerTemplate"]!["containers"]![0]!["resources"]!["memory"] = "2Gi";
+        (await h.Verify()).Passed.Should().BeFalse();
+        h.SessionCalls.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void UnknownCapacity_Should_NotFallBackToStandard()
+    {
+        var policy = Policy();
+        policy.CapacityProfile = "unbounded";
+        SessionPackageVerifier.Qualified(policy).Should().BeFalse();
+    }
+
     private sealed class Credential : TokenCredential
     {
         public override AccessToken GetToken(TokenRequestContext requestContext, CancellationToken cancellationToken) => new("synthetic-test-token", DateTimeOffset.UtcNow.AddHours(1));
@@ -150,20 +199,34 @@ public class SessionPackageVerifierTests
         public int ProfileReads { get; private set; }
         public string? Fault { get; init; }
         public CancellationTokenSource? Cancel { get; set; }
+        public long? DeclaredBytes { get; init; }
+        private readonly PackageVerifierOptions _policy = Policy();
+        private readonly bool _large;
         private readonly string _path = Path.GetTempFileName();
         private readonly HttpClient _http;
         private long _offset;
         private string _nonce = "";
 
-        public Harness(int byteCount = 0)
+        public Harness(int byteCount = 0, bool large = false)
         {
+            _large = large;
+            if (large)
+            {
+                _policy.CapacityProfile = PackageCapacity.LargeProfile;
+                _policy.MemoryMiB = 4096; _policy.MaxAssets = 2048;
+                _policy.MaxAssetBytes = 67108864; _policy.TimeoutSeconds = 180;
+                var p = Profile["properties"]!;
+                p["dynamicPoolConfiguration"]!["lifecycleConfiguration"]!["maxAlivePeriodInSeconds"] = 1200;
+                p["customContainerTemplate"]!["containers"]![0]!["resources"]!["cpu"] = 2;
+                p["customContainerTemplate"]!["containers"]![0]!["resources"]!["memory"] = "4Gi";
+            }
             if (byteCount > 0) Bytes = new byte[byteCount];
             File.WriteAllBytes(_path, Bytes);
             _http = new HttpClient(this, false);
         }
 
         public Task<PackageVerificationResult> Verify(CancellationToken ct = default)
-            => new SessionPackageVerifier(_http, new Credential()).VerifyAsync(new VerifiedInput(_path, Hash(Bytes), Bytes.Length), Policy(), ct);
+            => new SessionPackageVerifier(_http, new Credential()).VerifyAsync(new VerifiedInput(_path, Hash(Bytes), DeclaredBytes ?? Bytes.Length), _policy, ct);
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
@@ -184,7 +247,7 @@ public class SessionPackageVerifierTests
                 request.Content!.Headers.ContentLength.Should().BePositive("the bounded HTTP server rejects chunked declarations");
                 var declaration = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!;
                 _nonce = declaration["nonce"]!.GetValue<string>(); _offset = 0;
-                return Ok(new { nonce = _nonce, offset = 0 });
+                return Ok(new { nonce = _nonce, offset = 0, capacityProfile = Fault == "profile" ? "standard" : _policy.CapacityProfile });
             }
             request.Headers.GetValues("X-Verification-Nonce").Single().Should().Be(_nonce);
             if (path == "/chunk")
@@ -192,11 +255,12 @@ public class SessionPackageVerifierTests
                 if (Fault == "cancel") { Cancel!.Cancel(); ct.ThrowIfCancellationRequested(); }
                 request.Headers.GetValues("X-Upload-Offset").Single().Should().Be(_offset.ToString());
                 var bytes = await request.Content!.ReadAsByteArrayAsync(ct);
-                bytes.Length.Should().BeLessThanOrEqualTo(1048576);
+                bytes.Length.Should().BeLessThanOrEqualTo(_large ? 4194304 : 1048576);
                 Uploaded.Write(bytes); _offset += bytes.Length;
                 return Ok(new { nonce = _nonce, offset = Fault == "ack" ? _offset - 1 : _offset });
             }
-            if (Fault == "overflow") return new(HttpStatusCode.OK) { Content = new StringContent(new string('x', 300000)) };
+            if (_large && path == "/verify") return Ok(new { nonce = _nonce, status = "running" });
+            if (Fault == "overflow") return new(HttpStatusCode.OK) { Content = new StringContent(new string('x', _large ? 1100000 : 300000)) };
             return Ok(new { nonce = Fault == "nonce" ? "wrong" : _nonce, result = new PackageVerificationResult(true, "verified", DockerPackageVerifier.ReaderPin,
                 Fault == "hash" ? new string('b', 64) : Hash(Bytes), Bytes.Length, "synthetic", "edition", Fault == "fingerprint" ? new string('a', 64) : Hash(Encoding.UTF8.GetBytes("edition")), "story", null, null, null, []) });
         }

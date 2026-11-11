@@ -1,15 +1,25 @@
-param([switch]$CheckAbandonedJob)
+param(
+    [switch]$CheckAbandonedJob,
+    [ValidateSet('standard', 'large-v1')][string]$CapacityProfile = 'standard',
+    [string]$ExpectedImage
+)
 
 $ErrorActionPreference = 'Stop'
 $subscription = '336d38e2-bb96-4510-a4c5-5c313139eef9'
-$poolId = "/subscriptions/$subscription/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/sessionPools/aonikdevpublishing"
-$endpoint = 'https://aonikdevpublishing.icybay-1d1112c3.uksouth.azurecontainerapps.io'
+$large = $CapacityProfile -eq 'large-v1'
+$poolName = if ($large) { 'aonikdevpublishinglarge' } else { 'aonikdevpublishing' }
+$poolId = "/subscriptions/$subscription/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/sessionPools/$poolName"
 $apiVersion = '2025-02-02-preview'
 $profile = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $PSScriptRoot) 'iac/azure/environments/dev/aca.parameters.json') -Raw | ConvertFrom-Json
-$expectedImage = $profile.parameters.publishingAppSettings.value.'Publishing__Verifier__Image'
+if (!$ExpectedImage) {
+    if ($large) { throw 'The large profile requires its explicitly qualified immutable image.' }
+    $ExpectedImage = $profile.parameters.publishingAppSettings.value.'Publishing__Verifier__Image'
+}
+if ($ExpectedImage -notmatch '^aonikdevacr[.]azurecr[.]io/aonik-arke-verifier-sessions@sha256:[a-f0-9]{64}$') { throw 'An immutable dev registry image is required.' }
 if ((az account show --query id -o tsv) -ne $subscription) { throw 'Select the dev subscription.' }
 $pool = az rest --method get --url "https://management.azure.com${poolId}?api-version=$apiVersion" -o json | ConvertFrom-Json
-if ($LASTEXITCODE -ne 0 -or $pool.properties.provisioningState -ne 'Succeeded' -or $pool.properties.poolManagementEndpoint.TrimEnd('/') -ne $endpoint) {
+$endpoint = $pool.properties.poolManagementEndpoint.TrimEnd('/')
+if ($LASTEXITCODE -ne 0 -or $pool.properties.provisioningState -ne 'Succeeded' -or $endpoint -notmatch "^https://$poolName[.][a-z0-9.-]+[.]azurecontainerapps[.]io`$") {
     throw 'The dedicated dev verifier pool is not ready.'
 }
 if ($pool.properties.customContainerTemplate.containers[0].image -cne $expectedImage -or
@@ -24,9 +34,11 @@ try {
     if ($probe.uid -ne 65532 -or $probe.writableRuntime -or $probe.scratchBytes -ne 67108864 -or
         $probe.network.public -ne 'denied' -or $probe.network.metadata -ne 'denied' -or
         $probe.childLimits.addressSpaceBytes -ne 2147483648 -or !$probe.childLimits.oversizedAllocationDenied -or
-        $probe.childLimits.cpuSeconds -ne 45 -or $probe.childLimits.processes -ne 32 -or $probe.childLimits.fileBytes -ne 16777216 -or
-        $pool.properties.customContainerTemplate.containers[0].resources.cpu -ne 1 -or
-        $pool.properties.customContainerTemplate.containers[0].resources.memory -ne '2Gi') {
+        $probe.childLimits.cpuSeconds -ne $(if ($large) { 180 } else { 45 }) -or $probe.childLimits.processes -ne 32 -or
+        $probe.childLimits.fileBytes -ne $(if ($large) { 67108864 } else { 16777216 }) -or
+        $pool.properties.customContainerTemplate.containers[0].resources.cpu -ne $(if ($large) { 2 } else { 1 }) -or
+        $pool.properties.customContainerTemplate.containers[0].resources.memory -ne $(if ($large) { '4Gi' } else { '2Gi' }) -or
+        ($large -and ($probe.capacityProfile -ne 'large-v1' -or $probe.maxPackageBytes -ne 1610612736 -or $probe.maxAssets -ne 2048 -or $probe.maxReportBytes -ne 1048576))) {
         $probe | ConvertTo-Json -Depth 6
         throw 'Runtime isolation qualification failed.'
     }

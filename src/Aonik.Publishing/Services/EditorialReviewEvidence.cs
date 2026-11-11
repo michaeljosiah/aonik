@@ -58,7 +58,8 @@ internal static class EditorialReviewEvidence
                 policy = JsonSerializer.Deserialize<JsonElement>(report.PolicyJson), package },
             policy = JsonSerializer.Deserialize<JsonElement>(policy),
         });
-        if (material.Length > 524288) throw Blocked("review-snapshot-too-large");
+        if (Encoding.UTF8.GetByteCount(material) > PackageCapacity.Resolve(options.Verifier.CapacityProfile).ReviewBytes)
+            throw Blocked("review-snapshot-too-large");
         return (material, policy, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(material))), package);
     }
 

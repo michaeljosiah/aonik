@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 
 using Microsoft.EntityFrameworkCore;
@@ -27,24 +28,36 @@ internal sealed class PublicationValidationHandler(IPublishingDataContext db, IP
                 && r.RevisionId == message.RevisionId && r.SubmissionId == message.SubmissionId, ct);
             if (row.CompletedAt.HasValue) return null;
             if (row.Status == "running" && row.ClaimExpiresAt > clock.UtcNow) throw new InvalidOperationException("Validation is already claimed.");
-            row.Status = "running"; row.ClaimToken = claim; row.ClaimExpiresAt = clock.UtcNow.AddMinutes(5);
+            var captured = JsonSerializer.Deserialize<PackageVerifierOptions>(row.PolicyJson) ?? new PackageVerifierOptions();
+            row.Status = "running"; row.ClaimToken = claim;
+            row.ClaimExpiresAt = clock.UtcNow.AddSeconds(PackageCapacity.Resolve(captured.CapacityProfile).LeaseSeconds);
             await db.SaveChangesAsync(ct); return row;
         }, cancellationToken);
         if (report is null) return;
         var policy = JsonSerializer.Deserialize<PackageVerifierOptions>(report.PolicyJson) ?? new PackageVerifierOptions();
+        var capacity = PackageCapacity.Resolve(policy.CapacityProfile);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(capacity.JobSeconds));
         PackageVerificationResult result;
         try
         {
+            if (JsonSerializer.Serialize(configuration.Value.Verifier) != report.PolicyJson)
+                throw new PublishingException(409, "validation-policy-changed", "The captured verification policy is no longer active.");
             var revision = await db.Revisions.AsNoTracking().SingleAsync(r => r.TenantId == tenant && r.Id == message.RevisionId, cancellationToken);
             var session = await db.UploadSessions.AsNoTracking().SingleAsync(s => s.TenantId == tenant && s.Id == revision.CurrentUploadSessionId
                 && s.RevisionId == revision.Id && s.Status == "uploaded", cancellationToken);
             if (session.StorageLocationId != objects.LocationId) throw new IOException("The owning private store changed.");
-            var input = await objects.OpenPackageAsync(tenant, session.Id, report.PackageSha256, report.PackageBytes, cancellationToken);
-            result = await verifier.VerifyAsync(input, policy, cancellationToken);
+            var input = await objects.OpenPackageAsync(tenant, session.Id, report.PackageSha256, report.PackageBytes, deadline.Token);
+            result = await verifier.VerifyAsync(input, policy, deadline.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            result = new(false, "validation-timeout", policy.ReaderCommit, "", 0, "", "", "", "", null, null, null, []);
         }
         catch (Exception ex) when (ex is PublishingException or IOException or UnauthorizedAccessException)
         {
-            result = new(false, "private-package-unavailable", policy.ReaderCommit, "", 0, "", "", "", "", null, null, null, []);
+            var code = ex is PublishingException { Code: "validation-policy-changed" } ? "validation-policy-changed" : "private-package-unavailable";
+            result = new(false, code, policy.ReaderCommit, "", 0, "", "", "", "", null, null, null, []);
         }
         await db.InTransactionAsync(async ct =>
         {
@@ -71,10 +84,10 @@ internal sealed class PublicationValidationHandler(IPublishingDataContext db, IP
                 code = "part-lineage-unavailable";
             var active = revision.CurrentValidationReportId == current.Id && submission.CurrentRevisionId == revision.Id;
             var encoded = JsonSerializer.Serialize(result);
-            if (encoded.Length > 262144)
+            if (Encoding.UTF8.GetByteCount(encoded) > capacity.ReportBytes)
             {
                 code = "validation-report-too-large";
-                encoded = JsonSerializer.Serialize(result with { Passed = false, Code = code, Assets = [] });
+                encoded = JsonSerializer.Serialize(new PackageVerificationResult(false, code, policy.ReaderCommit, "", 0, "", "", "", "", null, null, null, []));
             }
             current.Status = active && result.Passed && code == "verified" ? "passed" : "held";
             current.Code = active ? code : "revision-superseded";

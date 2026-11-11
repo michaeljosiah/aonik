@@ -1,7 +1,12 @@
+using System.Text.Json.Serialization;
+
 namespace Aonik.Publishing.Services;
 
 public sealed class PackageVerifierOptions
 {
+    // Omit the default to preserve the exact serialized policy of existing review approvals.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? CapacityProfile { get; set; }
     public string Provider { get; set; } = "Docker";
     public string SessionPoolResourceId { get; set; } = string.Empty;
     public string DockerExecutable { get; set; } = "docker";

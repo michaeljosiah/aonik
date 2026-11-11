@@ -6,6 +6,11 @@ param environmentName string
 param containerAppsEnvironmentName string
 param tags object = {}
 
+@description('Private intake quota, including retained archives, uploaded parts and assembly headroom.')
+@minValue(10)
+@maxValue(1024)
+param intakeShareQuotaGiB int = 10
+
 var accountName = 'ankpub${uniqueString(resourceGroup().id, workloadName, environmentName)}'
 
 resource account 'Microsoft.Storage/storageAccounts@2023-05-01' = {
@@ -38,7 +43,7 @@ resource files 'Microsoft.Storage/storageAccounts/fileServices@2023-05-01' = {
 resource shares 'Microsoft.Storage/storageAccounts/fileServices/shares@2023-05-01' = [for name in ['intake', 'delivery']: {
   parent: files
   name: name
-  properties: { shareQuota: 10, enabledProtocols: 'SMB' }
+  properties: { shareQuota: name == 'intake' ? intakeShareQuotaGiB : 10, enabledProtocols: 'SMB' }
 }]
 
 resource environment 'Microsoft.App/managedEnvironments@2024-03-01' existing = {

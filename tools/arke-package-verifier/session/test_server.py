@@ -9,6 +9,7 @@ import time
 import unittest
 
 from server import Job, Refused, SEALS, execute
+from capacity import LARGE, MAX_ASSET, MAX_ASSETS, MAX_PACKAGE, MAX_CHUNK, MAX_OUTPUT, CPU_SECONDS
 
 
 def job_for(data, timeout=2):
@@ -50,6 +51,12 @@ class SessionTests(unittest.TestCase):
             post('/begin',json.dumps(declaration))
             post('/chunk',data,{'X-Verification-Nonce':'a'*64,'X-Upload-Offset':'0'})
             result=post('/verify',b'',{'X-Verification-Nonce':'a'*64})
+            if LARGE:
+                for _ in range(50):
+                    result=post('/result',b'',{'X-Verification-Nonce':'a'*64})
+                    if 'result' in result:
+                        break
+                    time.sleep(0.1)
             self.assertTrue(result['result']['passed'],result)
             self.assertEqual(result['result']['archiveSha256'],declaration['sha256'])
         finally:
@@ -110,14 +117,14 @@ class SessionTests(unittest.TestCase):
         result = self.run_probe('''import os,resource,json,fcntl,sys
 assert resource.getrlimit(resource.RLIMIT_NPROC)==(32,32)
 assert resource.getrlimit(resource.RLIMIT_NOFILE)==(64,64)
-assert resource.getrlimit(resource.RLIMIT_FSIZE)==(16777216,16777216)
-assert resource.getrlimit(resource.RLIMIT_CPU)==(45,45)
+assert resource.getrlimit(resource.RLIMIT_FSIZE)==(MAX_ASSET,MAX_ASSET)
+assert resource.getrlimit(resource.RLIMIT_CPU)==(CPU_SECONDS,CPU_SECONDS)
 assert resource.getrlimit(resource.RLIMIT_AS)==(2147483648,2147483648)
 assert set(os.environ)<=set(['LANG','HOME','TMPDIR','LC_CTYPE'])
 assert fcntl.fcntl(int(sys.argv[0].split('/')[-1]),fcntl.F_GET_SEALS)==15
 assert 'NoNewPrivs:\\t1' in open('/proc/self/status').read()
 print(json.dumps({'readerCommit':'27df122566bcdef18126932c15a74112e18b8573','passed':True}))
-''')
+'''.replace('MAX_ASSET', str(MAX_ASSET)).replace('CPU_SECONDS', str(CPU_SECONDS)))
         self.assertTrue(result["passed"])
 
     def test_timeout_terminates_reader(self):
@@ -126,7 +133,42 @@ print(json.dumps({'readerCommit':'27df122566bcdef18126932c15a74112e18b8573','pas
 
     def test_unbounded_output_is_terminated(self):
         with self.assertRaisesRegex(Refused, "verifier-output-limit"):
-            self.run_probe("print('x'*300000)")
+            self.run_probe("print('x'*" + str(MAX_OUTPUT + 1) + ")")
+
+    def test_declaration_boundaries_and_unknown_fields_fail_closed(self):
+        declaration = {"nonce": "a" * 64, "sha256": "b" * 64, "bytes": MAX_PACKAGE,
+                       "maxAssets": MAX_ASSETS, "maxAssetBytes": MAX_ASSET,
+                       "maxDocumentBytes": 4194304, "timeoutSeconds": CPU_SECONDS}
+        job = Job(declaration)
+        job.close()
+        for key in ("bytes", "maxAssets", "maxAssetBytes", "maxDocumentBytes", "timeoutSeconds"):
+            with self.subTest(key=key), self.assertRaisesRegex(Refused, "invalid-limits"):
+                Job(dict(declaration, **{key: declaration[key] + 1}))
+        with self.assertRaisesRegex(Refused, "invalid-declaration"):
+            Job(dict(declaration, capacityProfile="unbounded"))
+
+    def test_chunk_boundaries_and_cross_job_bytes(self):
+        data = b'x' * (MAX_CHUNK + 1)
+        declaration = {"nonce": "a" * 64, "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data),
+                       "maxAssets": 1, "maxAssetBytes": 1, "maxDocumentBytes": 1, "timeoutSeconds": 1}
+        first, second = Job(declaration), Job(dict(declaration, nonce="b" * 64))
+        try:
+            with self.assertRaisesRegex(Refused, "upload-conflict"):
+                first.append(0, data)
+            first.append(0, data[:MAX_CHUNK])
+            first.append(MAX_CHUNK, data[MAX_CHUNK:])
+            first.seal()
+            self.assertEqual(second.offset, 0)
+            self.assertEqual(os.fstat(second.fd).st_size, 0)
+        finally:
+            first.close()
+            second.close()
+
+    def test_timeout_reclaims_owned_scratch(self):
+        before = set(os.listdir('/dev/shm'))
+        with self.assertRaisesRegex(Refused, "verifier-timeout"):
+            self.run_probe("import sys; open(sys.argv[6]+'/leftover','wb').write(b'x'*4096)\nwhile True: pass", timeout=1)
+        self.assertEqual(set(os.listdir('/dev/shm')), before)
 
     def test_pinned_reader_consumes_sealed_memfd(self):
         with open('/app/fixtures/story.zip', 'rb') as stream:

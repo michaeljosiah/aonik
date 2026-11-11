@@ -213,6 +213,59 @@ public class PublicationIntakeTests
         (await h.Creator.GetAsync(draft.Id))!.Revision.PackageVerified.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData(360, true)]
+    [InlineData(1201, false)]
+    public async Task LargeValidation_Should_KeepItsBoundedLeaseAndFenceExpiredCompletion(int seconds, bool completes)
+    {
+        using var h = new Harness();
+        h.Settings.Verifier.CapacityProfile = PackageCapacity.LargeProfile;
+        var bytes = new byte[] { 1, 2, 3, 4 };
+        var draft = await h.Draft(bytes);
+        await h.Upload(draft, bytes);
+        await h.Intake.SubmitAsync(draft.Id, new(draft.Revision.Id, Guid.NewGuid()));
+        var verifier = new Mock<IPackageVerifier>();
+        verifier.Setup(v => v.VerifyAsync(It.IsAny<VerifiedInput>(), It.IsAny<PackageVerifierOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() =>
+            {
+                h.Clock.UtcNow = h.Clock.UtcNow.AddSeconds(seconds);
+                return new PackageVerificationResult(true, "verified", DockerPackageVerifier.ReaderPin, Hash(bytes), 4,
+                    "lantern-garden", "2026-11-03", new string('b', 64), "world", null, null, null, []);
+            });
+        var message = await h.Event();
+        var act = () => h.Handler(verifier.Object).HandleAsync(message);
+        if (completes)
+        {
+            await act();
+            (await h.Creator.GetAsync(draft.Id))!.Status.Should().Be("in-review");
+        }
+        else
+        {
+            await act.Should().ThrowAsync<InvalidOperationException>().WithMessage("*expired*");
+            (await h.Db.ValidationReports.SingleAsync()).CompletedAt.Should().BeNull();
+        }
+    }
+
+    [Fact]
+    public async Task OversizedPresentation_Should_ProduceOnlyABoundedRefusal()
+    {
+        using var h = new Harness();
+        var bytes = new byte[] { 1, 2, 3, 4 };
+        var draft = await h.Draft(bytes);
+        await h.Upload(draft, bytes);
+        await h.Intake.SubmitAsync(draft.Id, new(draft.Revision.Id, Guid.NewGuid()));
+        var verifier = new Mock<IPackageVerifier>();
+        verifier.Setup(v => v.VerifyAsync(It.IsAny<VerifiedInput>(), It.IsAny<PackageVerifierOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PackageVerificationResult(true, "verified", DockerPackageVerifier.ReaderPin, Hash(bytes), 4,
+                "lantern-garden", "2026-11-03", new string('b', 64), "world", null, null, null, [],
+                new(1, new string('c', 64), JsonSerializer.SerializeToElement(new { content = new string('x', 300000) }))));
+        await h.Handler(verifier.Object).HandleAsync(await h.Event());
+        var report = await h.Db.ValidationReports.SingleAsync();
+        report.Code.Should().Be("validation-report-too-large");
+        Encoding.UTF8.GetByteCount(report.ResultJson).Should().BeLessThan(1024);
+        JsonSerializer.Deserialize<PackageVerificationResult>(report.ResultJson)!.Presentation.Should().BeNull();
+    }
+
     [Fact]
     public async Task Cleanup_Should_RetainReservationsUntilBytesAreActuallyRemoved()
     {

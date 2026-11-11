@@ -1,0 +1,14 @@
+{
+  "apiBaseUrl": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io",
+  "issuer": "https://aonik.uk.auth0.com/",
+  "audience": "https://api.aonik.com",
+  "clientId": "9SfLUjB57WtWEQUNm1twTO7UQRnsUzvY",
+  "scope": "openid profile email offline_access",
+  "tenantId": "1087cc03-46cc-45fa-9023-f0ce4f7bbdb8",
+  "channelKey": "arke-worlds-dev",
+  "rightsDeclarationVersion": "dev-synthetic-v1",
+  "permissionText": "Development rehearsal only. I confirm that I control all included synthetic material and permit private review and, after independent approval, distribution through the isolated arke-worlds-dev test channel. This does not authorize production distribution.",
+  "redirectPort": 37619,
+  "maxPackageBytes": 1610612736,
+  "capacityProfile": "large-v1"
+}

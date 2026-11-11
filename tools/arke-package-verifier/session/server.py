@@ -14,12 +14,11 @@ import subprocess
 import sys
 import threading
 import time
+import tempfile
 import urllib.parse
 
-MAX_PACKAGE = 32 * 1024 * 1024
-MAX_CHUNK = 1024 * 1024
-MAX_ASSET = 16 * 1024 * 1024
-MAX_DOCUMENT = 4 * 1024 * 1024
+from capacity import (PROFILE, LARGE, MAX_PACKAGE, MAX_CHUNK, MAX_ASSET, MAX_ASSETS,
+                      MAX_DOCUMENT, MAX_OUTPUT, CPU_SECONDS, HARD_SECONDS, IDLE_SECONDS)
 READER = "27df122566bcdef18126932c15a74112e18b8573"
 SEALS = fcntl.F_SEAL_WRITE | fcntl.F_SEAL_GROW | fcntl.F_SEAL_SHRINK | fcntl.F_SEAL_SEAL
 
@@ -34,8 +33,8 @@ class Job:
                 or not re.fullmatch(r"[a-f0-9]{64}", str(declaration["nonce"]))
                 or not re.fullmatch(r"[a-f0-9]{64}", str(declaration["sha256"]))):
             raise Refused("invalid-declaration")
-        for key, maximum in (("bytes", MAX_PACKAGE), ("maxAssets", 1024), ("maxAssetBytes", MAX_ASSET),
-                             ("maxDocumentBytes", MAX_DOCUMENT), ("timeoutSeconds", 45)):
+        for key, maximum in (("bytes", MAX_PACKAGE), ("maxAssets", MAX_ASSETS), ("maxAssetBytes", MAX_ASSET),
+                             ("maxDocumentBytes", MAX_DOCUMENT), ("timeoutSeconds", CPU_SECONDS)):
             if type(declaration[key]) is not int or not 1 <= declaration[key] <= maximum:
                 raise Refused("invalid-limits")
         self.declaration = declaration
@@ -43,6 +42,8 @@ class Job:
         self.offset = 0
         self.hash = hashlib.sha256()
         self.finished = False
+        self.metrics = {}
+        self.scratch_peak = 0
 
     def append(self, offset, data):
         if self.finished or offset != self.offset or not 0 < len(data) <= MAX_CHUNK or self.offset + len(data) > self.declaration["bytes"]:
@@ -69,7 +70,7 @@ class Job:
 
 def limits():
     # Applied in the child before exec; the parent contains no storage credentials.
-    resource.setrlimit(resource.RLIMIT_CPU, (45, 45))
+    resource.setrlimit(resource.RLIMIT_CPU, (CPU_SECONDS, CPU_SECONDS))
     resource.setrlimit(resource.RLIMIT_NPROC, (32, 32))
     resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
     resource.setrlimit(resource.RLIMIT_FSIZE, (MAX_ASSET, MAX_ASSET))
@@ -81,9 +82,25 @@ def limits():
 
 def execute(job, executable="/app/verify"):
     job.seal()
+    started = time.monotonic()
+    before = resource.getrusage(resource.RUSAGE_CHILDREN)
+    with tempfile.TemporaryDirectory(prefix="verification-", dir="/dev/shm") as scratch:
+        try:
+            return execute_reader(job, executable, scratch)
+        finally:
+            after = resource.getrusage(resource.RUSAGE_CHILDREN)
+            job.metrics = {"verificationSeconds": round(time.monotonic() - started, 3),
+                           "childCpuSeconds": round(after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime, 3),
+                           "childPeakRssKiB": after.ru_maxrss, "inputBytes": job.offset,
+                           "scratchLimitBytes": 64 * 1024 * 1024, "sampledScratchPeakBytes": job.scratch_peak}
+
+
+def execute_reader(job, executable, scratch):
     d = job.declaration
     args = [executable, f"/proc/self/fd/{job.fd}", d["sha256"], str(d["bytes"]), str(d["maxAssets"]),
-            str(d["maxAssetBytes"]), str(d["maxDocumentBytes"]), "/dev/shm"]
+            str(d["maxAssetBytes"]), str(d["maxDocumentBytes"]), scratch]
+    if LARGE and executable == "/app/verify":
+        args.append(str(MAX_OUTPUT))
     # A fresh interpreter applies limits before exec. Never fork with a Python preexec_fn while the watchdog thread is running.
     process = subprocess.Popen([sys.executable, "-B", "/app/child.py", *args], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                pass_fds=(job.fd,), env={"LANG": "C.UTF-8", "HOME": "/nonexistent", "TMPDIR": "/dev/shm"},
@@ -95,6 +112,8 @@ def execute(job, executable="/app/verify"):
             selector.register(process.stdout, selectors.EVENT_READ, "stdout")
             selector.register(process.stderr, selectors.EVENT_READ, "stderr")
             while selector.get_map():
+                volume = os.statvfs(scratch)
+                job.scratch_peak = max(job.scratch_peak, (volume.f_blocks - volume.f_bfree) * volume.f_frsize)
                 if time.monotonic() >= deadline:
                     raise Refused("verifier-timeout")
                 for key, _ in selector.select(min(0.2, max(0, deadline - time.monotonic()))):
@@ -103,7 +122,7 @@ def execute(job, executable="/app/verify"):
                         selector.unregister(key.fileobj)
                         continue
                     stream = output[key.data]
-                    if len(stream) + len(data) > (262144 if key.data == "stdout" else 8192):
+                    if len(stream) + len(data) > (MAX_OUTPUT if key.data == "stdout" else 8192):
                         raise Refused("verifier-output-limit")
                     stream.extend(data)
         if process.wait(timeout=max(0.01, deadline - time.monotonic())) != 0:
@@ -187,6 +206,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 child_limits = json.loads(probe.stdout)
                 scratch = os.statvfs("/dev/shm")
                 self.reply(200, {"uid": os.geteuid(), "readerCommit": READER, "network": network, "cgroup": bounds,
+                                 "capacityProfile": PROFILE, "maxPackageBytes": MAX_PACKAGE, "maxAssets": MAX_ASSETS,
+                                 "maxReportBytes": MAX_OUTPUT, "maxChunkBytes": MAX_CHUNK, "hardDeadlineSeconds": HARD_SECONDS,
                                  "childLimits": child_limits,
                                  "scratchBytes": scratch.f_blocks * scratch.f_frsize,
                                  "writableRuntime": any(os.access(p, os.W_OK) for p in ("/app", "/tmp", "/var/tmp"))})
@@ -194,25 +215,61 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if path == "/begin" and self.server.job is None:
                 self.server.job = Job(json.loads(self.body(4096)))
                 # The deadline never renews on traffic, even if the caller disappears.
-                self.server.watchdog = threading.Timer(150, lambda: os._exit(124))
+                self.server.watchdog = threading.Timer(HARD_SECONDS, lambda: os._exit(124))
                 self.server.watchdog.daemon = True
                 self.server.watchdog.start()
-                self.reply(200, {"nonce": self.server.job.declaration["nonce"], "offset": 0})
+                self.server.last_upload = time.monotonic()
+                self.server.started = False
+                self.server.result = None
+                self.server.error = None
+                if LARGE:
+                    def check_idle():
+                        while not self.server.started:
+                            if time.monotonic() - self.server.last_upload >= IDLE_SECONDS:
+                                os._exit(124)
+                            time.sleep(1)
+                    threading.Thread(target=check_idle, daemon=True).start()
+                self.reply(200, {"nonce": self.server.job.declaration["nonce"], "offset": 0, "capacityProfile": PROFILE})
                 return
             job = self.server.job
             if job is None or self.headers.get("X-Verification-Nonce") != job.declaration["nonce"]:
                 raise Refused("invalid-job")
             if path == "/chunk":
+                if self.server.started:
+                    raise Refused("upload-conflict")
                 job.append(int(self.headers.get("X-Upload-Offset", "-1")), self.body(MAX_CHUNK))
+                self.server.last_upload = time.monotonic()
                 self.reply(200, {"nonce": job.declaration["nonce"], "offset": job.offset})
             elif path == "/verify":
                 if self.body(0):
                     raise Refused("unexpected-body")
+                if self.server.started:
+                    raise Refused("job-already-started")
+                self.server.started = True
+                if LARGE:
+                    def verify():
+                        try:
+                            self.server.result = execute(job)
+                        except (Refused, ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError) as error:
+                            self.server.error = str(error) if isinstance(error, Refused) else "verifier-unavailable"
+                        finally:
+                            job.close()
+                    threading.Thread(target=verify, daemon=True).start()
+                    self.reply(200, {"nonce": job.declaration["nonce"], "status": "running"})
+                    return
                 try:
                     result = execute(job)
-                    self.reply(200, {"nonce": job.declaration["nonce"], "result": result})
+                    self.reply(200, {"nonce": job.declaration["nonce"], "result": result, "metrics": job.metrics})
                 finally:
                     job.close()
+            elif path == "/result" and LARGE and self.server.started:
+                self.body(0)
+                if self.server.error:
+                    raise Refused(self.server.error)
+                if self.server.result is None:
+                    self.reply(200, {"nonce": job.declaration["nonce"], "status": "running"})
+                else:
+                    self.reply(200, {"nonce": job.declaration["nonce"], "result": self.server.result, "metrics": job.metrics})
             else:
                 raise Refused("invalid-operation")
         except (Refused, ValueError, KeyError, TypeError, OSError, subprocess.SubprocessError) as error:

@@ -9,6 +9,18 @@ namespace Aonik.Application.Tests.Publishing;
 
 public class EditorialMaterialRulesTests
 {
+    [Fact]
+    public void LargeInventory_Should_RequireCoverageOfEveryAssetAcrossBoundedGroups()
+    {
+        var assets = Enumerable.Range(0, 2048).Select(i => new PackageAsset($"p{i:0000}", $"p{i:0000}.png", "image/png", 4, new string('a', 64))).ToArray();
+        var groups = assets.Chunk(1024).Select(group => new PublicationRightsEvidence("Original synthetic artwork", "dev-fixture", group.Select(a => a.Id).ToArray())).ToArray();
+        var material = EditorialMaterialRules.Normalize(new("general", "All ages", "comic", "p0000", "Original synthetic fixture", groups));
+        var package = new PackageVerificationResult(true, "verified", "reader", new string('b', 64), 4, "world", "edition", new string('c', 64), "comic", null, null, "p0000", assets);
+        EditorialMaterialRules.ApprovalBlock(new(true, material), package).Should().BeNull();
+        var missing = material! with { RightsEvidence = groups.Take(1).ToArray() };
+        EditorialMaterialRules.ApprovalBlock(new(true, missing), package).Should().Be("rights-asset-coverage-required");
+    }
+
     [Theory]
     [InlineData("part", "", true, null)]
     [InlineData("part", "missing", true, "artwork-evidence-required")]
