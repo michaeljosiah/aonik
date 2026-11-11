@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 1,
+  "status": "unapproved-owner-mappings-required",
+  "scope": "Read-only public baseline projection; no rights attestation or production import",
+  "BaselineSha256": "3fdc4558650817334e99f68d3364c9a3a00a2519930eaed016a30dff4d1229b4",
+  "Serial": 53,
+  "BaselineEvidenceReference": null,
+  "BaselineOwnership": {
+    "the-undersong": {
+      "CreatorPartyId": null,
+      "EvidenceReference": null,
+      "ProductionChapters": {
+        "the-ledger-of-nights": [
+          {
+            "Id": "neap",
+            "Number": 1
+          }
+        ]
+      }
+    },
+    "legend-of-dumah": {
+      "CreatorPartyId": null,
+      "EvidenceReference": null,
+      "ProductionChapters": {
+        "whispers-from-the-void": [
+          {
+            "Id": "prologue-whispers-from-the-void",
+            "Number": 1
+          },
+          {
+            "Id": "chapter-1-the-thief-of-zeel",
+            "Number": 2
+          },
+          {
+            "Id": "chapter-2-the-last-sanctuary",
+            "Number": 3
+          },
+          {
+            "Id": "chapter-3-nightfall-breach",
+            "Number": 4
+          },
+          {
+            "Id": "chapter-4-echoes-and-ash",
+            "Number": 5
+          }
+        ]
+      }
+    },
+    "the-red-quiet": {
+      "CreatorPartyId": null,
+      "EvidenceReference": null,
+      "ProductionChapters": {
+        "the-red-quiet": [
+          {
+            "Id": "landfall",
+            "Number": 1
+          }
+        ]
+      }
+    },
+    "embers-of-the-fallen": {
+      "CreatorPartyId": null,
+      "EvidenceReference": null,
+      "ProductionChapters": {
+        "threshold-book-one": [
+          {
+            "Id": "harmonic-echoes",
+            "Number": 1
+          },
+          {
+            "Id": "what-came-back",
+            "Number": 2
+          },
+          {
+            "Id": "the-small-wound",
+            "Number": 3
+          },
+          {
+            "Id": "the-observation-post",
+            "Number": 4
+          },
+          {
+            "Id": "the-forty-seventh-frame",
+            "Number": 5
+          }
+        ]
+      }
+    },
+    "na-love-or-juju": {
+      "CreatorPartyId": null,
+      "EvidenceReference": null,
+      "ProductionChapters": {
+        "na-love-or-juju": [
+          {
+            "Id": "chapter-1",
+            "Number": 1
+          },
+          {
+            "Id": "untitled",
+            "Number": 2
+          },
+          {
+            "Id": "untitled-2",
+            "Number": 3
+          },
+          {
+            "Id": "untitled-3",
+            "Number": 4
+          },
+          {
+            "Id": "untitled-4",
+            "Number": 5
+          },
+          {
+            "Id": "untitled-5",
+            "Number": 6
+          },
+          {
+            "Id": "untitled-6",
+            "Number": 7
+          },
+          {
+            "Id": "untitled-7",
+            "Number": 8
+          },
+          {
+            "Id": "untitled-8",
+            "Number": 9
+          },
+          {
+            "Id": "untitled-9",
+            "Number": 10
+          },
+          {
+            "Id": "untitled-10",
+            "Number": 11
+          },
+          {
+            "Id": "untitled-11",
+            "Number": 12
+          },
+          {
+            "Id": "untitled-12",
+            "Number": 13
+          },
+          {
+            "Id": "untitled-13",
+            "Number": 14
+          },
+          {
+            "Id": "untitled-14",
+            "Number": 15
+          },
+          {
+            "Id": "untitled-15",
+            "Number": 16
+          },
+          {
+            "Id": "untitled-16",
+            "Number": 17
+          },
+          {
+            "Id": "untitled-17",
+            "Number": 18
+          },
+          {
+            "Id": "untitled-18",
+            "Number": 19
+          },
+          {
+            "Id": "untitled-19",
+            "Number": 20
+          },
+          {
+            "Id": "untitled-20",
+            "Number": 21
+          },
+          {
+            "Id": "untitled-21",
+            "Number": 22
+          },
+          {
+            "Id": "untitled-22",
+            "Number": 23
+          },
+          {
+            "Id": "untitled-23",
+            "Number": 24
+          },
+          {
+            "Id": "untitled-24",
+            "Number": 25
+          },
+          {
+            "Id": "untitled-25",
+            "Number": 26
+          }
+        ]
+      }
+    }
+  }
+}

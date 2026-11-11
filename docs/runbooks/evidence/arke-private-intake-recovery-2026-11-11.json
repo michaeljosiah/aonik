@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "checkedAtUtc": "2026-11-11T02:31:55.465086+00:00",
+  "scope": "Private dev outage/recovery and manual-register correlation using the real Studio publishing service; no mailbox or external-creator staffing claim",
+  "candidateId": "ae90fd83-2445-41f0-9c04-8ff96210526b",
+  "archiveBytes": 1048576,
+  "archiveSha256": "0f80cf73c2aeaddb19af1e43ed4f90a3f9a7c908ceb36ec3a2f6adffcc4c2962",
+  "assetCount": 8,
+  "outage": {
+    "status": "awaiting-upload",
+    "transfer": "paused",
+    "receivedBytes": 0,
+    "remoteReceiptCreated": false,
+    "fault": "All publishing requests stopped before network dispatch"
+  },
+  "recovery": {
+    "receiptId": "235d8559-0f3a-403e-962d-405e5a77afeb",
+    "revisionId": "14ea0fef-c48f-4bf8-9a45-a29be1b778b4",
+    "status": "in-review",
+    "transfer": "complete",
+    "receivedBytes": 1048576,
+    "sameLocalCandidate": true,
+    "seconds": 5.685
+  },
+  "journalAcl": {
+    "inheritanceDisabled": true,
+    "allowEntries": 1,
+    "currentOsUserOnly": true
+  },
+  "publicCatalogue": {
+    "serial": 26,
+    "worlds": 0,
+    "sha256": "3ff0014a08aa98781a94cc6f571a17c2ef804566e47e8a0b64e022e841e0025f"
+  },
+  "limits": [
+    "Private synthetic package only",
+    "Not approved or published",
+    "No email sent; production mailbox, staffing and restricted creator drop locations require handoff"
+  ],
+  "reproduction": {
+    "studioCommit": "81520ca1eceeecc411288f0ed961c9bb7326d578",
+    "harnessSha256": "ca1545fe866ec8edb49097a06aebfbf3acbce4afdd45b884e5f98115c75c4e48",
+    "sequence": [
+      "prepare:small",
+      "outage:small",
+      "resume:small",
+      "refresh:small"
+    ]
+  }
+}

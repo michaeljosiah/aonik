@@ -8,12 +8,55 @@ on:
     branches:
       - master
   workflow_dispatch:
+    inputs:
+      qualify_release_mirror:
+        description: 'Run the isolated empty-catalogue GitHub release recovery rehearsal'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
+  release-mirror-tests:
+    name: Release mirror recovery tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tools/arke-release-mirror -v
+
+  release-mirror-rehearsal:
+    name: Isolated release mirror rehearsal
+    if: github.event_name == 'workflow_dispatch' && inputs.qualify_release_mirror
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: arke-isolated-release-mirror
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Rehearse remote promotion and recovery
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/arke-release-mirror/rehearse.py
+      - name: Retain sanitized evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-mirror-rehearsal
+          path: mirror-rehearsal.json
+
   build:
     name: Build solution
     runs-on: ubuntu-latest
@@ -116,7 +159,7 @@ jobs:
   publish-images:
     name: Build and push runtime images
     runs-on: ubuntu-latest
-    needs: [build, adminui]
+    needs: [build, adminui, release-mirror-tests]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
 
     env:

@@ -1,0 +1,48 @@
+name: Arke release catalogue mirror
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+
+# Every writer to this release must use this same group. Never cancel an active
+# promotion; delayed triggers fetch the latest canonical head when they run.
+concurrency:
+  group: arke-release-catalogue-writer
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    if: vars.ARKE_RELEASE_MIRROR_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: arke-release-mirror
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Reconcile the latest committed catalogue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARKE_MIRROR_SINGLE_WRITER: 'true'
+          MIRROR_TAG: ${{ vars.ARKE_RELEASE_MIRROR_TAG }}
+          CANONICAL_URL: ${{ vars.ARKE_CANONICAL_CATALOGUE_URL }}
+          BASELINE_SERIAL: ${{ vars.ARKE_CATALOGUE_BASELINE_SERIAL }}
+          BASELINE_SHA256: ${{ vars.ARKE_CATALOGUE_BASELINE_SHA256 }}
+        run: |
+          python tools/arke-release-mirror/mirror.py \
+            --repository "$GITHUB_REPOSITORY" --tag "$MIRROR_TAG" \
+            --canonical-url "$CANONICAL_URL" \
+            --baseline-serial "$BASELINE_SERIAL" --baseline-sha256 "$BASELINE_SHA256" \
+            --evidence mirror-result.json
+      - name: Retain confirmed mirror identity
+        uses: actions/upload-artifact@v7
+        with:
+          name: mirror-result
+          path: mirror-result.json

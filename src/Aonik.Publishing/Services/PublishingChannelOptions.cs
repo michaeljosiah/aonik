@@ -20,6 +20,8 @@ public sealed class PublishingChannelOptions
     public string BaselineEvidenceReference { get; set; } = "";
     public Dictionary<string, LegacyWorldOwnership> BaselineOwnership { get; set; } = [];
     public bool LegacyMirrorEnabled { get; set; }
+    public string LegacyMirrorMode { get; set; } = "contents";
+    public string LegacyMirrorReleaseTag { get; set; } = "";
     public string LegacyMirrorRepository { get; set; } = "";
     public string LegacyMirrorPath { get; set; } = "";
     public string LegacyMirrorBranch { get; set; } = "main";
