@@ -11,6 +11,7 @@ not a change to production channel enablement or editorial rights.
 | Assets | 1,024 | 2,048 |
 | One asset | 16 MiB | 64 MiB |
 | One JSON document | 4 MiB | 4 MiB |
+| New Studio-to-API upload part | Configured intake size | 8 MiB |
 | Worker-to-sandbox chunk | 1 MiB | 4 MiB |
 | Container | 1 vCPU / 2 GiB | 2 vCPU / 4 GiB |
 | Child address space / processes | 2 GiB / 32 | 2 GiB / 32 |
@@ -61,7 +62,9 @@ shortened before exporting; capacity is not an unlimited metadata allowance.
 4. Deploy the matching API/Worker code and generated `AonikDbContext` migration.
    The migration updates model metadata only: both evidence columns already use
    `nvarchar(max)`. Its empty operations and generated snapshot are intentional.
-5. Preview and apply `scripts/Set-ArkeDevPublishingCapacity.ps1`. This changes only
+5. Provision the dev intake share at 32 GiB (`publishingIntakeShareQuotaGiB`), then
+   preview and apply `scripts/Set-ArkeDevPublishingCapacity.ps1`. The script refuses
+   the large profile without that storage headroom. This changes only
    capacity settings in the existing dev apps. It preserves tenant, baseline,
    channel enablement, reviewer, delivery, mirror and unrelated secret settings.
    Use `iac/azure/environments/dev/arke-studio.large.json` for the matching Studio
@@ -106,7 +109,9 @@ unavailable, never as measured zero.
 Private intake reserves logical archive bytes. During assembly, parts and the
 assembled archive coexist, so provision at least twice retained-byte quotas plus
 temporary write headroom. The dev large profile reserves 6 GiB per creator and
-12 GiB per tenant; it is not an increase to production quotas. Session memory
+12 GiB per tenant with a 32 GiB private intake share; it is not an increase to
+production quotas. Existing upload sessions retain their originally issued part
+size when new sessions move to 8 MiB parts. Session memory
 includes the sealed input as well as the child and scratch.
 
 Cost qualification must include warm-pool/node costs, not just child CPU. Each
@@ -115,5 +120,53 @@ sessions at two and keeps one warm. Actual provider billing is based on the cust
 session pool's resources; measured child CPU alone is not an Azure invoice.
 See [Azure Container Apps billing](https://learn.microsoft.com/en-us/azure/container-apps/billing).
 
-Live qualification evidence and final measured results are recorded alongside this
-runbook when the rehearsal completes. Production enablement remains separate.
+## Dev qualification, 11 November 2026
+
+The immutable verifier is
+`aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b`.
+The reader remains the pinned commit above. Both fixtures are original synthetic
+material; the baseline fixture reproduces the audited byte/count/asset envelope,
+not the audited third-party content.
+
+| Concurrent live sandbox run | Baseline envelope | Exact large boundary |
+|---|---:|---:|
+| Archive bytes | 1,107,515,522 | 1,610,612,736 |
+| Assets | 1,144 | 2,048 |
+| Largest asset bytes | 48,587,809 | 67,108,864 |
+| Upload seconds | 194.082 | 234.700 |
+| Verification seconds | 23.424 | 34.119 |
+| Child CPU seconds | 25.663 | 38.423 |
+| Child peak RSS KiB | 50,996 | 54,240 |
+| Sampled scratch peak bytes | 48,590,848 | 67,108,864 |
+| Report bytes | 368,133 | 658,309 |
+| Total session seconds | 219.420 | 269.420 |
+
+Both passed with exact input identity and acknowledged cleanup. Child RSS excludes
+the parent's sealed archive, so it is not total container memory. A separate live
+stop/readback check confirmed that the stopped session no longer existed. The
+two runs overlapped with different nonces, archives, asset counts and sessions.
+
+Live refusals passed for 2,049 assets, a 64 MiB + 1 byte asset, an archive declaration
+one byte over 1.5 GiB, a caller-added profile, another job's nonce, incorrect and
+replayed offsets, changed archive identity and restarting the same job. A one-second
+verification timeout failed closed. Explicit cancellation after 16 MiB was cleaned
+up, and an abandoned upload was observed reclaimed after 160 seconds. Both the
+unchanged standard pool and the large pool passed the network, identity, readonly
+runtime, scratch and child resource probes.
+
+The observed concurrent runs consumed at most 438.84 / 538.84 allocated vCPU-seconds
+and 877.68 / 1,077.68 allocated GiB-seconds respectively while their sessions were
+held. These are resource reservations, not billed CPU usage or currency estimates.
+The hard Azure lifetime bounds one occupied large session at 2,400 vCPU-seconds
+and 4,800 GiB-seconds. Warm capacity and provider/node overhead remain additional;
+production pricing must use the deployment's Azure agreement and workload, not
+these child CPU measurements.
+
+Evidence: [capacity measurements](evidence/arke-capacity-2026-11-11.json).
+Private Studio upload/resume receipts and reviewer evidence are recorded in
+[issue #428](https://github.com/michaeljosiah/aonik/issues/428). The dev runtime
+images came from [qualified build 42932506212](https://github.com/michaeljosiah/aonik/actions/runs/42932506212).
+Local validation passed 5,394 .NET tests (12 environment/integration skips), 36
+Studio publishing tests, Studio lint/typecheck/build, 25 pinned-reader Dart tests
+and 12 Linux sandbox tests. The generated migration applied cleanly to a dedicated
+LocalDB database. Production enablement remains separate.

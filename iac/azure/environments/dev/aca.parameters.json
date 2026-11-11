@@ -45,6 +45,9 @@
     "publishingStorageEnabled": {
       "value": true
     },
+    "publishingIntakeShareQuotaGiB": {
+      "value": 32
+    },
     "publishingAppSettings": {
       "value": {
         "Publishing__Intake__PrivateRoot": "/mnt/aonik-publishing-private",

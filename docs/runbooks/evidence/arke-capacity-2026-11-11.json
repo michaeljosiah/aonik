@@ -1,0 +1,242 @@
+{
+  "issue": 428,
+  "date": "2026-11-11",
+  "scope": "Isolated dev sandbox capacity qualification; private intake receipts tracked on issue 428",
+  "largeIsolation": {
+    "utc": "2026-11-11T00:27:33.930009Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "runtime": {
+      "uid": 65532,
+      "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "network": {
+        "public": "denied",
+        "metadata": "denied"
+      },
+      "cgroup": {
+        "memory.max": "unavailable",
+        "cpu.max": "unavailable",
+        "pids.max": "unavailable"
+      },
+      "capacityProfile": "large-v1",
+      "maxPackageBytes": 1610612736,
+      "maxAssets": 2048,
+      "maxReportBytes": 1048576,
+      "maxChunkBytes": 4194304,
+      "hardDeadlineSeconds": 840,
+      "childLimits": {
+        "addressSpaceBytes": 2147483648,
+        "cpuSeconds": 180,
+        "processes": 32,
+        "fileBytes": 67108864,
+        "oversizedAllocationDenied": true
+      },
+      "scratchBytes": 67108864,
+      "writableRuntime": false
+    }
+  },
+  "standardIsolation": {
+    "utc": "2026-11-11T00:53:53.6476972Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:edcf30cccff2a89f69523e2dabba590118999778cc2e623471c511217ab46dfb",
+    "runtime": {
+      "uid": 65532,
+      "readerCommit": "27df122566bcdef18126932c15a74112e18b8573",
+      "network": {
+        "public": "denied",
+        "metadata": "denied"
+      },
+      "cgroup": {
+        "memory.max": "unavailable",
+        "cpu.max": "unavailable",
+        "pids.max": "unavailable"
+      },
+      "childLimits": {
+        "addressSpaceBytes": 2147483648,
+        "cpuSeconds": 45,
+        "processes": 32,
+        "fileBytes": 16777216,
+        "oversizedAllocationDenied": true
+      },
+      "scratchBytes": 67108864,
+      "writableRuntime": false
+    }
+  },
+  "boundary": {
+    "utc": "2026-11-11T00:32:58.3347906Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "archiveSha256": "f35d811686ba02b535af981402d45deb768b912f27979ade9bc8e45d3dde44be",
+    "archiveBytes": 1610612736,
+    "profile": "large-v1",
+    "sessionId": "capacity-428-7c8ba33569844b9ca53adf2a41dd51e2",
+    "uploadSeconds": 234.7,
+    "chunks": 384,
+    "resultCode": "verified",
+    "metrics": {
+      "verificationSeconds": 34.119,
+      "childCpuSeconds": 38.423,
+      "childPeakRssKiB": 54240,
+      "inputBytes": 1610612736,
+      "scratchLimitBytes": 67108864,
+      "sampledScratchPeakBytes": 67108864
+    },
+    "assetCount": 2048,
+    "reportBytes": 658309,
+    "cleanupAcknowledged": true,
+    "totalSeconds": 269.42
+  },
+  "baseline": {
+    "utc": "2026-11-11T00:33:08.5209952Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "archiveSha256": "c9234b66a89beccd42a45a20b44baeea43db7a81c06c37126af2585a63cee61f",
+    "archiveBytes": 1107515522,
+    "profile": "large-v1",
+    "sessionId": "capacity-428-91bfe157ea6f4a2289eb363ca43312d9",
+    "uploadSeconds": 194.082,
+    "chunks": 265,
+    "resultCode": "verified",
+    "metrics": {
+      "verificationSeconds": 23.424,
+      "childCpuSeconds": 25.663,
+      "childPeakRssKiB": 50996,
+      "inputBytes": 1107515522,
+      "scratchLimitBytes": 67108864,
+      "sampledScratchPeakBytes": 48590848
+    },
+    "assetCount": 1144,
+    "reportBytes": 368133,
+    "cleanupAcknowledged": true,
+    "totalSeconds": 219.42
+  },
+  "overCount": {
+    "utc": "2026-11-11T00:40:48.4123589Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "archiveSha256": "bca7086ca54603fbb22ad763c83a5adfe2b610407635c96cc177f90e1af029e4",
+    "archiveBytes": 268435456,
+    "profile": "large-v1",
+    "sessionId": "capacity-428-09bccc929a364a0a9de6b5158e05a356",
+    "uploadSeconds": 38.619,
+    "chunks": 64,
+    "resultCode": "asset-count-limit",
+    "metrics": {
+      "verificationSeconds": 2.674,
+      "childCpuSeconds": 2.785,
+      "childPeakRssKiB": 31284,
+      "inputBytes": 268435456,
+      "scratchLimitBytes": 67108864,
+      "sampledScratchPeakBytes": 0
+    },
+    "assetCount": 0,
+    "reportBytes": 283,
+    "cleanupAcknowledged": true,
+    "totalSeconds": 42.706
+  },
+  "overAsset": {
+    "utc": "2026-11-11T00:41:00.7258408Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "archiveSha256": "a27e1bc0d09d26ec37776750444e7e14ed5afc1a58472e0ef953ebd69d953186",
+    "archiveBytes": 268435456,
+    "profile": "large-v1",
+    "sessionId": "capacity-428-f8988674c7184adca594e3a072f27954",
+    "uploadSeconds": 37.71,
+    "chunks": 64,
+    "resultCode": "asset-size-limit",
+    "metrics": {
+      "verificationSeconds": 2.675,
+      "childCpuSeconds": 2.77,
+      "childPeakRssKiB": 31532,
+      "inputBytes": 268435456,
+      "scratchLimitBytes": 67108864,
+      "sampledScratchPeakBytes": 0
+    },
+    "assetCount": 0,
+    "reportBytes": 282,
+    "cleanupAcknowledged": true,
+    "totalSeconds": 41.056
+  },
+  "timeout": {
+    "utc": "2026-11-11T00:42:43.158804Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "archiveSha256": "bca7086ca54603fbb22ad763c83a5adfe2b610407635c96cc177f90e1af029e4",
+    "archiveBytes": 268435456,
+    "profile": "large-v1",
+    "sessionId": "capacity-428-b63fbfa08c324d3f834764ce292861ba",
+    "uploadSeconds": 25.333,
+    "chunks": 64,
+    "resultCode": "verifier-timeout",
+    "cleanupAcknowledged": true,
+    "totalSeconds": 26.663
+  },
+  "cancellation": {
+    "utc": "2026-11-11T00:45:19.1823819Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "archiveSha256": "f35d811686ba02b535af981402d45deb768b912f27979ade9bc8e45d3dde44be",
+    "archiveBytes": 1610612736,
+    "profile": "large-v1",
+    "sessionId": "capacity-428-d173eeee8714405394b007d152ff7839",
+    "uploadSeconds": 1.901,
+    "chunks": 4,
+    "cancelledAfterBytes": 16777216,
+    "cleanupAcknowledged": true,
+    "totalSeconds": 2.062
+  },
+  "protocol": {
+    "utc": "2026-11-11T00:51:10.7518484Z",
+    "image": "aonikdevacr.azurecr.io/aonik-arke-verifier-sessions@sha256:23069f32cd6c5cf6c07a983c74f8ac0698409fe97ace4e9f2096b3620938e13b",
+    "checks": [
+      {
+        "http": 422,
+        "code": "invalid-limits",
+        "check": "archive first byte over ceiling"
+      },
+      {
+        "http": 422,
+        "code": "invalid-limits",
+        "check": "asset count first over ceiling"
+      },
+      {
+        "http": 422,
+        "code": "invalid-declaration",
+        "check": "caller cannot widen profile"
+      },
+      {
+        "http": 422,
+        "code": "invalid-job",
+        "check": "another job nonce"
+      },
+      {
+        "http": 422,
+        "code": "upload-conflict",
+        "check": "wrong offset"
+      },
+      {
+        "http": 422,
+        "code": "upload-conflict",
+        "check": "replayed offset"
+      },
+      {
+        "http": 422,
+        "code": "archive-identity-mismatch",
+        "check": "altered archive hash"
+      },
+      {
+        "http": 422,
+        "code": "job-already-started",
+        "check": "cannot restart same job"
+      },
+      {
+        "check": "explicit stop acknowledged",
+        "http": 200
+      },
+      {
+        "check": "stopped session no longer exists",
+        "http": 400
+      }
+    ],
+    "sessionId": "capacity-428-protocol-26cf7decd3a64ac282086b262fd551c4"
+  },
+  "abandonedJob": {
+    "reclaimed": true,
+    "observedAfterSeconds": 160
+  },
+  "runtimeBuild": 42932506212,
+  "privateIntakeShareQuotaGiB": 32
+}

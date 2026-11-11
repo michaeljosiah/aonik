@@ -63,6 +63,11 @@ param workerAppSettings object = {}
 @description('Provision dedicated durable publishing shares. This does not enable intake, review or delivery.')
 param publishingStorageEnabled bool = false
 
+@description('Private publishing intake quota including assembly headroom. Does not change delivery storage.')
+@minValue(10)
+@maxValue(1024)
+param publishingIntakeShareQuotaGiB int = 10
+
 @description('Non-secret Publishing__ settings shared identically by API and Worker. Channels default closed.')
 param publishingAppSettings object = {}
 
@@ -186,6 +191,7 @@ module publishingStorage '../../modules/publishing-storage.bicep' = if (publishi
     workloadName: workloadName
     environmentName: environmentName
     containerAppsEnvironmentName: containerAppsEnvironment.name
+    intakeShareQuotaGiB: publishingIntakeShareQuotaGiB
     tags: tags
   }
 }

@@ -13,12 +13,17 @@ if ($Profile -eq 'standard') {
     $settings['Publishing__Verifier__TimeoutSeconds'] = '45'
     $settings['Publishing__Intake__AssemblyMinutes'] = '10'
 }
-$allowed = '^Publishing__(Verifier__(Provider|CapacityProfile|SessionPoolResourceId|Image|ReaderCommit|MemoryMiB|ScratchMiB|MaxAssets|MaxAssetBytes|MaxDocumentBytes|TimeoutSeconds)|Channels__arke-worlds-dev__MaxPackageBytes|Intake__(MaxCreatorRetainedBytes|MaxTenantRetainedBytes|AssemblyMinutes))$'
+$allowed = '^Publishing__(Verifier__(Provider|CapacityProfile|SessionPoolResourceId|Image|ReaderCommit|MemoryMiB|ScratchMiB|MaxAssets|MaxAssetBytes|MaxDocumentBytes|TimeoutSeconds)|Channels__arke-worlds-dev__MaxPackageBytes|Intake__(MaxCreatorRetainedBytes|MaxTenantRetainedBytes|AssemblyMinutes|PartSizeBytes))$'
 if (@($settings.Keys | Where-Object { $_ -notmatch $allowed }).Count) { throw 'Only bounded dev capacity settings may change.' }
 $token = az account get-access-token --resource https://management.azure.com --query accessToken -o tsv
 if ($LASTEXITCODE -ne 0 -or !$token) { throw 'Azure authentication failed.' }
 try {
     $headers = @{ Authorization = "Bearer $token" }
+    if ($Profile -eq 'large-v1') {
+        $shareUri = "https://management.azure.com/subscriptions/$subscription/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.Storage/storageAccounts/ankpubxkhim4xqiopna/fileServices/default/shares/intake?api-version=2023-05-01"
+        $share = Invoke-RestMethod -Uri $shareUri -Headers $headers
+        if ($share.properties.shareQuota -lt 32) { throw 'Deploy the dev intake share quota of 32 GiB before enabling large capacity.' }
+    }
     $plans = foreach ($service in @('api','worker')) {
         $name = "aonik-dev-$service"
         $uri = "https://management.azure.com/subscriptions/$subscription/resourceGroups/rg-aonik-dev-uksouth/providers/Microsoft.App/containerApps/${name}?api-version=2024-03-01"

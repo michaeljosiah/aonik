@@ -13,5 +13,6 @@
   "Publishing__Channels__arke-worlds-dev__MaxPackageBytes": "1610612736",
   "Publishing__Intake__MaxCreatorRetainedBytes": "6442450944",
   "Publishing__Intake__MaxTenantRetainedBytes": "12884901888",
-  "Publishing__Intake__AssemblyMinutes": "10"
+  "Publishing__Intake__AssemblyMinutes": "10",
+  "Publishing__Intake__PartSizeBytes": "8388608"
 }

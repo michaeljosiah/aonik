@@ -31,7 +31,7 @@ $client = [Net.Http.HttpClient]::new()
 $client.Timeout = [Threading.Timeout]::InfiniteTimeSpan
 $deadline = [Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(900))
 $clock = [Diagnostics.Stopwatch]::StartNew()
-$evidence = [ordered]@{utc=[DateTime]::UtcNow.ToString('o');image=$ExpectedImage;archiveSha256=$hash;archiveBytes=$file.Length;profile='large-v1'}
+$evidence = [ordered]@{utc=[DateTime]::UtcNow.ToString('o');image=$ExpectedImage;archiveSha256=$hash;archiveBytes=$file.Length;profile='large-v1';sessionId=$session}
 
 function Send-Session([string]$Operation, [Net.Http.HttpContent]$Content, [long]$Offset = -1) {
     $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Post, "$endpoint/$Operation`?identifier=$session&api-version=$apiVersion")
@@ -51,7 +51,12 @@ function Send-Session([string]$Operation, [Net.Http.HttpContent]$Content, [long]
                     $body.Write($buffer, 0, $count)
                 }
                 $text = [Text.Encoding]::UTF8.GetString($body.ToArray())
-                $value = if ($text) { $text | ConvertFrom-Json -Depth 50 } else { $null }
+                # Azure's management stop acknowledgement is plain text, unlike the verifier protocol.
+                if ($Operation -eq '.management/stopSession' -and $response.IsSuccessStatusCode) { return @{acknowledged=$true} }
+                $value = $null
+                try { if ($text) { $value = $text | ConvertFrom-Json -Depth 50 } } catch {
+                    if ($response.IsSuccessStatusCode) { throw 'The sandbox returned invalid JSON.' }
+                }
                 if (!$response.IsSuccessStatusCode) {
                     $code = if ($value.code -match '^[a-z0-9-]{1,100}$') { $value.code } else { 'http-' + [int]$response.StatusCode }
                     throw "sandbox-refused:$code"
