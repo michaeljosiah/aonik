@@ -49,6 +49,11 @@ Existing installations must receive the updated profile/build before submitting 
   SHA-256. The stable test key signs `studio.arke.player.dev`; data and jobs are separate from
   production. Install updates over the existing Dev app without uninstalling or clearing data.
 
+Earlier locally built rehearsal APKs may have the Android debug certificate instead of the
+stable cohort key. Android correctly refuses to replace those packages. Keep their data intact
+and use a separate device/emulator for the cohort build; do not uninstall them as an upgrade fix.
+The distributable workflow records an increasing version code as well as its signing provenance.
+
 Both builds include public dev configuration only. No passwords, tokens or client secrets are
 distributed. Player requires no account to discover released works. GitHub Actions artifact
 downloads require repository access and expire after 30 days; keep the delivered copies and
@@ -80,3 +85,38 @@ Record the installed build hashes, invitation/acceptance outcome, new creator/pa
 receipt/revision and archive digest, verification and review evidence, release/withdrawal serials,
 and native Player progress/offline observations. Exclude invitation tokens, credentials, bearer
 tokens and private Auth0 callback data. #436 remains open until this live acceptance is complete.
+
+### 2026-11-11 deployment checkpoint — acceptance still pending
+
+The tested application commit `eeaeee963ef629006e61cfd140c0a4f89e9aa97b` is deployed using
+the immutable manifest from Actions run `43111938410`: API revision `0000393`, Worker `0000383`
+and Admin UI `0000374`. All three became ready; the API health check and empty dev catalogue
+returned 200. The declaration is `dev-creator-v1`, the 1.5 GiB limit is preserved, and the mirror
+remains disabled. AONIK PR #437 is green and reviewed by Codex, but awaits the repository's
+required approving review. Studio PR #2989, Player PRs #79/#80 and private specs PR #157 merged.
+
+The disposable creator completed real Auth0 registration and mailbox verification. Its AONIK
+user ID is `564b82bf-a7f1-4084-a7be-80ad9951c986`, party ID
+`4f839a49-934e-4641-9326-93f8bd854a1e`, with only `PersonalUser`. The API correctly reports
+`Invited` after identity linking. Resending succeeded and Mailinator displayed the fresh
+invitation with the expected tenant, role and expiry. Acceptance has **not** been verified:
+Windows Computer Use stopped on opening its link because it could not establish the current
+browser URL for its policy check. Do not treat email delivery or IdP verification as acceptance.
+
+Installed artifacts (SHA-256):
+
+- Windows Studio Dev 0.5.116, packaging run `43110363411`:
+  `e86949bd84c70b1febefeb02f3f795dd608350883a40b4f67c3ddbdb6ed330cd`.
+  Installer exited 0; the installed dev profile and separate workspace were checked, and native
+  lightweight onboarding was exercised. The later merged commit only fixes a CI test wait.
+- Android Player Dev versionCode 10002, packaging run `43110607379`:
+  `dab65921636c4a075457dc34915629cf48b838cfbd950714b5fa1e339096446d`.
+  It installs successfully on the separate Android 16 emulator. Its stable CI signing certificate
+  is `c161b145275983926c2de54f2f6392a22c12774d012db1614f300696da784475`.
+  The earlier local-debug installation was preserved after Android refused a certificate mismatch.
+
+The fresh original synthetic **Creator Garden Dev 436 / The Seed Library** has three chapters
+and geometric artwork, staged in the ignored acceptance workspace. It has not been submitted or
+published. Remaining evidence: invitation acceptance, packaged Studio creator sign-in/export/
+submission, server verification, separate automated dev review/release, native Player discovery,
+download/progress/offline access, withdrawal, and retained offline access after withdrawal.
