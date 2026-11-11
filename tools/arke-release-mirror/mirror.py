@@ -143,8 +143,13 @@ class Transport:
             if token and uri.hostname not in ("api.github.com", "uploads.github.com"):
                 raise Refusal("credential-destination-refused")
             headers = {"User-Agent": "Aonik-Release-Mirror/1.0", "Accept": accept,
-                       "Cache-Control": "no-cache",
-                       "Content-Type": content_type, "X-GitHub-Api-Version": "2022-11-28"}
+                       "Cache-Control": "no-cache"}
+            # A JSON content type on a bodyless GET makes FastEndpoints attempt
+            # to deserialize an empty body before serving the public catalogue.
+            if data is not None:
+                headers["Content-Type"] = content_type
+            if uri.hostname in ("api.github.com", "uploads.github.com"):
+                headers["X-GitHub-Api-Version"] = "2022-11-28"
             if token:
                 headers["Authorization"] = f"Bearer {token}"
             request = urllib.request.Request(url, data=data, headers=headers, method=method)

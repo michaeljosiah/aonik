@@ -94,17 +94,21 @@ Public availability establishes neither ownership nor a new rights declaration.
 
 The [unapproved ownership template](evidence/arke-baseline-ownership-template-2026-11-11.json)
 contains the base production/chapter projection read from hash-checked audited
-archives. All owner and evidence fields intentionally remain null. Reproduce it
+archives. Michael Josiah was named by the owner for all five namespaces and the
+reviewer/support contact on 11 November 2026. Production Party IDs and private
+rights evidence remain unresolved, so those template fields stay null. This
+designation does not establish an independent backup or approve distribution.
+Reproduce the template
 with `tools/arke-release-mirror/prepare_baseline.py` against the frozen catalogue
 and audit cache; fill private ownership records only after an explicit decision.
 
 | World namespace | Existing work | Production owner/evidence |
 |---|---|---|
-| `the-undersong` | The Undersong | Owner decision required |
-| `legend-of-dumah` | Legend of Dumah | Owner decision required |
-| `the-red-quiet` | The Red Quiet | Owner decision required |
-| `embers-of-the-fallen` | Embers of the Fallen | Owner decision required |
-| `na-love-or-juju` | Na Love or Juju | Owner decision required |
+| `the-undersong` | The Undersong | Michael Josiah; Party/evidence mapping pending |
+| `legend-of-dumah` | Legend of Dumah | Michael Josiah; Party/evidence mapping pending |
+| `the-red-quiet` | The Red Quiet | Michael Josiah; Party/evidence mapping pending |
+| `embers-of-the-fallen` | Embers of the Fallen | Michael Josiah; Party/evidence mapping pending |
+| `na-love-or-juju` | Na Love or Juju | Michael Josiah; Party/evidence mapping pending |
 
 Before import, resolve each owner to a real tenant Party and retain the private
 rights/evidence reference. Qualify the base listening chapter projection from the
@@ -177,12 +181,14 @@ AONIK approval with a hand-edited public feed.
 
 The engineering evidence cannot supply these business decisions:
 
-- Which real legal/creator party owns each of the five namespaces, with permission
-  to retain/distribute its existing exact public editions and artwork?
+- Resolve Michael Josiah's production Party and the private permission reference
+  covering retention/distribution of the existing exact public editions and artwork.
 - Which production tenant/channel/origin and accountable deployment/budget owner
   should be used? No production Azure resource group currently exists.
-- Who is the primary and backup reviewer/publisher/support owner, and is the
-  three-working-day response target staffed?
+- Michael Josiah is the designated reviewer/support contact. Confirm a production
+  contact address, independent editorial coverage where required, backup coverage
+  and whether the three-working-day response target is staffed. The existing
+  Mailinator reviewer identity is a dev fixture, not a production contact.
 - Approve the concrete infrastructure cost and cutover window. The #428 estimate
   is about **£1,232.24 per 730-hour month for one E16 verifier node including one
   management charge**, before API/Worker/SQL/storage/networking and discounts/tax.
@@ -212,6 +218,26 @@ The CI dispatch input `qualify_release_mirror=true` performs the real GitHub API
 rehearsal using a run-scoped, non-Latest prerelease with empty synthetic catalogues,
 then removes only that exact release/tag and retains sanitized evidence.
 It never touches ArkeStudio's production release.
+
+The [live release recovery evidence](evidence/arke-release-mirror-2026-11-11.json)
+records all twelve checks passing in run `42947720150`, including lost responses
+at both rename steps and recovery without duplicate promotion. The temporary
+release and tag were removed and application Latest was unchanged. PR #432 was
+merged as `7f2f7928f3fad96964d32e19d0aef9fab44af6c2` after final-head CI passed.
+The qualified image update reached ready revisions API `0000390`, Worker `0000380`
+and Admin UI `0000373`. The isolated release observer reached ready API `0000391`
+and Worker `0000381`; authenticated retry with a missing release catalogue correctly
+reported `retryable / mirror-release-pending`, with no mirrored serial. Dev stayed
+at the same empty serial 26 and its health endpoint returned 200.
+
+The first actual-source bridge run (`43053870065`) exposed an HTTP header bug before
+uploading any assets: its bodyless catalogue GET declared a JSON content type, so
+FastEndpoints returned 400 while trying to deserialize an empty body. The bridge
+now emits content type only for requests carrying bytes and limits GitHub version
+headers to GitHub API hosts. Eighteen recovery/transport tests pass, including this
+regression, and the corrected transport retrieves the exact dev catalogue. Scheduled
+mirroring was disabled while correcting it. Final bridge/observer readback and
+configuration restoration still need to be recorded; production remains disabled.
 
 `PublicationBaselineTests` exercises the actual frozen serial-53 input through
 the service with synthetic test-only owner mappings. These tests are not a
