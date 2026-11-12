@@ -6,6 +6,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ### Fixed
 
+- **Invited-creator dev acceptance (#436):** Complete native invitation acceptance and the packaged Studio → AONIK → Player flow with a fresh least-privilege creator. Record the corrected Studio importer and Player EPUB-position/book-poster fixes, final build hashes, signed in-place upgrade, exact review/release evidence, withdrawal at empty dev serial 28 and retained offline reading. Production and the legacy mirror remain unchanged.
+
 - **Dev creator onboarding (#436):** Add an invitation acceptance page with a preserved sign-in return path, configure absolute dev invitation URLs with tenant context, and verify Auth0 mailbox ownership before an invitee can gain local authority. Allow pending invitations to be resent after identity linking. Advance the dev submission declaration to creator-owned/licensed work with explicit public dev distribution and offline-retention terms. Existing exact-revision review and release gates remain enforced.
 
 - **Arke handoff baseline (#431/#434):** Re-audit the already-published serial 54 after its Na Love or Juju world/guide update. All 31 pins, 13 packages and 1,833 embedded assets pass current and previous Player readers. Preserve serial-53 history and prepare an unapproved serial-54 ownership projection so a later cutover cannot use the stale head.
