@@ -1,4 +1,5 @@
 import { type ReactNode, useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PublicClientApplication } from '@azure/msal-browser';
 import { MsalProvider } from '@azure/msal-react';
 import { Auth0Provider } from '@auth0/auth0-react';
@@ -82,6 +83,7 @@ function AzureAdAuthProvider({ children }: AuthProviderProps) {
 
 // Auth0 Provider wrapper with error boundary
 function Auth0AuthProvider({ children }: AuthProviderProps) {
+  const navigate = useNavigate();
   // Auth0 provider handles its own initialization
   // We just need to validate the config is present
 
@@ -94,12 +96,12 @@ function Auth0AuthProvider({ children }: AuthProviderProps) {
       useRefreshTokens={auth0Config.useRefreshTokens}
       useRefreshTokensFallback={auth0Config.useRefreshTokensFallback}
       onRedirectCallback={(appState) => {
-        // Handle redirect after login
-        window.history.replaceState(
-          {},
-          document.title,
-          appState?.returnTo || window.location.pathname
-        );
+        // Notify the router as well as replacing the callback URL. Otherwise an
+        // invitation return path can leave the app rendering the old route.
+        const returnTo = appState?.returnTo;
+        const safeReturnTo = typeof returnTo === 'string' && returnTo.startsWith('/')
+          && !returnTo.startsWith('//') && !returnTo.includes('\\');
+        navigate(safeReturnTo ? returnTo : window.location.pathname, { replace: true });
       }}
     >
       <Auth0AuthContextProvider>{children}</Auth0AuthContextProvider>

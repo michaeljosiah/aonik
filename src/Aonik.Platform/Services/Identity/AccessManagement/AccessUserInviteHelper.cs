@@ -269,10 +269,10 @@ internal sealed class AccessUserInviteHelper
             throw new InvalidOperationException($"User {userId} not found in tenant {tenantId}.");
         }
 
-        if (!BootstrapIdentityConstants.IsPendingPlaceholderIssuer(user.ExternalIssuer))
+        if (user.InviteAcceptedUtc.HasValue || string.IsNullOrWhiteSpace(user.InviteToken))
         {
             throw new InvalidOperationException(
-                "User has already accepted their invitation. Resend is only available for unaccepted placeholders.");
+                "Resend is only available for an existing, unaccepted invitation.");
         }
 
         // Rate-limit: count sends in the past 24 hours.
@@ -406,7 +406,7 @@ internal sealed class AccessUserInviteHelper
                 ? string.Empty
                 : $" with the role{(assignedRoleNames.Count > 1 ? "s" : "")} {string.Join(", ", assignedRoleNames)}";
 
-            var inviteUrl = BuildInviteUrl(tenant?.Subdomain, token);
+            var inviteUrl = BuildInviteUrl(placeholder.TenantId, token);
 
             var model = new Dictionary<string, object?>
             {
@@ -477,17 +477,17 @@ internal sealed class AccessUserInviteHelper
         return !string.IsNullOrWhiteSpace(op.Email) ? op.Email : "Your administrator";
     }
 
-    private string BuildInviteUrl(string? tenantSubdomain, string token)
+    private string BuildInviteUrl(Guid tenantId, string token)
     {
         var baseUrl = _lifecycleOptions.AdminUiBaseUrl?.Trim().TrimEnd('/');
         if (string.IsNullOrWhiteSpace(baseUrl))
         {
             // Fall back to a relative path the front-end can resolve.
-            return $"/signin?invite={Uri.EscapeDataString(token)}";
+            return $"/signin?invite={Uri.EscapeDataString(token)}&tenant={tenantId}";
         }
 
         var separator = baseUrl.Contains('?') ? "&" : "?";
-        return $"{baseUrl}/signin{separator}invite={Uri.EscapeDataString(token)}";
+        return $"{baseUrl}/signin{separator}invite={Uri.EscapeDataString(token)}&tenant={tenantId}";
     }
 
     private static string ExtractEmailLocalPart(string email)

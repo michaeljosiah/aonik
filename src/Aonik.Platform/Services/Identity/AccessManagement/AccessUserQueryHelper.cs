@@ -33,20 +33,19 @@ internal sealed class AccessUserQueryHelper
         if (!string.IsNullOrWhiteSpace(request.Status))
         {
             var status = request.Status.Trim();
-            // Spec 026 Part 1: "Invited" is a virtual stage represented
-            // by the bootstrap-issuer marker on the placeholder row.
-            // The Status column stays "Active" so the auth pipeline
-            // can keep its single status guard, but operators see the
-            // user as "Invited" in lists and detail until first login.
+            // Identity linking can precede explicit acceptance. Keep the
+            // invitation stage (and resend action) visible until acceptance.
             if (string.Equals(status, "Invited", StringComparison.OrdinalIgnoreCase))
             {
-                query = query.Where(user => user.ExternalIssuer == "aonik-bootstrap");
+                query = query.Where(user => user.ExternalIssuer == "aonik-bootstrap"
+                    || (user.Status == "Active" && user.InviteToken != null && user.InviteAcceptedUtc == null));
             }
             else
             {
                 query = query.Where(user =>
                     user.Status == status &&
-                    user.ExternalIssuer != "aonik-bootstrap");
+                    user.ExternalIssuer != "aonik-bootstrap"
+                    && !(user.Status == "Active" && user.InviteToken != null && user.InviteAcceptedUtc == null));
             }
         }
 
@@ -66,7 +65,8 @@ internal sealed class AccessUserQueryHelper
             {
                 user.Id,
                 Email = user.Email ?? string.Empty,
-                Status = user.ExternalIssuer == "aonik-bootstrap" ? "Invited" : user.Status,
+                Status = user.ExternalIssuer == "aonik-bootstrap"
+                    || (user.Status == "Active" && user.InviteToken != null && user.InviteAcceptedUtc == null) ? "Invited" : user.Status,
                 user.LastLoginAt,
                 RoleCount = _dbContext.UserRoles.Count(ur => ur.UserId == user.Id),
                 PartyInfo = _dbContext.UserParties
@@ -238,6 +238,7 @@ internal sealed class AccessUserQueryHelper
         }
 
         var status = string.Equals(user.ExternalIssuer, "aonik-bootstrap", StringComparison.Ordinal)
+            || (user.Status == "Active" && user.InviteToken != null && user.InviteAcceptedUtc == null)
             ? "Invited"
             : user.Status;
 

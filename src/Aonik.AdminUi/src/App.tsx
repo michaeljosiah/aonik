@@ -1,3 +1,4 @@
+import { InvitationPage } from './pages/InvitationPage';
 import { useEffect, useRef, useState, createElement, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { isElectron, setTitleBarColor } from '@/lib/electron';
@@ -572,6 +573,12 @@ function AuthenticatedApp() {
 const DevUiPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevUiPage')) : null;
 const DevShellPage = import.meta.env.DEV ? lazy(() => import('@/pages/dev/DevShellPage')) : null;
 
+function ApplicationEntry() {
+  const location = useLocation();
+  // Invitees must be able to finish access before membership/admin bootstrap runs.
+  return location.pathname === '/signin' ? <InvitationPage /> : <AuthenticatedApp />;
+}
+
 function App() {
   const devPath = import.meta.env.DEV ? window.location.pathname : '';
   const DevPage = devPath.startsWith('/dev/ui') ? DevUiPage : devPath.startsWith('/dev/shell') ? DevShellPage : null;
@@ -594,7 +601,7 @@ function App() {
                   <AdminModulesProvider><DevPage /></AdminModulesProvider>
                 </Suspense>
               ) : (
-                <AuthenticatedApp />
+                <ApplicationEntry />
               )}
               <Toaster position="top-right" />
             </div>

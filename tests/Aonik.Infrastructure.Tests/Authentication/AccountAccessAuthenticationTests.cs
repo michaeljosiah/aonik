@@ -29,6 +29,29 @@ namespace Aonik.Infrastructure.Tests.Authentication;
 /// <summary>Exercises the post-validation application boundary; signed bearer validation is covered by API tests.</summary>
 public sealed class AccountAccessAuthenticationTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task Invitation_Should_RequireMailboxOwnershipBeforeLinkingOrGrantingAuthority(bool verified, bool alreadyLinked)
+    {
+        using var h = new Harness("Active", invitation: true, verifiedEmail: verified, alreadyLinked: alreadyLinked);
+        var result = await h.ValidateAsync(path: "/identity/invite/accept", marker: false, scenario: "invited-email");
+
+        if (verified)
+        {
+            result.Result?.Failure.Should().BeNull();
+            h.Current.UserId.Should().Be(h.User!.Id);
+        }
+        else
+        {
+            result.Result!.Failure.Should().NotBeNull();
+            h.Current.UserId.Should().BeNull();
+            h.Users.VerifyNoOtherCalls();
+        }
+    }
+
     [Fact]
     public async Task UnknownCompletion_Should_ExposeTrustedProofWithoutProvisioningOrLocalAuthority()
     {
@@ -118,7 +141,7 @@ public sealed class AccountAccessAuthenticationTests
         public ICurrentUserContext Current => _services.GetRequiredService<ICurrentUserContext>();
         public AccountAccessIdentityProof? Proof => _services.GetRequiredService<IAccountAccessIdentityProofAccessor>().GetCurrent();
 
-        public Harness(string? status = null, bool revoked = false)
+        public Harness(string? status = null, bool revoked = false, bool invitation = false, bool verifiedEmail = false, bool alreadyLinked = true)
         {
             var tenants = new Mock<ITenantProvider>();
             tenants.Setup(t => t.GetCurrentTenantId()).Returns(TenantId);
@@ -130,6 +153,12 @@ public sealed class AccountAccessAuthenticationTests
             {
                 User = new User { TenantId = TenantId, ExternalIssuer = "https://auth.example/", ExternalSubject = "auth0|buyer",
                     Email = "buyer@example.com", Status = status, IdentityRevision = 7 };
+                if (invitation)
+                {
+                    User.InviteToken = "one-shot";
+                    User.InviteExpiresUtc = Now.AddDays(1);
+                    if (!alreadyLinked) { User.ExternalIssuer = "aonik-bootstrap"; User.ExternalSubject = "invite:buyer@example.com"; }
+                }
                 Db.Users.Add(User);
                 Users.Setup(u => u.ResolveOrCreateUserAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(),
                     It.IsAny<string?>(), TenantId, It.IsAny<CancellationToken>())).ReturnsAsync(User);
@@ -161,6 +190,8 @@ public sealed class AccountAccessAuthenticationTests
             services.AddSingleton(sessions.Object);
             services.AddSingleton<ITenantContext, TenantContext>();
             services.AddSingleton<ICurrentUserContext, HttpContextCurrentUserContext>();
+            if (invitation) services.AddHttpClient(Auth0InvitationEmailVerifier.ClientName)
+                .ConfigurePrimaryHttpMessageHandler(() => new InvitationProfileHandler(verifiedEmail));
             _services = services.BuildServiceProvider();
             _http.RequestServices = _services;
             _services.GetRequiredService<IHttpContextAccessor>().HttpContext = _http;
@@ -181,6 +212,11 @@ public sealed class AccountAccessAuthenticationTests
                 new("auth_time", new DateTimeOffset(Now.AddMinutes(-1)).ToUnixTimeSeconds().ToString())
             };
             if (scenario == "missing-email") claims.RemoveAll(c => c.Type == "https://app.example/email");
+            if (scenario == "invited-email")
+            {
+                claims.RemoveAll(c => c.Type == "email");
+                claims.Add(new("email", "buyer@example.com"));
+            }
             if (scenario == "unverified") claims.RemoveAll(c => c.Type == "https://app.example/email_verified");
             if (scenario == "duplicate-verified") claims.Add(new("https://app.example/email_verified", "false"));
             if (scenario == "missing-iat") claims.RemoveAll(c => c.Type == "iat");
@@ -193,7 +229,8 @@ public sealed class AccountAccessAuthenticationTests
             var context = new TokenValidatedContext(_http, new AuthenticationScheme("Auth0", "Auth0", typeof(JwtBearerHandler)), options)
             {
                 Principal = new ClaimsPrincipal(new ClaimsIdentity(claims, "Bearer")),
-                SecurityToken = new JwtSecurityToken(scenario == "other-issuer" ? "https://auth.example/other" : "https://auth.example/", "api", claims)
+                SecurityToken = new JwtSecurityToken(new JwtSecurityTokenHandler().WriteToken(
+                    new JwtSecurityToken(scenario == "other-issuer" ? "https://auth.example/other" : "https://auth.example/", "api", claims)))
             };
             _http.User = context.Principal;
             await options.Events.TokenValidated(context);
@@ -201,5 +238,17 @@ public sealed class AccountAccessAuthenticationTests
         }
 
         public void Dispose() { _services.Dispose(); Db.Dispose(); }
+    }
+
+    private sealed class InvitationProfileHandler(bool verified) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    sub = "auth0|buyer", email = "buyer@example.com", email_verified = verified
+                }))
+            });
     }
 }
