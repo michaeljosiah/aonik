@@ -24,5 +24,8 @@ internal class ProposalConfiguration : IEntityTypeConfiguration<Proposal>
         builder.Property(x => x.Confidence)
             .HasPrecision(5, 4)
             .HasDefaultValue(0.85m);
+        builder.Property(x => x.ExecutionResultJson).HasColumnType("nvarchar(max)");
+        builder.HasIndex(proposal => new { proposal.TenantId, proposal.WorkflowStepRunId }).IsUnique()
+            .HasFilter("[WorkflowStepRunId] IS NOT NULL");
     }
 }

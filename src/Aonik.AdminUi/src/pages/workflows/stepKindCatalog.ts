@@ -54,7 +54,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
     desc: 'Where the workflow starts',
     inputs: 0,
     outputs: 1,
-    defaults: { source: 'banking.transaction.received', filter: '' },
+    defaults: { source: 'manual' },
   },
   tool: {
     label: 'Tool call',
@@ -63,7 +63,7 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
     desc: 'Invoke a registered tool',
     inputs: 1,
     outputs: 1,
-    defaults: { tool: 'search_invoices', params: '{}' },
+    defaults: {},
   },
   agent: {
     label: 'Sub-agent',
@@ -78,10 +78,10 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
     label: 'Decision',
     tint: 'var(--chart-7)',
     icon: 'GitFork',
-    desc: 'Branch on a condition',
+    desc: 'Route using a typed decision table',
     inputs: 1,
     outputs: 2,
-    defaults: { expr: 'amount > 50000', yesLabel: 'Yes', noLabel: 'No' },
+    defaults: {},
   },
   human: {
     label: 'Human approval',

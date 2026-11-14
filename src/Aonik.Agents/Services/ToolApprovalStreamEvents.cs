@@ -53,6 +53,7 @@ internal static class ToolApprovalStreamEvents
                             tool = required.Tool,
                             tier = required.Tier,
                             actionKind = required.ActionKind,
+                            preview = required.Preview,
                             status = required.Status,
                         },
                     }
@@ -80,6 +81,7 @@ internal static class ToolApprovalStreamEvents
                             tool = queued.Tool,
                             tier = queued.Tier,
                             actionKind = queued.ActionKind,
+                            preview = queued.Preview,
                             status = queued.Status,
                         },
                     },

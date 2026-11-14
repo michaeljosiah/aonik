@@ -55,6 +55,7 @@ function toState(apiState: string): WorkflowState {
     case 'Active':
     case 'Paused':
     case 'Draft':
+    case 'Retired':
       return apiState;
     default:
       return 'Draft';
@@ -64,12 +65,17 @@ function toState(apiState: string): WorkflowState {
 function toRunStatus(apiStatus: string): WorkflowRunSummary['status'] {
   switch (apiStatus) {
     case 'Success':
+    case 'Completed':
       return 'success';
     case 'Held':
+    case 'WaitingForApproval':
+    case 'WaitingForConnection':
+    case 'NeedsAttention':
       return 'held';
     case 'Failed':
       return 'failed';
     case 'Running':
+    case 'Queued':
       return 'running';
     default:
       return 'failed';
@@ -122,6 +128,9 @@ function adaptStep(dto: { kind: string; label: string; meta: string | null }): W
 export function adaptGraph(dto: WorkflowGraphDto): WorkflowGraph {
   return {
     id: dto.id,
+    expectedVersion: dto.expectedVersion,
+    definitionKind: dto.definitionKind,
+    publishedVersionId: dto.publishedVersionId,
     slug: dto.slug,
     name: dto.name,
     desc: dto.description,
@@ -136,6 +145,7 @@ export function adaptGraph(dto: WorkflowGraphDto): WorkflowGraph {
 function adaptNode(dto: WorkflowGraphNodeDto): WorkflowNode {
   return {
     id: dto.id,
+    key: dto.key,
     kind: toNodeKind(dto.kind),
     label: dto.label,
     x: dto.x,
@@ -149,6 +159,7 @@ function adaptNode(dto: WorkflowGraphNodeDto): WorkflowNode {
 function adaptEdge(dto: WorkflowGraphEdgeDto): WorkflowEdge {
   return {
     id: dto.id,
+    routeKey: dto.routeKey,
     from: dto.fromNodeId,
     to: dto.toNodeId,
     fromIdx: dto.fromIndex,
@@ -163,8 +174,7 @@ export function adaptComment(dto: WorkflowGraphCommentDto): WorkflowComment {
 /**
  * Inverse of {@link adaptGraph}: turns the editor's working graph back into
  * the save payload the API expects. Node ids round-trip as `clientId`s; the
- * server assigns fresh canonical Guids and returns them in the response so
- * the editor can rehydrate.
+ * server preserves stable keys and returns the current concurrency token.
  */
 export function buildSaveRequest(
   graph: WorkflowGraph,
@@ -177,6 +187,8 @@ export function buildSaveRequest(
 ): WorkflowSaveRequestDto {
   return {
     slug: graph.slug,
+    expectedVersion: graph.expectedVersion,
+    definitionKind: graph.definitionKind ?? 'Workflow',
     name: graph.name,
     description: graph.desc,
     state: graph.state,
@@ -187,6 +199,7 @@ export function buildSaveRequest(
     contributors: options.contributors ?? [],
     nodes: graph.nodes.map((n) => ({
       clientId: n.id,
+      key: n.key,
       kind: n.kind,
       label: n.label,
       summary: n.summary ?? '',
@@ -196,6 +209,7 @@ export function buildSaveRequest(
       paramsJson: JSON.stringify(n.params ?? {}),
     })),
     edges: graph.edges.map((e) => ({
+      routeKey: e.routeKey,
       fromClientId: e.from,
       toClientId: e.to,
       fromIndex: e.fromIdx ?? 0,
@@ -210,6 +224,7 @@ export function buildSaveRequest(
 export function adaptRun(dto: WorkflowRunDto): WorkflowRunSummary {
   return {
     id: dto.id,
+    mode: dto.mode,
     when: dto.when,
     status: toRunStatus(dto.status),
     duration: dto.duration,
@@ -222,6 +237,7 @@ export function adaptRun(dto: WorkflowRunDto): WorkflowRunSummary {
 export function adaptVersion(dto: WorkflowVersionDto): WorkflowVersion {
   return {
     id: dto.id,
+    publishedAt: dto.publishedAt,
     tag: dto.tag,
     when: dto.when,
     by: dto.authorName,

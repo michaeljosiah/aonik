@@ -1,4 +1,5 @@
 import { InvitationPage } from './pages/InvitationPage';
+import { MyConnectionsPage } from './pages/settings/ConnectionsPage';
 import { useEffect, useRef, useState, createElement, useCallback, lazy, Suspense } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { isElectron, setTitleBarColor } from '@/lib/electron';
@@ -526,6 +527,7 @@ function AuthenticatedApp() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />
+        <Route path="/settings/my-connections" element={<ProtectedRoute><TenantResolutionGate><MyConnectionsPage /></TenantResolutionGate></ProtectedRoute>} />
         <Route
           path="/select-organization"
           element={

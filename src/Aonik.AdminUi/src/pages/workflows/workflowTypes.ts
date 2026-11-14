@@ -28,7 +28,7 @@ export type StepKind = WorkflowNodeKind;
 /** Equivalent of WorkflowNodeKind for the editor canvas. */
 export type EditorNodeKind = WorkflowNodeKind;
 
-export type WorkflowState = 'Active' | 'Paused' | 'Draft';
+export type WorkflowState = 'Active' | 'Paused' | 'Draft' | 'Retired';
 
 export interface WorkflowStep {
   kind: StepKind;
@@ -58,7 +58,14 @@ export interface WorkflowSummary {
   steps: WorkflowStep[];
 }
 
-export interface WorkflowNodeParams {
+export interface DecisionComparison { field: string; operator: string; value?: unknown }
+export interface DecisionRow { id: string; priority: number; all: DecisionComparison[]; route: string }
+export interface DecisionFixture { name: string; kind: 'Normal' | 'Boundary' | 'MissingData'; facts: Record<string, unknown>; expectedStatus: string; expectedRoutes: string[] }
+export interface DecisionParameters { schemaVersion: number; factSchema: string; hitPolicy: string; rows: DecisionRow[]; defaultRoute: string; fixtures: DecisionFixture[] }
+export interface WorkflowInputBinding { literal?: unknown; fact?: string; step?: string; output?: string }
+export interface WorkflowToolParameters { actionKey: string; contractVersion: number; inputs: Record<string, WorkflowInputBinding>; reviewer?: { roleId: string; forbidSelfApproval: boolean }; connection?: { connectionId: string; workflowGrantId: string; allowedActions: { key: string; version: number }[] } }
+export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial<WorkflowToolParameters> {
+  outcome?: string;
   // trigger
   source?: string;
   filter?: string;
@@ -89,6 +96,7 @@ export interface WorkflowNodeParams {
 
 export interface WorkflowNode {
   id: string;
+  key?: string;
   kind: EditorNodeKind;
   label: string;
   x: number;
@@ -100,6 +108,7 @@ export interface WorkflowNode {
 
 export interface WorkflowEdge {
   id: string;
+  routeKey?: string | null;
   from: string;
   to: string;
   /** Output port index on the `from` node (decision: 0=yes, 1=no; loop: 0=body, 1=done). */
@@ -117,6 +126,9 @@ export interface WorkflowComment {
 
 export interface WorkflowGraph {
   id: string;
+  expectedVersion?: string;
+  definitionKind?: string;
+  publishedVersionId?: string | null;
   slug: string;
   name: string;
   desc: string;
@@ -129,6 +141,7 @@ export interface WorkflowGraph {
 
 export interface WorkflowRunSummary {
   id: string;
+  mode?: string;
   when: string;
   status: 'success' | 'held' | 'failed' | 'running';
   duration: string;
@@ -140,6 +153,7 @@ export interface WorkflowRunSummary {
 
 export interface WorkflowVersion {
   id: string;
+  publishedAt?: string | null;
   tag: string;
   when: string;
   by: string;

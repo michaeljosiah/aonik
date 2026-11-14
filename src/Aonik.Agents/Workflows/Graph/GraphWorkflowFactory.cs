@@ -44,7 +44,7 @@ namespace Aonik.Agents.Workflows.Graph;
 /// </list>
 /// </para>
 /// </summary>
-internal static class GraphWorkflowBuilder
+internal static partial class GraphWorkflowBuilder
 {
     /// <summary>
     /// Loads the workflow graph identified by <paramref name="slug"/> and
@@ -133,6 +133,11 @@ internal static class GraphWorkflowBuilder
             // gate above), so every edge here is unconditional — correct for
             // trigger / agent / notify / emit / end chains.
             builder.AddEdge(from, to);
+        }
+
+        foreach (EndExecutor endExecutor in executors.Values.OfType<EndExecutor>())
+        {
+            builder.WithOutputFrom(endExecutor);
         }
 
         return builder.Build();

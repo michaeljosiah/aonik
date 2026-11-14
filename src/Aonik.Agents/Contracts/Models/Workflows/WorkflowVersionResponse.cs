@@ -11,4 +11,8 @@ public sealed record WorkflowVersionResponse(
     string AuthorColor,
     DateTime CreatedAt,
     /// <summary>Relative-time label, e.g. "today", "8d ago".</summary>
-    string When);
+    string When,
+    string? DefinitionHash = null,
+    bool IsExecutable = false,
+    DateTime? PublishedAt = null,
+    int? SchemaVersion = null);

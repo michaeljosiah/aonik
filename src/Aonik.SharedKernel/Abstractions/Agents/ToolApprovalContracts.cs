@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Aonik.SharedKernel.Abstractions.Agents;
 
 /// <summary>
@@ -88,7 +90,8 @@ public sealed record ToolApprovalRequiredResult(
     bool Executed,
     string Status,
     string Message,
-    Guid? ApprovalRequestId = null)
+    Guid? ApprovalRequestId = null,
+    ToolApprovalPreview? Preview = null)
 {
     /// <summary>The <see cref="Status"/> value used for a gated-but-not-executed action.</summary>
     public const string RequiresApprovalStatus = "RequiresApproval";
@@ -151,7 +154,8 @@ public sealed record ToolApprovalQueuedResult(
     string Status,
     Guid ProposalId,
     Guid ApprovalRequestId,
-    string Message)
+    string Message,
+    ToolApprovalPreview? Preview = null)
 {
     /// <summary>The <see cref="Status"/> value used for a queued-for-approval action.</summary>
     public const string QueuedStatus = "Queued";
@@ -175,7 +179,7 @@ public sealed record ToolApprovalQueuedResult(
             ProposalId: proposalId,
             ApprovalRequestId: approvalRequestId,
             Message:
-                $"The '{action}' action is a {options.Tier}-risk money movement and was NOT executed. " +
+                $"The '{action}' action is a {options.Tier}-risk mutation and was NOT executed. " +
                 $"It has been queued as proposal {proposalId} and will run only after a human approves it. " +
                 "Tell the user the action is prepared and awaiting their approval — do not claim it succeeded.");
     }
@@ -212,7 +216,10 @@ public enum ToolGateDecision
 public sealed record ToolGateContext(
     string ToolName,
     ToolApprovalOptions Options,
-    IDictionary<string, object?> Arguments);
+    IDictionary<string, object?> Arguments,
+    ToolApprovalPreview? Preview = null);
+
+public sealed record ToolApprovalPreview(string Title, JsonElement? Before, JsonElement? After);
 
 /// <summary>Uniform outcome of <see cref="IToolApprovalService.GateAsync"/>.</summary>
 /// <param name="Decision">How the call was routed.</param>

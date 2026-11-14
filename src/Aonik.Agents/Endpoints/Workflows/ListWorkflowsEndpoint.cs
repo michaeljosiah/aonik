@@ -5,8 +5,10 @@ using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints.Workflows;
 
+internal sealed record ListWorkflowsRequest(int? Skip, int? Take);
+
 internal sealed class ListWorkflowsEndpoint
-    : EndpointWithoutRequest<IReadOnlyList<WorkflowSummaryResponse>>
+    : Endpoint<ListWorkflowsRequest, IReadOnlyList<WorkflowSummaryResponse>>
 {
     private readonly IWorkflowService _service;
 
@@ -18,7 +20,6 @@ internal sealed class ListWorkflowsEndpoint
     public override void Configure()
     {
         Get("/ai/workflows");
-        Policies("AdminUserPolicy");
         Summary(s =>
         {
             s.Summary = "List workflows";
@@ -27,9 +28,9 @@ internal sealed class ListWorkflowsEndpoint
         Options(x => x.WithTags("AI Workflows"));
     }
 
-    public override async Task HandleAsync(CancellationToken ct)
+    public override async Task HandleAsync(ListWorkflowsRequest req, CancellationToken ct)
     {
-        var workflows = await _service.ListAsync(ct);
+        var workflows = await _service.ListAsync(req.Skip ?? 0, req.Take ?? 50, ct);
         await Send.OkAsync(workflows, ct);
     }
 }

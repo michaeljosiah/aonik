@@ -1,10 +1,11 @@
 using Aonik.Agents.Contracts.Services;
+using Aonik.Agents.Services.Workflows;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
 namespace Aonik.Agents.Endpoints.Workflows;
 
-internal sealed record DeleteWorkflowRequest(string Slug);
+internal sealed record DeleteWorkflowRequest(string Slug, string? ExpectedVersion);
 
 internal sealed class DeleteWorkflowEndpoint
     : Endpoint<DeleteWorkflowRequest>
@@ -19,7 +20,6 @@ internal sealed class DeleteWorkflowEndpoint
     public override void Configure()
     {
         Delete("/ai/workflows/{Slug}");
-        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Delete a workflow";
@@ -32,12 +32,23 @@ internal sealed class DeleteWorkflowEndpoint
 
     public override async Task HandleAsync(DeleteWorkflowRequest req, CancellationToken ct)
     {
-        var deleted = await _service.DeleteAsync(req.Slug, ct);
-        if (!deleted)
+        try
         {
-            await Send.NotFoundAsync(ct);
-            return;
+            var deleted = await _service.DeleteAsync(Route<string>("Slug")!, req.ExpectedVersion, ct);
+            if (!deleted)
+            {
+                await Send.NotFoundAsync(ct);
+                return;
+            }
+            await Send.NoContentAsync(ct);
         }
-        await Send.NoContentAsync(ct);
+        catch (ArgumentException ex)
+        {
+            await Send.ResultAsync(Results.BadRequest(new { error = ex.Message }));
+        }
+        catch (WorkflowConflictException ex)
+        {
+            await Send.ResultAsync(Results.Conflict(new { error = ex.Message }));
+        }
     }
 }

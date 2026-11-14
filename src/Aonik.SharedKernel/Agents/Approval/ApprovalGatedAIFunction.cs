@@ -56,9 +56,15 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
         AIFunctionArguments arguments,
         CancellationToken cancellationToken)
     {
+        var gateContext = new ToolGateContext(Name, _options, arguments);
         if (_serviceProvider?.GetService(typeof(IEnumerable<IAgentMutationGuard>)) is IEnumerable<IAgentMutationGuard> guards)
         {
-            foreach (var guard in guards) await guard.ValidateAsync(cancellationToken).ConfigureAwait(false);
+            foreach (var guard in guards)
+            {
+                await guard.ValidateAsync(cancellationToken).ConfigureAwait(false);
+                gateContext = await guard.PrepareAsync(gateContext, cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("The mutation guard did not prepare an execution context.");
+            }
         }
         var approvals = ResolveApprovalService();
 
@@ -72,7 +78,7 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
                 try
                 {
                     await approvals
-                        .GateAsync(new ToolGateContext(Name, _options, arguments), cancellationToken)
+                        .GateAsync(gateContext, cancellationToken)
                         .ConfigureAwait(false);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -96,7 +102,7 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
             if (approvals is not null)
             {
                 var outcome = await approvals
-                    .GateAsync(new ToolGateContext(Name, _options, arguments), cancellationToken)
+                    .GateAsync(gateContext, cancellationToken)
                     .ConfigureAwait(false);
 
                 if (outcome.Decision == ToolGateDecision.ApprovedInline)
@@ -117,7 +123,7 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
                     _auditSink.Record(new ToolApprovalAuditEntry(
                         Name, _options.Tier, Executed: false, Outcome: "pending-approval"));
 
-                    var pendingResult = ToolApprovalRequiredResult.For(Name, _options, requestId);
+                    var pendingResult = ToolApprovalRequiredResult.For(Name, _options, requestId) with { Preview = gateContext.Preview };
                     // Record for the stream pipeline so the approval card is emitted even when this
                     // tool ran nested in a sub-agent and its result never reaches the top-level stream.
                     ResolveStreamNotifier()?.Record(pendingResult);
@@ -137,7 +143,7 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
             if (approvals is not null)
             {
                 var outcome = await approvals
-                    .GateAsync(new ToolGateContext(Name, _options, arguments), cancellationToken)
+                    .GateAsync(gateContext, cancellationToken)
                     .ConfigureAwait(false);
 
                 if (outcome.Decision == ToolGateDecision.Queued
@@ -150,7 +156,8 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
                     // Carry BOTH ids: the proposal (what executes) and the correlated request (what the
                     // user's in-session decision must route to via /ai/tool-approvals/{id}/decide, so the
                     // request is resolved in lock-step with the proposal — not left Pending).
-                    var queuedResult = ToolApprovalQueuedResult.For(Name, _options, proposalId, approvalRequestId, outcome.Summary);
+                    var queuedResult = ToolApprovalQueuedResult.For(Name, _options, proposalId, approvalRequestId, outcome.Summary)
+                        with { Preview = gateContext.Preview };
                     // Record for the stream pipeline so the queued-money card is emitted even when this
                     // tool ran nested in a sub-agent and its result never reaches the top-level stream.
                     ResolveStreamNotifier()?.Record(queuedResult);

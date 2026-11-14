@@ -40,6 +40,14 @@ internal class IdentitySeedService
 
         var permissions = new[]
         {
+            new Permission { Key = "Workflow.Read", Description = "View and simulate tenant workflows" },
+            new Permission { Key = "Workflow.Write", Description = "Create and edit workflow drafts" },
+            new Permission { Key = "Workflow.Publish", Description = "Request and review exact workflow publication and retirement" },
+            new Permission { Key = "Workflow.Run", Description = "Start published tenant workflows" },
+            new Permission { Key = "Integration.Read", Description = "View authorized connector catalog, accounts and connection requests" },
+            new Permission { Key = "Integration.Use", Description = "Use explicitly granted connector actions" },
+            new Permission { Key = "Integration.Request", Description = "Request and cancel own connector access dependencies" },
+            new Permission { Key = "Integration.Manage", Description = "Manage tenant integration policy, organizational accounts and assigned access requests" },
             // Invoice permissions
             new Permission { Key = "Invoice.Create", Description = "Create new invoices" },
             new Permission { Key = "Invoice.Read", Description = "View invoices" },

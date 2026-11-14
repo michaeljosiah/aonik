@@ -23,6 +23,9 @@ public enum ToolApprovalRequestStatus
 
     /// <summary>The request passed its <see cref="ToolApprovalRequest.ExpiresAt"/> before a decision. Terminal.</summary>
     Expired = 4,
+
+    /// <summary>The owning workflow was cancelled before dispatch. This is not a human decision.</summary>
+    Cancelled = 5,
 }
 
 /// <summary>
@@ -45,6 +48,7 @@ public enum ToolApprovalRequestStatus
 public class ToolApprovalRequest : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
+    public Guid? WorkflowStepRunId { get; set; }
 
     /// <summary>
     /// The user whose session triggered the gate. For consumer flows the deciding user MUST equal
@@ -73,6 +77,7 @@ public class ToolApprovalRequest : AuditableEntity, ITenantScoped
     /// details, never secrets — redaction of sensitive keys is layered on later.
     /// </summary>
     public string ArgumentsRedactedJson { get; set; } = string.Empty;
+    public string? PreviewJson { get; set; }
 
     /// <summary>
     /// Stable hash of the canonical arguments. A decision is bound to this hash: the gate only

@@ -70,6 +70,7 @@ using Aonik.Infrastructure.Time;
 using Aonik.Infrastructure.Features;
 using Aonik.SharedKernel.Caching;
 using Microsoft.FeatureManagement;
+using Aonik.Infrastructure.Integrations;
 using ZiggyCreatures.Caching.Fusion;
 
 
@@ -84,6 +85,7 @@ public static class DependencyInjection
     {
         // Core abstractions
         services.AddSingleton<IClock, SystemClock>();
+        services.AddConnectorInfrastructure(configuration);
         services.AddScoped<Aonik.Publishing.Contracts.IPublishingObjectStore, Publishing.PrivatePublicationObjectStore>();
         services.AddScoped<Publishing.DockerPackageVerifier>();
         services.AddHttpClient("Publishing.Verifier", client => client.Timeout = Timeout.InfiniteTimeSpan)

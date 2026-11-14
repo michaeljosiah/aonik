@@ -93,14 +93,14 @@ public sealed class WorkflowSaveRequestValidator : Validator<WorkflowSaveRequest
     public WorkflowSaveRequestValidator()
     {
         RuleFor(x => x.Slug)
-            .RequiredText(128)
-            .Matches("^[a-z0-9][a-z0-9-]*$")
+            .RequiredText(100)
+            .Matches("^[a-z0-9][a-z0-9_-]*$")
             .WithMessage("Slug must be lowercase alphanumerics and hyphens, starting with a letter or digit.");
-        RuleFor(x => x.Name).RequiredText(256);
-        RuleFor(x => x.Description).MaximumLength(2048);
+        RuleFor(x => x.Name).RequiredText(200);
+        RuleFor(x => x.Description).MaximumLength(2000);
         RuleFor(x => x.State).RequiredText(32);
-        RuleFor(x => x.Version).RequiredText(64);
-        RuleFor(x => x.OwnerColor).MaximumLength(32);
+        RuleFor(x => x.Version).RequiredText(32);
+        RuleFor(x => x.OwnerColor).MaximumLength(16);
         RuleFor(x => x.OwnerAgentId).ValidIdWhenSupplied();
         RuleFor(x => x.Contributors)
             .NotNull().WithMessage("Contributors collection is required (may be empty).")
@@ -114,7 +114,7 @@ public sealed class WorkflowSaveRequestValidator : Validator<WorkflowSaveRequest
             .NotNull().WithMessage("Edges collection is required (may be empty).")
             .Must(e => e.Count <= 2000).WithMessage("Workflow may have at most 2000 edges.");
         RuleForEach(x => x.Edges).SetValidator(new WorkflowSaveEdgeValidator());
-        RuleFor(x => x.VersionMessage).MaximumLength(1024);
+        RuleFor(x => x.VersionMessage).MaximumLength(1000);
     }
 }
 
@@ -123,10 +123,10 @@ public sealed class WorkflowSaveNodeValidator : Validator<WorkflowSaveNode>
     public WorkflowSaveNodeValidator()
     {
         RuleFor(x => x.ClientId).RequiredText(128);
-        RuleFor(x => x.Kind).RequiredText(64);
-        RuleFor(x => x.Label).RequiredText(256);
-        RuleFor(x => x.Summary).MaximumLength(2048);
-        RuleFor(x => x.Notes).MaximumLength(8192);
+        RuleFor(x => x.Kind).RequiredText(32);
+        RuleFor(x => x.Label).RequiredText(200);
+        RuleFor(x => x.Summary).MaximumLength(500);
+        RuleFor(x => x.Notes).MaximumLength(2000);
         RuleFor(x => x.X).InclusiveBetween(-100_000, 100_000);
         RuleFor(x => x.Y).InclusiveBetween(-100_000, 100_000);
         RuleFor(x => x.ParamsJson).MaximumLength(64_000);
@@ -140,7 +140,8 @@ public sealed class WorkflowSaveEdgeValidator : Validator<WorkflowSaveEdge>
         RuleFor(x => x.FromClientId).RequiredText(128);
         RuleFor(x => x.ToClientId).RequiredText(128);
         RuleFor(x => x.FromIndex).GreaterThanOrEqualTo(0);
-        RuleFor(x => x.Label).MaximumLength(256);
+        RuleFor(x => x.Label).MaximumLength(64);
+        RuleFor(x => x.RouteKey).MaximumLength(128);
     }
 }
 

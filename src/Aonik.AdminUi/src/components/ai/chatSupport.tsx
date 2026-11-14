@@ -1,3 +1,4 @@
+import { approvalChanges, type ToolApprovalPreview } from '@/lib/toolApprovalPreview';
 /* eslint-disable react-refresh/only-export-components */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -21,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
 import type { PlaygroundFrontendToolRegistration } from '@/lib/playground-client';
 import {
@@ -567,6 +569,7 @@ export interface ServerApprovalState {
   /** Risk-tier label as emitted by the server ("Medium" / "High"). */
   tier: string;
   actionKind: string;
+  preview?: ToolApprovalPreview;
   status: ServerApprovalStatus;
   message?: string;
 }
@@ -652,7 +655,7 @@ export function ServerApprovalCard({
       <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b border-border">
         {config.icon}
         <span className="font-semibold text-sm text-foreground">
-          {approval.kind === 'high' ? 'Approval required — money movement' : 'Approval required'}
+          Approval required
         </span>
         <Badge variant={config.badge} className="ml-auto">
           {config.label}
@@ -661,12 +664,29 @@ export function ServerApprovalCard({
 
       {/* Body */}
       <div className="px-4 py-3">
-        <div className="font-medium text-sm text-foreground">{approval.actionKind}</div>
+        <div className="font-medium text-sm text-foreground">{approval.preview?.title ?? approval.actionKind}</div>
         <div className="mt-1 text-xs text-muted-foreground leading-relaxed">
           {approval.kind === 'high'
-            ? 'This action moves money and runs only after you approve it. It is queued as a durable proposal.'
+            ? 'This action is queued as a durable proposal and runs only after an authorized person approves it.'
             : 'This action needs your explicit approval before it runs.'}
         </div>
+        {approval.preview && (
+          <details className="mt-3 text-xs">
+            <summary className="cursor-pointer font-medium text-foreground">Review exact changes</summary>
+            <div className="mt-2 max-h-96 overflow-auto rounded border border-border">
+              <Table>
+                <TableHeader><TableRow><TableHead>Field</TableHead><TableHead>Before</TableHead><TableHead>After</TableHead></TableRow></TableHeader>
+                <TableBody>{approvalChanges(approval.preview.before, approval.preview.after).map(change => (
+                  <TableRow key={change.path} className="align-top">
+                    <TableCell className="font-mono">{change.path}</TableCell>
+                    <TableCell><pre className="whitespace-pre-wrap break-words">{change.before}</pre></TableCell>
+                    <TableCell><pre className="whitespace-pre-wrap break-words">{change.after}</pre></TableCell>
+                  </TableRow>
+                ))}</TableBody>
+              </Table>
+            </div>
+          </details>
+        )}
         {approval.status === 'error' && approval.message && (
           <div className="mt-2 text-xs text-destructive">{approval.message}</div>
         )}

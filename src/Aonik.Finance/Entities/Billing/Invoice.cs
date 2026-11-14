@@ -23,6 +23,9 @@ public class Invoice : AuditableEntity, ITenantScoped
     public decimal Total { get; set; }
     public string Status { get; set; } = string.Empty;
     public string ProvenanceJson { get; set; } = string.Empty;
+    public Guid? IssueOperationId { get; set; }
+    public Guid? IssueApprovalRequestId { get; set; }
+    public Guid? IssueApprovedByUserId { get; set; }
 
     public List<InvoiceLine> Lines { get; set; } = new();
 }

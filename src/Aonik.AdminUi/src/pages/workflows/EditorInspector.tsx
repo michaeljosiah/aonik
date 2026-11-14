@@ -8,8 +8,6 @@
 import type { ReactNode } from 'react';
 import {
   AlertTriangle,
-  Copy,
-  Package,
   Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,6 +23,8 @@ import type {
   WorkflowNodeParams,
 } from './workflowTypes';
 import type { Selection, ValidationError } from './WorkflowCanvas';
+import { DecisionTablePanel } from './DecisionTablePanel';
+import { WorkflowToolPanel } from './WorkflowToolPanel';
 
 // ─── Field primitives ───────────────────────────────────────────────
 
@@ -158,13 +158,14 @@ function InspectorShell({ title, eyebrow, kindTint, children }: InspectorShellPr
 // ─── Node inspector ─────────────────────────────────────────────────
 
 interface NodeInspectorProps {
+  workflowId: string;
   node: WorkflowNode;
   errors: ValidationError[];
   onUpdate: (patch: Partial<WorkflowNode> & { params?: Partial<WorkflowNodeParams> }) => void;
   onDelete: () => void;
 }
 
-function NodeInspector({ node, errors, onUpdate, onDelete }: NodeInspectorProps) {
+function NodeInspector({ workflowId, node, errors, onUpdate, onDelete }: NodeInspectorProps) {
   const meta = NODE_KIND[node.kind];
 
   const updateParam = <K extends keyof WorkflowNodeParams>(
@@ -216,35 +217,7 @@ function NodeInspector({ node, errors, onUpdate, onDelete }: NodeInspectorProps)
         </>
       )}
       {node.kind === 'tool' && (
-        <>
-          <SelectField
-            label="Tool"
-            value={node.params.tool}
-            onChange={(v) => updateParam('tool', v)}
-            options={[
-              'search_invoices',
-              'list_bank_transactions',
-              'match_invoice_to_txn',
-              'apply_match',
-              'draft_journal_entry',
-              'send_email',
-              'fetch_fx_fix',
-              'draft_forward_contract',
-              'screen_counterparty',
-              'lock_period',
-              'aggregate_spend',
-              'lookup_customer',
-            ]}
-          />
-          <TextArea
-            label="Parameters"
-            mono
-            hint="JSON"
-            value={node.params.params}
-            onChange={(v) => updateParam('params', v)}
-            rows={4}
-          />
-        </>
+        <WorkflowToolPanel workflowId={workflowId} parameters={node.params} onChange={params => onUpdate({ params })} />
       )}
       {node.kind === 'agent' && (
         <>
@@ -272,27 +245,9 @@ function NodeInspector({ node, errors, onUpdate, onDelete }: NodeInspectorProps)
         </>
       )}
       {node.kind === 'decision' && (
-        <>
-          <TextField
-            label="Condition"
-            mono
-            value={node.params.expr}
-            onChange={(v) => updateParam('expr', v)}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <TextField
-              label="Yes label"
-              value={node.params.yesLabel}
-              onChange={(v) => updateParam('yesLabel', v)}
-            />
-            <TextField
-              label="No label"
-              value={node.params.noLabel}
-              onChange={(v) => updateParam('noLabel', v)}
-            />
-          </div>
-        </>
+        <DecisionTablePanel parameters={node.params} onChange={params => onUpdate({ params })} />
       )}
+      {node.kind === 'end' && <SelectField label="Outcome" value={node.params.outcome ?? 'Completed'} onChange={value => updateParam('outcome', value)} options={['Completed', 'NeedsManualReview', 'Blocked']} />}
       {node.kind === 'human' && (
         <>
           <SelectField
@@ -454,14 +409,6 @@ function MultiInspector({ count, onDeleteAll }: MultiInspectorProps) {
       <div className="text-[12px] text-muted-foreground" style={{ lineHeight: 1.5 }}>
         Drag any node to move them together. Or run a bulk action below.
       </div>
-      <Button variant="outline" size="sm" className="h-7">
-        <Copy size={11} />
-        Duplicate
-      </Button>
-      <Button variant="outline" size="sm" className="h-7">
-        <Package size={11} />
-        Group as sub-flow
-      </Button>
       <Button
         variant="outline"
         size="sm"
@@ -478,13 +425,14 @@ function MultiInspector({ count, onDeleteAll }: MultiInspectorProps) {
 // ─── Workflow inspector (no selection) ──────────────────────────────
 
 interface WorkflowInspectorProps {
+  onUpdate: (patch: Partial<WorkflowGraph>) => void;
   workflow: WorkflowGraph;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   validationErrors: ValidationError[];
 }
 
-function WorkflowInspector({ workflow, nodes, edges, validationErrors }: WorkflowInspectorProps) {
+function WorkflowInspector({ workflow, nodes, edges, validationErrors, onUpdate }: WorkflowInspectorProps) {
   const counts = nodes.reduce<Record<string, number>>((acc, n) => {
     acc[n.kind] = (acc[n.kind] || 0) + 1;
     return acc;
@@ -492,8 +440,8 @@ function WorkflowInspector({ workflow, nodes, edges, validationErrors }: Workflo
 
   return (
     <InspectorShell title={workflow.name} eyebrow="Workflow">
-      <TextField label="Name" value={workflow.name} onChange={() => {}} />
-      <TextArea label="Description" value={workflow.desc} onChange={() => {}} rows={3} />
+      <TextField label="Name" value={workflow.name} onChange={name => onUpdate({ name })} />
+      <TextArea label="Description" value={workflow.desc} onChange={desc => onUpdate({ desc })} rows={3} />
 
       <div>
         <FieldLabel>Composition</FieldLabel>
@@ -564,6 +512,7 @@ function EmptyInspector() {
 // ─── Top-level switch ───────────────────────────────────────────────
 
 export interface EditorInspectorProps {
+  onUpdateWorkflow: (patch: Partial<WorkflowGraph>) => void;
   selection: Selection;
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
@@ -583,6 +532,7 @@ export function EditorInspector({
   onUpdateNode,
   onDeleteNode,
   onDeleteEdge,
+  onUpdateWorkflow,
 }: EditorInspectorProps) {
   if (selection.nodes.length === 1) {
     const node = nodes.find((n) => n.id === selection.nodes[0]);
@@ -590,6 +540,7 @@ export function EditorInspector({
     const errs = validationErrors.filter((v) => v.nodeId === node.id);
     return (
       <NodeInspector
+        workflowId={workflow.id}
         node={node}
         errors={errs}
         onUpdate={(p) => onUpdateNode(node.id, p)}
@@ -612,6 +563,7 @@ export function EditorInspector({
   }
   return (
     <WorkflowInspector
+      onUpdate={onUpdateWorkflow}
       workflow={workflow}
       nodes={nodes}
       edges={edges}

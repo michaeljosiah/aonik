@@ -71,6 +71,8 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasFilter("[IdempotencyKey] IS NOT NULL");
         builder.HasIndex(x => new { x.TenantId, x.Status });
         builder.HasIndex(x => new { x.TenantId, x.DueDate });
+        builder.HasIndex(x => new { x.TenantId, x.IssueOperationId })
+            .IsUnique().HasFilter("[IssueOperationId] IS NOT NULL");
 
         // #223: covers the list endpoint's sort key — BillingService.ListInvoicesAsync
         // does OrderByDescending(IssueDate).ThenBy(Id) under the tenant query filter, so

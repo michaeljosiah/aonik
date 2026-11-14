@@ -85,10 +85,10 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.1" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.8" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.13" />
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.1.0" />
-    <!-- 10.0.8: required floor of Microsoft.Extensions.AI 10.6.0's transitive abstractions graph. -->
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.8" />
+    <!-- Spec 099: align with MAF 1.28 / Extensions.AI 10.11 and their provider abstraction floors. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.13" />
     <PackageReference Include="Mjml.Net" Version="4.11.0" />
     <!-- Match ServiceDefaults; the SDK owns the scoped HTTP instrumentation suppression API. -->
     <PackageReference Include="OpenTelemetry" Version="1.15.3" />

@@ -132,6 +132,11 @@ internal sealed class DecideToolApprovalEndpoint
         {
             await Send.NotFoundAsync(ct);
         }
+        catch (Services.Workflows.WorkflowConflictException ex)
+        {
+            AddError(ex.Message, errorCode: "workflow_conflict");
+            await Send.ErrorsAsync(StatusCodes.Status409Conflict, ct);
+        }
         catch (NoProposalHandlerRegisteredException ex)
         {
             AddError(ex.Message, errorCode: "no_proposal_handler_registered");

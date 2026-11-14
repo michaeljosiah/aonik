@@ -1,6 +1,6 @@
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
-using Aonik.Agents.Workflows.Graph;
+using Aonik.Agents.Services.Workflows;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,14 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Endpoints;
 
-/// <summary>
-/// Executes a named workflow (invoice processing, onboarding, reconciliation).
-/// Workflows are multi-agent pipelines that coordinate domain-specific agents
-/// through sequential or concurrent execution patterns.
-///
-/// Workflow resolution uses keyed services instead of a switch statement,
-/// making it extensible without modifying this endpoint.
-/// </summary>
+/// <summary>Runs explicitly namespaced legacy factories; saved graphs use the published-version run path.</summary>
 internal sealed class RunWorkflowEndpoint : Endpoint<WorkflowRequest, WorkflowResponse>
 {
     private readonly IServiceProvider _serviceProvider;
@@ -30,11 +23,10 @@ internal sealed class RunWorkflowEndpoint : Endpoint<WorkflowRequest, WorkflowRe
     public override void Configure()
     {
         Post("/ai/workflows/run");
-        Policies("AdminWritePolicy");
         Summary(s =>
         {
-            s.Summary = "Execute a named workflow";
-            s.Description = "Runs a multi-agent workflow pipeline by name. Workflows coordinate domain-specific agents through sequential or concurrent execution patterns.";
+            s.Summary = "Execute an explicitly named legacy factory";
+            s.Description = "Legacy factory names require the legacy: prefix. Saved workflow drafts cannot execute through this endpoint.";
             s.Response(200, "Success");
             s.Response(400, "Invalid request");
             s.Response(401, "Not authenticated");
@@ -45,54 +37,38 @@ internal sealed class RunWorkflowEndpoint : Endpoint<WorkflowRequest, WorkflowRe
 
     public override async Task HandleAsync(WorkflowRequest req, CancellationToken ct)
     {
-        _logger.LogInformation("Executing workflow: {WorkflowName}", req.WorkflowName);
-
+        const string prefix = "legacy:";
+        if (!req.WorkflowName.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            await Send.ResultAsync(Results.Conflict(new
+            {
+                code = "workflow.publication_required",
+                error = "Saved workflows require explicit publication and the versioned run endpoint. Legacy factory names require the legacy: prefix.",
+            }));
+            return;
+        }
+        await _serviceProvider.GetRequiredService<WorkflowAuthorization>().RequireAsync("Workflow.Run", ct);
+        IWorkflowFactory? factory = _serviceProvider.GetKeyedService<IWorkflowFactory>(req.WorkflowName[prefix.Length..].ToLowerInvariant());
+        if (factory is null)
+        {
+            await Send.NotFoundAsync(ct);
+            return;
+        }
         try
         {
-            // Resolve workflow via keyed services (R10).
-            // Each legacy workflow factory is registered as a keyed singleton:
-            //   services.AddKeyedSingleton<IWorkflowFactory, XxxWorkflowFactory>("workflow-name");
-            //
-            // If no legacy keyed factory matches, fall through to the
-            // graph workflow runner which loads the workflow's saved
-            // nodes + edges and runs them as a MAF Workflow directly
-            // (bypassing AsAIAgent because our string-typed executors
-            // don't speak the MAF chat protocol).
-            var factory = _serviceProvider.GetKeyedService<IWorkflowFactory>(
-                req.WorkflowName.ToLowerInvariant());
-
-            string output;
-            if (factory is not null)
-            {
-                var workflowAgent = factory.Build(_serviceProvider);
-                var response = await workflowAgent.RunAsync(req.Input, cancellationToken: ct);
-                output = response.Text ?? string.Empty;
-            }
-            else
-            {
-                var runner = _serviceProvider.GetRequiredService<IGraphWorkflowRunner>();
-                var result = await runner.RunAsync(req.WorkflowName, req.Input, ct);
-                output = result.Output;
-            }
-
+            var workflowAgent = factory.Build(_serviceProvider);
+            var response = await workflowAgent.RunAsync(req.Input, cancellationToken: ct);
             await Send.OkAsync(new WorkflowResponse
             {
                 WorkflowName = req.WorkflowName,
-                Output = output,
-                Success = true
+                Output = response.Text ?? string.Empty,
+                Success = true,
             }, ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogError(ex, "Workflow '{WorkflowName}' failed", req.WorkflowName);
-
-            await Send.OkAsync(new WorkflowResponse
-            {
-                WorkflowName = req.WorkflowName,
-                Output = string.Empty,
-                Success = false,
-                Error = ex.Message
-            }, ct);
+            _logger.LogError(ex, "Legacy workflow {WorkflowName} failed", req.WorkflowName);
+            await Send.ResultAsync(Results.Problem("Legacy workflow execution failed.", statusCode: 422));
         }
     }
 }

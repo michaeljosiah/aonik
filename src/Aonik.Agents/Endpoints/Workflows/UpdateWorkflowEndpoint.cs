@@ -1,5 +1,6 @@
 using Aonik.Agents.Contracts.Models.Workflows;
 using Aonik.Agents.Contracts.Services;
+using Aonik.Agents.Services.Workflows;
 using FastEndpoints;
 using Microsoft.AspNetCore.Http;
 
@@ -18,11 +19,10 @@ internal sealed class UpdateWorkflowEndpoint
     public override void Configure()
     {
         Put("/ai/workflows/{Slug}");
-        Policies("AdminWritePolicy");
         Summary(s =>
         {
             s.Summary = "Update a workflow's graph";
-            s.Description = "Replaces the workflow's nodes and edges with the request payload, snapshotting the prior graph as a WorkflowVersion row. Auto-bumps the patch version tag.";
+            s.Description = "Saves a draft with stable logical keys and an immutable snapshot. Requires the current expectedVersion token.";
             s.Response(200, "Updated");
             s.Response(400, "Invalid graph");
             s.Response(404, "Workflow not found");
@@ -43,12 +43,21 @@ internal sealed class UpdateWorkflowEndpoint
 
         try
         {
-            var graph = await _service.SaveAsync(requestToUse, ct);
+            var graph = await _service.UpdateAsync(requestToUse, ct);
+            if (graph is null)
+            {
+                await Send.NotFoundAsync(ct);
+                return;
+            }
             await Send.OkAsync(graph, ct);
         }
         catch (ArgumentException ex)
         {
             await Send.ResultAsync(Microsoft.AspNetCore.Http.Results.BadRequest(new { error = ex.Message }));
+        }
+        catch (WorkflowConflictException ex)
+        {
+            await Send.ResultAsync(Results.Conflict(new { error = ex.Message }));
         }
     }
 }

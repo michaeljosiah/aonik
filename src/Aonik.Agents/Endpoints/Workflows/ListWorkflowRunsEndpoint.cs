@@ -20,7 +20,6 @@ internal sealed class ListWorkflowRunsEndpoint
     public override void Configure()
     {
         Get("/ai/workflows/{WorkflowId:guid}/runs");
-        Policies("AdminUserPolicy");
         Summary(s =>
         {
             s.Summary = "List recent runs for a workflow";

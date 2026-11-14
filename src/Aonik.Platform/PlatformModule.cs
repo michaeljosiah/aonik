@@ -133,6 +133,25 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ICustomerAddressService, CustomerAddressService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
         services.AddScoped<IPermissionService, PermissionService>();
+        services.AddSingleton<SharedKernel.Abstractions.Connectors.IConnectorDescriptor, Services.Integrations.GmailConnectorDescriptor>();
+        services.AddScoped<Services.Integrations.ConnectorCatalog>();
+        services.AddScoped<Services.Integrations.ConnectorPolicyService>();
+        services.AddScoped<Services.Integrations.ConnectorAuthorization>();
+        services.AddScoped<Services.Integrations.ConnectorCredentialProtector>();
+        services.AddScoped<Services.Integrations.ConnectorCredentialService>();
+        services.AddScoped<Services.Integrations.ConnectorGrantService>();
+        services.AddScoped<Services.Integrations.AutomationIdentityService>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IAutomationIdentityAuthorization, Services.Integrations.AutomationIdentityAuthorization>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowUsageReader, Services.Integrations.ConnectorWorkflowUsageReader>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorPreferenceValidator, Services.Integrations.ConnectorPreferenceValidator>();
+        services.AddScoped<Services.Integrations.ConnectorConnectionManagementService>();
+        services.AddScoped<Services.Integrations.ConnectorService>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorService>(sp => sp.GetRequiredService<Services.Integrations.ConnectorService>());
+        services.AddScoped<Services.Integrations.ConnectorConnectionRequestService>();
+        services.AddSingleton<Services.Integrations.ConnectorRequestRateLimiter>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorConnectionRequests>(sp => sp.GetRequiredService<Services.Integrations.ConnectorConnectionRequestService>());
+        services.AddScoped<Services.Integrations.ConnectorConsentService>();
+        services.AddKeyedScoped<SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Integrations.ConnectorRequestExpiryHandler>("connector_request_expire");
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IUserNotificationWriter, UserNotificationWriter>();
@@ -169,6 +188,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserPartyResolver, Services.Party.UserPartyResolver>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.ITenantRoleReader, Services.Identity.TenantRoleReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IChatParticipantDirectory, Services.Identity.ChatParticipantDirectory>();
 
         // Compliance reacts to document erasure (Spec 035 §12/§15) by marking dependent usages

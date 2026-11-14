@@ -8,6 +8,7 @@ import { AgentErrorsPanel } from '@/workspace/apps/AgentErrorsPanel';
 import { ApprovalsPage } from '@/pages/approvals';
 import { AiRunQueuePage, AiPoliciesPage, AiUsagePage } from '@/pages/ai-ops';
 import { WorkflowsListPage, WorkflowEditorPage } from '@/pages/workflows';
+import { WorkflowRunPage } from '@/pages/workflows/WorkflowRunPage';
 
 // ── Navigation ─────────────────────────────────────────────────────────
 //
@@ -143,6 +144,7 @@ export const agentCommandCenterModule: AdminModule = {
     { screen: { id: "ai.usage", label: "Usage", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/usage', element: AiUsagePage },
     { screen: { id: "ai.workflows", label: "Workflows", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/workflows', element: WorkflowsListPage },
     { screen: { id: "ai.workflow-detail", label: "Workflow", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "sparkles" }, path: '/ai/workflows/:workflowId', element: WorkflowEditorPage },
+    { screen: { id: 'ai.workflow-run', label: 'Workflow run', permissions: { allOf: ['Workflow.Read', 'Invoice.Read'] }, policy: 'AdminUserPolicy', icon: 'sparkles' }, path: '/ai/workflow-runs/:runId', element: WorkflowRunPage },
   ],
   panels,
   panelComponents,
@@ -154,6 +156,7 @@ export const agentCommandCenterModule: AdminModule = {
     { pathPrefix: '/ai/policies', trail: [{ label: 'AI', href: '/ai' }, 'Policies'] },
     { pathPrefix: '/ai/usage', trail: [{ label: 'AI', href: '/ai' }, 'Usage'] },
     { pathPrefix: '/ai/workflows/', trail: [{ label: 'AI', href: '/ai' }, { label: 'Workflows', href: '/ai/workflows' }, 'Editor'] },
+    { pathPrefix: '/ai/workflow-runs/', trail: [{ label: 'AI', href: '/ai' }, { label: 'Workflows', href: '/ai/workflows' }, 'Run'] },
     { pathPrefix: '/ai/workflows', trail: [{ label: 'AI', href: '/ai' }, 'Workflows'] },
   ],
 };

@@ -33,6 +33,7 @@ using Aonik.Platform.Entities.ReferenceData;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.SignupLists;
 using Aonik.Platform.Entities.ContactEnquiries;
+using Aonik.Platform.Entities.Integrations;
 using Aonik.Ai.Entities;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
@@ -104,6 +105,10 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<MarketingPreference> MarketingPreferences { get; set; } = null!;
     public virtual DbSet<SignupSubscription> SignupSubscriptions { get; set; } = null!;
     public virtual DbSet<ContactEnquiry> ContactEnquiries { get; set; } = null!;
+    public virtual DbSet<ConnectorConnection> ConnectorConnections { get; set; } = null!;
+    public virtual DbSet<AutomationIdentity> AutomationIdentities { get; set; } = null!;
+    public virtual DbSet<ConnectorConnectionGrant> ConnectorConnectionGrants { get; set; } = null!;
+    public virtual DbSet<ConnectorConnectionRequest> ConnectorConnectionRequests { get; set; } = null!;
     public virtual DbSet<ContactEnquiryAttachment> ContactEnquiryAttachments { get; set; } = null!;
 
     // CMS
@@ -300,6 +305,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<WorkflowVersion> WorkflowVersions { get; set; } = null!;
     public virtual DbSet<WorkflowComment> WorkflowComments { get; set; } = null!;
     public virtual DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
+    public virtual DbSet<WorkflowStepRun> WorkflowStepRuns { get; set; } = null!;
+    public virtual DbSet<WorkflowCheckpoint> WorkflowCheckpoints { get; set; } = null!;
 
     // Voice — speech provider library + recipe library + active settings (spec 024)
     public virtual DbSet<SpeechProviderEntity> SpeechProviders { get; set; } = null!;
@@ -777,6 +784,12 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<WorkflowVersion>(modelBuilder, "WorkflowVersions");
         MapAgentsTable<WorkflowComment>(modelBuilder, "WorkflowComments");
         MapAgentsTable<WorkflowRun>(modelBuilder, "WorkflowRuns");
+        MapAgentsTable<WorkflowStepRun>(modelBuilder, "WorkflowStepRuns");
+        MapAgentsTable<WorkflowCheckpoint>(modelBuilder, "WorkflowCheckpoints");
+        MapPlatformTable<ConnectorConnection>(modelBuilder, "ConnectorConnections");
+        MapPlatformTable<AutomationIdentity>(modelBuilder, "AutomationIdentities");
+        MapPlatformTable<ConnectorConnectionGrant>(modelBuilder, "ConnectorConnectionGrants");
+        MapPlatformTable<ConnectorConnectionRequest>(modelBuilder, "ConnectorConnectionRequests");
     }
 
     private static void MapPlatformTable<TEntity>(ModelBuilder modelBuilder, string tableName)

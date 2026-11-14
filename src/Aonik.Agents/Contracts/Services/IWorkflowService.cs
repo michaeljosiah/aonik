@@ -3,10 +3,7 @@ using Aonik.Agents.Contracts.Models.Workflows;
 namespace Aonik.Agents.Contracts.Services;
 
 /// <summary>
-/// Workflow registry + run history access. Read paths back the editor and
-/// the registry list page; mutating paths back the editor's save / delete
-/// actions and replace the whole graph (full delete-then-insert of nodes
-/// and edges) on each save.
+/// Authorized tenant workflow drafts, immutable version history, validation and fixture simulation.
 /// </summary>
 public interface IWorkflowService
 {
@@ -17,6 +14,8 @@ public interface IWorkflowService
     /// rail (compact node list).
     /// </summary>
     Task<IReadOnlyList<WorkflowSummaryResponse>> ListAsync(
+        int skip = 0,
+        int take = 50,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -46,16 +45,22 @@ public interface IWorkflowService
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Persists the editor graph. If a workflow with the request's slug
-    /// exists, replaces its nodes and edges, snapshots the prior graph
-    /// into a <c>WorkflowVersion</c> row, and bumps the version tag.
-    /// Otherwise creates a new workflow row plus its initial version
-    /// snapshot. Returns the freshly-loaded graph (with canonical Guids)
-    /// so the editor can rehydrate.
+    /// Creates an unpublished draft and its initial immutable snapshot. A reserved slug conflicts.
     /// </summary>
-    Task<WorkflowGraphResponse> SaveAsync(
+    Task<WorkflowGraphResponse> CreateAsync(
         WorkflowSaveRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<WorkflowGraphResponse?> UpdateAsync(
+        WorkflowSaveRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task<WorkflowValidation?> ValidateAsync(string slug, CancellationToken cancellationToken = default);
+
+    Task<WorkflowSimulation?> SimulateAsync(
+        string slug, WorkflowSimulationRequest request, CancellationToken cancellationToken = default);
+
+    Task<WorkflowCapabilities> GetCapabilitiesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Soft-deletes the workflow (and its nodes/edges/comments). Runs
@@ -63,5 +68,6 @@ public interface IWorkflowService
     /// </summary>
     Task<bool> DeleteAsync(
         string slug,
+        string? expectedVersion,
         CancellationToken cancellationToken = default);
 }

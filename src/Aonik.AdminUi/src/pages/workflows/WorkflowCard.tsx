@@ -25,6 +25,7 @@ const STATE_TONES: Record<WorkflowSummary['state'], StateTone> = {
   Active: { c: 'var(--success)', label: 'active', pulse: true },
   Paused: { c: 'var(--warning)', label: 'paused', pulse: false },
   Draft: { c: 'var(--muted-foreground)', label: 'draft', pulse: false },
+  Retired: { c: 'var(--muted-foreground)', label: 'retired', pulse: false },
 };
 
 function successColor(value: number): string {

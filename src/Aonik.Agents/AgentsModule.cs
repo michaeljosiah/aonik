@@ -62,6 +62,44 @@ public sealed class AgentsModule : IModule
 
         // Workflow registry — list / get / runs / versions.
         services.AddScoped<IWorkflowService, Services.Workflows.WorkflowService>();
+        services.AddScoped<Services.Workflows.WorkflowAuthorization>();
+        services.AddScoped<Services.Workflows.WorkflowDraftPreparation>();
+        services.AddScoped<Services.Workflows.WorkflowGovernancePreparation>();
+        services.AddScoped<Services.Workflows.WorkflowApprovalAuthority>();
+        services.AddScoped<Services.Workflows.WorkflowExecutionAuthorization>();
+        services.AddScoped<Services.Workflows.WorkflowInvocationContext>();
+        services.AddScoped<Services.Workflows.WorkflowReviewerAuthorization>();
+        services.AddScoped<Services.Workflows.WorkflowContinuationWriter>();
+        services.AddScoped<Services.Workflows.WorkflowActionRegistry>();
+        services.AddScoped<Services.Workflows.WorkflowPublicationValidator>();
+        services.AddScoped<WorkflowStepExecutionService>();
+        services.AddScoped<Services.Workflows.WorkflowRunService>();
+        services.AddScoped<IWorkflowRunService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowRunService>());
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowAutomationAdmission>(provider => provider.GetRequiredService<Services.Workflows.WorkflowRunService>());
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowAutomationDefinitionReader, Services.Workflows.WorkflowAutomationDefinitionReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Workflows.IWorkflowApprovalReader, Services.Workflows.WorkflowApprovalReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Connectors.IWorkflowConnectorContextReader, Services.Workflows.WorkflowConnectorContextReader>();
+        foreach (string action in new[] { SharedKernel.Abstractions.Connectors.GmailActionKeys.Search,
+            SharedKernel.Abstractions.Connectors.GmailActionKeys.GetMessage, SharedKernel.Abstractions.Connectors.GmailActionKeys.GetAttachment })
+            services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler>(sp =>
+            {
+                var descriptor = sp.GetServices<SharedKernel.Abstractions.Connectors.IConnectorDescriptor>()
+                    .SelectMany(item => item.Descriptor.Actions).Single(item => item.Key == action && item.Version == 1);
+                return new Services.Workflows.ConnectorWorkflowAction(descriptor,
+                    sp.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorService>(),
+                    sp.GetServices<SharedKernel.Abstractions.Connectors.IConnectorActionProvider>(),
+                    sp.GetRequiredService<Services.Workflows.WorkflowInvocationContext>());
+            });
+        services.AddScoped<Services.Workflows.WorkflowGovernanceService>();
+        services.AddScoped<IWorkflowGovernanceService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>());
+        services.AddScoped<IAgentMutationGuard, Services.Workflows.WorkflowMutationGuard>();
+        services.AddSingleton<IToolApprovalManifest, WorkflowToolApprovalManifest>();
+        services.AddSingleton<IToolApprovalManifest, ConnectorToolApprovalManifest>();
+        services.AddScoped<IAgentMutationGuard, Services.Workflows.ConnectorMutationGuard>();
+        services.AddKeyedScoped<IProposalHandler>(WorkflowToolApprovalManifest.PublishType, (provider, key) =>
+            new Services.Workflows.WorkflowGovernanceProposalHandler((string)key!, provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>()));
+        services.AddKeyedScoped<IProposalHandler>(WorkflowToolApprovalManifest.RetireType, (provider, key) =>
+            new Services.Workflows.WorkflowGovernanceProposalHandler((string)key!, provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>()));
 
         // Demo seed contributor — owns the Workflows phase (seven domain
         // agents + seven workflow registry rows with full graphs).
@@ -254,12 +292,10 @@ public sealed class AgentsModule : IModule
         services.AddKeyedSingleton<IWorkflowFactory, ReconciliationWorkflowFactory>(
             ReconciliationWorkflowFactory.Name);
 
-        // Generic graph-driven runner — translates the editor's saved
-        // Workflow + WorkflowNode + WorkflowEdge rows into a MAF Workflow
-        // and runs it directly via InProcessExecution. RunWorkflowEndpoint
-        // falls through to this when no keyed legacy factory matches the
-        // requested slug.
+        // One graph compiler/runner: legacy graph support plus pinned, durable MAF continuations.
+        // The legacy HTTP route never falls back to mutable editor graphs.
         services.AddScoped<IGraphWorkflowRunner, GraphWorkflowRunner>();
+        services.AddKeyedScoped<Aonik.SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Workflows.WorkflowContinuationTaskActionHandler>("workflow_continue");
 
         // NOTE: RagContextProvider registration is deferred to the composition root (Program.cs)
         // where both Infrastructure and Agents modules are registered, avoiding circular dependencies.

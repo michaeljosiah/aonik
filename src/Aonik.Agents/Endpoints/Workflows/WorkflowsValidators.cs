@@ -4,13 +4,22 @@ using FluentValidation;
 
 namespace Aonik.Agents.Endpoints.Workflows;
 
+internal sealed class ListWorkflowsRequestValidator : Validator<ListWorkflowsRequest>
+{
+    public ListWorkflowsRequestValidator()
+    {
+        RuleFor(request => request.Skip).InclusiveBetween(0, 100_000).When(request => request.Skip.HasValue);
+        RuleFor(request => request.Take).InclusiveBetween(1, 100).When(request => request.Take.HasValue);
+    }
+}
+
 internal sealed class DeleteWorkflowRequestValidator : Validator<DeleteWorkflowRequest>
 {
     public DeleteWorkflowRequestValidator()
     {
         RuleFor(x => x.Slug)
-            .RequiredText(128)
-            .Matches("^[a-z0-9][a-z0-9-]*$")
+            .RequiredText(100)
+            .Matches("^[a-z0-9][a-z0-9_-]*$")
             .WithMessage("Slug must be lowercase alphanumerics and hyphens, starting with a letter or digit.");
     }
 }
@@ -20,8 +29,8 @@ internal sealed class GetWorkflowBySlugRequestValidator : Validator<GetWorkflowB
     public GetWorkflowBySlugRequestValidator()
     {
         RuleFor(x => x.Slug)
-            .RequiredText(128)
-            .Matches("^[a-z0-9][a-z0-9-]*$")
+            .RequiredText(100)
+            .Matches("^[a-z0-9][a-z0-9_-]*$")
             .WithMessage("Slug must be lowercase alphanumerics and hyphens, starting with a letter or digit.");
     }
 }

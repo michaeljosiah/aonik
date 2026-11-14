@@ -11,6 +11,8 @@
     "access.permissions": {},
     "settings": {},
     "settings.modules": {},
+    "settings.my-connections": {},
+    "settings.tenant-integrations": {},
     "settings.speech": {},
     "ai.chat": {},
     "ai.chat-agent": {},

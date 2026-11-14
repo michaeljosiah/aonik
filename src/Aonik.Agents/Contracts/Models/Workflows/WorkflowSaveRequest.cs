@@ -2,10 +2,8 @@ namespace Aonik.Agents.Contracts.Models.Workflows;
 
 /// <summary>
 /// Editor save payload. Sent on POST (new) and PUT (update). The whole
-/// graph is replaced on each save — server assigns fresh Guids for every
-/// node and edge, and resolves edge endpoints by matching node
-/// <see cref="WorkflowSaveNode.ClientId"/>s within this request. Clients
-/// should refetch via GET after save to pick up the canonical Guids.
+/// Stable node keys and existing identifiers survive edits. Updates require the
+/// opaque concurrency token returned with the graph. State and version are server-owned.
 /// </summary>
 public sealed record WorkflowSaveRequest(
     string Slug,
@@ -19,7 +17,9 @@ public sealed record WorkflowSaveRequest(
     IReadOnlyList<Guid> Contributors,
     IReadOnlyList<WorkflowSaveNode> Nodes,
     IReadOnlyList<WorkflowSaveEdge> Edges,
-    string? VersionMessage);
+    string? VersionMessage,
+    string? ExpectedVersion = null,
+    string DefinitionKind = "Workflow");
 
 public sealed record WorkflowSaveNode(
     /// <summary>Identifier the client uses to reference this node in
@@ -33,10 +33,12 @@ public sealed record WorkflowSaveNode(
     string Notes,
     int X,
     int Y,
-    string ParamsJson);
+    string ParamsJson,
+    string? Key = null);
 
 public sealed record WorkflowSaveEdge(
     string FromClientId,
     string ToClientId,
     int FromIndex,
-    string Label);
+    string Label,
+    string? RouteKey = null);

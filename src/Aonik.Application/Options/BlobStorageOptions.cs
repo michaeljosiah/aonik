@@ -47,6 +47,13 @@ public class BlobStorageOptions
         ContainerName = "contact-private"
     };
 
+    /// <summary>Private, short-lived connector evidence; served only after current connection authorization.</summary>
+    public ContentTypeOptions ConnectorContent { get; set; } = new()
+    {
+        Path = "connector-private",
+        ContainerName = "connector-private"
+    };
+
     /// <summary>
     /// Configuration for documents.
     /// </summary>
