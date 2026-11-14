@@ -73,6 +73,7 @@ public class ToolApprovalRequest : AuditableEntity, ITenantScoped
     /// details, never secrets — redaction of sensitive keys is layered on later.
     /// </summary>
     public string ArgumentsRedactedJson { get; set; } = string.Empty;
+    public string? PreviewJson { get; set; }
 
     /// <summary>
     /// Stable hash of the canonical arguments. A decision is bound to this hash: the gate only

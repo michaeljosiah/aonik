@@ -22,4 +22,5 @@ public class Proposal : AuditableEntity, ITenantScoped
     public Guid? ApprovedByUserId { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public string PayloadJson { get; set; } = string.Empty;
+    public string? ExecutionResultJson { get; set; }
 }

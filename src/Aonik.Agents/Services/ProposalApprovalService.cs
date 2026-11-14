@@ -4,6 +4,7 @@ using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Services.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Observability;
@@ -22,6 +23,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
     private readonly IAuditLogWriter? _auditLogWriter;
     private readonly ICorrelationContext? _correlationContext;
     private readonly IChatRoomApprovalAuthority? _roomApprovalAuthority;
+    private readonly WorkflowApprovalAuthority? _workflowAuthority;
 
     /// <param name="auditLogWriter">
     /// Optional: records a proposal that could not execute because its handler's module is off for
@@ -36,7 +38,8 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         IProposalRejectionDispatcher rejectionDispatcher,
         IAuditLogWriter? auditLogWriter = null,
         ICorrelationContext? correlationContext = null,
-        IChatRoomApprovalAuthority? roomApprovalAuthority = null)
+        IChatRoomApprovalAuthority? roomApprovalAuthority = null,
+        WorkflowApprovalAuthority? workflowAuthority = null)
     {
         _dbContext = dbContext;
         _currentUserProvider = currentUserProvider;
@@ -46,6 +49,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         _auditLogWriter = auditLogWriter;
         _correlationContext = correlationContext;
         _roomApprovalAuthority = roomApprovalAuthority;
+        _workflowAuthority = workflowAuthority;
     }
 
     public async Task<ProposalDetailResponse?> GetByIdAsync(Guid proposalId, CancellationToken ct = default)
@@ -53,6 +57,8 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         var row = await JoinedQuery()
             .FirstOrDefaultAsync(p => p.Proposal.Id == proposalId, ct);
 
+        if (row is not null && WorkflowApprovalAuthority.IsGovernanceType(row.Proposal.ProposalType)
+            && (_workflowAuthority is null || !await _workflowAuthority.CanReadGovernanceAsync(ct))) return null;
         return row is null ? null : Map(row);
     }
 
@@ -63,6 +69,9 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         var take = request.Take <= 0 ? 100 : Math.Min(request.Take, 500);
 
         var query = JoinedQuery().Where(r => r.Proposal.Status == ProposalStatus.Proposed);
+        if (_workflowAuthority is null || !await _workflowAuthority.CanReadGovernanceAsync(cancellationToken))
+            query = query.Where(row => row.Proposal.ProposalType != Framework.WorkflowToolApprovalManifest.PublishType
+                && row.Proposal.ProposalType != Framework.WorkflowToolApprovalManifest.RetireType);
 
         if (!string.IsNullOrWhiteSpace(request.ProposalType))
         {
@@ -110,7 +119,10 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p => p.Id == proposalId, ct)
             ?? throw new KeyNotFoundException($"Proposal {proposalId} not found.");
 
-        if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
+        bool workflowGovernance = WorkflowApprovalAuthority.IsGovernanceType(proposal.ProposalType);
+        if (workflowGovernance && (_workflowAuthority is null || !await _workflowAuthority.CanDecideProposalAsync(proposal, ct)))
+            throw new PermissionDeniedException("Workflow.Publish");
+        if (!workflowGovernance && _roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
             throw new PermissionDeniedException("ChatRoom.Approval", "Current room access does not permit deciding this proposal.");
 
         if (proposal.Status != ProposalStatus.Proposed)
@@ -196,6 +208,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         {
             // Execution confirmed: Approved → Applied (terminal success).
             proposal.Status = ProposalStatus.Applied;
+            proposal.ExecutionResultJson ??= System.Text.Json.JsonSerializer.Serialize(result);
             EnqueueDecisionResolved(proposal, "Applied"); // Spec 041 — learn from the resolved decision
             await _dbContext.SaveChangesAsync(ct);
         }
@@ -209,7 +222,10 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p => p.Id == proposalId, ct)
             ?? throw new KeyNotFoundException($"Proposal {proposalId} not found.");
 
-        if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
+        bool workflowGovernance = WorkflowApprovalAuthority.IsGovernanceType(proposal.ProposalType);
+        if (workflowGovernance && (_workflowAuthority is null || !await _workflowAuthority.CanDecideProposalAsync(proposal, ct)))
+            throw new PermissionDeniedException("Workflow.Publish");
+        if (!workflowGovernance && _roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
             throw new PermissionDeniedException("ChatRoom.Approval", "Current room access does not permit deciding this proposal.");
 
         if (proposal.Status != ProposalStatus.Proposed)

@@ -283,7 +283,7 @@ internal sealed class WorkflowService : IWorkflowService
         if (request.DefinitionKind != workflow.DefinitionKind)
             throw new ArgumentException("The definition kind cannot change after creation.");
         await ValidateExistingKeysAsync(workflow.Id, request, cancellationToken);
-        workflow.Version = await NextAvailableVersionAsync(workflow, cancellationToken);
+        workflow.Version = await NextAvailableVersionAsync(_dbContext, workflow, cancellationToken);
         ApplyDraft(workflow, request);
         await ReplaceGraphAsync(workflow, request, userId, cancellationToken);
         return (await GetGraphAsync(workflow.Slug, cancellationToken))!;
@@ -362,7 +362,7 @@ internal sealed class WorkflowService : IWorkflowService
         workflow.ContributorsJson = JsonSerializer.Serialize(request.Contributors);
     }
 
-    private static string EffectiveState(Workflow workflow) => workflow.PublishedVersionId.HasValue ? workflow.State : WorkflowStates.Draft;
+    internal static string EffectiveState(Workflow workflow) => workflow.PublishedVersionId.HasValue ? workflow.State : WorkflowStates.Draft;
 
     private async Task ReplaceGraphAsync(
         Workflow workflow, WorkflowSaveRequest request, Guid userId, CancellationToken cancellationToken)
@@ -470,7 +470,7 @@ internal sealed class WorkflowService : IWorkflowService
         { throw new WorkflowConflictException("The workflow slug or version already exists."); }
     }
 
-    private static void ValidateDraft(WorkflowSaveRequest request)
+    internal static void ValidateDraft(WorkflowSaveRequest request)
     {
         if (request is null || string.IsNullOrWhiteSpace(request.Slug) || request.Slug.Length > 100
             || !Regex.IsMatch(request.Slug, "^[a-z0-9][a-z0-9_-]*$", RegexOptions.CultureInvariant))
@@ -579,11 +579,11 @@ internal sealed class WorkflowService : IWorkflowService
     /// seed can pre-populate intermediate tags so we keep stepping past
     /// any collisions instead of failing the save.
     /// </summary>
-    private async Task<string> NextAvailableVersionAsync(
-        Workflow workflow,
+    internal static async Task<string> NextAvailableVersionAsync(
+        AgentsDbContext database, Workflow workflow,
         CancellationToken cancellationToken)
     {
-        var existingTags = await _dbContext.WorkflowVersions
+        var existingTags = await database.WorkflowVersions
             .AsNoTracking()
             .Where(v => v.WorkflowId == workflow.Id)
             .Select(v => v.Tag)
@@ -618,7 +618,7 @@ internal sealed class WorkflowService : IWorkflowService
         return $"v{major}.{minor + 1}";
     }
 
-    private static IReadOnlyList<Guid> ParseGuidArray(string? json)
+    internal static IReadOnlyList<Guid> ParseGuidArray(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return Array.Empty<Guid>();
         try

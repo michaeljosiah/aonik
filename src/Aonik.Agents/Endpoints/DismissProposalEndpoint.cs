@@ -106,9 +106,9 @@ internal sealed class DismissProposalEndpoint : Endpoint<DismissProposalRequest,
         {
             await Send.NotFoundAsync(ct);
         }
-        catch (PermissionDeniedException ex) when (ex.PermissionKey == "ChatRoom.Approval")
+        catch (PermissionDeniedException)
         {
-            // Room authority is checked before rejection; let the shared handler return 403.
+            // Authority is checked before rejection; let the shared handler return 403.
             throw;
         }
         catch (InvalidOperationException ex)

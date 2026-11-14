@@ -1,3 +1,4 @@
+import { parseToolApprovalPreview, type ToolApprovalPreview } from '@/lib/toolApprovalPreview';
 /**
  * AI Playground Streaming Client
  *
@@ -97,6 +98,7 @@ export interface ServerApprovalEventPayload {
   tool: string;
   tier: string;
   actionKind: string;
+  preview?: ToolApprovalPreview;
 }
 
 export interface PlaygroundStreamCallbacks {
@@ -671,6 +673,7 @@ function dispatchEvent(
           proposalId: typeof value.proposalId === 'string' ? value.proposalId : undefined,
           toolCallId: typeof value.toolCallId === 'string' ? value.toolCallId : undefined,
           tool,
+          preview: parseToolApprovalPreview(value.preview),
           tier: typeof value.tier === 'string' ? value.tier : kind === 'high' ? 'High' : 'Medium',
           actionKind:
             typeof value.actionKind === 'string' && value.actionKind.trim().length > 0

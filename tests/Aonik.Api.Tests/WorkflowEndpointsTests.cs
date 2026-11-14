@@ -81,6 +81,77 @@ public class WorkflowEndpointsTests(CustomWebApplicationFactory factory) : IClas
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
+    [Fact]
+    public async Task PublicationRequest_Should_QueueAnExactProposal_WithoutActivatingTheDraft()
+    {
+        using HttpClient client = await ClientAsync("Workflow.Read", "Workflow.Write", "Workflow.Publish");
+        WorkflowSaveRequest request = Draft();
+        HttpResponseMessage created = await client.PostAsJsonAsync("/ai/workflows", request);
+        WorkflowGraphResponse draft = (await created.Content.ReadFromJsonAsync<WorkflowGraphResponse>())!;
+        WorkflowValidation validation = (await (await client.PostAsJsonAsync($"/ai/workflows/{request.Slug}/validate", new { }))
+            .Content.ReadFromJsonAsync<WorkflowValidation>())!;
+
+        HttpResponseMessage response = await client.PostAsJsonAsync($"/ai/workflows/{request.Slug}/publication-requests",
+            new WorkflowGovernanceCommand(request.Slug, draft.ExpectedVersion, validation.DefinitionHash, null));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        WorkflowGovernanceRequestResult queued = (await response.Content.ReadFromJsonAsync<WorkflowGovernanceRequestResult>())!;
+        queued.ProposalId.Should().NotBeEmpty();
+        queued.ApprovalRequestId.Should().NotBeEmpty();
+        queued.Preview.After.Should().NotBeNull();
+        WorkflowGraphResponse unchanged = (await client.GetFromJsonAsync<WorkflowGraphResponse>($"/ai/workflows/{request.Slug}"))!;
+        unchanged.State.Should().Be("Draft");
+        unchanged.PublishedVersionId.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task PublicationRequest_Should_RejectMissingAuthorityAndAlteredHash()
+    {
+        using HttpClient client = await ClientAsync("Workflow.Read", "Workflow.Write");
+        WorkflowSaveRequest request = Draft();
+        WorkflowGraphResponse draft = (await (await client.PostAsJsonAsync("/ai/workflows", request))
+            .Content.ReadFromJsonAsync<WorkflowGraphResponse>())!;
+
+        HttpResponseMessage forbidden = await client.PostAsJsonAsync($"/ai/workflows/{request.Slug}/publication-requests",
+            new WorkflowGovernanceCommand(request.Slug, draft.ExpectedVersion, new string('a', 64), null));
+
+        forbidden.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        using HttpClient publisher = await ClientAsync("Workflow.Read", "Workflow.Write", "Workflow.Publish");
+        draft = (await (await publisher.PostAsJsonAsync("/ai/workflows", request)).Content.ReadFromJsonAsync<WorkflowGraphResponse>())!;
+        HttpResponseMessage altered = await publisher.PostAsJsonAsync($"/ai/workflows/{request.Slug}/publication-requests",
+            new WorkflowGovernanceCommand(request.Slug, draft.ExpectedVersion, new string('a', 64), null));
+        altered.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task GovernanceDecisions_Should_EnforcePublisherPermission_OnBothHttpApprovalPaths()
+    {
+        Guid tenantId = Guid.NewGuid();
+        using HttpClient publisher = await factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId)
+            .WithRoles("PersonalUser").WithPermissions("Workflow.Read", "Workflow.Write", "Workflow.Publish"));
+        using HttpClient reader = await factory.CreateAuthenticatedClientAsync(TestAuthOptions.Create().WithTenant(tenantId)
+            .WithRoles("PersonalUser").WithPermissions("Workflow.Read"));
+        publisher.DefaultRequestHeaders.Add("X-Tenant-Id", tenantId.ToString());
+        reader.DefaultRequestHeaders.Add("X-Tenant-Id", tenantId.ToString());
+        WorkflowSaveRequest request = Draft();
+        WorkflowGraphResponse draft = (await (await publisher.PostAsJsonAsync("/ai/workflows", request))
+            .Content.ReadFromJsonAsync<WorkflowGraphResponse>())!;
+        WorkflowValidation validation = (await (await publisher.PostAsJsonAsync($"/ai/workflows/{request.Slug}/validate", new { }))
+            .Content.ReadFromJsonAsync<WorkflowValidation>())!;
+        WorkflowGovernanceRequestResult queued = (await (await publisher.PostAsJsonAsync($"/ai/workflows/{request.Slug}/publication-requests",
+            new WorkflowGovernanceCommand(request.Slug, draft.ExpectedVersion, validation.DefinitionHash, null)))
+            .Content.ReadFromJsonAsync<WorkflowGovernanceRequestResult>())!;
+
+        (await reader.PostAsJsonAsync($"/ai/proposals/{queued.ProposalId}/approve", new { })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await reader.PostAsJsonAsync($"/ai/proposals/{queued.ProposalId}/dismiss", new { })).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await reader.PostAsJsonAsync($"/ai/tool-approvals/{queued.ApprovalRequestId}/decide", new { decision = "Approve" }))
+            .StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await publisher.GetFromJsonAsync<WorkflowGraphResponse>($"/ai/workflows/{request.Slug}"))!.PublishedVersionId.Should().BeNull();
+        (await publisher.PostAsJsonAsync($"/ai/tool-approvals/{queued.ApprovalRequestId}/decide", new { decision = "Approve" }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+        (await publisher.GetFromJsonAsync<WorkflowGraphResponse>($"/ai/workflows/{request.Slug}"))!.PublishedVersionId.Should().NotBeNull();
+    }
+
     private async Task<HttpClient> ClientAsync(params string[] permissions)
     {
         Guid tenantId = Guid.NewGuid();

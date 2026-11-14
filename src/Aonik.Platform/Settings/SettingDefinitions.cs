@@ -17,6 +17,7 @@ public static class SettingDefinitions
             [ContactEnquirySettingNames.Configuration] = new SettingDefinition(ContactEnquirySettingNames.Configuration),
             [SignupListSettingNames.Configuration] = new SettingDefinition(SignupListSettingNames.Configuration),
             [StripeSettingNames.ConnectorId] = new SettingDefinition(StripeSettingNames.ConnectorId),
+            [WorkflowSettingNames.RequireSeparatePublisher] = new SettingDefinition(WorkflowSettingNames.RequireSeparatePublisher, "false"),
 
             // ── Auth ──────────────────────────────────────────────────────
             [AuthSettingNames.Provider] = new SettingDefinition(AuthSettingNames.Provider, "AzureAd", IsVisibleToClients: true),

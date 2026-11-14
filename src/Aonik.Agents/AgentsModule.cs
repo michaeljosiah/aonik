@@ -63,6 +63,17 @@ public sealed class AgentsModule : IModule
         // Workflow registry — list / get / runs / versions.
         services.AddScoped<IWorkflowService, Services.Workflows.WorkflowService>();
         services.AddScoped<Services.Workflows.WorkflowAuthorization>();
+        services.AddScoped<Services.Workflows.WorkflowDraftPreparation>();
+        services.AddScoped<Services.Workflows.WorkflowGovernancePreparation>();
+        services.AddScoped<Services.Workflows.WorkflowApprovalAuthority>();
+        services.AddScoped<Services.Workflows.WorkflowGovernanceService>();
+        services.AddScoped<IWorkflowGovernanceService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>());
+        services.AddScoped<IAgentMutationGuard, Services.Workflows.WorkflowMutationGuard>();
+        services.AddSingleton<IToolApprovalManifest, WorkflowToolApprovalManifest>();
+        services.AddKeyedScoped<IProposalHandler>(WorkflowToolApprovalManifest.PublishType, (provider, key) =>
+            new Services.Workflows.WorkflowGovernanceProposalHandler((string)key!, provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>()));
+        services.AddKeyedScoped<IProposalHandler>(WorkflowToolApprovalManifest.RetireType, (provider, key) =>
+            new Services.Workflows.WorkflowGovernanceProposalHandler((string)key!, provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>()));
 
         // Demo seed contributor — owns the Workflows phase (seven domain
         // agents + seven workflow registry rows with full graphs).

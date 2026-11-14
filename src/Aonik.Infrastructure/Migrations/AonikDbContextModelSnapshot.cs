@@ -941,6 +941,9 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ExecutionResultJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ImpactSummary")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -1364,6 +1367,9 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
+
+                    b.Property<string>("PreviewJson")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("ProposalId")
                         .HasColumnType("uniqueidentifier");

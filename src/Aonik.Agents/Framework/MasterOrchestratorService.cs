@@ -145,6 +145,14 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         Do NOT save transient conversation details, greetings, or information
         already captured in domain entities (accounts, transactions, bills).
 
+        Workflow authoring:
+        Use aonik_get_workflow_capabilities before composing Decision node JSON. Keep invoice amounts
+        as decimal strings and save incomplete dependencies as drafts. Validate and use fixture-only
+        simulation before requesting publication. Draft create/update/delete use server approval cards;
+        do not add a confirmAction prompt. Publication and retirement queue governance proposals and
+        never apply inline. Explain pending approval truthfully and wait for a human decision. A
+        published workflow does not authorize its financial actions; each keeps its own approval gate.
+
         Reminders & Scheduling:
         You can schedule reminders for the user directly with these tools:
 
@@ -490,6 +498,9 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
                 "Added {ToolCount} cross-cutting reminder tool(s) to orchestrator",
                 reminderTools.Count);
         }
+
+        // Workflow authoring belongs only to the user-facing orchestrator, not execution agents.
+        tools.AddRange(WorkflowTools.CreateAll(_serviceProvider));
 
         // Build domain agents as tools, applying any configuration overrides.
         // Spec 097 §12.1: a module disabled for this tenant contributes no agent, so the

@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
+using Aonik.Agents.Services.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -59,6 +60,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
     private readonly IClock _clock;
     private readonly ChatRoomInvocationGuard? _roomContext;
     private readonly IChatRoomApprovalAuthority? _roomApprovalAuthority;
+    private readonly WorkflowApprovalAuthority? _workflowAuthority;
 
     public ToolApprovalService(
         IToolApprovalRequestStore requestStore,
@@ -69,7 +71,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
         ICurrentUserProvider currentUserProvider,
         IClock clock,
         ChatRoomInvocationGuard? roomContext = null,
-        IChatRoomApprovalAuthority? roomApprovalAuthority = null)
+        IChatRoomApprovalAuthority? roomApprovalAuthority = null,
+        WorkflowApprovalAuthority? workflowAuthority = null)
     {
         _requestStore = requestStore ?? throw new ArgumentNullException(nameof(requestStore));
         _proposalStore = proposalStore ?? throw new ArgumentNullException(nameof(proposalStore));
@@ -80,6 +83,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
         _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         _roomContext = roomContext;
         _roomApprovalAuthority = roomApprovalAuthority;
+        _workflowAuthority = workflowAuthority;
     }
 
     public async Task<ToolGateOutcome> GateAsync(
@@ -160,6 +164,9 @@ internal sealed class ToolApprovalService : IToolApprovalService
             .ConfigureAwait(false);
         if (approved is not null)
         {
+            if (WorkflowApprovalAuthority.IsWorkflowMutation(context.ToolName)
+                && (_workflowAuthority is null || !await _workflowAuthority.CanDecideRequestAsync(approved, cancellationToken)))
+                return new ToolGateOutcome(ToolGateDecision.Refused, Reason: "Workflow execution authority changed.");
             if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(approved.AiRunId, cancellationToken))
                 return new ToolGateOutcome(ToolGateDecision.Refused, Reason: "Room execution authority changed.");
             approved.ConsumedAt = now;
@@ -206,7 +213,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
             ProposalType: options.ProposalType!,
             ProposedByAgentId: Guid.Empty,
             AiRunId: _roomContext?.AiRunId,
-            ImpactSummary: actionKind,
+            ImpactSummary: context.Preview?.Title ?? actionKind,
             RiskTier: HighRiskTier,
             PayloadJson: argumentsJson);
         await _proposalStore
@@ -270,7 +277,12 @@ internal sealed class ToolApprovalService : IToolApprovalService
                 Message: $"This request was already {request.Status} and cannot be decided again.");
         }
 
-        if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(request.AiRunId, cancellationToken))
+        bool workflowGovernance = WorkflowApprovalAuthority.IsGovernanceTool(request.ToolName);
+        if ((WorkflowApprovalAuthority.IsWorkflowMutation(request.ToolName) && _workflowAuthority is null)
+            || (_workflowAuthority is not null && !await _workflowAuthority.CanDecideRequestAsync(request, cancellationToken)))
+            return new ToolApprovalDecisionResult(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
+                "Current workflow permissions do not permit this decision.");
+        if (!workflowGovernance && _roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(request.AiRunId, cancellationToken))
         {
             return new ToolApprovalDecisionResult(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
                 "Current room access does not permit deciding this action.");
@@ -279,7 +291,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
         // Consumer self-approval (§12): when the request records a requesting user, the deciding
         // user must be that same user. B2B operator approval (a different authorised user) is a
         // deferred policy rule; until it lands, equality is the safe default.
-        if (request.RequestingUserId is { } requestingUserId && requestingUserId != decidingUserId)
+        if (!workflowGovernance && request.RequestingUserId is { } requestingUserId && requestingUserId != decidingUserId)
         {
             return new ToolApprovalDecisionResult(
                 request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
@@ -378,6 +390,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
             ThreadId = _roomContext?.RoomId?.ToString(),
             ToolName = context.ToolName,
             ArgumentsRedactedJson = argumentsJson,
+            PreviewJson = context.Preview is null ? null : JsonSerializer.Serialize(context.Preview),
             ArgsHash = argsHash,
             RiskTier = options.Tier.ToString(),
             ActionKind = actionKind,
