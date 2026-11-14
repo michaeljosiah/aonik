@@ -415,13 +415,12 @@ public static class DependencyInjection
         services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentVectorIndex>(
             sp => sp.GetRequiredService<Aonik.Infrastructure.VectorStore.ScopedDocumentVectorIndex>());
 
-        // Document text extraction for the RAG ingestion pipeline (Spec 035 §13). Native text +
-        // DOCX are handled in-process (BCL only); the OCR hook is a deferred no-op by default —
-        // TryAdd so a real document-intelligence adapter can replace it without touching this line.
+        // Native text/DOCX reuse the current extractor. Local OCR/PDF parsing is explicitly enabled by the host.
         services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentTextExtractor,
             Aonik.Infrastructure.Documents.DocumentTextExtractor>();
+        services.Configure<Aonik.Infrastructure.Documents.DocumentOcrOptions>(configuration.GetSection(Aonik.Infrastructure.Documents.DocumentOcrOptions.SectionName));
         services.TryAddSingleton<Aonik.SharedKernel.Abstractions.Documents.IDocumentOcrExtractor,
-            Aonik.Infrastructure.Documents.DeferredDocumentOcrExtractor>();
+            Aonik.Infrastructure.Documents.ProcessDocumentOcrExtractor>();
 
         // Collection initializer
         services.AddHostedService<Aonik.Infrastructure.VectorStore.Qdrant.QdrantCollectionInitializer>();

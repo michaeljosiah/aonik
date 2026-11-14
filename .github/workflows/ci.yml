@@ -97,6 +97,9 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore Aonik.sln
 
+      - name: Install native document extraction engines
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y tesseract-ocr tesseract-ocr-eng poppler-utils
+
       - name: Validate canonical migration stream
         run: dotnet ef migrations has-pending-model-changes --project src/Aonik.Infrastructure --startup-project src/Aonik.Migrator
 
@@ -111,6 +114,7 @@ jobs:
           # lane FAILS (never skips) if the server is unreachable, so the
           # relational coverage cannot silently degrade into 12 skips.
           AONIK_SQLSERVER_TEST_CONNECTION: "Server=localhost,1433;User Id=sa;Password=AonikCiPassw0rd;TrustServerCertificate=True"
+          AONIK_OCR_TESTS_REQUIRED: "true"
         run: dotnet test Aonik.sln --configuration Release --no-build --logger "console;verbosity=normal"
 
   adminui:
