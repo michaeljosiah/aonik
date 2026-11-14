@@ -8,6 +8,7 @@ using Aonik.Finance.Contracts.Services.Billing;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Entities.Billing;
 using Aonik.SharedKernel.Abstractions.Workflows;
+using Aonik.SharedKernel.Events.Integration;
 
 namespace Aonik.Finance.Services.Billing;
 
@@ -18,6 +19,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
     private readonly Services.Observability.FinanceMetrics _metrics;
     private readonly Services.Ledger.LedgerPostingService _ledgerPoster;
     private readonly IWorkflowApprovalReader? _workflowApprovals;
+    private readonly IClock? _clock;
 
     public BillingService(
         FinanceDbContext dbContext,
@@ -26,7 +28,8 @@ internal class BillingService : FinanceServiceBase, IBillingService
         ICurrentUserProvider currentUserProvider,
         Services.Observability.FinanceMetrics metrics,
         Services.Ledger.LedgerPostingService ledgerPoster,
-        IWorkflowApprovalReader? workflowApprovals = null)
+        IWorkflowApprovalReader? workflowApprovals = null,
+        IClock? clock = null)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -34,6 +37,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
         _metrics = metrics;
         _ledgerPoster = ledgerPoster;
         _workflowApprovals = workflowApprovals;
+        _clock = clock;
     }
 
     public Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
@@ -129,6 +133,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
         RecalculateInvoiceTotals(invoice);
 
         _dbContext.Invoices.Add(invoice);
+        _dbContext.EnqueueIntegrationEvent(new InvoiceLifecycleChangedEvent(invoice.Id, _clock?.UtcNow ?? DateTime.UtcNow, tenantId, invoice.Id, "Created"));
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Per-tenant invoice creation counter. Tagged with currency so a
@@ -209,6 +214,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
             throw new NotFoundException($"Invoice {invoiceId} not found");
 
         SetInvoiceIssued(invoice);
+        _dbContext.EnqueueIntegrationEvent(new InvoiceLifecycleChangedEvent(Guid.NewGuid(), _clock?.UtcNow ?? DateTime.UtcNow, tenantId, invoice.Id, "Issued"));
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
@@ -231,6 +237,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
         invoice.IssueOperationId = invocation.OperationId;
         invoice.IssueApprovalRequestId = invocation.ApprovalRequestId;
         invoice.IssueApprovedByUserId = reviewerId;
+        _dbContext.EnqueueIntegrationEvent(new InvoiceLifecycleChangedEvent(invocation.OperationId, _clock?.UtcNow ?? DateTime.UtcNow, tenantId, invoice.Id, "Issued", invocation.RunId));
         // State and operation evidence commit together, so a consumed approval is never mistaken for an execution receipt.
         await _dbContext.SaveChangesAsync(cancellationToken);
         return InvoiceIssueWorkflowAction.Receipt(invoice);

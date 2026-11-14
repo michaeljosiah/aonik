@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
 import { connectorService, connectorError, consentUrl, type ConnectionRequest, type ConnectorActionRef, type ConnectorConnection, type ConnectorDescriptor, type ConnectorGrant } from '@/services/connectorService';
 import { AutomationIdentitiesPanel } from './AutomationIdentitiesPanel';
+import { WorkflowExecutionPolicyPanel } from './WorkflowExecutionPolicyPanel';
+import { MailboxSubscriptionHealth } from './MailboxSubscriptionHealth';
 
 export function MyConnectionsPage() { return <ConnectionsPage />; }
 export function TenantIntegrationsPage() { return <ConnectionsPage tenant />; }
@@ -45,6 +47,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
     {error && <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</p>}
     {tenant && <IntegrationPolicyPanel disabled={busy} onSave={run} />}
     {tenant && <AutomationIdentitiesPanel />}
+    {tenant && <WorkflowExecutionPolicyPanel />}
     <Card><CardHeader><CardTitle>Request Gmail access</CardTitle></CardHeader><CardContent className="space-y-4">
       <p className="text-sm text-muted-foreground">{tenant ? 'An integration reviewer chooses an organizational account or completes its consent.' : 'Your account stays private unless you explicitly grant a user, role or workflow access.'} Select the actions and review Google consent before access is applied.</p>
       <ActionChoices actions={gmail?.actions ?? []} selected={actions} onChange={setActions} />
@@ -110,6 +113,7 @@ function ConnectionAccountCard({ account, canManage, catalog, tenantDefault, dis
     {canManage && <div className="flex gap-2"><Input aria-label="Account label" value={name} maxLength={160} onChange={event => setName(event.target.value)} /><Button variant="outline" disabled={disabled || !name.trim() || name === account.displayName} onClick={() => void onAction(() => connectorService.rename(account, name))}>Save label</Button></div>}
     {disconnect && <div className="space-y-2 rounded-md border border-destructive p-3 text-sm"><p>Disconnect {account.displayName}? All AONIK grants and local credentials for this account will be revoked. Workflows using it will pause.</p><div className="flex gap-2"><Button variant="destructive" disabled={disabled} onClick={() => void onAction(() => connectorService.disconnect(account))}>Confirm disconnect</Button><Button variant="outline" onClick={() => setDisconnect(false)}>Keep connected</Button></div></div>}
     {showGrants && <ConnectionGrantPanel account={account} descriptor={catalog.find(item => item.key === account.connectorKey)} disabled={disabled} onAction={onAction} />}
+    {canManage && account.connectorKey === 'gmail' && <MailboxSubscriptionHealth connectionId={account.id} />}
   </CardContent></Card>;
 }
 

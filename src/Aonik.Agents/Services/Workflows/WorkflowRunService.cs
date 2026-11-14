@@ -8,6 +8,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -22,7 +23,7 @@ internal sealed class WorkflowRunService(
     AgentsDbContext database, ITenantProvider tenantProvider, WorkflowAuthorization authorization,
     WorkflowExecutionAuthorization executionAuthorization, IClock clock, WorkflowActionRegistry? actions = null,
     WorkflowReviewerAuthorization? reviewers = null, IConnectorService? connectors = null,
-    IAutomationIdentityAuthorization? automation = null) : IWorkflowRunService, IWorkflowAutomationAdmission
+    IAutomationIdentityAuthorization? automation = null, IWorkflowMailboxBindingReader? mailboxBindings = null) : IWorkflowRunService, IWorkflowAutomationAdmission
 {
     public async Task<WorkflowRunDetail> StartAsync(string slug, StartWorkflowRunRequest request, CancellationToken cancellationToken = default)
     {
@@ -31,8 +32,16 @@ internal sealed class WorkflowRunService(
         return await DetailAsync(await AdmitCoreAsync(slug, request, actor, userId, requireCurrent: true, cancellationToken), cancellationToken);
     }
 
-    public async Task<Guid> AdmitAsync(Guid identityId, Guid workflowVersionId, string subjectType, Guid subjectId,
+    public Task<Guid> AdmitAsync(Guid identityId, Guid workflowVersionId, string subjectType, Guid subjectId,
         string idempotencyKey, CancellationToken cancellationToken = default)
+        => AdmitAutomaticAsync(identityId, workflowVersionId, subjectType, subjectId, idempotencyKey, null, cancellationToken);
+
+    internal Task<Guid> AdmitTriggeredAsync(Guid identityId, Guid workflowVersionId, string subjectType, Guid subjectId,
+        string idempotencyKey, WorkflowTriggerSource source, CancellationToken cancellationToken = default)
+        => AdmitAutomaticAsync(identityId, workflowVersionId, subjectType, subjectId, idempotencyKey, source, cancellationToken);
+
+    private async Task<Guid> AdmitAutomaticAsync(Guid identityId, Guid workflowVersionId, string subjectType, Guid subjectId,
+        string idempotencyKey, WorkflowTriggerSource? source, CancellationToken cancellationToken)
     {
         if (automation is null) throw new PermissionDeniedException("Workflow.Run");
         var actor = new WorkflowActor("AutomationIdentity", identityId, WorkflowVersionId: workflowVersionId);
@@ -43,21 +52,33 @@ internal sealed class WorkflowRunService(
         string slug = await database.Workflows.Where(workflow => workflow.TenantId == tenantId && workflow.Id == version.WorkflowId)
             .Select(workflow => workflow.Slug).SingleAsync(cancellationToken);
         WorkflowRun run = await AdmitCoreAsync(slug, new(workflowVersionId, subjectType, subjectId, idempotencyKey), actor,
-            configuringUserId, requireCurrent: false, cancellationToken);
+            configuringUserId, requireCurrent: false, cancellationToken, source);
         return run.Id;
     }
 
     private async Task<WorkflowRun> AdmitCoreAsync(string slug, StartWorkflowRunRequest request, WorkflowActor actor,
-        Guid configuringUserId, bool requireCurrent, CancellationToken cancellationToken)
+        Guid configuringUserId, bool requireCurrent, CancellationToken cancellationToken, WorkflowTriggerSource? source = null)
     {
         await executionAuthorization.RequireActorAsync(actor, cancellationToken);
         await executionAuthorization.RequireEnabledAsync(cancellationToken);
         ValidateRequest(request);
         Guid tenantId = tenantProvider.GetCurrentTenantId();
-        string inputHash = InputHash(slug, request);
+        string inputHash = InputHash(slug, request, source);
         WorkflowRun? existing = await FindReplayAsync(tenantId, actor, request.IdempotencyKey, cancellationToken);
         if (existing is not null) return await ReplayAsync(existing, inputHash, actor, cancellationToken);
         (Workflow workflow, WorkflowVersion version, WorkflowFactsSnapshot facts) = await PrepareAdmissionAsync(slug, request, actor, cancellationToken, requireCurrent);
+        (WorkflowTriggerBinding Binding, Guid? RootRunId, IReadOnlyList<Guid> Path)? trigger = null;
+        if (source is not null)
+        {
+            try { trigger = await PrepareTriggerAdmissionAsync(workflow, request, actor, source, cancellationToken); }
+            catch (WorkflowExecutionException exception) when (exception.Code is "TriggerSubjectAlreadyActive" or "TriggerCapacityReached" or "TriggerOccurrenceLimit")
+            {
+                // Another delivery may have committed this exact source between the first replay read and the capacity check.
+                existing = await FindReplayAsync(tenantId, actor, request.IdempotencyKey, cancellationToken);
+                if (existing is not null) return await ReplayAsync(existing, inputHash, actor, cancellationToken);
+                throw;
+            }
+        }
         var run = new WorkflowRun
         {
             TenantId = tenantId, WorkflowId = workflow.Id, WorkflowVersionId = version.Id, DefinitionHash = version.DefinitionHash,
@@ -66,6 +87,15 @@ internal sealed class WorkflowRunService(
             InputHash = inputHash, FactsJson = JsonSerializer.Serialize(facts, WorkflowDefinitionCodec.JsonOptions), FactsHash = WorkflowFactsHash.Compute(facts),
             Status = WorkflowRunStatuses.Queued, StartedAt = clock.UtcNow, StartedBy = $"{(actor.Type == "User" ? "manual" : "automation")}:{actor.Id:D}",
         };
+        if (source is not null && trigger is { } admitted)
+        {
+            run.TriggerBindingId = source.BindingId; run.TriggerBindingRevision = source.Revision;
+            run.TriggerApprovalProposalId = source.ApprovalProposalId; run.TriggerDefinitionHash = source.DefinitionHash;
+            run.SourceEventId = source.SourceEventId; run.SourceOccurredAtUtc = source.OccurredAtUtc;
+            run.CausationRunId = source.CausationRunId; run.RootRunId = admitted.RootRunId ?? run.Id;
+            run.TriggerPathJson = JsonSerializer.Serialize(admitted.Path);
+            admitted.Binding.AdmittedRuns = checked(admitted.Binding.AdmittedRuns + 1);
+        }
         database.WorkflowRuns.Add(run);
         // Updating this tracked root also detects a concurrent retirement/publication during admission.
         workflow.TriggerCount = checked(workflow.TriggerCount + 1);
@@ -77,12 +107,67 @@ internal sealed class WorkflowRunService(
             foreach (var entry in database.ChangeTracker.Entries<OutboxMessage>().Where(entry => entry.Entity.EventId == eventId))
                 entry.State = EntityState.Detached;
             await database.Entry(workflow).ReloadAsync(cancellationToken);
+            if (trigger is { } raced) await database.Entry(raced.Binding).ReloadAsync(cancellationToken);
             existing = await FindReplayAsync(tenantId, actor, request.IdempotencyKey, cancellationToken);
             if (existing is null) throw;
             return await ReplayAsync(existing, inputHash, actor, cancellationToken);
         }
         catch (DbUpdateConcurrencyException) { throw new WorkflowConflictException("The workflow changed during admission. Retry the same admission key."); }
         return run;
+    }
+
+    private async Task<(WorkflowTriggerBinding, Guid?, IReadOnlyList<Guid>)> PrepareTriggerAdmissionAsync(Workflow workflow,
+        StartWorkflowRunRequest request, WorkflowActor actor, WorkflowTriggerSource source, CancellationToken cancellationToken)
+    {
+        await executionAuthorization.RequireAutomaticEnabledAsync(cancellationToken);
+        WorkflowTriggerBinding binding = await database.WorkflowTriggerBindings.SingleOrDefaultAsync(binding => binding.TenantId == workflow.TenantId
+            && binding.Id == source.BindingId && binding.WorkflowId == workflow.Id, cancellationToken) ?? throw new WorkflowExecutionException("TriggerUnavailable");
+        if (binding.Status != "Active" || binding.ActiveRevision != source.Revision || binding.ActiveHash != source.DefinitionHash
+            || binding.ActivationProposalId != source.ApprovalProposalId || binding.ActiveJson is null
+            || WorkflowDefinitionCodec.Hash(binding.ActiveJson) != source.DefinitionHash || source.SourceEventId == Guid.Empty
+            || source.OccurredAtUtc.Kind != DateTimeKind.Utc || source.OccurredAtUtc > clock.UtcNow.AddMinutes(5)
+            || !await database.Proposals.AsNoTracking().AnyAsync(proposal => proposal.TenantId == workflow.TenantId
+                && proposal.Id == source.ApprovalProposalId && proposal.Status == ProposalStatus.Applied && proposal.ApprovedByUserId != null
+                && proposal.ProposalType == Framework.WorkflowTriggerApprovalManifest.ActivateType, cancellationToken))
+            throw new WorkflowExecutionException("TriggerApprovalMismatch");
+        WorkflowTriggerDefinition definition = WorkflowTriggerService.Read(binding.ActiveJson);
+        if (definition.Mailbox is not null)
+        {
+            if (mailboxBindings is null) throw new WorkflowExecutionException("MailboxAuthorizationUnavailable");
+            _ = await mailboxBindings.RequireActiveAsync(binding.Id, source.Revision, cancellationToken);
+        }
+        if (actor.Type != "AutomationIdentity" || actor.Id != definition.AutomationIdentityId || request.WorkflowVersionId != definition.WorkflowVersionId
+            || request.SubjectType != definition.Subject.Type || (definition.Subject.Mapping == "Fixed" && !definition.Subject.FixedIds.Contains(request.SubjectId)))
+            throw new WorkflowExecutionException("TriggerScopeMismatch");
+        if (source.SelfGenerated && definition.Limits.IgnoreSelfGenerated) throw new WorkflowExecutionException("SelfGeneratedTriggerIgnored");
+        if (definition.Schedule is { } schedule)
+        {
+            IQueryable<WorkflowRun> occurrences = database.WorkflowRuns.AsNoTracking().Where(run => run.TenantId == workflow.TenantId
+                && run.TriggerBindingId == binding.Id && run.TriggerBindingRevision == source.Revision);
+            if (!await occurrences.AnyAsync(run => run.SourceEventId == source.SourceEventId, cancellationToken)
+                && await occurrences.Select(run => run.SourceEventId).Distinct().CountAsync(cancellationToken) >= schedule.MaximumOccurrences)
+                throw new WorkflowExecutionException("TriggerOccurrenceLimit");
+        }
+        Guid? rootRunId = null;
+        List<Guid> path = [];
+        if (source.CausationRunId is { } causeId)
+        {
+            WorkflowRun parent = await database.WorkflowRuns.AsNoTracking().SingleOrDefaultAsync(run => run.TenantId == workflow.TenantId && run.Id == causeId, cancellationToken)
+                ?? throw new WorkflowExecutionException("TriggerCausationUnavailable");
+            rootRunId = parent.RootRunId ?? parent.Id;
+            path = JsonSerializer.Deserialize<List<Guid>>(parent.TriggerPathJson) ?? [];
+        }
+        if (path.Contains(binding.Id) || path.Count >= definition.Limits.MaximumCausationDepth) throw new WorkflowExecutionException("TriggerCausationLimit");
+        path.Add(binding.Id);
+        IQueryable<WorkflowRun> active = database.WorkflowRuns.AsNoTracking().Where(run => run.TenantId == workflow.TenantId && run.TriggerBindingId == binding.Id
+            && run.Status != WorkflowRunStatuses.Completed && run.Status != WorkflowRunStatuses.Cancelled && run.Status != WorkflowRunStatuses.Failed);
+        if (await active.AnyAsync(run => run.SubjectType == request.SubjectType && run.SubjectId == request.SubjectId, cancellationToken))
+            throw new WorkflowExecutionException("TriggerSubjectAlreadyActive");
+        if (await active.CountAsync(cancellationToken) >= definition.Limits.MaximumConcurrentRuns
+            || await database.WorkflowRuns.AsNoTracking().CountAsync(run => run.TenantId == workflow.TenantId && run.TriggerBindingId == binding.Id
+                && run.StartedAt >= clock.UtcNow.AddHours(-1), cancellationToken) >= definition.Limits.MaximumStartsPerHour)
+            throw new WorkflowExecutionException("TriggerCapacityReached");
+        return (binding, rootRunId, path);
     }
 
     internal async Task<(StartWorkflowRunRequest Request, ToolApprovalPreview Preview)> PrepareStartAsync(
@@ -146,7 +231,7 @@ internal sealed class WorkflowRunService(
         await executionAuthorization.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, new("User", userId, userId), cancellationToken);
         if (run.Status is not (WorkflowRunStatuses.WaitingForConnection or WorkflowRunStatuses.NeedsAttention))
             throw new WorkflowConflictException("Only a run held for connection access or operator attention can be explicitly resumed.");
-        await executionAuthorization.RequireActorAsync(WorkflowExecutionAuthorization.Actor(run), cancellationToken);
+        await executionAuthorization.RequireRunAsync(run, cancellationToken);
         WorkflowFactsSnapshot current = await executionAuthorization.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value,
             WorkflowExecutionAuthorization.Actor(run), cancellationToken);
         if (WorkflowFactsHash.Compute(current) != run.FactsHash && !await HasAppliedPendingOperationAsync(run, cancellationToken))
@@ -269,14 +354,17 @@ internal sealed class WorkflowRunService(
         }
         return new(run.Id, run.WorkflowId, run.WorkflowVersionId, run.DefinitionHash, run.Status, run.Outcome, run.ErrorCode,
             run.ActorType, run.ActorId, run.InitiatingUserId, run.SubjectType, run.SubjectId, Convert.ToBase64String(run.RowVersion),
-            run.StartedAt, run.CompletedAt, details, run.ConfiguredByUserId);
+            run.StartedAt, run.CompletedAt, details, run.ConfiguredByUserId, run.TriggerBindingId is { } bindingId
+                ? new(bindingId, run.TriggerBindingRevision!.Value, run.SourceEventId!.Value, DateTime.SpecifyKind(run.SourceOccurredAtUtc!.Value, DateTimeKind.Utc), run.CausationRunId, run.RootRunId) : null);
     }
 
     private static JsonElement? ReadJson(string? value) => value is null ? null : JsonSerializer.Deserialize<JsonElement>(value);
-    private static string InputHash(string slug, StartWorkflowRunRequest request) => ToolArgumentsHash.Compute(new Dictionary<string, object?>
+    private static string InputHash(string slug, StartWorkflowRunRequest request, WorkflowTriggerSource? source = null)
     {
-        ["slug"] = slug, ["versionId"] = request.WorkflowVersionId, ["subjectType"] = request.SubjectType, ["subjectId"] = request.SubjectId,
-    });
+        var values = new Dictionary<string, object?> { ["slug"] = slug, ["versionId"] = request.WorkflowVersionId, ["subjectType"] = request.SubjectType, ["subjectId"] = request.SubjectId };
+        if (source is not null) values["source"] = JsonSerializer.SerializeToElement(source, WorkflowDefinitionCodec.JsonOptions);
+        return ToolArgumentsHash.Compute(values);
+    }
     private static void CheckVersion(WorkflowRun run, string token)
     {
         if (token is null || token != Convert.ToBase64String(run.RowVersion)) throw new WorkflowConflictException("The run changed. Reload it before deciding.");

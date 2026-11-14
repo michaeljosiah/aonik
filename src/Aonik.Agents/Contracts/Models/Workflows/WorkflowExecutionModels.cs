@@ -10,7 +10,8 @@ public sealed record WorkflowRunDetail(
     Guid Id, Guid WorkflowId, Guid? WorkflowVersionId, string? DefinitionHash, string Status,
     string? Outcome, string? ErrorCode, string? ActorType, Guid? ActorId, Guid? InitiatingUserId,
     string? SubjectType, Guid? SubjectId, string ExpectedVersion,
-    DateTime StartedAt, DateTime? CompletedAt, IReadOnlyList<WorkflowStepDetail> Steps, Guid? ConfiguredByUserId = null);
+    DateTime StartedAt, DateTime? CompletedAt, IReadOnlyList<WorkflowStepDetail> Steps, Guid? ConfiguredByUserId = null, WorkflowRunSource? Source = null);
+public sealed record WorkflowRunSource(Guid BindingId, int Revision, Guid EventId, DateTime OccurredAtUtc, Guid? CausationRunId, Guid? RootRunId);
 public sealed record WorkflowStepDetail(Guid Id, string NodeKey, string InvocationPath, string Status,
     string? ActionKey, int? ActionVersion, string? SelectedRoute, JsonElement? DecisionTrace, JsonElement? Result,
     Guid? ApprovalRequestId, Guid? ProposalId, Guid? AiRunId, string? ErrorCode, WorkflowStepApproval? Approval = null);

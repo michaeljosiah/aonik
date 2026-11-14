@@ -106,6 +106,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<SignupSubscription> SignupSubscriptions { get; set; } = null!;
     public virtual DbSet<ContactEnquiry> ContactEnquiries { get; set; } = null!;
     public virtual DbSet<ConnectorConnection> ConnectorConnections { get; set; } = null!;
+    public virtual DbSet<ConnectorSubscription> ConnectorSubscriptions { get; set; } = null!;
     public virtual DbSet<AutomationIdentity> AutomationIdentities { get; set; } = null!;
     public virtual DbSet<ConnectorConnectionGrant> ConnectorConnectionGrants { get; set; } = null!;
     public virtual DbSet<ConnectorConnectionRequest> ConnectorConnectionRequests { get; set; } = null!;
@@ -305,6 +306,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<WorkflowVersion> WorkflowVersions { get; set; } = null!;
     public virtual DbSet<WorkflowComment> WorkflowComments { get; set; } = null!;
     public virtual DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
+    public virtual DbSet<WorkflowTriggerBinding> WorkflowTriggerBindings { get; set; } = null!;
     public virtual DbSet<WorkflowStepRun> WorkflowStepRuns { get; set; } = null!;
     public virtual DbSet<WorkflowCheckpoint> WorkflowCheckpoints { get; set; } = null!;
 
@@ -784,9 +786,11 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<WorkflowVersion>(modelBuilder, "WorkflowVersions");
         MapAgentsTable<WorkflowComment>(modelBuilder, "WorkflowComments");
         MapAgentsTable<WorkflowRun>(modelBuilder, "WorkflowRuns");
+        MapAgentsTable<WorkflowTriggerBinding>(modelBuilder, "WorkflowTriggerBindings");
         MapAgentsTable<WorkflowStepRun>(modelBuilder, "WorkflowStepRuns");
         MapAgentsTable<WorkflowCheckpoint>(modelBuilder, "WorkflowCheckpoints");
         MapPlatformTable<ConnectorConnection>(modelBuilder, "ConnectorConnections");
+        MapPlatformTable<ConnectorSubscription>(modelBuilder, "ConnectorSubscriptions");
         MapPlatformTable<AutomationIdentity>(modelBuilder, "AutomationIdentities");
         MapPlatformTable<ConnectorConnectionGrant>(modelBuilder, "ConnectorConnectionGrants");
         MapPlatformTable<ConnectorConnectionRequest>(modelBuilder, "ConnectorConnectionRequests");

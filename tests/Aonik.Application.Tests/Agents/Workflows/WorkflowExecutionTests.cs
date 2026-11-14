@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.AI;
+using Microsoft.AspNetCore.DataProtection;
 using Moq;
 
 using Aonik.Agents.Contracts.Models.Workflows;
@@ -25,18 +26,20 @@ using Aonik.Finance.Services.Observability;
 using Aonik.Platform.Entities.Integrations;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Integrations;
+using Aonik.Platform.Services.Tasks;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Abstractions.Workflows;
+using Aonik.SharedKernel.Abstractions.Tasks;
 using Aonik.SharedKernel.Agents.Approval;
 using Aonik.SharedKernel.Events.Outbox;
 
 namespace Aonik.Application.Tests.Agents.Workflows;
 
-public class WorkflowExecutionTests
+public partial class WorkflowExecutionTests
 {
     [Fact]
     public async Task AutomationDisabledAfterHumanApproval_Should_StopBeforeTheFinancialWrite()
@@ -439,6 +442,7 @@ public class WorkflowExecutionTests
         public TestClock Clock { get; } = new();
         public HashSet<Guid> Inactive { get; } = [];
         public HashSet<(Guid, string)> Denied { get; } = [];
+        public List<ScheduleTaskRequest> ScheduledTasks { get; } = [];
 
         public Host()
         {
@@ -450,11 +454,18 @@ public class WorkflowExecutionTests
                 .ReturnsAsync((Guid _, IReadOnlyCollection<Guid> ids, CancellationToken _) => (IReadOnlyList<UserDirectoryItem>)ids.Select(id => new UserDirectoryItem(id, null, Inactive.Contains(id) ? "Inactive" : "Active")).ToList());
             var settings = new Mock<ITenantSettingStore>();
             settings.Setup(store => store.GetTenantValueAsync(WorkflowSettingNames.ExecutionEnabled, It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(() => Enabled ? "true" : "false");
+            settings.Setup(store => store.GetTenantValueAsync(WorkflowSettingNames.AutomaticTriggersEnabled, It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync("true");
             var roles = new Mock<ITenantRoleReader>();
             roles.Setup(reader => reader.ExistsAsync(It.IsAny<Guid>(), _roleId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
             roles.Setup(reader => reader.IsMemberAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), _roleId, It.IsAny<CancellationToken>()))
                 .ReturnsAsync((Guid _, Guid userId, Guid _, CancellationToken _) => userId == Reviewer || userId == Actor.Author);
             var services = new ServiceCollection();
+            services.AddDataProtection().UseEphemeralDataProtectionProvider();
+            var tasks = new Mock<ITaskService>();
+            tasks.Setup(service => service.ScheduleAsync(It.IsAny<ScheduleTaskRequest>(), It.IsAny<CancellationToken>()))
+                .Callback((ScheduleTaskRequest request, CancellationToken _) => ScheduledTasks.Add(request)).ReturnsAsync((TaskResponse)null!);
+            services.AddSingleton(tasks.Object);
+            services.AddSingleton<IRecurrenceScheduleCalculator, RecurrenceCalculator>();
             services.AddLogging();
             services.AddSingleton<ITenantProvider>(new Tenant());
             services.AddSingleton<ICurrentUserProvider>(Actor);
@@ -480,6 +491,13 @@ public class WorkflowExecutionTests
             services.AddScoped<IWorkflowGovernanceService>(provider => provider.GetRequiredService<WorkflowGovernanceService>());
             services.AddScoped<IAgentMutationGuard, WorkflowMutationGuard>();
             services.AddScoped<WorkflowPublicationValidator>();
+            services.AddScoped<WorkflowTriggerValidator>(); services.AddScoped<WorkflowTriggerTaskProtector>();
+            services.AddScoped<WorkflowTriggerService>(); services.AddScoped<WorkflowTriggerAdmissionService>();
+            services.AddScoped<IWorkflowTriggerService>(provider => provider.GetRequiredService<WorkflowTriggerService>());
+            services.AddScoped<IAgentMutationGuard, WorkflowTriggerMutationGuard>();
+            services.AddScoped<WorkflowTriggerAdmissionTaskHandler>(); services.AddScoped<WorkflowTriggerScheduleTaskHandler>();
+            services.AddScoped<WorkflowTriggerChangedHandler>(); services.AddScoped<WorkflowTriggerAdmissionRequestedHandler>();
+            services.AddScoped<InvoiceWorkflowTriggerHandler>();
             services.AddScoped<WorkflowActionRegistry>();
             services.AddScoped<WorkflowInvocationContext>();
             services.AddScoped<WorkflowExecutionAuthorization>();
@@ -497,6 +515,9 @@ public class WorkflowExecutionTests
             services.AddSingleton(Mock.Of<IProposalRejectionDispatcher>());
             services.AddSingleton<IToolApprovalManifest, WorkflowToolApprovalManifest>();
             services.AddSingleton<IToolApprovalManifest, FinanceToolApprovalManifest>();
+            services.AddSingleton<IToolApprovalManifest, WorkflowTriggerApprovalManifest>();
+            foreach (string type in new[] { WorkflowTriggerApprovalManifest.ActivateType, WorkflowTriggerApprovalManifest.DisableType })
+                services.AddKeyedScoped<IProposalHandler>(type, (provider, key) => new WorkflowTriggerProposalHandler((string)key!, provider.GetRequiredService<WorkflowTriggerService>()));
             services.AddSingleton<IToolApprovalAuditSink, LoggingToolApprovalAuditSink>();
             services.AddSingleton<IToolApprovalGate, ToolApprovalGate>();
             foreach (string type in new[] { WorkflowToolApprovalManifest.PublishType, WorkflowToolApprovalManifest.RetireType })

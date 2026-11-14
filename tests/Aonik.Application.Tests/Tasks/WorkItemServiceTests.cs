@@ -15,6 +15,26 @@ namespace Aonik.Application.Tests.Tasks;
 
 public sealed class WorkItemServiceTests
 {
+    [Fact]
+    public async Task StableRecurringSchedule_Should_ReplayTheSameWindow_AndNeverReactivateACancelledSeries()
+    {
+        var clock = new TestClock();
+        var (service, db) = CreateService(Guid.NewGuid(), clock, new FakeCatalog(TaskActionTypes.NotifyUser));
+        using (db)
+        {
+            ScheduleTaskRequest request = NotifyRequest(cron: "0 * * * * ?") with { TaskId = Guid.NewGuid(), StartAtUtc = clock.UtcNow,
+                EndAtUtc = clock.UtcNow.AddDays(1), Timezone = "UTC", MaxRuns = 20 };
+            TaskResponse first = await service.ScheduleAsync(request);
+            clock.UtcNow = clock.UtcNow.AddMinutes(10);
+            (await service.ScheduleAsync(request)).Id.Should().Be(first.Id);
+            Func<Task> broadened = () => service.ScheduleAsync(request with { EndAtUtc = request.EndAtUtc!.Value.AddDays(1) });
+            await broadened.Should().ThrowAsync<ArgumentException>();
+            await service.CancelAsync(first.Id);
+            (await service.ScheduleAsync(request)).Status.Should().Be(TaskStatuses.Cancelled);
+            (await db.WorkItems.CountAsync()).Should().Be(1);
+        }
+    }
+
     private sealed class TestClock : IClock
     {
         public DateTime UtcNow { get; set; } = new(2026, 6, 6, 10, 0, 0, DateTimeKind.Utc);

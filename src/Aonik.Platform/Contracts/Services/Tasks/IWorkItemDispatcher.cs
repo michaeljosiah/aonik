@@ -30,7 +30,8 @@ public sealed record WorkItemDispatchSummary(
     int Succeeded,
     int Proposed,
     int Skipped,
-    int Failed)
+    int Failed,
+    int Deferred = 0)
 {
     public static readonly WorkItemDispatchSummary Empty = new(0, 0, 0, 0, 0);
 }

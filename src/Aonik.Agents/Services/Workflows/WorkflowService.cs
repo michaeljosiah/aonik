@@ -305,7 +305,8 @@ internal sealed class WorkflowService : IWorkflowService
         CheckVersion(workflow, expectedVersion);
         if (workflow.PublishedVersionId.HasValue || workflow.TriggerCount != 0
             || await _dbContext.WorkflowVersions.AnyAsync(version => version.WorkflowId == workflow.Id && version.PublishedAt != null, cancellationToken)
-            || await _dbContext.WorkflowRuns.AnyAsync(run => run.WorkflowId == workflow.Id, cancellationToken))
+            || await _dbContext.WorkflowRuns.AnyAsync(run => run.WorkflowId == workflow.Id, cancellationToken)
+            || await _dbContext.WorkflowTriggerBindings.AnyAsync(binding => binding.WorkflowId == workflow.Id, cancellationToken))
             throw new WorkflowConflictException("A published, referenced or previously executed workflow must be retired, not deleted.");
         foreach (IWorkflowUsageReader reader in _usageReaders)
             if (await reader.HasActiveReferencesAsync(workflow.Id, cancellationToken))

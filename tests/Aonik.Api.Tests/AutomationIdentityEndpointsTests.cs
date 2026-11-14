@@ -34,7 +34,9 @@ public class AutomationIdentityEndpointsTests(CustomWebApplicationFactory factor
         identity.ConfiguredByUserId.Should().Be(options.UserId);
         identity.Status.Should().Be("Active");
         (await client.GetFromJsonAsync<AutomationIdentityUsage>($"/v1/integrations/automation-identities/{identity.Id}/usage"))!.ActiveRuns.Should().Be(0);
-        (await client.GetFromJsonAsync<AutomationWorkflowCapability>($"/v1/integrations/automation-identities/workflow-versions/{versionId}"))!.Actions.Should().BeEmpty();
+        AutomationWorkflowCapability capability = (await client.GetFromJsonAsync<AutomationWorkflowCapability>($"/v1/integrations/automation-identities/workflow-versions/{versionId}"))!;
+        capability.Actions.Should().ContainSingle(action => action.Purpose == "Optional approved mailbox trigger synchronization");
+        identity.Grants.Single().Actions.Should().BeEmpty("discovering a synchronization capability must not grant it");
         (await client.PutAsJsonAsync($"/v1/integrations/automation-identities/{identity.Id}", command with { ExpectedVersion = "stale" })).StatusCode.Should().Be(HttpStatusCode.Conflict);
         var update = await client.PutAsJsonAsync($"/v1/integrations/automation-identities/{identity.Id}", command with { Name = "Reviewed checks", ExpectedVersion = identity.ExpectedVersion });
         update.StatusCode.Should().Be(HttpStatusCode.OK, await update.Content.ReadAsStringAsync());

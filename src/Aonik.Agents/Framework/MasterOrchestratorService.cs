@@ -511,6 +511,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
 
         // Workflow authoring belongs only to the user-facing orchestrator, not execution agents.
         tools.AddRange(WorkflowTools.CreateAll(_serviceProvider));
+        tools.AddRange(WorkflowTriggerTools.CreateAll(_serviceProvider));
         tools.AddRange(ConnectorTools.CreateAll(_serviceProvider));
 
         // Build domain agents as tools, applying any configuration overrides.

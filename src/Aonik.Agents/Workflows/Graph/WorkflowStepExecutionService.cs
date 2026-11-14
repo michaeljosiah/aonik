@@ -194,7 +194,7 @@ internal sealed class WorkflowStepExecutionService(
             throw new WorkflowExecutionException("RunNotRunning");
         bool retired = await database.Workflows.AsNoTracking().AnyAsync(workflow => workflow.Id == Run.WorkflowId && workflow.RetiredAt != null, cancellationToken);
         if (retired) throw new WorkflowExecutionException("WorkflowRetired");
-        await authorization.RequireActorAsync(WorkflowExecutionAuthorization.Actor(Run), cancellationToken);
+        await authorization.RequireRunAsync(Run, cancellationToken);
         await authorization.RequireEnabledAsync(cancellationToken);
     }
 

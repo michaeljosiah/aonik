@@ -8,6 +8,7 @@ import { workflowService, type WorkflowSimulation, type WorkflowValidation, type
 import { connectorError } from '@/services/connectorService';
 import { invoiceDecision } from './decisionParameters';
 import type { WorkflowGraph } from './workflowTypes';
+import { WorkflowTriggerPanel } from './WorkflowTriggerPanel';
 
 export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onChanged, rollback, onClearRollback, publishedHash }: {
   workflow: WorkflowGraph; hasChanges: boolean; onClose: () => void; onChanged: () => void; rollback?: WorkflowVersionDto; onClearRollback: () => void; publishedHash?: string | null;
@@ -20,6 +21,7 @@ export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onCh
   const [invoiceId, setInvoiceId] = useState('');
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [triggersOpen, setTriggersOpen] = useState(false);
   const act = async (operation: () => Promise<unknown>) => { setBusy(true); setError(null); try { await operation(); } catch (reason) { setError(connectorError(reason)); } finally { setBusy(false); } };
   const publish = async () => {
     const checked = await workflowService.validate(workflow.slug); setValidation(checked);
@@ -58,5 +60,7 @@ export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onCh
       </div>}
       <Link to="/approvals" className="text-sm text-primary underline">Open approvals</Link>
     </div></div>
+    <Button variant="outline" onClick={() => setTriggersOpen(value => !value)}>{triggersOpen ? 'Hide automatic triggers' : 'Manage automatic triggers'}</Button>
+    {triggersOpen && <WorkflowTriggerPanel slug={workflow.slug} workflowId={workflow.id} publishedVersionId={workflow.publishedVersionId} />}
   </div>;
 }

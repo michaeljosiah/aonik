@@ -65,7 +65,7 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
             return WorkItemDispatchSummary.Empty;
         }
 
-        int succeeded = 0, proposed = 0, skipped = 0, failed = 0;
+        int succeeded = 0, proposed = 0, skipped = 0, failed = 0, deferred = 0;
 
         foreach (var dueRef in dueRefs)
         {
@@ -80,11 +80,12 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
                 case TaskActionOutcome.Succeeded: succeeded++; break;
                 case TaskActionOutcome.Proposed: proposed++; break;
                 case TaskActionOutcome.Failed: failed++; break;
+                case TaskActionOutcome.Deferred: deferred++; break;
                 default: skipped++; break;
             }
         }
 
-        return new WorkItemDispatchSummary(dueRefs.Count, succeeded, proposed, skipped, failed);
+        return new WorkItemDispatchSummary(dueRefs.Count, succeeded, proposed, skipped, failed, deferred);
     }
 
     /// <summary>
@@ -109,6 +110,7 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
             .Where(w => (w.Status == TaskStatuses.Scheduled || w.Status == TaskStatuses.InProgress)
                 && w.NextRunAtUtc != null
                 && w.NextRunAtUtc <= now
+                && (w.DeferredUntilUtc == null || w.DeferredUntilUtc <= now)
                 && !w.IsDeleted
                 && (w.LeasedUntilUtc == null || w.LeasedUntilUtc <= now))
             .OrderBy(w => w.NextRunAtUtc)
@@ -193,10 +195,6 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
                 return TaskActionOutcome.Skipped;
             }
         }
-        else
-        {
-            run.StartedAtUtc = now; // crash-recovery retry of an in-flight occurrence
-        }
 
         // Execute the handler while heart-beating the lease, so a slow handler keeps its claim and is
         // never reclaimed mid-flight by another worker. A lapsed lease then means the worker is gone.
@@ -221,7 +219,7 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
         // (A side effect the handler already performed in that rare window relies on handler
         // idempotency; see class remarks.)
         await db.Entry(workItem).ReloadAsync(cancellationToken).ConfigureAwait(false);
-        if (workItem.LeasedBy != leaseToken)
+        if (workItem.LeasedBy != leaseToken || workItem.Status != TaskStatuses.InProgress)
         {
             _logger.LogWarning(
                 "Work item {WorkItemId} occurrence {ScheduledFor:o} was reclaimed by another worker mid-execution; abandoning this run's bookkeeping.",
@@ -229,7 +227,11 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
             return TaskActionOutcome.Skipped;
         }
 
-        ApplyResult(workItem, run, result, options.MaxAttempts, _clock.UtcNow);
+        DateTime completedAt = _clock.UtcNow;
+        if (result.Outcome == TaskActionOutcome.Deferred && (result.DeferredUntilUtc is not { Kind: DateTimeKind.Utc } until
+            || until <= completedAt || until > completedAt.AddDays(1)))
+            result = new(TaskActionOutcome.Failed, Error: "A deferred task needs a future UTC retry deadline within one day.");
+        ApplyResult(workItem, run, result, options.MaxAttempts, completedAt);
         try
         {
             await db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -327,7 +329,8 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
             workItem.AssigneeId,
             workItem.AssigneeKey,
             scheduledFor,
-            workItem.ActionPayloadJson);
+            workItem.ActionPayloadJson,
+            run.StartedAtUtc);
 
         try
         {
@@ -348,6 +351,17 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
         run.AiRunId = result.AiRunId;
         run.ProposalId = result.ProposalId;
         run.ResultJson = result.ResultJson;
+
+        if (result.Outcome == TaskActionOutcome.Deferred)
+        {
+            workItem.Status = TaskStatuses.Scheduled;
+            workItem.DeferredUntilUtc = result.DeferredUntilUtc;
+            workItem.LastError = result.Error;
+            run.Error = result.Error;
+            ReleaseLease(workItem);
+            return;
+        }
+        workItem.DeferredUntilUtc = null;
 
         if (result.Outcome == TaskActionOutcome.Failed)
         {
@@ -445,6 +459,7 @@ internal sealed class WorkItemDispatcher : IWorkItemDispatcher
         (workItem.Status == TaskStatuses.Scheduled || workItem.Status == TaskStatuses.InProgress)
         && workItem.NextRunAtUtc is not null
         && workItem.NextRunAtUtc <= now
+        && (workItem.DeferredUntilUtc is null || workItem.DeferredUntilUtc <= now)
         && (workItem.LeasedUntilUtc is null || workItem.LeasedUntilUtc <= now);
 
     private static void ReleaseLease(WorkItem workItem)

@@ -19,6 +19,7 @@ public static class SettingDefinitions
             [StripeSettingNames.ConnectorId] = new SettingDefinition(StripeSettingNames.ConnectorId),
             [WorkflowSettingNames.RequireSeparatePublisher] = new SettingDefinition(WorkflowSettingNames.RequireSeparatePublisher, "false"),
             [WorkflowSettingNames.ExecutionEnabled] = new SettingDefinition(WorkflowSettingNames.ExecutionEnabled, "false"),
+            [WorkflowSettingNames.AutomaticTriggersEnabled] = new SettingDefinition(WorkflowSettingNames.AutomaticTriggersEnabled, "false"),
             [IntegrationSettingNames.GmailEnabled] = new(IntegrationSettingNames.GmailEnabled, "false"),
             [IntegrationSettingNames.GmailAllowedActions] = new(IntegrationSettingNames.GmailAllowedActions),
             [IntegrationSettingNames.GmailAllowUserConnections] = new(IntegrationSettingNames.GmailAllowUserConnections, "true"),

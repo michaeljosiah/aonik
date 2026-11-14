@@ -35,6 +35,7 @@ public class WorkItem : AuditableEntity, ITenantScoped
     // When
     public string ScheduleType { get; set; } = string.Empty; // OneOff | Recurring
     public DateTime? NextRunAtUtc { get; set; }              // null once terminal
+    public DateTime? DeferredUntilUtc { get; set; }         // retry eligibility; preserves the original occurrence identity
     public string? RecurrenceCron { get; set; }              // Quartz/cron expression when Recurring
     public string? Timezone { get; set; }                    // IANA id for cron evaluation
     public DateTime? StartAtUtc { get; set; }

@@ -6,6 +6,7 @@ using Aonik.Agents.Contracts.Models.Workflows;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Workflows;
 
@@ -33,6 +34,13 @@ internal sealed class WorkflowAutomationDefinitionReader(AgentsDbContext databas
             await execution.RequireModuleAsync(handler.GetType(), cancellationToken);
             capabilities.Add(new(handler.Descriptor.Key, handler.Descriptor.Version, handler.Descriptor.RequiredPermission));
         }
+        // A trigger may need metadata synchronization without adding a dummy search step to its graph.
+        var synchronization = actions.Descriptors.SingleOrDefault(action => action.Key == GmailActionKeys.Search && action.Version == 1 && action.Approval is null);
+        if (synchronization is not null && capabilities.All(action => action.Key != synchronization.Key || action.Version != synchronization.Version))
+        {
+            await execution.RequireModuleAsync(actions.Resolve(synchronization.Key, synchronization.Version).GetType(), cancellationToken);
+            capabilities.Add(new(synchronization.Key, synchronization.Version, synchronization.RequiredPermission, "Optional approved mailbox trigger synchronization"));
+        }
         return new(version.WorkflowId, version.Id, version.DefinitionHash!, capabilities.Distinct().ToList());
     }
 
@@ -43,6 +51,9 @@ internal sealed class WorkflowAutomationDefinitionReader(AgentsDbContext databas
             && run.ActorType == "AutomationIdentity" && run.ActorId == identityId
             && run.Status != WorkflowRunStatuses.Completed && run.Status != WorkflowRunStatuses.Cancelled && run.Status != WorkflowRunStatuses.Failed)
             .Select(run => run.WorkflowVersionId).ToListAsync(cancellationToken);
-        return new(versions.Count, versions.Where(version => version.HasValue).Select(version => version!.Value).Distinct().ToList());
+        var bindings = await database.WorkflowTriggerBindings.AsNoTracking().Where(binding => binding.TenantId == tenantProvider.GetCurrentTenantId()
+            && binding.ActiveAutomationIdentityId == identityId && binding.Status == "Active").Select(binding => new { binding.Id, binding.ActiveJson }).ToListAsync(cancellationToken);
+        return new(versions.Count, versions.Where(version => version.HasValue).Select(version => version!.Value)
+            .Concat(bindings.Select(binding => WorkflowTriggerService.Read(binding.ActiveJson!).WorkflowVersionId)).Distinct().ToList(), bindings.Select(binding => binding.Id).ToList());
     }
 }

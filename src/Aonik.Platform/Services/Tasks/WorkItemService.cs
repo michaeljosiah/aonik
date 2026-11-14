@@ -82,11 +82,11 @@ internal sealed class WorkItemService : ITaskService, IWorkItemAdminService
         var now = _clock.UtcNow;
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
-        if (request.TaskId.HasValue && (request.TaskId == Guid.Empty || isRecurring
-            || request.RunAtUtc is not { Kind: DateTimeKind.Utc }
-            || (request.StartAtUtc.HasValue && request.StartAtUtc != request.RunAtUtc)))
+        if (request.TaskId.HasValue && (request.TaskId == Guid.Empty || (isRecurring
+            ? request.StartAtUtc is not { Kind: DateTimeKind.Utc } || request.EndAtUtc is not { Kind: DateTimeKind.Utc } || string.IsNullOrWhiteSpace(request.Timezone)
+            : request.RunAtUtc is not { Kind: DateTimeKind.Utc } || (request.StartAtUtc.HasValue && request.StartAtUtc != request.RunAtUtc))))
         {
-            throw new ArgumentException("A stable task ID requires an explicit UTC one-off time and matching start time.", nameof(request));
+            throw new ArgumentException("A stable task ID requires an explicit UTC one-off time or an explicit recurring UTC window and timezone.", nameof(request));
         }
 
         string scheduleType;
@@ -130,7 +130,7 @@ internal sealed class WorkItemService : ITaskService, IWorkItemAdminService
             NextRunAtUtc = nextRunAtUtc,
             RecurrenceCron = request.RecurrenceCron,
             Timezone = request.Timezone,
-            StartAtUtc = request.TaskId.HasValue ? request.RunAtUtc : request.StartAtUtc,
+            StartAtUtc = request.TaskId.HasValue && !isRecurring ? request.RunAtUtc : request.StartAtUtc,
             EndAtUtc = request.EndAtUtc,
             MaxRuns = request.MaxRuns,
             RunCount = 0,
@@ -295,6 +295,7 @@ internal sealed class WorkItemService : ITaskService, IWorkItemAdminService
 
         workItem.Status = TaskStatuses.Cancelled;
         workItem.NextRunAtUtc = null;
+        workItem.DeferredUntilUtc = null;
         await _dbContext.SaveChangesAsync(ct);
     }
 
@@ -328,5 +329,6 @@ internal sealed class WorkItemService : ITaskService, IWorkItemAdminService
         w.CorrelationId,
         w.LastError,
         w.CreatedAt,
-        w.UpdatedAt);
+        w.UpdatedAt,
+        w.DeferredUntilUtc);
 }

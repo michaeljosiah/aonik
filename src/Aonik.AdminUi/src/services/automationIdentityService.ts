@@ -4,8 +4,8 @@ export interface AutomationAction { key: string; version: number }
 export interface AutomationGrant { workflowVersionId: string; subjectType: 'Invoice'; allSubjects: boolean; subjectIds: string[]; actions: AutomationAction[] }
 export interface AutomationIdentityCommand { name: string; accountableUserId: string; expiresAt: string | null; grants: AutomationGrant[]; expectedVersion?: string }
 export interface AutomationIdentity extends AutomationIdentityCommand { id: string; status: string; expectedVersion: string; configuredByUserId: string | null }
-export interface AutomationUsage { activeRuns: number; workflowVersionIds: string[] }
-export interface AutomationCapability { workflowId: string; workflowVersionId: string; definitionHash: string; actions: (AutomationAction & { requiredPermission: string })[] }
+export interface AutomationUsage { activeRuns: number; workflowVersionIds: string[]; activeTriggerBindingIds?: string[] }
+export interface AutomationCapability { workflowId: string; workflowVersionId: string; definitionHash: string; actions: (AutomationAction & { requiredPermission: string; purpose?: string })[] }
 
 const base = '/v1/integrations/automation-identities';
 export const automationIdentityService = {

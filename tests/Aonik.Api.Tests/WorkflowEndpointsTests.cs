@@ -13,7 +13,7 @@ using Aonik.SharedKernel.Abstractions.Settings;
 
 namespace Aonik.Api.Tests;
 
-public class WorkflowEndpointsTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
+public partial class WorkflowEndpointsTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
 {
     [Fact]
     public async Task RunRoutes_Should_AdmitIdempotently_ExposeTheTrace_AndRespectTerminalCancellation()

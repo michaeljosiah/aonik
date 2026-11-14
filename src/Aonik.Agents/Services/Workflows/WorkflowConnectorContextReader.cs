@@ -29,7 +29,7 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
         if (run.Status != WorkflowRunStatuses.Running || run.LeaseId != context.LeaseId || run.LeaseExpiresAt <= clock.UtcNow
             || step.RunId != run.Id || step.Status != "Executing" || step.ActionKey != action.Key || step.ActionVersion != action.Version
             || step.ArgumentsHash != hash || run.PendingStepRunId != step.Id) throw Denied();
-        await authority.RequireActorAsync(WorkflowExecutionAuthorization.Actor(run), cancellationToken);
+        await authority.RequireRunAsync(run, cancellationToken);
         if (run.ActorType == "AutomationIdentity")
         {
             if (automation is null) throw Denied();

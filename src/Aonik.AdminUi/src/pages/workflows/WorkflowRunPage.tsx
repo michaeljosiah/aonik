@@ -41,6 +41,7 @@ export function WorkflowRunPage() {
     {error && <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</p>}
     <Card><CardContent className="space-y-2 pt-5 text-sm"><p>Subject: {run.subjectType} · {run.subjectId}</p><p>Actor: {run.actorType} · {run.actorId}</p><p className="break-all">Published version: {run.workflowVersionId}</p><p className="break-all text-xs text-muted-foreground">Definition hash: {run.definitionHash}</p>
       {run.configuredByUserId && <p>Configured by: {run.configuredByUserId}</p>}{run.initiatingUserId && <p>Initiating user: {run.initiatingUserId}</p>}
+      {run.source && <div className="space-y-1 break-all text-xs"><p>Automatic trigger: {run.source.bindingId} · revision {run.source.revision}</p><p>Source event: {run.source.eventId} · {new Date(run.source.occurredAtUtc).toLocaleString()}</p>{run.source.causationRunId && <p>Caused by <Link className="text-primary underline" to={`/ai/workflow-runs/${run.source.causationRunId}`}>{run.source.causationRunId}</Link></p>}</div>}
       {run.outcome && <p>Outcome: {run.outcome}</p>}{run.errorCode && <p>Held reason: {run.errorCode}</p>}
       <div className="flex flex-wrap gap-2 pt-2">
         {(run.status === 'WaitingForConnection' || run.status === 'NeedsAttention') && <Button disabled={busy} onClick={() => void act(() => workflowService.resume(run))}>Revalidate and resume this run</Button>}

@@ -14,6 +14,7 @@ export interface ConnectorGrant {
   id: string; connectionId: string; granteeType: string; granteeId: string; actions: ConnectorActionRef[];
   expiresAt: string | null; revokedAt: string | null; expectedVersion: string;
 }
+export interface MailboxSubscriptionHealth { id: string; status: string; mode: string; watchExpiresAtUtc: string | null; watchRenewedAtUtc: string | null; lastSuccessAtUtc: string | null; lastError: string | null; fullSync: boolean; nextPollAtUtc: string | null; pollTaskEndAtUtc: string }
 export interface ConnectionRequest {
   id: string; connectorKey: string; requesterUserId: string; ownership: 'User' | 'Tenant'; ownerUserId: string | null;
   actions: ConnectorActionRef[]; requiredScopes: string[]; purpose: string; status: string; reasonCode: string; nextAction: string;
@@ -45,6 +46,7 @@ export const connectorService = {
   disconnect: (connection: ConnectorConnection) => api.post<ConnectorConnection>(`${root}/connections/${connection.id}/disconnect`, { expectedVersion: connection.expectedVersion }),
   rename: (connection: ConnectorConnection, displayName: string) => api.put<ConnectorConnection>(`${root}/connections/${connection.id}`, { expectedVersion: connection.expectedVersion, displayName }),
   grants: (id: string) => api.get<ConnectorGrant[]>(`${root}/connections/${encodeURIComponent(id)}/grants`),
+  subscription: (id: string) => api.get<{ subscription: MailboxSubscriptionHealth | null }>(`${root}/connections/${encodeURIComponent(id)}/mailbox-subscription`),
   binding: (id: string, workflowId: string, action: ConnectorActionRef) => api.get<{ connectionId: string; workflowGrantId: string; allowedActions: ConnectorActionRef[] }>(`${root}/connections/${encodeURIComponent(id)}/workflow-binding`, { params: { workflowId, actionKey: action.key, version: action.version } }),
   issueGrant: (connection: ConnectorConnection, granteeType: string, granteeId: string, actions: ConnectorActionRef[], expiresAt?: string, existing?: ConnectorGrant) => api.post<ConnectorGrant>(`${root}/connections/${connection.id}/grants`,
     { granteeType, granteeId, actions, expectedConnectionVersion: connection.expectedVersion, expiresAt, existingGrantId: existing?.id, expectedGrantVersion: existing?.expectedVersion }),

@@ -30,7 +30,7 @@ using Aonik.TestSupport.Multitenancy;
 
 namespace Aonik.Database.Tests;
 
-public class WorkflowRunSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
+public partial class WorkflowRunSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
 {
     [SkippableTheory]
     [InlineData(false)]
@@ -184,6 +184,7 @@ public class WorkflowRunSqlServerTests(SqlLocalDbFixture database) : IClassFixtu
         users.Setup(reader => reader.GetByIdsAsync(tenantId, It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>())).ReturnsAsync([new(userId, null, "Active")]);
         var settings = new Mock<ITenantSettingStore>();
         settings.Setup(store => store.GetTenantValueAsync(WorkflowSettingNames.ExecutionEnabled, tenantId, It.IsAny<CancellationToken>())).ReturnsAsync("true");
+        settings.Setup(store => store.GetTenantValueAsync(WorkflowSettingNames.AutomaticTriggersEnabled, tenantId, It.IsAny<CancellationToken>())).ReturnsAsync("true");
         var permissions = new AllowAllPermissionService();
         return new(db, tenant, new(tenant, automation is null ? new TestCurrentUserProvider(userId) : Mock.Of<ICurrentUserProvider>(), permissions),
             new(tenant, permissions, users.Object, settings.Object, new ConfigurationBuilder().Build(), [new Facts(subjectId)], automation: automation), new Clock(), automation: automation);

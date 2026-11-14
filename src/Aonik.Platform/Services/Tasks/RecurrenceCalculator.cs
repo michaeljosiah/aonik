@@ -9,7 +9,7 @@ namespace Aonik.Platform.Services.Tasks;
 /// One-off tasks do not use this; recurring tasks call it for both the first
 /// occurrence (at schedule time) and the re-arm (after each dispatch).
 /// </summary>
-public sealed class RecurrenceCalculator
+public sealed class RecurrenceCalculator : Aonik.SharedKernel.Abstractions.Tasks.IRecurrenceScheduleCalculator
 {
     /// <summary>
     /// Returns the next fire time strictly after <paramref name="afterUtc"/>, in UTC,

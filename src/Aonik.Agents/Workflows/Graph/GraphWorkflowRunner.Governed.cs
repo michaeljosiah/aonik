@@ -53,7 +53,7 @@ internal sealed partial class GraphWorkflowRunner
                 return new(run.Status, run.Outcome, run.ErrorCode);
             }
             WorkflowExecutionAuthorization authority = scope.ServiceProvider.GetRequiredService<WorkflowExecutionAuthorization>();
-            await authority.RequireActorAsync(WorkflowExecutionAuthorization.Actor(run), budget.Token);
+            await authority.RequireRunAsync(run, budget.Token);
             await authority.RequireEnabledAsync(budget.Token);
             WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == tenantId
                 && version.WorkflowId == run.WorkflowId && version.Id == run.WorkflowVersionId, budget.Token);
@@ -128,7 +128,7 @@ internal sealed partial class GraphWorkflowRunner
                 OperationCanceledException => "ActiveTimeLimit",
                 _ => "ExecutionFailed",
             };
-            status = error is "WorkflowRetired" or "RunCancelled" ? WorkflowRunStatuses.Cancelled : WorkflowRunStatuses.NeedsAttention;
+            status = error is "WorkflowRetired" or "RunCancelled" or "TriggerDisabled" ? WorkflowRunStatuses.Cancelled : WorkflowRunStatuses.NeedsAttention;
             if (cause is ConnectorAccessException || (cause is ConnectorProviderException && error is "ReauthorizationRequired" or "InsufficientScopes"))
                 status = WorkflowRunStatuses.WaitingForConnection;
             outcome = error == "SubjectChanged" ? "NeedsManualReview" : null;

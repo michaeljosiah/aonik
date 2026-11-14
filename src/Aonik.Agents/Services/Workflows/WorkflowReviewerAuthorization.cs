@@ -6,6 +6,7 @@ using Aonik.Agents.Contracts.Models.Workflows;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
@@ -49,7 +50,8 @@ internal sealed class WorkflowReviewerAuthorization(
             || !await permissions.HasPermissionAsync(userId, step.RequiredPermission, cancellationToken)
             || (requirement.ForbidSelfApproval && (run.InitiatingUserId == userId || recorded.SubjectCreatedByUserId == userId)))
             throw new PermissionDeniedException(step.RequiredPermission, "The current user cannot decide this workflow action.");
-        await execution.RequireActorAsync(WorkflowExecutionAuthorization.Actor(run), cancellationToken);
+        try { await execution.RequireRunAsync(run, cancellationToken); }
+        catch (WorkflowExecutionException) { throw new WorkflowConflictException("The workflow's automatic source is disabled or no longer has its approved configuration."); }
         await execution.RequireEnabledAsync(cancellationToken);
         await execution.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, new("User", userId, userId), cancellationToken);
         WorkflowFactsSnapshot current = await execution.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, WorkflowExecutionAuthorization.Actor(run), cancellationToken);

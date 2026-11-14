@@ -139,6 +139,10 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Services.Integrations.ConnectorAuthorization>();
         services.AddScoped<Services.Integrations.ConnectorCredentialProtector>();
         services.AddScoped<Services.Integrations.ConnectorCredentialService>();
+        services.AddScoped<Services.Integrations.ConnectorSubscriptionService>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorSubscriptionService>(provider => provider.GetRequiredService<Services.Integrations.ConnectorSubscriptionService>());
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorMailboxPushIngress, Services.Integrations.ConnectorMailboxPushIngress>();
+        services.AddKeyedScoped<SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Integrations.ConnectorMailboxPollHandler>("connector_mailbox_poll");
         services.AddScoped<Services.Integrations.ConnectorGrantService>();
         services.AddScoped<Services.Integrations.AutomationIdentityService>();
         services.AddScoped<SharedKernel.Abstractions.Workflows.IAutomationIdentityAuthorization, Services.Integrations.AutomationIdentityAuthorization>();
@@ -173,6 +177,7 @@ public sealed class PlatformModule : IModule
             sp => sp.GetRequiredService<Services.Tasks.WorkItemService>());
         services.AddScoped<Aonik.Platform.Contracts.Services.Tasks.IWorkItemDispatcher, Services.Tasks.WorkItemDispatcher>();
         services.AddSingleton<Services.Tasks.RecurrenceCalculator>();
+        services.AddSingleton<SharedKernel.Abstractions.Tasks.IRecurrenceScheduleCalculator>(provider => provider.GetRequiredService<Services.Tasks.RecurrenceCalculator>());
         services.AddSingleton<Services.Tasks.ITaskActionHandlerCatalog, Services.Tasks.TaskActionHandlerCatalog>();
         // The reference low-risk action handler. Other modules register their own keyed handlers
         // (e.g. Finance → create_payment_proposal, Agents → run_agent) against the same gate.

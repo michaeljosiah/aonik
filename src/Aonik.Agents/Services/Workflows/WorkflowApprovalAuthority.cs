@@ -16,10 +16,13 @@ internal sealed class WorkflowApprovalAuthority(
     IPermissionService permissions, IUserDirectoryReader users, ITenantSettingStore settings,
     IConfiguration configuration, AgentsDbContext database, WorkflowReviewerAuthorization? reviewers = null)
 {
-    internal static bool IsGovernanceType(string type) => type is WorkflowToolApprovalManifest.PublishType or WorkflowToolApprovalManifest.RetireType;
-    internal static bool IsGovernanceTool(string name) => name is "aonik_request_publish_workflow" or "aonik_request_retire_workflow";
+    internal static bool IsGovernanceType(string type) => type is WorkflowToolApprovalManifest.PublishType or WorkflowToolApprovalManifest.RetireType
+        || WorkflowTriggerApprovalManifest.IsGovernanceType(type);
+    internal static bool IsGovernanceTool(string name) => name is "aonik_request_publish_workflow" or "aonik_request_retire_workflow"
+        || WorkflowTriggerApprovalManifest.IsGovernanceTool(name);
     internal static bool IsWorkflowMutation(string name) => IsGovernanceTool(name)
-        || name is "aonik_create_workflow" or "aonik_update_workflow" or "aonik_delete_workflow" or "aonik_start_workflow";
+        || name is "aonik_create_workflow" or "aonik_update_workflow" or "aonik_delete_workflow" or "aonik_start_workflow"
+        || WorkflowTriggerApprovalManifest.IsDraftTool(name);
 
     public async Task<bool> CanReadGovernanceAsync(CancellationToken cancellationToken = default)
         => tenantProvider.TryGetCurrentTenantId(out Guid tenantId)
@@ -42,6 +45,8 @@ internal sealed class WorkflowApprovalAuthority(
         if (!(tenantProvider.TryGetCurrentTenantId(out Guid tenantId) && tenantId == proposal.TenantId
             && currentUserProvider.TryGetCurrentUserId(out Guid userId)
             && await IsPublisherAsync(tenantId, userId, cancellationToken))) return false;
+        if (WorkflowTriggerApprovalManifest.IsGovernanceType(proposal.ProposalType)
+            && !await permissions.HasPermissionAsync(userId, "Integration.Manage", cancellationToken)) return false;
         ToolApprovalRequest? request = await database.ToolApprovalRequests.AsNoTracking().SingleOrDefaultAsync(
             request => request.TenantId == tenantId && request.ProposalId == proposal.Id, cancellationToken);
         return request is not null && await SatisfiesSeparationAsync(request, userId, cancellationToken);
@@ -57,7 +62,11 @@ internal sealed class WorkflowApprovalAuthority(
             return await CanReviewAsync(request, userId, cancellationToken);
         }
         if (IsGovernanceTool(request.ToolName)) return await IsPublisherAsync(tenantId, userId, cancellationToken)
+            && (!WorkflowTriggerApprovalManifest.IsGovernanceTool(request.ToolName) || await permissions.HasPermissionAsync(userId, "Integration.Manage", cancellationToken))
             && await SatisfiesSeparationAsync(request, userId, cancellationToken);
+        if (WorkflowTriggerApprovalManifest.IsDraftTool(request.ToolName)) return request.RequestingUserId == userId
+            && await IsActiveAsync(tenantId, userId, cancellationToken) && await permissions.HasPermissionAsync(userId, "Workflow.Write", cancellationToken)
+            && await permissions.HasPermissionAsync(userId, "Integration.Manage", cancellationToken);
         if (request.ToolName is "aonik_create_workflow" or "aonik_update_workflow" or "aonik_delete_workflow")
             return request.RequestingUserId == userId && await IsActiveAsync(tenantId, userId, cancellationToken)
                 && await permissions.HasPermissionAsync(userId, "Workflow.Write", cancellationToken);

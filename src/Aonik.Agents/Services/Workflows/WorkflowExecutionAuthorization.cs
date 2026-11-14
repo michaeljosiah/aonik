@@ -1,6 +1,10 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore;
 
+using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
+using Aonik.Agents.Framework;
+using Aonik.Agents.Persistence;
 using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Ai;
@@ -15,7 +19,7 @@ namespace Aonik.Agents.Services.Workflows;
 internal sealed class WorkflowExecutionAuthorization(
     ITenantProvider tenantProvider, IPermissionService permissions, IUserDirectoryReader users,
     ITenantSettingStore settings, IConfiguration configuration, IEnumerable<IWorkflowFactsProvider> factsProviders,
-    IModuleEnablementReader? modules = null, IAutomationIdentityAuthorization? automation = null)
+    IModuleEnablementReader? modules = null, IAutomationIdentityAuthorization? automation = null, AgentsDbContext? database = null)
 {
     public async Task RequireActorAsync(WorkflowActor actor, CancellationToken cancellationToken = default)
     {
@@ -48,6 +52,33 @@ internal sealed class WorkflowExecutionAuthorization(
         string? host = configuration["Workflows:ExecutionEnabled"] ?? configuration[WorkflowSettingNames.ExecutionEnabled];
         if (!bool.TryParse(enabled, out bool isEnabled) || !isEnabled || (host is not null && (!bool.TryParse(host, out bool hostEnabled) || !hostEnabled)))
             throw new PermissionDeniedException("Workflow.Run", "Workflow execution is disabled for this tenant.");
+    }
+
+    public async Task RequireAutomaticEnabledAsync(CancellationToken cancellationToken = default)
+    {
+        string? tenant = await settings.GetTenantValueAsync(WorkflowSettingNames.AutomaticTriggersEnabled, tenantProvider.GetCurrentTenantId(), cancellationToken);
+        string? host = configuration["Workflows:AutomaticTriggersEnabled"] ?? configuration[WorkflowSettingNames.AutomaticTriggersEnabled];
+        if (!bool.TryParse(tenant, out bool enabled) || !enabled || (host is not null && (!bool.TryParse(host, out bool hostEnabled) || !hostEnabled)))
+            throw new PermissionDeniedException("Workflow.Run", "Automatic workflow triggers are disabled for this tenant.");
+    }
+
+    public async Task RequireRunAsync(WorkflowRun run, CancellationToken cancellationToken = default)
+    {
+        await RequireActorAsync(Actor(run), cancellationToken);
+        if (run.TriggerBindingId is not { } bindingId) return;
+        await RequireAutomaticEnabledAsync(cancellationToken);
+        if (database is null || run.ActorType != "AutomationIdentity" || run.TriggerBindingRevision is null || run.TriggerApprovalProposalId is null
+            || !await database.WorkflowTriggerBindings.AsNoTracking().AnyAsync(binding => binding.TenantId == tenantProvider.GetCurrentTenantId()
+                && binding.Id == bindingId && binding.WorkflowId == run.WorkflowId && binding.Status == "Active"
+                && binding.ActiveRevision >= run.TriggerBindingRevision && binding.DisabledThroughRevision < run.TriggerBindingRevision, cancellationToken))
+            throw new WorkflowExecutionException("TriggerDisabled");
+        Proposal? approval = await database.Proposals.AsNoTracking().SingleOrDefaultAsync(proposal => proposal.TenantId == run.TenantId
+            && proposal.Id == run.TriggerApprovalProposalId && proposal.ProposalType == WorkflowTriggerApprovalManifest.ActivateType
+            && proposal.Status == ProposalStatus.Applied && proposal.ApprovedByUserId != null, cancellationToken);
+        if (approval is null) throw new WorkflowExecutionException("TriggerApprovalUnavailable");
+        var payload = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(approval.PayloadJson);
+        if (payload.GetProperty("bindingId").GetGuid() != bindingId || payload.GetProperty("command").GetProperty("definitionHash").GetString() != run.TriggerDefinitionHash)
+            throw new WorkflowExecutionException("TriggerApprovalMismatch");
     }
 
     public async Task<WorkflowFactsSnapshot> LoadFactsAsync(string subjectType, Guid subjectId, WorkflowActor actor,

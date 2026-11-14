@@ -72,11 +72,22 @@ public sealed class AgentsModule : IModule
         services.AddScoped<Services.Workflows.WorkflowContinuationWriter>();
         services.AddScoped<Services.Workflows.WorkflowActionRegistry>();
         services.AddScoped<Services.Workflows.WorkflowPublicationValidator>();
+        services.AddScoped<Services.Workflows.WorkflowTriggerValidator>();
+        services.AddScoped<Services.Workflows.WorkflowTriggerTaskProtector>();
+        services.AddScoped<Services.Workflows.WorkflowTriggerService>();
+        services.AddScoped<IWorkflowTriggerService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowTriggerService>());
+        services.AddScoped<Services.Workflows.WorkflowTriggerAdmissionService>();
+        services.AddSingleton<IToolApprovalManifest, WorkflowTriggerApprovalManifest>();
+        services.AddKeyedScoped<SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Workflows.WorkflowTriggerAdmissionTaskHandler>("workflow_trigger_admit");
+        services.AddKeyedScoped<SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Workflows.WorkflowTriggerScheduleTaskHandler>("workflow_trigger_schedule");
+        foreach (string type in new[] { WorkflowTriggerApprovalManifest.ActivateType, WorkflowTriggerApprovalManifest.DisableType })
+            services.AddKeyedScoped<IProposalHandler>(type, (provider, key) => new Services.Workflows.WorkflowTriggerProposalHandler((string)key!, provider.GetRequiredService<Services.Workflows.WorkflowTriggerService>()));
         services.AddScoped<WorkflowStepExecutionService>();
         services.AddScoped<Services.Workflows.WorkflowRunService>();
         services.AddScoped<IWorkflowRunService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowRunService>());
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowAutomationAdmission>(provider => provider.GetRequiredService<Services.Workflows.WorkflowRunService>());
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowAutomationDefinitionReader, Services.Workflows.WorkflowAutomationDefinitionReader>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IWorkflowMailboxBindingReader, Services.Workflows.WorkflowMailboxBindingReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Workflows.IWorkflowApprovalReader, Services.Workflows.WorkflowApprovalReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Connectors.IWorkflowConnectorContextReader, Services.Workflows.WorkflowConnectorContextReader>();
         foreach (string action in new[] { SharedKernel.Abstractions.Connectors.GmailActionKeys.Search,
@@ -93,6 +104,7 @@ public sealed class AgentsModule : IModule
         services.AddScoped<Services.Workflows.WorkflowGovernanceService>();
         services.AddScoped<IWorkflowGovernanceService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>());
         services.AddScoped<IAgentMutationGuard, Services.Workflows.WorkflowMutationGuard>();
+        services.AddScoped<IAgentMutationGuard, Services.Workflows.WorkflowTriggerMutationGuard>();
         services.AddSingleton<IToolApprovalManifest, WorkflowToolApprovalManifest>();
         services.AddSingleton<IToolApprovalManifest, ConnectorToolApprovalManifest>();
         services.AddScoped<IAgentMutationGuard, Services.Workflows.ConnectorMutationGuard>();

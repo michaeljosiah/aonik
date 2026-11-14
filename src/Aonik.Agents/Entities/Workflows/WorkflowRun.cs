@@ -43,6 +43,15 @@ public class WorkflowRun : AuditableEntity, ITenantScoped
     public Guid? ActorId { get; set; }
     public Guid? InitiatingUserId { get; set; }
     public Guid? ConfiguredByUserId { get; set; }
+    public Guid? TriggerBindingId { get; set; }
+    public int? TriggerBindingRevision { get; set; }
+    public Guid? TriggerApprovalProposalId { get; set; }
+    public string? TriggerDefinitionHash { get; set; }
+    public Guid? SourceEventId { get; set; }
+    public DateTime? SourceOccurredAtUtc { get; set; }
+    public Guid? CausationRunId { get; set; }
+    public Guid? RootRunId { get; set; }
+    public string TriggerPathJson { get; set; } = "[]";
     public string? SubjectType { get; set; }
     public Guid? SubjectId { get; set; }
     public string? IdempotencyKey { get; set; }

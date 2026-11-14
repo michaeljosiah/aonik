@@ -106,7 +106,7 @@ internal sealed class AutomationIdentityService(PlatformDbContext database, Conn
             foreach (AutomationActionRef action in grant.Actions)
             {
                 AutomationActionCapability descriptor = capability.Actions.SingleOrDefault(item => item.Key == action.Key && item.Version == action.Version)
-                    ?? throw new ArgumentException("An automation action must belong to its exact published workflow version.");
+                    ?? throw new ArgumentException("Select an action declared for this exact published workflow or its explicit synchronization capability.");
                 result.Add(descriptor.RequiredPermission);
                 if (descriptor.Key.StartsWith("gmail.", StringComparison.Ordinal)) result.UnionWith(["Integration.Read", "Integration.Use"]);
             }

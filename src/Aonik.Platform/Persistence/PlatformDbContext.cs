@@ -70,6 +70,7 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<ContactEnquiry> ContactEnquiries { get; set; } = null!;
     public DbSet<ContactEnquiryAttachment> ContactEnquiryAttachments { get; set; } = null!;
     public DbSet<ConnectorConnection> ConnectorConnections { get; set; } = null!;
+    public DbSet<ConnectorSubscription> ConnectorSubscriptions { get; set; } = null!;
     public DbSet<AutomationIdentity> AutomationIdentities { get; set; } = null!;
     public DbSet<ConnectorConnectionGrant> ConnectorConnectionGrants { get; set; } = null!;
     public DbSet<ConnectorConnectionRequest> ConnectorConnectionRequests { get; set; } = null!;
@@ -234,6 +235,7 @@ internal class PlatformDbContext : AonikDbContextBase
 
         MapTable<Setting>(modelBuilder, "Settings");
         MapTable<ConnectorConnection>(modelBuilder, "ConnectorConnections");
+        MapTable<ConnectorSubscription>(modelBuilder, "ConnectorSubscriptions");
         MapTable<AutomationIdentity>(modelBuilder, "AutomationIdentities");
         MapTable<ConnectorConnectionGrant>(modelBuilder, "ConnectorConnectionGrants");
         MapTable<ConnectorConnectionRequest>(modelBuilder, "ConnectorConnectionRequests");

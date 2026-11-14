@@ -1866,6 +1866,9 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(24)
                         .HasColumnType("nvarchar(24)");
 
+                    b.Property<Guid?>("CausationRunId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("CheckpointId")
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
@@ -1948,6 +1951,9 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("PendingStepRunId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("RootRunId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -1957,6 +1963,12 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<string>("SequenceJson")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("SourceEventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("SourceOccurredAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("StartedAt")
                         .HasColumnType("datetime2");
@@ -1981,6 +1993,25 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("TriggerApprovalProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TriggerBindingId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int?>("TriggerBindingRevision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TriggerDefinitionHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("TriggerPathJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("nvarchar(max)")
+                        .HasDefaultValue("[]");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
@@ -1998,11 +2029,15 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("WorkflowId", "StartedAt")
                         .HasDatabaseName("IX_WorkflowRuns_WorkflowId_StartedAt");
 
+                    b.HasIndex("TenantId", "TriggerBindingId", "StartedAt");
+
                     b.HasIndex("TenantId", "WorkflowVersionId", "Status");
 
                     b.HasIndex("TenantId", "ActorType", "ActorId", "IdempotencyKey")
                         .IsUnique()
                         .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("TenantId", "TriggerBindingId", "SubjectId", "Status");
 
                     b.ToTable("AnkWorkflowRuns", "dbo");
                 });
@@ -2140,6 +2175,129 @@ namespace Aonik.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("AnkWorkflowStepRuns", "dbo");
+                });
+
+            modelBuilder.Entity("Aonik.Agents.Entities.Workflows.WorkflowTriggerBinding", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ActivatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ActivatedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ActivationProposalId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ActiveAutomationIdentityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ActiveHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ActiveJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("ActiveRevision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ActiveSource")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<long>("AdmittedRuns")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ConfiguredByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DisabledByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DisabledThroughRevision")
+                        .HasColumnType("int");
+
+                    b.Property<string>("DraftHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("DraftJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("DraftRevision")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<Guid?>("SubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("TaskId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("WorkflowId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "ActiveAutomationIdentityId", "Status");
+
+                    b.HasIndex("TenantId", "ActiveSource", "Status");
+
+                    b.HasIndex("TenantId", "WorkflowId", "Status");
+
+                    b.ToTable("AnkWorkflowTriggerBindings", "dbo");
                 });
 
             modelBuilder.Entity("Aonik.Agents.Entities.Workflows.WorkflowVersion", b =>
@@ -25273,6 +25431,151 @@ namespace Aonik.Infrastructure.Migrations
                     b.ToTable("AnkConnectorConnectionRequests", "dbo");
                 });
 
+            modelBuilder.Entity("Aonik.Platform.Entities.Integrations.ConnectorSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ApplicationKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("BindingsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("ConnectionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ConnectorKey")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("FullSync")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("FullSyncPages")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FullSyncSinceUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("FullSyncStartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("HistoryId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
+                    b.Property<DateTime?>("LastSuccessAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LeaseExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Mode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime?>("NextPollAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PageToken")
+                        .HasMaxLength(4096)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("PollTaskEndAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PollTaskId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PollTaskProof")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("PollTaskStartAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProviderAccountHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("TargetHistoryId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("WatchClaim")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("WatchExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("WatchRenewedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WatchClaim")
+                        .IsUnique()
+                        .HasFilter("[WatchClaim] IS NOT NULL");
+
+                    b.HasIndex("TenantId", "ConnectionId")
+                        .IsUnique();
+
+                    b.HasIndex("ApplicationKey", "ProviderAccountHash", "Status");
+
+                    b.ToTable("AnkConnectorSubscriptions", "dbo");
+                });
+
             modelBuilder.Entity("Aonik.Platform.Entities.Modules.TenantModule", b =>
                 {
                     b.Property<Guid>("Id")
@@ -27807,6 +28110,9 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeferredUntilUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
