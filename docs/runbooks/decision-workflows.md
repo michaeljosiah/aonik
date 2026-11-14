@@ -28,6 +28,8 @@ The current mailbox route selects one explicitly stored invoice. Automated docum
 
 Configure the existing OAuth client on the server under `Integrations:Gmail:OAuth`: `ClientId`, `ClientSecret`, `RedirectUri` and `ReviewReturnUri`. Register the exact callback `/integrations/gmail/oauth/callback` with Google. Keep secrets out of browser configuration, workflow JSON and chat. Read-only connections use the Gmail read scope plus verified account identity scopes. Attachments additionally require the existing private content store and malware scanner.
 
+For a new development client, use the [exact Gmail OAuth setup and rehearsal checklist](decision-workflows-google-oauth.md). Setup and owner consent remain distinct from financial action approval.
+
 Polling works without Pub/Sub. For authenticated push with polling recovery, configure these deployment-owned settings on API and Worker:
 
 ```json

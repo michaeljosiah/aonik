@@ -11,8 +11,8 @@ font_path = Path("C:/Windows/Fonts/arial.ttf")
 if not font_path.exists():
     font_path = Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")
 font = ImageFont.truetype(str(font_path), 48)
-sales = ["AONIK DEMO SALES INVOICE", "Customer: Demo Customer", "Invoice: DEMO-1001", "Currency: GBP", "Consulting: 2 x 125.00 = 250.00", "TOTAL: 250.00"]
-supplier = ["SUPPLIER INVOICE", "Supplier: Example Supplier", "Reference: SUP-2001", "Currency: GBP", "Office supplies: 1 x 80.00 = 80.00", "TOTAL: 80.00"]
+sales = ["AONIK DEMO SALES INVOICE", "Customer: Demo Customer", "Invoice: DEMO-1001", "Currency: GBP", "Consulting: 2 x 125.00 = 250.00", "TOTAL: 250.00", "Due: 2026-12-01"]
+supplier = ["SUPPLIER INVOICE", "Supplier: Example Supplier", "Reference: SUP-2001", "Currency: GBP", "Office supplies: 1 x 80.00 = 80.00", "TOTAL: 80.00", "Due: 2026-12-01"]
 
 def raster(lines):
     image = Image.new("RGB", (1800, 1100), "white")
@@ -28,6 +28,10 @@ for index, line in enumerate(sales):
     native.drawString(42, 760 - index * 80, line)
 native.showPage()
 native.save()
+sales_scanned = canvas.Canvas(str(fixture_dir / "sales-invoice-scanned.pdf"), pagesize=A4, invariant=1)
+sales_scanned.drawImage(ImageReader(raster(sales)), 0, 240, width=A4[0], height=A4[0] * 1100 / 1800)
+sales_scanned.showPage()
+sales_scanned.save()
 scanned = canvas.Canvas(str(fixture_dir / "supplier-invoice-scanned.pdf"), pagesize=A4, invariant=1)
 scanned.drawImage(ImageReader(raster(supplier)), 0, 240, width=A4[0], height=A4[0] * 1100 / 1800)
 scanned.showPage()

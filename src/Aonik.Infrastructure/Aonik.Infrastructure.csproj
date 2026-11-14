@@ -3,6 +3,7 @@
   <!-- Boundary enforcement: allow test projects to access internals -->
   <ItemGroup>
     <InternalsVisibleTo Include="Aonik.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="Aonik.Application.Tests" />
     <InternalsVisibleTo Include="Aonik.Api.Tests" />
   </ItemGroup>
 

@@ -4,3 +4,4 @@ Invoice: DEMO-1001
 Currency: GBP
 Consulting: 2 x 125.00 = 250.00
 TOTAL: 250.00
+Due: 2026-12-01

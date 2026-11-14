@@ -355,6 +355,8 @@ public partial class WorkflowExecutionTests
             ["AONIK DEMO SALES INVOICE", "Consulting: 2 x 125.00 = 250.00"]);
         public int ParserCalls { get; private set; }
         public bool CrashAfterCreate { get; set; }
+        public string ContentType { get; set; } = "text/plain";
+        public IDocumentTextExtractor? RealExtractor { get; set; }
         public Dictionary<string, byte[]> AdditionalSources { get; } = new(StringComparer.Ordinal);
 
         public void Configure(IServiceCollection services)
@@ -375,6 +377,7 @@ public partial class WorkflowExecutionTests
             text.Setup(value => value.ExtractTextAsync(It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(() => new DocumentTextExtractionResult(Encoding.UTF8.GetString(Bytes), ExtractedTextStatus.Native, new("Poppler", "fixture-1", 1, null)));
             services.AddSingleton(text.Object);
+            if (RealExtractor is not null) services.AddSingleton(RealExtractor);
             var scanner = new Mock<IDocumentSafetyScanner>(); scanner.Setup(value => value.ScanAsync(It.IsAny<byte[]>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
             services.AddSingleton(scanner.Object);
             var parser = new Mock<IFinancialDocumentParser>();
@@ -390,7 +393,7 @@ public partial class WorkflowExecutionTests
             documents.Documents.Add(new Document { Id = DocumentId, TenantId = tenant, OwnerPartyId = Guid.NewGuid(), DocumentType = "FinancialSource",
                 Classification = DocumentClassification.Restricted, IndexStatus = DocumentIndexStatus.NotIndexable, Status = "Received", CreatedBy = host.Actor.Author });
             documents.DocumentFiles.Add(new DocumentFile { Id = FileId, DocumentId = DocumentId, TenantId = tenant, StorageProvider = "PrivateTest",
-                StorageKey = "private:source.txt", FileName = "source.txt", ContentType = "text/plain", FileSizeBytes = Bytes.Length,
+                StorageKey = "private:source.txt", FileName = "source.txt", ContentType = ContentType, FileSizeBytes = Bytes.Length,
                 Sha256 = Convert.ToHexStringLower(SHA256.HashData(Bytes)) });
             await documents.SaveChangesAsync();
             FinanceDbContext finance = services.GetRequiredService<FinanceDbContext>(); Guid partyId = Guid.NewGuid();

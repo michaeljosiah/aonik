@@ -30,7 +30,8 @@ public class FinancialIntakeSqlServerTests(SqlLocalDbFixture database) : IClassF
         (await Task.WhenAll(writes)).Count(success => success).Should().Be(1);
 
         await using AonikDbContext saved = Context(tenantId);
-        (await saved.Documents.CountAsync()).Should().Be(1); (await saved.DocumentFiles.CountAsync()).Should().Be(1);
+        (await saved.Documents.CountAsync(document => document.TenantId == tenantId)).Should().Be(1);
+        (await saved.DocumentFiles.CountAsync(file => file.TenantId == tenantId)).Should().Be(1);
     }
 
     [SkippableFact]
@@ -47,7 +48,7 @@ public class FinancialIntakeSqlServerTests(SqlLocalDbFixture database) : IClassF
         }).ToArray();
 
         (await Task.WhenAll(writes)).Count(success => success).Should().Be(1);
-        await using AonikDbContext saved = Context(tenantId); (await saved.DocumentExtractions.CountAsync()).Should().Be(1);
+        await using AonikDbContext saved = Context(tenantId); (await saved.DocumentExtractions.CountAsync(extraction => extraction.TenantId == tenantId)).Should().Be(1);
     }
 
     [SkippableFact]
@@ -64,7 +65,7 @@ public class FinancialIntakeSqlServerTests(SqlLocalDbFixture database) : IClassF
         }).ToArray();
 
         (await Task.WhenAll(writes)).Count(success => success).Should().Be(1);
-        await using AonikDbContext saved = Context(tenantId); (await saved.Set<Invoice>().CountAsync()).Should().Be(1);
+        await using AonikDbContext saved = Context(tenantId); (await saved.Set<Invoice>().CountAsync(invoice => invoice.TenantId == tenantId)).Should().Be(1);
     }
 
     [SkippableFact]
@@ -72,10 +73,10 @@ public class FinancialIntakeSqlServerTests(SqlLocalDbFixture database) : IClassF
     {
         Skip.IfNot(database.IsAvailable, database.SkipReason); Guid tenantId = Guid.NewGuid(); Document document = Source(tenantId);
         await using (AonikDbContext seed = Context(tenantId)) { seed.Documents.Add(document); await seed.SaveChangesAsync(); }
-        await using AonikDbContext stale = Context(tenantId); Document old = await stale.Documents.SingleAsync();
+        await using AonikDbContext stale = Context(tenantId); Document old = await stale.Documents.SingleAsync(value => value.TenantId == tenantId && value.Id == document.Id);
         await using (AonikDbContext eraser = Context(tenantId))
         {
-            Document current = await eraser.Documents.SingleAsync(); eraser.Documents.Remove(current); await eraser.SaveChangesAsync();
+            Document current = await eraser.Documents.SingleAsync(value => value.TenantId == tenantId && value.Id == document.Id); eraser.Documents.Remove(current); await eraser.SaveChangesAsync();
         }
         stale.DocumentExtractions.Add(new DocumentExtraction { TenantId = tenantId, DocumentId = document.Id, ExtractionType = "FinancialCandidate.v1",
             InputHash = new string('a', 64), OutputJson = "{\"private\":\"evidence\"}" });
@@ -84,7 +85,7 @@ public class FinancialIntakeSqlServerTests(SqlLocalDbFixture database) : IClassF
         Func<Task> save = async () => { await stale.SaveChangesAsync(); };
 
         await save.Should().ThrowAsync<DbUpdateConcurrencyException>();
-        await using AonikDbContext saved = Context(tenantId); (await saved.DocumentExtractions.CountAsync()).Should().Be(0);
+        await using AonikDbContext saved = Context(tenantId); (await saved.DocumentExtractions.CountAsync(extraction => extraction.TenantId == tenantId)).Should().Be(0);
     }
 
     private AonikDbContext Context(Guid tenantId) => new(database.CreateOptions<AonikDbContext>(), new TestTenantProvider(tenantId));
