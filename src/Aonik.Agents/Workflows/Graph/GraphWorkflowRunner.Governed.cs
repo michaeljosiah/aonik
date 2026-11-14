@@ -55,6 +55,9 @@ internal sealed partial class GraphWorkflowRunner
             WorkflowExecutionAuthorization authority = scope.ServiceProvider.GetRequiredService<WorkflowExecutionAuthorization>();
             await authority.RequireRunAsync(run, budget.Token);
             await authority.RequireEnabledAsync(budget.Token);
+            // A pending approval is still subject to current domain and retained-source access.
+            // Loading does not replace pinned facts or authorize a changed operation.
+            _ = await authority.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, WorkflowExecutionAuthorization.Actor(run), budget.Token);
             WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == tenantId
                 && version.WorkflowId == run.WorkflowId && version.Id == run.WorkflowVersionId, budget.Token);
             if (version.DefinitionHash != run.DefinitionHash) throw new WorkflowExecutionException("DefinitionHashMismatch");

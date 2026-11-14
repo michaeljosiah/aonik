@@ -46,7 +46,7 @@ public interface IWorkflowConnectorContextReader
     Task<WorkflowConnectorRequestTarget> GetRequestTargetAsync(Guid runId, Guid userId, CancellationToken cancellationToken = default);
 }
 public sealed record WorkflowConnectorRequestTarget(Guid WorkflowId, Guid ConnectionId, Guid WorkflowGrantId,
-    IReadOnlyList<ConnectorActionRef> AllowedActions, Guid? AutomationIdentityId = null);
+    IReadOnlyList<ConnectorActionRef> AllowedActions, Guid? AutomationIdentityId = null, string? ProviderAccountId = null);
 
 public interface IConnectorPreferenceValidator
 {

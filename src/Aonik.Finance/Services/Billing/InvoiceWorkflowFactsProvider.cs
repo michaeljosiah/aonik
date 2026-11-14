@@ -22,6 +22,34 @@ internal sealed class InvoiceWorkflowFactsProvider(
 
     public async Task<WorkflowFactsSnapshot?> LoadAsync(Guid subjectId, WorkflowActor actor, CancellationToken cancellationToken = default)
     {
+        Invoice? invoice = await RecordAsync(subjectId, actor, cancellationToken);
+        if (invoice is null) return null;
+        if (invoice.IntakeBusinessKey is not null)
+        {
+            if (financialDocuments is null) throw new PermissionDeniedException("Document.Read");
+            _ = await financialDocuments.RequireContinuationAsync(ExtractionId(invoice), actor, cancellationToken);
+        }
+        return FromInvoice(invoice);
+    }
+
+    public async Task<WorkflowConnectionDependency?> GetConnectionDependencyAsync(Guid subjectId, WorkflowActor actor, CancellationToken cancellationToken = default)
+    {
+        Invoice invoice = await RecordAsync(subjectId, actor, cancellationToken) ?? throw new NotFoundException("Invoice not found.");
+        if (invoice.IntakeBusinessKey is null) return null;
+        if (financialDocuments is null) throw new PermissionDeniedException("Document.Read");
+        return await financialDocuments.GetConnectionDependencyAsync(ExtractionId(invoice), actor, cancellationToken);
+    }
+
+    private static Guid ExtractionId(Invoice invoice)
+    {
+        using JsonDocument provenance = JsonDocument.Parse(invoice.ProvenanceJson);
+        if (!provenance.RootElement.TryGetProperty("extractionId", out JsonElement extraction) || !extraction.TryGetGuid(out Guid id))
+            throw new PermissionDeniedException("Document.Read");
+        return id;
+    }
+
+    private async Task<Invoice?> RecordAsync(Guid subjectId, WorkflowActor actor, CancellationToken cancellationToken)
+    {
         Guid tenantId = tenantProvider.GetCurrentTenantId();
         if (actor.Type == "AutomationIdentity" && automation is not null)
             await automation.RequireAsync(actor, "Invoice.Read", SubjectType, subjectId, cancellationToken: cancellationToken);
@@ -31,16 +59,7 @@ internal sealed class InvoiceWorkflowFactsProvider(
             throw new PermissionDeniedException("Invoice.Read");
         Invoice? invoice = await database.Invoices.AsNoTracking().SingleOrDefaultAsync(
             invoice => invoice.TenantId == tenantId && invoice.Id == subjectId, cancellationToken);
-        if (invoice is null) return null;
-        if (invoice.IntakeBusinessKey is not null)
-        {
-            if (financialDocuments is null) throw new PermissionDeniedException("Document.Read");
-            using JsonDocument provenance = JsonDocument.Parse(invoice.ProvenanceJson);
-            if (!provenance.RootElement.TryGetProperty("extractionId", out JsonElement extraction) || !extraction.TryGetGuid(out Guid id))
-                throw new PermissionDeniedException("Document.Read");
-            _ = await financialDocuments.RequireContinuationAsync(id, actor, cancellationToken);
-        }
-        return FromInvoice(invoice);
+        return invoice;
     }
 
     internal static WorkflowFactsSnapshot FromInvoice(Invoice invoice)

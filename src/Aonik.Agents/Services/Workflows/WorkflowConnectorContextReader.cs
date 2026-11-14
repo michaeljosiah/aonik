@@ -65,13 +65,47 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
         bool automationManager = run.ActorType == "AutomationIdentity"
             && await permissions.HasPermissionAsync(userId, "Integration.Manage", cancellationToken)
             && await permissions.HasPermissionAsync(userId, "Workflow.Write", cancellationToken);
-        if (run.Status != WorkflowRunStatuses.WaitingForConnection || (!automationManager && run.InitiatingUserId != userId)
-            || run.PendingStepRunId is not { } stepId) throw Denied();
+        if (run.Status != WorkflowRunStatuses.WaitingForConnection || (!automationManager && run.InitiatingUserId != userId)) throw Denied();
+        WorkflowConnectionDependency? source = await authority.GetConnectionDependencyAsync(run.SubjectType!, run.SubjectId!.Value,
+            new("User", userId, userId), cancellationToken);
+        if (source is not null)
+        {
+            await RequireSourceLineageAsync(run, source, cancellationToken);
+            return new(source.WorkflowId, source.Connection.ConnectionId, source.Connection.WorkflowGrantId, source.Connection.AllowedActions,
+                source.AutomationIdentityId, source.ProviderAccountId);
+        }
         await authority.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, new("User", userId, userId), cancellationToken);
+        if (run.PendingStepRunId is not { } stepId) throw Denied();
         WorkflowStepRun step = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == run.TenantId && step.RunId == run.Id && step.Id == stepId, cancellationToken);
         WorkflowConnectorBinding binding = await BindingAsync(run, step.NodeKey, new(step.ActionKey!, step.ActionVersion!.Value), cancellationToken);
-        return new(run.WorkflowId, binding.ConnectionId, binding.WorkflowGrantId, binding.AllowedActions,
+        return new(run.WorkflowId, binding.ConnectionId, binding.WorkflowGrantId, [new(step.ActionKey!, step.ActionVersion!.Value)],
             run.ActorType == "AutomationIdentity" ? run.ActorId : null);
+    }
+
+    private async Task RequireSourceLineageAsync(WorkflowRun run, WorkflowConnectionDependency source, CancellationToken cancellationToken)
+    {
+        await authority.RequireRunAsync(run, cancellationToken);
+        WorkflowRun origin = run;
+        while (origin.WorkflowId != source.WorkflowId || origin.WorkflowVersionId != source.WorkflowVersionId
+            || origin.SubjectType != source.SubjectType || origin.SubjectId != source.SubjectId)
+        {
+            if (origin.ParentRunId is not { } parentId) throw Denied();
+            origin = await database.WorkflowRuns.AsNoTracking().SingleOrDefaultAsync(parent => parent.TenantId == run.TenantId && parent.Id == parentId,
+                cancellationToken) ?? throw Denied();
+        }
+        if (origin.ActorType != "AutomationIdentity" || origin.ActorId != source.AutomationIdentityId
+            || origin.TriggerBindingId != source.BindingId || origin.TriggerBindingRevision != source.BindingRevision
+            || origin.TriggerApprovalProposalId is not { } proposalId) throw Denied();
+        string previewJson = await database.ToolApprovalRequests.AsNoTracking().Where(request => request.TenantId == run.TenantId
+            && request.ProposalId == proposalId).Select(request => request.PreviewJson).SingleOrDefaultAsync(cancellationToken) ?? throw Denied();
+        var preview = JsonSerializer.Deserialize<ToolApprovalPreview>(previewJson, WorkflowDefinitionCodec.JsonOptions);
+        WorkflowTriggerDefinition definition = preview?.After?.GetProperty("definition").Deserialize<WorkflowTriggerDefinition>(WorkflowDefinitionCodec.JsonOptions) ?? throw Denied();
+        string json = JsonSerializer.Serialize(definition, WorkflowDefinitionCodec.JsonOptions);
+        if (WorkflowDefinitionCodec.Hash(json) != origin.TriggerDefinitionHash || definition.Source != "GmailMessageAdded"
+            || definition.Subject.Type != "Document" || definition.Subject.Mapping != "MessageAttachments"
+            || definition.WorkflowVersionId != source.WorkflowVersionId || definition.AutomationIdentityId != source.AutomationIdentityId
+            || definition.Mailbox?.ConnectionId != source.Connection.ConnectionId || definition.Mailbox.WorkflowGrantId != source.Connection.WorkflowGrantId
+            || !source.Connection.AllowedActions.SequenceEqual(GmailActionKeys.ReadActions.Select(key => new ConnectorActionRef(key, 1)))) throw Denied();
     }
 
     private async Task<WorkflowConnectorBinding> BindingAsync(WorkflowRun run, string nodeKey, ConnectorActionRef action, CancellationToken cancellationToken)

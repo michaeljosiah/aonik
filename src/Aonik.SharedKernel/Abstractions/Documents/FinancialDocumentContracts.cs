@@ -40,6 +40,8 @@ public interface IFinancialDocumentReader
         CancellationToken cancellationToken = default);
     Task<FinancialDocumentCandidate> RequireContinuationAsync(Guid extractionId, WorkflowActor actor,
         CancellationToken cancellationToken = default) => RequireAsync(extractionId, actor, cancellationToken);
+    Task<WorkflowConnectionDependency?> GetConnectionDependencyAsync(Guid extractionId, WorkflowActor actor,
+        CancellationToken cancellationToken = default) => Task.FromResult<WorkflowConnectionDependency?>(null);
 }
 public sealed record FinancialDocumentFileContent(Stream Content, string FileName, string ContentType);
 

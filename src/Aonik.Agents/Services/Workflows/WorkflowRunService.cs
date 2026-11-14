@@ -260,9 +260,18 @@ internal sealed class WorkflowRunService(
         Guid userId = await authorization.RequireAsync("Workflow.Read", cancellationToken);
         WorkflowRun? run = await FindAsync(runId, cancellationToken);
         if (run is null) return null;
+        bool restricted = false;
         if (run.SubjectId is { } subjectId && run.SubjectType is { } subjectType)
-            await executionAuthorization.LoadFactsAsync(subjectType, subjectId, new("User", userId, userId), cancellationToken);
-        return await DetailAsync(run, cancellationToken);
+        {
+            var viewer = new WorkflowActor("User", userId, userId);
+            try { await executionAuthorization.LoadFactsAsync(subjectType, subjectId, viewer, cancellationToken); }
+            catch (ConnectorAccessException)
+            {
+                if (await executionAuthorization.GetConnectionDependencyAsync(subjectType, subjectId, viewer, cancellationToken) is null) throw;
+                restricted = true;
+            }
+        }
+        return await DetailAsync(run, cancellationToken, restricted);
     }
 
     public async Task<WorkflowRunDetail> ResumeAsync(Guid runId, WorkflowRunCommand command, CancellationToken cancellationToken = default)
@@ -283,7 +292,9 @@ internal sealed class WorkflowRunService(
             WorkflowExecutionAuthorization.Actor(run), cancellationToken);
         if (WorkflowFactsHash.Compute(current) != run.FactsHash && !await HasAppliedPendingOperationAsync(run, cancellationToken))
             throw new WorkflowConflictException("The workflow subject changed. Review a new run instead of replacing its approved facts.");
-        if (run.Status == WorkflowRunStatuses.WaitingForConnection)
+        if (run.Status == WorkflowRunStatuses.WaitingForConnection
+            && await executionAuthorization.GetConnectionDependencyAsync(run.SubjectType!, run.SubjectId!.Value,
+                WorkflowExecutionAuthorization.Actor(run), cancellationToken) is null)
         {
             WorkflowStepRun pending = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == run.TenantId
                 && step.RunId == run.Id && step.Id == run.PendingStepRunId, cancellationToken);
@@ -378,13 +389,25 @@ internal sealed class WorkflowRunService(
         return run;
     }
 
-    internal async Task<WorkflowRunDetail> DetailAsync(WorkflowRun run, CancellationToken cancellationToken)
+    internal async Task<WorkflowRunDetail> DetailAsync(WorkflowRun run, CancellationToken cancellationToken, bool restricted = false)
     {
         List<WorkflowStepRun> steps = await database.WorkflowStepRuns.AsNoTracking().Where(step => step.TenantId == run.TenantId && step.RunId == run.Id)
             .ToListAsync(cancellationToken);
         Dictionary<Guid, int> order = WorkflowService.ParseGuidArray(run.SequenceJson).Select((id, index) => (id, index)).ToDictionary(item => item.id, item => item.index);
         steps = steps.OrderBy(step => order.GetValueOrDefault(step.Id, int.MaxValue)).ThenBy(step => step.StartedAt).ThenBy(step => step.Id).ToList();
         Guid userId = await authorization.RequireAsync("Workflow.Read", cancellationToken);
+        if (!restricted && steps.Any(step => step.ActionKey?.StartsWith("gmail.", StringComparison.Ordinal) == true))
+        {
+            WorkflowVersion pinned = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == run.TenantId && version.Id == run.WorkflowVersionId, cancellationToken);
+            WorkflowDefinition definition = ReadDefinition(pinned);
+            foreach (WorkflowStepRun step in steps.Where(step => step.ActionKey?.StartsWith("gmail.", StringComparison.Ordinal) == true))
+            {
+                WorkflowToolParameters parameters = definition.Nodes.Single(node => node.Key == step.NodeKey).Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
+                if (connectors is null || parameters.Connection is null) { restricted = true; break; }
+                try { await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, new(step.ActionKey!, step.ActionVersion!.Value), userId, cancellationToken); }
+                catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException) { restricted = true; break; }
+            }
+        }
         Guid[] stepIds = steps.Select(step => step.Id).ToArray();
         Dictionary<Guid, ToolApprovalRequest> requests = await database.ToolApprovalRequests.AsNoTracking()
             .Where(request => request.TenantId == run.TenantId && request.WorkflowStepRunId.HasValue && stepIds.Contains(request.WorkflowStepRunId.Value))
@@ -395,36 +418,25 @@ internal sealed class WorkflowRunService(
             WorkflowStepApproval? approval = null;
             if (requests.TryGetValue(step.Id, out ToolApprovalRequest? request))
             {
-                bool canViewPreview = true;
-                if (step.ActionKey is { } connectorKey && GmailActionPolicies.IsMutation(connectorKey))
-                {
-                    canViewPreview = false;
-                    WorkflowVersion pinned = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == run.TenantId && version.Id == run.WorkflowVersionId, cancellationToken);
-                    WorkflowToolParameters parameters = ReadDefinition(pinned).Nodes.Single(node => node.Key == step.NodeKey).Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
-                    if (connectors is not null && parameters.Connection is not null)
-                    {
-                        try { await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, new(connectorKey, step.ActionVersion!.Value), userId, cancellationToken); canViewPreview = true; }
-                        catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException) { }
-                    }
-                }
                 bool canDecide = false;
-                if (reviewers is not null && request.Status == ToolApprovalRequestStatus.Pending)
+                if (!restricted && reviewers is not null && request.Status == ToolApprovalRequestStatus.Pending)
                 {
                     try { await reviewers.RequireAsync(request, userId, cancellationToken); canDecide = true; }
                     catch (Exception exception) when (exception is PermissionDeniedException or WorkflowConflictException or ConnectorAccessException) { }
                 }
                 WorkflowHumanTaskView? human = null;
-                if (request.ToolName == WorkflowHumanTaskContract.ToolName && step.ArgumentsJson is { } args)
+                if (!restricted && request.ToolName == WorkflowHumanTaskContract.ToolName && step.ArgumentsJson is { } args)
                 {
                     WorkflowHumanParameters parameters = JsonSerializer.Deserialize<JsonElement>(args).GetProperty("parameters")
                         .Deserialize<WorkflowHumanParameters>(WorkflowDefinitionCodec.JsonOptions)!;
                     human = new(parameters.Purpose, parameters.Choices, request.DecidedByUserId, ReadJson(request.ResponseJson), request.ResponseHash);
                 }
                 approval = new(request.Id, request.RiskTier, request.ActionKind, request.Status.ToString(), Utc(request.ExpiresAt)!.Value, canDecide,
-                    canViewPreview && request.PreviewJson is { } preview ? JsonSerializer.Deserialize<ToolApprovalPreview>(preview, WorkflowDefinitionCodec.JsonOptions) : null, human);
+                    !restricted && request.PreviewJson is { } preview ? JsonSerializer.Deserialize<ToolApprovalPreview>(preview, WorkflowDefinitionCodec.JsonOptions) : null, human);
             }
             details.Add(new(step.Id, step.NodeKey, step.InvocationPath, step.Status, step.ActionKey, step.ActionVersion,
-                step.SelectedRoute, ReadJson(step.DecisionTraceJson), ReadJson(step.ResultJson), step.ApprovalRequestId, step.ProposalId, step.AiRunId, step.ErrorCode, approval, Utc(step.DeadlineUtc)));
+                restricted ? null : step.SelectedRoute, restricted ? null : ReadJson(step.DecisionTraceJson), restricted ? null : ReadJson(step.ResultJson),
+                step.ApprovalRequestId, step.ProposalId, step.AiRunId, step.ErrorCode, approval, Utc(step.DeadlineUtc)));
         }
         return new(run.Id, run.WorkflowId, run.WorkflowVersionId, run.DefinitionHash, run.Status, run.Outcome, run.ErrorCode,
             run.ActorType, run.ActorId, run.InitiatingUserId, run.SubjectType, run.SubjectId, Convert.ToBase64String(run.RowVersion),
@@ -433,7 +445,7 @@ internal sealed class WorkflowRunService(
             Utc(run.DeadlineUtc), Utc(steps.SingleOrDefault(step => step.Id == run.PendingStepRunId)?.DeadlineUtc), run.ParentRunId, run.ExecutionRootRunId, run.InvocationPath,
             await database.WorkflowRuns.AsNoTracking().Where(child => child.TenantId == run.TenantId && child.ParentRunId == run.Id)
                 .OrderBy(child => child.InvocationPath).Select(child => new WorkflowChildRunSummary(child.Id, child.WorkflowVersionId!.Value,
-                    child.InvocationPath, child.Status, child.Outcome, child.ErrorCode, child.SubjectId!.Value)).ToListAsync(cancellationToken));
+                    child.InvocationPath, child.Status, child.Outcome, child.ErrorCode, child.SubjectId!.Value)).ToListAsync(cancellationToken), restricted);
     }
 
     private static DateTime? Utc(DateTime? value) => value is { } time ? DateTime.SpecifyKind(time, DateTimeKind.Utc) : null;

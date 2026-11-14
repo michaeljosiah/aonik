@@ -127,6 +127,15 @@ internal sealed class WorkflowExecutionAuthorization(
         await RequireModuleAsync(provider.GetType(), cancellationToken);
     }
 
+    public async Task<WorkflowConnectionDependency?> GetConnectionDependencyAsync(string subjectType, Guid subjectId, WorkflowActor actor,
+        CancellationToken cancellationToken = default)
+    {
+        IWorkflowFactsProvider provider = factsProviders.SingleOrDefault(provider => provider.SubjectType == subjectType)
+            ?? throw new WorkflowExecutionException("SubjectProviderUnavailable");
+        await RequireModuleAsync(provider.GetType(), cancellationToken);
+        return await provider.GetConnectionDependencyAsync(subjectId, actor, cancellationToken);
+    }
+
     public async Task RequireModuleAsync(Type implementation, CancellationToken cancellationToken = default)
     {
         string? module = ModuleCatalog.TryGetModuleId(implementation);

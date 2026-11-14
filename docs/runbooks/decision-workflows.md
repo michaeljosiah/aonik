@@ -137,3 +137,8 @@ The automated attachment, candidate, confirmed creation and Order-linked intent 
 ## Qualification evidence
 
 Spec 099 sections 13.1–13.17 and GitHub epic #438 carry commit/CI evidence. SQL migration and concurrency qualification runs in CI against an isolated SQL Server container because LocalDB cannot initialize on this development machine. A live consenting Gmail/Pub/Sub rehearsal and the full automatic document/payment/mail journey remain distinct release gates; passing local fixtures does not establish those external prerequisites.
+## Retained financial-source access
+
+A document or its invoice child can pause with `WaitingForConnection` when the original mailbox grant, consent or policy becomes unavailable. The run page remains available to a domain-authorized reader, with private evidence hidden if that reader also lacks source access. Use **Request access for the pinned account**: the server derives the original workflow/account/grant and three read actions from source evidence and approved parent lineage, including when the current step is a native financial action.
+
+An integration/workflow administrator reviews the request; the account owner completes consent through AONIK. Fulfilment does not restart the workflow. Use **Revalidate and resume this run** after access is restored. Changed source bytes, subject facts, provider account, disabled triggers or revoked actor/domain authority require review; reconnecting cannot replace the source or widen the action set.

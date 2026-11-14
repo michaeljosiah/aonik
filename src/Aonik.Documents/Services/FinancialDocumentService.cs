@@ -137,6 +137,18 @@ internal sealed class FinancialDocumentService(DocumentsDbContext database, ITen
     }
 
     public async Task<FinancialDocumentCandidate> RequireContinuationAsync(Guid extractionId, WorkflowActor actor, CancellationToken cancellationToken = default)
+        => await RequireAsync(extractionId, await ContinuationActorAsync(extractionId, actor, cancellationToken), cancellationToken);
+
+    public async Task<WorkflowConnectionDependency?> GetConnectionDependencyAsync(Guid extractionId, WorkflowActor actor, CancellationToken cancellationToken = default)
+    {
+        actor = await ContinuationActorAsync(extractionId, actor, cancellationToken);
+        Guid documentId = await database.DocumentExtractions.AsNoTracking().Where(extraction => extraction.TenantId == tenantProvider.GetCurrentTenantId()
+            && extraction.Id == extractionId && extraction.ExtractionType == ExtractionType && extraction.Status != "Erased")
+            .Select(extraction => (Guid?)extraction.DocumentId).SingleOrDefaultAsync(cancellationToken) ?? throw new NotFoundException("Financial candidate not found.");
+        return await authorization.GetConnectionDependencyAsync(documentId, actor, cancellationToken);
+    }
+
+    private async Task<WorkflowActor> ContinuationActorAsync(Guid extractionId, WorkflowActor actor, CancellationToken cancellationToken)
     {
         if (actor.Type == "AutomationIdentity")
         {
@@ -149,7 +161,7 @@ internal sealed class FinancialDocumentService(DocumentsDbContext database, ITen
             // The child needs its own current Invoice grant AND the original actor's still-current Document/source grant.
             actor = actor with { WorkflowVersionId = original.WorkflowVersionId };
         }
-        return await RequireAsync(extractionId, actor, cancellationToken);
+        return actor;
     }
     private Task<byte[]> BytesAsync(DocumentFile file, CancellationToken cancellationToken) => ReadBytesAsync(files, file, cancellationToken);
 

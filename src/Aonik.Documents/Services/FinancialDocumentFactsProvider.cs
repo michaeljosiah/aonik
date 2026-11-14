@@ -17,6 +17,9 @@ internal sealed class FinancialDocumentFactsProvider(DocumentsDbContext database
     public string SubjectType => FinancialDocumentActions.SubjectType;
     public string Schema => FinancialDocumentActions.FactSchema;
 
+    public Task<WorkflowConnectionDependency?> GetConnectionDependencyAsync(Guid subjectId, WorkflowActor actor, CancellationToken cancellationToken = default)
+        => authorization.GetConnectionDependencyAsync(subjectId, actor, cancellationToken);
+
     public async Task<WorkflowFactsSnapshot?> LoadAsync(Guid subjectId, WorkflowActor actor, CancellationToken cancellationToken = default)
     {
         var document = await authorization.RequireAsync(subjectId, actor, cancellationToken);

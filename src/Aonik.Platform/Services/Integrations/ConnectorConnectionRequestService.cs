@@ -203,9 +203,11 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             WorkflowConnectorRequestTarget target = await workflows.GetRequestTargetAsync(runId, userId, cancellationToken);
             if ((normalized.WorkflowId.HasValue && normalized.WorkflowId != target.WorkflowId) || (normalized.ConnectionId.HasValue && normalized.ConnectionId != target.ConnectionId)
                 || normalized.Actions.Any(action => !target.AllowedActions.Contains(action))) throw new ArgumentException("A run request must retain its published account and action binding.");
-            normalized = normalized with { WorkflowId = target.WorkflowId, ConnectionId = target.ConnectionId };
+            normalized = normalized with { WorkflowId = target.WorkflowId, ConnectionId = target.ConnectionId,
+                Actions = normalized.Actions.Count == 0 ? target.AllowedActions : normalized.Actions };
             ConnectorConnection pinned = await database.ConnectorConnections.AsNoTracking().SingleOrDefaultAsync(connection => connection.TenantId == authorization.TenantId
                 && connection.Id == target.ConnectionId && connection.ConnectorKey == normalized.ConnectorKey, cancellationToken) ?? throw new KeyNotFoundException("Pinned connection not found.");
+            if (target.ProviderAccountId is { } account && pinned.ProviderAccountId != account) throw ConnectorAuthorization.Access("ProviderAccountChanged");
             normalized = normalized with { Ownership = pinned.Ownership };
             pinnedGrant = target.WorkflowGrantId;
             automationIdentityId = target.AutomationIdentityId;

@@ -12,7 +12,7 @@ public sealed record WorkflowRunDetail(
     string? SubjectType, Guid? SubjectId, string ExpectedVersion,
     DateTime StartedAt, DateTime? CompletedAt, IReadOnlyList<WorkflowStepDetail> Steps, Guid? ConfiguredByUserId = null, WorkflowRunSource? Source = null,
     DateTime? DeadlineUtc = null, DateTime? WaitUntilUtc = null, Guid? ParentRunId = null, Guid? ExecutionRootRunId = null,
-    string InvocationPath = "root", IReadOnlyList<WorkflowChildRunSummary>? Children = null);
+    string InvocationPath = "root", IReadOnlyList<WorkflowChildRunSummary>? Children = null, bool EvidenceRestricted = false);
 public sealed record WorkflowChildRunSummary(Guid Id, Guid WorkflowVersionId, string InvocationPath, string Status, string? Outcome, string? ErrorCode, Guid SubjectId);
 public sealed record WorkflowRunSource(Guid BindingId, int Revision, Guid EventId, DateTime OccurredAtUtc, Guid? CausationRunId, Guid? RootRunId);
 public sealed record WorkflowStepDetail(Guid Id, string NodeKey, string InvocationPath, string Status,

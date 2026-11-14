@@ -130,6 +130,7 @@ export interface WorkflowRunDetail {
   id: string; workflowId: string; workflowVersionId: string; definitionHash: string; status: string; outcome: string | null; errorCode: string | null;
   actorType: string; actorId: string; initiatingUserId: string | null; subjectType: string; subjectId: string; expectedVersion: string; startedAt: string; completedAt: string | null;
   configuredByUserId?: string | null;
+  evidenceRestricted?: boolean;
   deadlineUtc?: string | null;
   waitUntilUtc?: string | null;
   parentRunId?: string | null;

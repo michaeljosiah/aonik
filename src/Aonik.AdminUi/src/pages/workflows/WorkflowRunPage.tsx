@@ -34,7 +34,6 @@ export function WorkflowRunPage() {
   }, [runId]);
   const act = async (operation: () => Promise<unknown>) => { setBusy(true); setError(null); try { await operation(); await refresh(); } catch (reason) { setError(connectorError(reason)); } finally { setBusy(false); } };
   if (!run) return <div className="p-6"><h1 className="text-xl font-semibold">Workflow run</h1><p role={error ? 'alert' : undefined} className="mt-3 text-sm text-muted-foreground">{error ?? 'Loading the recorded run…'}</p></div>;
-  const pending = [...run.steps].reverse().find(step => step.actionKey?.startsWith('gmail.') && step.status !== 'Completed');
   return <div className="h-full space-y-5 overflow-auto p-6">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-2xl font-semibold">Workflow run <Badge variant="outline">{run.status}</Badge></h1><p className="mt-2 break-all text-xs text-muted-foreground">{run.id}</p></div>
       <Button disabled={busy} variant="outline" onClick={() => void act(refresh)}>Refresh</Button></div>
@@ -43,13 +42,14 @@ export function WorkflowRunPage() {
       {run.configuredByUserId && <p>Configured by: {run.configuredByUserId}</p>}{run.initiatingUserId && <p>Initiating user: {run.initiatingUserId}</p>}
       {run.source && <div className="space-y-1 break-all text-xs"><p>Automatic trigger: {run.source.bindingId} · revision {run.source.revision}</p><p>Source event: {run.source.eventId} · {new Date(run.source.occurredAtUtc).toLocaleString()}</p>{run.source.causationRunId && <p>Caused by <Link className="text-primary underline" to={`/ai/workflow-runs/${run.source.causationRunId}`}>{run.source.causationRunId}</Link></p>}</div>}
       {run.outcome && <p>Outcome: {run.outcome}</p>}{run.errorCode && <p>Held reason: {run.errorCode}</p>}
+      {run.evidenceRestricted && <p role="status">Source access is required to view decision, action and approval evidence.</p>}
       {run.waitUntilUtc && <p>Recorded wait ends: {new Date(run.waitUntilUtc).toLocaleString()}</p>}{run.deadlineUtc && <p>Overall run deadline: {new Date(run.deadlineUtc).toLocaleString()}</p>}
       {run.parentRunId && <p><Link to={`/ai/workflow-runs/${run.parentRunId}`} className="text-primary underline">Open parent run</Link> · {run.invocationPath}</p>}
       <div className="flex flex-wrap gap-2 pt-2">
         {(run.status === 'WaitingForConnection' || run.status === 'NeedsAttention' || (run.status === 'WaitingForTimer' && run.waitUntilUtc && Date.parse(run.waitUntilUtc) <= Date.now())) && <Button disabled={busy} onClick={() => void act(() => workflowService.resume(run))}>Revalidate and resume this run</Button>}
         {!['Completed', 'Cancelled', 'Failed'].includes(run.status) && <Button disabled={busy} variant="outline" onClick={() => void act(() => workflowService.cancelRun(run))}>Cancel remaining work</Button>}
-        {run.status === 'WaitingForConnection' && pending && <Button disabled={busy} variant="outline" onClick={() => void act(async () => {
-          const request = await connectorService.createRequest({ connectorKey: 'gmail', ownership: 'User', actions: [{ key: pending.actionKey!, version: pending.actionVersion! }],
+        {run.status === 'WaitingForConnection' && <Button disabled={busy} variant="outline" onClick={() => void act(async () => {
+          const request = await connectorService.createRequest({ connectorKey: 'gmail', ownership: 'User', actions: [],
             purpose: 'Restore this published workflow’s exact account and action access', idempotencyKey: crypto.randomUUID(), runId: run.id });
           setReviewPath(request.reviewPath);
         })}>Request access for the pinned account</Button>}

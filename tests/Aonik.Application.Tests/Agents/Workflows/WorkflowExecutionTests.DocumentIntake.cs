@@ -13,6 +13,8 @@ using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
 using Aonik.Agents.Services.Workflows;
+using Aonik.Agents.Workflows.Graph;
+using Aonik.Application.Tests.Platform.Integrations;
 using Aonik.Documents.Persistence;
 using Aonik.Documents.Services;
 using Aonik.Finance.Entities;
@@ -24,12 +26,16 @@ using Aonik.Finance.Services.Billing;
 using Aonik.Platform.Entities.Compliance;
 using Aonik.Platform.Entities.Integrations;
 using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.Integrations;
+using Aonik.Platform.Entities.Settings;
+using Aonik.Platform.Settings;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
+using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Abstractions.Workflows;
 using Aonik.SharedKernel.Events.Integration;
 
@@ -37,22 +43,26 @@ namespace Aonik.Application.Tests.Agents.Workflows;
 
 public partial class WorkflowExecutionTests
 {
-    [Fact]
-    public async Task MailboxIntake_Should_AdmitItsPrivateDocumentThroughProtectedOutbox_AndWaitForReviewedInvoiceCreation()
+    [Theory]
+    [InlineData(false, "none")]
+    [InlineData(false, "restore")]
+    [InlineData(true, "restore")]
+    [InlineData(false, "account")]
+    [InlineData(true, "account")]
+    [InlineData(false, "actions")]
+    [InlineData(true, "connection")]
+    [InlineData(true, "disabled")]
+    public async Task MailboxIntake_Should_PreserveOriginalSourceAuthority_ThroughAdmissionReviewAndConnectionRecovery(bool invoiceChild, string recovery)
     {
-        var fixture = new FinancialFixture(); ConnectorSubscriptionBinding? active = null;
+        var fixture = new FinancialFixture(); var sourceConnection = new SourceConnectionFixture(); ConnectorSubscriptionBinding? active = null;
         using var host = new Host(services =>
         {
             fixture.Configure(services);
+            sourceConnection.Configure(services);
             services.AddScoped<IWorkflowMailboxBindingReader, WorkflowMailboxBindingReader>();
             services.AddScoped<MailboxWorkflowTriggerHandler>(); services.AddScoped<IFinancialDocumentMailboxIntake, FinancialDocumentMailboxIntake>();
-            var connectors = new Mock<IConnectorService>();
-            connectors.Setup(value => value.ValidateWorkflowBindingAsync(It.IsAny<Guid>(), It.IsAny<WorkflowConnectorBinding>(), It.IsAny<ConnectorActionRef>(), It.IsAny<WorkflowActor>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-            services.AddSingleton(connectors.Object);
             var subscriptions = new Mock<IConnectorSubscriptionService>(); subscriptions.Setup(value => value.ValidateAsync(It.IsAny<ConnectorSubscriptionBinding>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
             services.AddSingleton(subscriptions.Object);
-            var sources = new Mock<IFinancialDocumentSourceAccess>(); sources.Setup(value => value.RequireAsync(It.IsAny<FinancialDocumentSource>(), It.IsAny<WorkflowActor>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
-            services.AddSingleton(sources.Object);
             var parties = new Mock<IPartyReader>(); parties.Setup(value => value.GetTenantPartyIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(Guid.NewGuid()); services.AddSingleton(parties.Object);
             services.AddSingleton(Mock.Of<IAuditLogWriter>());
             var mailbox = new Mock<IFinancialDocumentMailboxReader>();
@@ -81,9 +91,10 @@ public partial class WorkflowExecutionTests
                     [new(FinancialDocumentActions.Extract, 1), new(FinancialDocumentActions.CreateInvoice, 1), .. GmailActionKeys.ReadActions.Select(key => new AutomationActionRef(key, 1))]),
                     new(child.VersionId, "Invoice", true, [], [new("finance.invoices.issue", 1)]) }, WorkflowDefinitionCodec.JsonOptions) };
             var platform = services.GetRequiredService<PlatformDbContext>(); platform.AutomationIdentities.Add(identity); await platform.SaveChangesAsync();
+            await sourceConnection.SeedAsync(host, workflowId, identity.Id);
             var triggers = services.GetRequiredService<WorkflowTriggerService>();
             var definition = new WorkflowTriggerDefinition(1, "GmailMessageAdded", intake.VersionId, identity.Id, new("Document", "MessageAttachments", []), new(),
-                Mailbox: new(Guid.NewGuid(), Guid.NewGuid(), ["INBOX"], "Polling", 15, SubjectPrefix: "Qualification:"));
+                Mailbox: new(sourceConnection.ConnectionId, sourceConnection.WorkflowGrantId, ["INBOX"], "Polling", 15, SubjectPrefix: "Qualification:"));
             var draft = await triggers.SaveAsync("document-intake", null, new("Synthetic attachment intake", definition));
             var publication = await triggers.RequestAsync("document-intake", draft.Id, new(draft.ExpectedVersion, draft.DraftHash), false);
             (await services.GetRequiredService<IToolApprovalService>().DecideAsync(publication.ApprovalRequestId, new(ToolApprovalDecisionType.Approve))).Outcome.Should().Be(ToolApprovalDecisionOutcome.Approved);
@@ -103,11 +114,116 @@ public partial class WorkflowExecutionTests
             (await services.GetRequiredService<DocumentsDbContext>().Documents.CountAsync(document => document.Source == "Gmail")).Should().Be(1);
         }
         (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForApproval);
+        if (recovery != "none")
+        {
+            if (invoiceChild)
+            {
+                await fixture.DecideAsync(host, runId, true); host.Actor.Authenticated = false; await host.Continue(runId);
+                using IServiceScope childScope = host.Scope();
+                runId = (await childScope.ServiceProvider.GetRequiredService<AgentsDbContext>().WorkflowRuns.SingleAsync(run => run.ParentRunId == runId)).Id;
+                (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForApproval);
+            }
+            using (IServiceScope revoke = host.Scope())
+            {
+                var platform = revoke.ServiceProvider.GetRequiredService<PlatformDbContext>();
+                foreach (var grant in await platform.ConnectorConnectionGrants.Where(grant => grant.GranteeType == "AutomationIdentity"
+                    || (grant.GranteeType == "User" && grant.GranteeId == host.Actor.Author)).ToListAsync()) grant.RevokedAt = host.Clock.UtcNow;
+                if (recovery == "account") (await platform.ConnectorConnections.SingleAsync()).ProviderAccountId = "different-account";
+                await platform.SaveChangesAsync();
+            }
+            host.Actor.Authenticated = false;
+            (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForConnection);
+            host.Actor.Authenticated = true; host.Actor.Id = host.Actor.Author;
+            using IServiceScope recover = host.Scope(); var recoveryServices = recover.ServiceProvider;
+            var runs = recoveryServices.GetRequiredService<IWorkflowRunService>();
+            var held = (await runs.GetAsync(runId))!;
+            held.EvidenceRestricted.Should().BeTrue();
+            held.Steps.Should().OnlyContain(step => step.Result == null && step.DecisionTrace == null
+                && (step.Approval == null || (step.Approval.Preview == null && !step.Approval.CanDecide)));
+            Func<Task> premature = () => runs.ResumeAsync(runId, new(held.ExpectedVersion));
+            await premature.Should().ThrowAsync<ConnectorAccessException>();
+            var requests = recoveryServices.GetRequiredService<ConnectorConnectionRequestService>();
+            var input = new CreateConnectionRequest("gmail", "User", [], "Restore the original financial source", "source-recovery", RunId: runId);
+            if (recovery is "account" or "actions" or "connection" or "disabled")
+            {
+                if (recovery == "actions") input = input with { Actions = [new(GmailActionKeys.SendMessage, 1)] };
+                if (recovery == "connection") input = input with { ConnectionId = Guid.NewGuid() };
+                if (recovery == "disabled")
+                {
+                    var agents = recoveryServices.GetRequiredService<AgentsDbContext>();
+                    (await agents.WorkflowTriggerBindings.SingleAsync()).Status = "Disabled"; await agents.SaveChangesAsync();
+                }
+                Func<Task> invalid = () => requests.CreateAsync(input);
+                if (recovery == "account") await invalid.Should().ThrowAsync<ConnectorAccessException>();
+                else if (recovery == "disabled") await invalid.Should().ThrowAsync<WorkflowExecutionException>();
+                else await invalid.Should().ThrowAsync<ArgumentException>();
+                (await recoveryServices.GetRequiredService<PlatformDbContext>().ConnectorConnectionRequests.CountAsync()).Should().Be(0);
+                return;
+            }
+            var request = await requests.CreateAsync(input);
+            request.WorkflowId.Should().Be(workflowId); request.ConnectionId.Should().Be(sourceConnection.ConnectionId);
+            request.WorkflowGrantId.Should().Be(sourceConnection.WorkflowGrantId); request.Actions.Should().BeEquivalentTo(SourceConnectionFixture.Actions);
+            request.Status.Should().Be("Pending"); request.AutomationIdentityId.Should().Be(active.AutomationIdentityId);
+            host.Actor.Id = host.Reviewer;
+            request = await requests.DecideAsync(request.Id, new(request.ExpectedVersion, "Approve"));
+            request.Status.Should().Be("AwaitingConsent");
+            host.Actor.Id = host.Actor.Author;
+            var consent = recoveryServices.GetRequiredService<ConnectorConsentService>();
+            var challenge = await consent.BeginAsync(request.Id, new(request.ExpectedVersion));
+            await consent.ReceiveCallbackAsync(challenge.Cookie, ConnectorScenario.State(challenge), "code", host.Actor.Author);
+            request = await consent.ConfirmAsync(request.Id, new((await requests.GetAsync(request.Id))!.ExpectedVersion));
+            request.Status.Should().Be("Fulfilled");
+            (await runs.GetAsync(runId))!.Status.Should().Be(WorkflowRunStatuses.WaitingForConnection);
+            (await runs.GetAsync(runId))!.EvidenceRestricted.Should().BeFalse();
+            await runs.ResumeAsync(runId, new(held.ExpectedVersion)); host.Actor.Authenticated = false;
+            (await host.Continue(runId, 1)).Status.Should().Be(WorkflowRunStatuses.WaitingForApproval);
+            fixture.ParserCalls.Should().Be(1);
+        }
         await fixture.DecideAsync(host, runId, true); host.Actor.Authenticated = false;
-        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForChildren);
+        (await host.Continue(runId, recovery == "none" ? 0 : 1)).Status.Should().Be(invoiceChild ? WorkflowRunStatuses.Completed : WorkflowRunStatuses.WaitingForChildren);
         using IServiceScope final = host.Scope();
-        (await final.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be("Draft");
+        (await final.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be(invoiceChild ? "Issued" : "Draft");
         fixture.ParserCalls.Should().Be(1);
+    }
+
+    private sealed class SourceConnectionFixture
+    {
+        public Guid ConnectionId { get; } = Guid.NewGuid();
+        public Guid WorkflowGrantId { get; } = Guid.NewGuid();
+        public static readonly ConnectorActionRef[] Actions = GmailActionKeys.ReadActions.Select(key => new ConnectorActionRef(key, 1)).ToArray();
+        public void Configure(IServiceCollection services)
+        {
+            services.AddSingleton<IConnectorDescriptor, GmailConnectorDescriptor>();
+            services.AddScoped<ConnectorCatalog>(); services.AddScoped<ConnectorPolicyService>(); services.AddScoped<ConnectorAuthorization>();
+            services.AddScoped<ConnectorCredentialProtector>(); services.AddScoped<ConnectorCredentialService>(); services.AddScoped<ConnectorGrantService>();
+            services.AddScoped<ConnectorConnectionRequestService>(); services.AddScoped<ConnectorConsentService>();
+            services.AddScoped<IWorkflowConnectorContextReader, WorkflowConnectorContextReader>();
+            services.AddScoped<IConnectorService, ConnectorService>(); services.AddScoped<IFinancialDocumentSourceAccess, FinancialDocumentSourceAccess>();
+            services.AddSingleton<IConnectorContentStore>(Mock.Of<IConnectorContentStore>());
+            var oauth = new Mock<IConnectorOAuthProvider>(); oauth.SetupGet(value => value.ConnectorKey).Returns("gmail"); oauth.SetupGet(value => value.IsConfigured).Returns(true);
+            oauth.Setup(value => value.CreateAuthorization(It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>()))
+                .Returns((IReadOnlyList<string> _, string state) => new("https://accounts.google.com/o/oauth2/auth?state=" + Uri.EscapeDataString(state), "synthetic-verifier"));
+            oauth.Setup(value => value.ExchangeAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new ConnectorOAuthTokens("synthetic-access", "synthetic-refresh", DateTime.UtcNow.AddHours(1), [GmailActionKeys.ReadScope, "openid", "email"]));
+            oauth.Setup(value => value.GetIdentityAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(new ConnectorAccountIdentity("synthetic-google-account", "mailbox@example.test"));
+            services.AddSingleton(oauth.Object);
+            var provider = new Mock<IConnectorActionProvider>(); provider.SetupGet(value => value.ConnectorKey).Returns("gmail"); services.AddSingleton(provider.Object);
+        }
+        public async Task SeedAsync(Host host, Guid workflowId, Guid automationId)
+        {
+            using IServiceScope scope = host.Scope(); var services = scope.ServiceProvider;
+            var platform = services.GetRequiredService<PlatformDbContext>(); Guid tenant = services.GetRequiredService<ITenantProvider>().GetCurrentTenantId();
+            platform.Settings.AddRange(new Setting { Key = IntegrationSettingNames.GmailEnabled, Value = "true", Scope = SettingScope.Tenant, TenantId = tenant },
+                new Setting { Key = IntegrationSettingNames.GmailAllowWorkflowConnections, Value = "true", Scope = SettingScope.Tenant, TenantId = tenant });
+            platform.ConnectorConnections.Add(new() { Id = ConnectionId, TenantId = tenant, ConnectorKey = "gmail", Ownership = "User", OwnerUserId = host.Actor.Author,
+                ProviderAccountId = "synthetic-google-account", Status = "Active", GrantedScopesJson = ConnectorJson.Serialize(new[] { GmailActionKeys.ReadScope, "openid", "email" }) });
+            platform.ConnectorConnectionGrants.AddRange(new ConnectorConnectionGrant { Id = WorkflowGrantId, TenantId = tenant, ConnectionId = ConnectionId,
+                GranteeType = "Workflow", GranteeId = workflowId, AllowedActionsJson = ConnectorJson.Serialize(Actions) },
+                new() { TenantId = tenant, ConnectionId = ConnectionId, GranteeType = "AutomationIdentity", GranteeId = automationId, AllowedActionsJson = ConnectorJson.Serialize(Actions) });
+            foreach (Guid userId in new[] { host.Actor.Author, host.Reviewer }) platform.ConnectorConnectionGrants.Add(new() { TenantId = tenant, ConnectionId = ConnectionId,
+                GranteeType = "User", GranteeId = userId, AllowedActionsJson = ConnectorJson.Serialize(Actions) });
+            await platform.SaveChangesAsync();
+        }
     }
 
     [Theory]
