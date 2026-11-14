@@ -5,6 +5,7 @@ namespace Aonik.Agents.Entities;
 public class Proposal : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
+    public Guid? WorkflowStepRunId { get; set; }
     public string ProposalType { get; set; } = string.Empty;
     public Guid ProposedByAgentId { get; set; }
     public Guid AiRunId { get; set; }

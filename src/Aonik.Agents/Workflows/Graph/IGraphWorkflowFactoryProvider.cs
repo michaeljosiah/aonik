@@ -18,6 +18,7 @@ public interface IGraphWorkflowRunner
     /// content the <c>End</c> executor yields).
     /// </summary>
     Task<GraphWorkflowResult> RunAsync(string slug, string input, CancellationToken cancellationToken = default);
+    Task<GraphWorkflowContinuation> ContinueAsync(Guid runId, int continuation, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -27,8 +28,9 @@ public interface IGraphWorkflowRunner
 /// <see cref="IWorkflowRunRecorder"/> captured.
 /// </summary>
 public sealed record GraphWorkflowResult(string Output, IReadOnlyList<Guid> Sequence);
+public sealed record GraphWorkflowContinuation(string Status, string? Outcome = null, string? ErrorCode = null);
 
-internal sealed class GraphWorkflowRunner : IGraphWorkflowRunner
+internal sealed partial class GraphWorkflowRunner : IGraphWorkflowRunner
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<GraphWorkflowRunner> _logger;

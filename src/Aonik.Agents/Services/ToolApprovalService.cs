@@ -1,7 +1,10 @@
 using System.Text.Json;
 
+using Microsoft.EntityFrameworkCore;
+
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
+using Aonik.Agents.Persistence;
 using Aonik.Agents.Services.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
@@ -61,6 +64,11 @@ internal sealed class ToolApprovalService : IToolApprovalService
     private readonly ChatRoomInvocationGuard? _roomContext;
     private readonly IChatRoomApprovalAuthority? _roomApprovalAuthority;
     private readonly WorkflowApprovalAuthority? _workflowAuthority;
+    private readonly WorkflowInvocationContext? _workflowContext;
+    private readonly AgentsDbContext? _workflowDatabase;
+    private readonly WorkflowReviewerAuthorization? _workflowReviewers;
+    private readonly WorkflowActionRegistry? _workflowActions;
+    private readonly WorkflowContinuationWriter? _workflowContinuations;
 
     public ToolApprovalService(
         IToolApprovalRequestStore requestStore,
@@ -72,7 +80,12 @@ internal sealed class ToolApprovalService : IToolApprovalService
         IClock clock,
         ChatRoomInvocationGuard? roomContext = null,
         IChatRoomApprovalAuthority? roomApprovalAuthority = null,
-        WorkflowApprovalAuthority? workflowAuthority = null)
+        WorkflowApprovalAuthority? workflowAuthority = null,
+        WorkflowInvocationContext? workflowContext = null,
+        AgentsDbContext? workflowDatabase = null,
+        WorkflowReviewerAuthorization? workflowReviewers = null,
+        WorkflowActionRegistry? workflowActions = null,
+        WorkflowContinuationWriter? workflowContinuations = null)
     {
         _requestStore = requestStore ?? throw new ArgumentNullException(nameof(requestStore));
         _proposalStore = proposalStore ?? throw new ArgumentNullException(nameof(proposalStore));
@@ -84,6 +97,11 @@ internal sealed class ToolApprovalService : IToolApprovalService
         _roomContext = roomContext;
         _roomApprovalAuthority = roomApprovalAuthority;
         _workflowAuthority = workflowAuthority;
+        _workflowContext = workflowContext;
+        _workflowDatabase = workflowDatabase;
+        _workflowReviewers = workflowReviewers;
+        _workflowActions = workflowActions;
+        _workflowContinuations = workflowContinuations;
     }
 
     public async Task<ToolGateOutcome> GateAsync(
@@ -104,6 +122,13 @@ internal sealed class ToolApprovalService : IToolApprovalService
         var hasTenant = _tenantProvider.TryGetCurrentTenantId(out var tenantId);
         var requestingUserId = _currentUserProvider.TryGetCurrentUserId(out var uid) ? uid : (Guid?)null;
 
+        if (_workflowContext?.Step is not null)
+        {
+            ToolGateOutcome? existing = await GateExistingWorkflowActionAsync(context, argsHash, cancellationToken);
+            if (existing is not null) return existing;
+            requestingUserId = _workflowContext.Run!.InitiatingUserId;
+        }
+
         return options.Tier switch
         {
             ToolApprovalTier.Low =>
@@ -117,6 +142,53 @@ internal sealed class ToolApprovalService : IToolApprovalService
                     .ConfigureAwait(false),
             _ => new ToolGateOutcome(ToolGateDecision.Refused, Summary: actionKind, Reason: "Unknown tier."),
         };
+    }
+
+    private async Task<ToolGateOutcome?> GateExistingWorkflowActionAsync(ToolGateContext context, string argsHash, CancellationToken cancellationToken)
+    {
+        var step = _workflowContext!.Step!;
+        var run = _workflowContext.Run;
+        if (_workflowDatabase is null || _workflowActions is null || run is null
+            || !_tenantProvider.TryGetCurrentTenantId(out Guid tenantId) || tenantId != run.TenantId
+            || step.TenantId != tenantId || step.RunId != run.Id || step.ArgumentsHash != argsHash)
+            return new(ToolGateDecision.Refused, Reason: "The workflow invocation identity is invalid.");
+        var descriptor = _workflowActions.Resolve(step.ActionKey!, step.ActionVersion!.Value).Descriptor;
+        if (descriptor.ToolName != context.ToolName || descriptor.RequiredPermission != step.RequiredPermission || descriptor.Approval is not { } required
+            || context.Options.Tier != required.Tier || context.Options.ProposalType != required.ProposalType
+            || !await _workflowDatabase.WorkflowRuns.AsNoTracking().AnyAsync(current => current.TenantId == tenantId && current.Id == run.Id
+                && current.Status == Entities.Workflows.WorkflowRunStatuses.Running && current.LeaseId == _workflowContext.LeaseId
+                && current.LeaseExpiresAt > _clock.UtcNow, cancellationToken))
+            return new(ToolGateDecision.Refused, Reason: "The workflow action classification or execution lease changed.");
+        ToolApprovalRequest? request = await _workflowDatabase.ToolApprovalRequests.SingleOrDefaultAsync(
+            request => request.TenantId == tenantId && request.WorkflowStepRunId == step.Id, cancellationToken);
+        if (request is null) return null;
+        await _workflowDatabase.Entry(request).ReloadAsync(cancellationToken);
+        if (request.ArgsHash != argsHash || request.ToolName != context.ToolName || request.RiskTier != required.Tier.ToString())
+            return new(ToolGateDecision.Refused, Reason: "The approval belongs to different workflow arguments.");
+        if (request.ProposalId is { } proposalId)
+        {
+            ProposalStatus status = await _workflowDatabase.Proposals.Where(proposal => proposal.TenantId == tenantId && proposal.Id == proposalId)
+                .Select(proposal => proposal.Status).SingleAsync(cancellationToken);
+            return status is ProposalStatus.Rejected or ProposalStatus.Failed
+                ? new(ToolGateDecision.Refused, request.Id, proposalId, Reason: "The workflow proposal was rejected or failed.")
+                : new(ToolGateDecision.Queued, request.Id, proposalId, request.ActionKind);
+        }
+        if (required.Tier == ToolApprovalTier.Low && request.Status == ToolApprovalRequestStatus.Approved)
+            return new(ToolGateDecision.ApprovedInline, request.Id, Summary: request.ActionKind);
+        if (request.Status is ToolApprovalRequestStatus.Rejected or ToolApprovalRequestStatus.Expired or ToolApprovalRequestStatus.Cancelled || request.ExpiresAt <= _clock.UtcNow)
+            return new(ToolGateDecision.Refused, request.Id, Reason: "The workflow approval was rejected or expired.");
+        if (request.Status == ToolApprovalRequestStatus.Pending)
+            return new(ToolGateDecision.PendingApproval, request.Id, Summary: request.ActionKind);
+        if (_workflowReviewers is null || request.DecidedByUserId is not { } reviewer)
+            return new(ToolGateDecision.Refused, request.Id, Reason: "No authorized human decided this workflow action.");
+        await _workflowReviewers.RequireAsync(request, reviewer, cancellationToken);
+        if (request.ConsumedAt is null)
+        {
+            request.ConsumedAt = _clock.UtcNow;
+            await _requestStore.SaveChangesAsync(cancellationToken);
+        }
+        // A replay remains the same approved operation. The runner must reconcile before retrying the handler.
+        return new(ToolGateDecision.ApprovedInline, request.Id, Summary: request.ActionKind);
     }
 
     private async Task<ToolGateOutcome> GateLowAsync(
@@ -179,6 +251,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
         var request = NewRequest(context, options, actionKind, argumentsJson, argsHash, tenantId, requestingUserId, now);
         request.Status = ToolApprovalRequestStatus.Pending;
         request.ExpiresAt = now.Add(PendingApprovalWindow);
+        StageWorkflowExpiry(request);
         await _requestStore.CreateAsync(request, cancellationToken).ConfigureAwait(false);
 
         return new ToolGateOutcome(ToolGateDecision.PendingApproval, ApprovalRequestId: request.Id, Summary: actionKind);
@@ -212,13 +285,11 @@ internal sealed class ToolApprovalService : IToolApprovalService
             TenantId: tenantId,
             ProposalType: options.ProposalType!,
             ProposedByAgentId: Guid.Empty,
-            AiRunId: _roomContext?.AiRunId,
+            AiRunId: _workflowContext?.Step?.AiRunId ?? _roomContext?.AiRunId,
             ImpactSummary: context.Preview?.Title ?? actionKind,
             RiskTier: HighRiskTier,
-            PayloadJson: argumentsJson);
-        await _proposalStore
-            .CreateManyAsync(new[] { proposalRequest }, cancellationToken)
-            .ConfigureAwait(false);
+            PayloadJson: argumentsJson,
+            WorkflowStepRunId: _workflowContext?.Step?.Id);
 
         // Durable correlation row, linked to the proposal. It is not consumed for an inline re-run
         // (the proposal pipeline executes High), so it stays Pending until DecideAsync / the
@@ -227,7 +298,20 @@ internal sealed class ToolApprovalService : IToolApprovalService
         request.Status = ToolApprovalRequestStatus.Pending;
         request.ExpiresAt = now.Add(PendingApprovalWindow);
         request.ProposalId = proposalId;
-        await _requestStore.CreateAsync(request, cancellationToken).ConfigureAwait(false);
+        if (_workflowContext?.Step is { } step) step.ProposalId = proposalId;
+        StageWorkflowExpiry(request);
+        if (_workflowContext?.Step is not null)
+        {
+            // One owning-context save commits the proposal, request, step links and deadline together.
+            _workflowDatabase!.Proposals.Add(AgentProposalStore.CreateEntity(proposalRequest));
+            _workflowDatabase.ToolApprovalRequests.Add(request);
+            await _workflowDatabase.SaveChangesAsync(cancellationToken);
+        }
+        else
+        {
+            await _proposalStore.CreateManyAsync(new[] { proposalRequest }, cancellationToken).ConfigureAwait(false);
+            await _requestStore.CreateAsync(request, cancellationToken).ConfigureAwait(false);
+        }
 
         return new ToolGateOutcome(
             ToolGateDecision.Queued, ApprovalRequestId: request.Id, ProposalId: proposalId, Summary: actionKind);
@@ -259,11 +343,14 @@ internal sealed class ToolApprovalService : IToolApprovalService
         }
 
         var now = _clock.UtcNow;
+        if (request.WorkflowStepRunId.HasValue && _workflowContinuations is null)
+            return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, "Workflow continuation is unavailable.");
 
         // Expiry takes precedence: a request past its window can no longer be decided.
         if (request.Status == ToolApprovalRequestStatus.Pending && now > request.ExpiresAt)
         {
             request.Status = ToolApprovalRequestStatus.Expired;
+            if (request.WorkflowStepRunId.HasValue) await _workflowContinuations!.AfterDecisionAsync(request, cancellationToken);
             await _requestStore.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ToolApprovalDecisionResult(
                 request.Id, ToolApprovalDecisionOutcome.Expired, request.ProposalId,
@@ -277,8 +364,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
                 Message: $"This request was already {request.Status} and cannot be decided again.");
         }
 
-        bool workflowGovernance = WorkflowApprovalAuthority.IsGovernanceTool(request.ToolName);
-        if ((WorkflowApprovalAuthority.IsWorkflowMutation(request.ToolName) && _workflowAuthority is null)
+        bool workflowGovernance = WorkflowApprovalAuthority.IsGovernanceTool(request.ToolName) || request.WorkflowStepRunId.HasValue;
+        if (((WorkflowApprovalAuthority.IsWorkflowMutation(request.ToolName) || request.WorkflowStepRunId.HasValue) && _workflowAuthority is null)
             || (_workflowAuthority is not null && !await _workflowAuthority.CanDecideRequestAsync(request, cancellationToken)))
             return new ToolApprovalDecisionResult(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
                 "Current workflow permissions do not permit this decision.");
@@ -314,6 +401,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
             request.Status = ToolApprovalRequestStatus.Rejected;
             request.DecidedByUserId = decidingUserId;
             request.DecidedAt = now;
+            if (request.WorkflowStepRunId.HasValue) await _workflowContinuations!.AfterDecisionAsync(request, cancellationToken);
             await _requestStore.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return new ToolApprovalDecisionResult(
                 request.Id, ToolApprovalDecisionOutcome.Rejected, request.ProposalId,
@@ -366,11 +454,13 @@ internal sealed class ToolApprovalService : IToolApprovalService
         request.Status = ToolApprovalRequestStatus.Approved;
         request.DecidedByUserId = decidingUserId;
         request.DecidedAt = now;
+        if (request.WorkflowStepRunId.HasValue) await _workflowContinuations!.AfterDecisionAsync(request, cancellationToken);
         await _requestStore.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
         return new ToolApprovalDecisionResult(
             request.Id, ToolApprovalDecisionOutcome.Approved, ProposalId: null,
-            Message: "The action was approved. Ask the agent to proceed.");
+            Message: request.WorkflowStepRunId.HasValue ? "The action was approved. The workflow will continue automatically."
+                : "The action was approved. Ask the agent to proceed.");
     }
 
     private ToolApprovalRequest NewRequest(
@@ -381,12 +471,13 @@ internal sealed class ToolApprovalService : IToolApprovalService
         string argsHash,
         Guid tenantId,
         Guid? requestingUserId,
-        DateTime now) =>
-        new()
+        DateTime now)
+    {
+        var request = new ToolApprovalRequest
         {
             TenantId = tenantId,
             RequestingUserId = requestingUserId,
-            AiRunId = _roomContext?.AiRunId,
+            AiRunId = _workflowContext?.Step?.AiRunId ?? _roomContext?.AiRunId,
             ThreadId = _roomContext?.RoomId?.ToString(),
             ToolName = context.ToolName,
             ArgumentsRedactedJson = argumentsJson,
@@ -396,4 +487,21 @@ internal sealed class ToolApprovalService : IToolApprovalService
             ActionKind = actionKind,
             RequestedAt = now,
         };
+        if (_workflowContext?.Step is { } step && _workflowContext.Run is { } run)
+        {
+            request.WorkflowStepRunId = step.Id;
+            request.RequestingUserId = run.InitiatingUserId;
+            request.ThreadId = $"workflow:{step.Id:D}";
+            step.ApprovalRequestId = request.Id;
+        }
+        return request;
+    }
+
+    private void StageWorkflowExpiry(ToolApprovalRequest request)
+    {
+        if (request.WorkflowStepRunId is null) return;
+        if (_workflowContinuations is null || _workflowContext?.Run is not { } run)
+            throw new InvalidOperationException("Workflow continuation is unavailable.");
+        _workflowContinuations.AtExpiry(request, run);
+    }
 }

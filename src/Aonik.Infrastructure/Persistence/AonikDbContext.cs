@@ -300,6 +300,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<WorkflowVersion> WorkflowVersions { get; set; } = null!;
     public virtual DbSet<WorkflowComment> WorkflowComments { get; set; } = null!;
     public virtual DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
+    public virtual DbSet<WorkflowStepRun> WorkflowStepRuns { get; set; } = null!;
+    public virtual DbSet<WorkflowCheckpoint> WorkflowCheckpoints { get; set; } = null!;
 
     // Voice — speech provider library + recipe library + active settings (spec 024)
     public virtual DbSet<SpeechProviderEntity> SpeechProviders { get; set; } = null!;
@@ -777,6 +779,8 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<WorkflowVersion>(modelBuilder, "WorkflowVersions");
         MapAgentsTable<WorkflowComment>(modelBuilder, "WorkflowComments");
         MapAgentsTable<WorkflowRun>(modelBuilder, "WorkflowRuns");
+        MapAgentsTable<WorkflowStepRun>(modelBuilder, "WorkflowStepRuns");
+        MapAgentsTable<WorkflowCheckpoint>(modelBuilder, "WorkflowCheckpoints");
     }
 
     private static void MapPlatformTable<TEntity>(ModelBuilder modelBuilder, string tableName)

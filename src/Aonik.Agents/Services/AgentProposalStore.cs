@@ -35,23 +35,20 @@ internal sealed class AgentProposalStore : IAgentProposalStore
 
         foreach (var request in requests)
         {
-            var proposal = new Proposal
-            {
-                Id = request.Id,
-                TenantId = request.TenantId,
-                ProposalType = request.ProposalType,
-                ProposedByAgentId = request.ProposedByAgentId,
-                AiRunId = request.AiRunId ?? Guid.Empty,
-                ImpactSummary = request.ImpactSummary,
-                RiskTier = request.RiskTier,
-                Status = ProposalStatus.Proposed,
-                PayloadJson = request.PayloadJson,
-            };
+            Proposal proposal = CreateEntity(request);
             _agentsDbContext.Proposals.Add(proposal);
         }
 
         await _agentsDbContext.SaveChangesAsync(cancellationToken);
     }
+
+    internal static Proposal CreateEntity(AgentProposalCreateRequest request) => new()
+    {
+        Id = request.Id, TenantId = request.TenantId, ProposalType = request.ProposalType,
+        ProposedByAgentId = request.ProposedByAgentId, AiRunId = request.AiRunId ?? Guid.Empty,
+        ImpactSummary = request.ImpactSummary, RiskTier = request.RiskTier, Status = ProposalStatus.Proposed,
+        PayloadJson = request.PayloadJson, WorkflowStepRunId = request.WorkflowStepRunId,
+    };
 
     public async Task<AgentProposalDetail?> GetByIdAsync(
         Guid proposalId,

@@ -20,7 +20,7 @@ internal static class WorkflowDefinitionValidator
     // Expand only alongside each governed executor and its recovery tests.
     internal static readonly IReadOnlySet<string> GovernedKinds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
-        WorkflowNodeKinds.Trigger, WorkflowNodeKinds.End,
+        WorkflowNodeKinds.Trigger, WorkflowNodeKinds.Decision, WorkflowNodeKinds.Tool, WorkflowNodeKinds.End,
     };
 
     public static WorkflowCapabilities Capabilities() => new(1, MaxNodes, MaxEdges,

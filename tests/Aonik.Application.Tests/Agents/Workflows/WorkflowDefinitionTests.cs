@@ -104,7 +104,9 @@ public class WorkflowDefinitionTests
 
         // Assert
         errors.Should().Contain(error => error.Code == "DecisionParameters");
-        errors.Should().Contain(error => error.Code == "CapabilityUnavailable");
+        WorkflowDefinition unavailable = definition with { Nodes = definition.Nodes.Select(node => node.Key == "decision"
+            ? node with { Kind = "Agent" } : node).ToList() };
+        WorkflowDefinitionValidator.Validate(unavailable, true).Should().Contain(error => error.Code == "CapabilityUnavailable");
     }
 
     [Fact]

@@ -2,14 +2,74 @@ using System.Net;
 using System.Net.Http.Json;
 
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Models.Workflows;
+using Aonik.Finance.Entities.Billing;
+using Aonik.Finance.Persistence;
+using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 namespace Aonik.Api.Tests;
 
 public class WorkflowEndpointsTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
 {
+    [Fact]
+    public async Task RunRoutes_Should_AdmitIdempotently_ExposeTheTrace_AndRespectTerminalCancellation()
+    {
+        using HttpClient client = await ClientAsync("Workflow.Read", "Workflow.Write", "Workflow.Publish", "Workflow.Run", "Invoice.Read");
+        Guid tenantId = Guid.Parse(client.DefaultRequestHeaders.GetValues("X-Tenant-Id").Single());
+        Guid invoiceId = Guid.NewGuid();
+        using (IServiceScope scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ITenantContext>().TenantId = tenantId;
+            await scope.ServiceProvider.GetRequiredService<ITenantSettingStore>().SetTenantValueAsync(WorkflowSettingNames.ExecutionEnabled, "true", tenantId);
+            FinanceDbContext finance = scope.ServiceProvider.GetRequiredService<FinanceDbContext>();
+            finance.Invoices.Add(new Invoice { Id = invoiceId, TenantId = tenantId, CustomerAccountId = Guid.NewGuid(), Currency = "GBP", Total = 100m,
+                Status = "Draft", ProvenanceJson = "{}" });
+            await finance.SaveChangesAsync();
+        }
+        WorkflowSaveRequest draft = Draft();
+        WorkflowGraphResponse graph = (await (await client.PostAsJsonAsync("/ai/workflows", draft)).Content.ReadFromJsonAsync<WorkflowGraphResponse>())!;
+        WorkflowValidation validation = (await (await client.PostAsJsonAsync($"/ai/workflows/{draft.Slug}/validate", new { })).Content.ReadFromJsonAsync<WorkflowValidation>())!;
+        WorkflowGovernanceRequestResult publication = (await (await client.PostAsJsonAsync($"/ai/workflows/{draft.Slug}/publication-requests",
+            new WorkflowGovernanceCommand(draft.Slug, graph.ExpectedVersion!, validation.DefinitionHash, null))).Content.ReadFromJsonAsync<WorkflowGovernanceRequestResult>())!;
+        (await client.PostAsJsonAsync($"/ai/tool-approvals/{publication.ApprovalRequestId}/decide", new { decision = "Approve" })).StatusCode.Should().Be(HttpStatusCode.OK);
+        graph = (await client.GetFromJsonAsync<WorkflowGraphResponse>($"/ai/workflows/{draft.Slug}"))!;
+        var request = new StartWorkflowRunRequest(graph.PublishedVersionId!.Value, "Invoice", invoiceId, "api-admission-1");
+
+        HttpResponseMessage first = await client.PostAsJsonAsync($"/ai/workflows/{draft.Slug}/runs", request);
+        first.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        WorkflowRunDetail admitted = (await first.Content.ReadFromJsonAsync<WorkflowRunDetail>())!;
+        WorkflowRunDetail replay = (await (await client.PostAsJsonAsync($"/ai/workflows/{draft.Slug}/runs", request)).Content.ReadFromJsonAsync<WorkflowRunDetail>())!;
+        replay.Id.Should().Be(admitted.Id);
+        admitted.WorkflowVersionId.Should().Be(graph.PublishedVersionId!.Value);
+        (await client.PostAsJsonAsync($"/ai/workflows/{draft.Slug}/runs", request with { SubjectId = Guid.NewGuid() })).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        WorkflowRunDetail read = (await client.GetFromJsonAsync<WorkflowRunDetail>($"/ai/workflow-runs/{admitted.Id}"))!;
+        read.Status.Should().Be("Queued");
+        HttpResponseMessage cancel = await client.PostAsJsonAsync($"/ai/workflow-runs/{read.Id}/cancel", new { read.ExpectedVersion });
+        cancel.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await cancel.Content.ReadFromJsonAsync<WorkflowRunDetail>())!.Status.Should().Be("Cancelled");
+        (await client.PostAsJsonAsync($"/ai/workflow-runs/{read.Id}/resume", new { read.ExpectedVersion })).StatusCode.Should().Be(HttpStatusCode.Conflict);
+        using HttpClient otherTenant = await ClientAsync("Workflow.Read", "Workflow.Run", "Invoice.Read");
+        (await otherTenant.GetAsync($"/ai/workflow-runs/{read.Id}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task RunRoutes_Should_RequireAuthenticationRunPermission_AndExplicitTenantEnablement()
+    {
+        using HttpClient anonymous = factory.CreateClient();
+        var request = new StartWorkflowRunRequest(Guid.NewGuid(), "Invoice", Guid.NewGuid(), "admission-1");
+        (await anonymous.GetAsync($"/ai/workflow-runs/{Guid.NewGuid()}")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anonymous.PostAsJsonAsync("/ai/workflows/invoice-routing/runs", request)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        using HttpClient reader = await ClientAsync("Workflow.Read");
+        (await reader.PostAsJsonAsync("/ai/workflows/invoice-routing/runs", request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        using HttpClient runner = await ClientAsync("Workflow.Read", "Workflow.Run", "Invoice.Read");
+        (await runner.PostAsJsonAsync("/ai/workflows/invoice-routing/runs", request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await runner.GetAsync($"/ai/workflow-runs/{Guid.NewGuid()}")).StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
     [Fact]
     public async Task DraftRoutes_Should_UsePermissionsAndCorrectCreateUpdateSemantics()
     {

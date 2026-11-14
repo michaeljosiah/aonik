@@ -15,7 +15,8 @@ internal sealed record PreparedWorkflowGovernance(
     Guid WorkflowId, Guid? TargetVersionId, ToolApprovalPreview Preview);
 
 internal sealed class WorkflowGovernancePreparation(
-    AgentsDbContext database, WorkflowAuthorization authorization, IWorkflowService workflows)
+    AgentsDbContext database, WorkflowAuthorization authorization, IWorkflowService workflows,
+    WorkflowPublicationValidator? publication = null)
 {
     public async Task<PreparedWorkflowGovernance> PrepareAsync(
         WorkflowGovernanceCommand command, bool retiring, CancellationToken cancellationToken = default)
@@ -79,7 +80,11 @@ internal sealed class WorkflowGovernancePreparation(
             throw new WorkflowConflictException("The exact workflow definition hash no longer matches.");
         if (definition.Slug != workflow.Slug || definition.DefinitionKind != workflow.DefinitionKind)
             throw new WorkflowConflictException("The snapshot belongs to a different workflow definition.");
-        IReadOnlyList<WorkflowDiagnostic> diagnostics = WorkflowDefinitionValidator.Validate(definition, forPublication: true);
+        if (publication is null && definition.Nodes.Any(node => WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Tool)))
+            throw new ArgumentException("Governed action validation is unavailable in this host.");
+        IReadOnlyList<WorkflowDiagnostic> diagnostics = publication is not null
+            ? await publication.ValidateAsync(definition, cancellationToken)
+            : WorkflowDefinitionValidator.Validate(definition, forPublication: true);
         if (diagnostics.Any(diagnostic => diagnostic.Severity == "Error"))
             throw new ArgumentException("Publication validation failed: " + string.Join("; ", diagnostics.Where(diagnostic => diagnostic.Severity == "Error").Take(10).Select(diagnostic => diagnostic.Message)));
         return new(command, definition, workflow.Id, target?.Id,

@@ -169,6 +169,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserPartyResolver, Services.Party.UserPartyResolver>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.ITenantRoleReader, Services.Identity.TenantRoleReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IChatParticipantDirectory, Services.Identity.ChatParticipantDirectory>();
 
         // Compliance reacts to document erasure (Spec 035 §12/§15) by marking dependent usages

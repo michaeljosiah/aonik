@@ -9,7 +9,7 @@ using Aonik.SharedKernel.Abstractions.Agents;
 
 namespace Aonik.Agents.Framework;
 
-internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGovernanceService governance)
+internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGovernanceService governance, IWorkflowRunService? runs = null)
 {
     [Description("List authorized tenant workflow metadata, with bounded pagination.")]
     public async Task<object> ListWorkflows(int skip = 0, int take = 20, CancellationToken cancellationToken = default)
@@ -56,13 +56,22 @@ internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGoverna
     public Task<WorkflowGovernanceRequestResult> RequestRetirement(WorkflowGovernanceCommand command, CancellationToken cancellationToken = default)
         => governance.RequestAsync(command, retiring: true, cancellationToken);
 
+    [Description("Request a live run of the exact published workflow version for a stored invoice ID and a stable idempotency key. Human confirmation is required to start; every mutating workflow action has its own server approval. Never supply invented invoice facts.")]
+    public Task<WorkflowRunDetail> StartWorkflow(string slug, StartWorkflowRunRequest request, CancellationToken cancellationToken = default)
+        => (runs ?? throw new InvalidOperationException("Workflow execution is unavailable.")).StartAsync(slug, request, cancellationToken);
+
+    [Description("Read a live workflow run, its ordered step trace, selected decision routes, approval/proposal IDs and safe error codes.")]
+    public Task<WorkflowRunDetail?> GetWorkflowRun(Guid runId, CancellationToken cancellationToken = default)
+        => (runs ?? throw new InvalidOperationException("Workflow execution is unavailable.")).GetAsync(runId, cancellationToken);
+
     public static IEnumerable<AITool> CreateAll(IServiceProvider services)
     {
         IWorkflowService? workflows = services.GetService<IWorkflowService>();
         IWorkflowGovernanceService? governance = services.GetService<IWorkflowGovernanceService>();
         if (workflows is null || governance is null) return [];
-        var tools = new WorkflowTools(workflows, governance);
-        AITool[] functions =
+        IWorkflowRunService? runs = services.GetService<IWorkflowRunService>();
+        var tools = new WorkflowTools(workflows, governance, runs);
+        List<AITool> functions =
         [
             AIFunctionFactory.Create(tools.ListWorkflows, name: "aonik_list_workflows"),
             AIFunctionFactory.Create(tools.GetWorkflow, name: "aonik_get_workflow"),
@@ -75,6 +84,11 @@ internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGoverna
             AIFunctionFactory.Create(tools.RequestPublication, name: "aonik_request_publish_workflow"),
             AIFunctionFactory.Create(tools.RequestRetirement, name: "aonik_request_retire_workflow"),
         ];
+        if (runs is not null)
+        {
+            functions.Add(AIFunctionFactory.Create(tools.StartWorkflow, name: "aonik_start_workflow"));
+            functions.Add(AIFunctionFactory.Create(tools.GetWorkflowRun, name: "aonik_get_workflow_run"));
+        }
         return services.GetRequiredService<IToolApprovalGate>().GateAll(functions, services);
     }
 }

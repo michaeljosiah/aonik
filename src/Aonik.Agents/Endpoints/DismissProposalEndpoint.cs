@@ -111,6 +111,11 @@ internal sealed class DismissProposalEndpoint : Endpoint<DismissProposalRequest,
             // Authority is checked before rejection; let the shared handler return 403.
             throw;
         }
+        catch (Services.Workflows.WorkflowConflictException ex)
+        {
+            AddError(ex.Message, errorCode: "workflow_conflict");
+            await Send.ErrorsAsync(StatusCodes.Status409Conflict, ct);
+        }
         catch (InvalidOperationException ex)
         {
             AddError(ex.Message);

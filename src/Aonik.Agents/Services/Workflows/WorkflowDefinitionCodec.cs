@@ -50,6 +50,9 @@ internal static class WorkflowDefinitionCodec
     public static JsonElement DecisionSchema() => JsonSerializer.SerializeToElement(
         JsonOptions.GetJsonSchemaAsNode(typeof(DecisionTable)));
 
+    public static JsonElement ToolSchema() => JsonSerializer.SerializeToElement(
+        JsonOptions.GetJsonSchemaAsNode(typeof(WorkflowToolParameters)));
+
     private static void WriteCanonical(Utf8JsonWriter writer, JsonElement element)
     {
         if (element.ValueKind == JsonValueKind.Object)

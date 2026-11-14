@@ -66,6 +66,16 @@ public sealed class AgentsModule : IModule
         services.AddScoped<Services.Workflows.WorkflowDraftPreparation>();
         services.AddScoped<Services.Workflows.WorkflowGovernancePreparation>();
         services.AddScoped<Services.Workflows.WorkflowApprovalAuthority>();
+        services.AddScoped<Services.Workflows.WorkflowExecutionAuthorization>();
+        services.AddScoped<Services.Workflows.WorkflowInvocationContext>();
+        services.AddScoped<Services.Workflows.WorkflowReviewerAuthorization>();
+        services.AddScoped<Services.Workflows.WorkflowContinuationWriter>();
+        services.AddScoped<Services.Workflows.WorkflowActionRegistry>();
+        services.AddScoped<Services.Workflows.WorkflowPublicationValidator>();
+        services.AddScoped<WorkflowStepExecutionService>();
+        services.AddScoped<Services.Workflows.WorkflowRunService>();
+        services.AddScoped<IWorkflowRunService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowRunService>());
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Workflows.IWorkflowApprovalReader, Services.Workflows.WorkflowApprovalReader>();
         services.AddScoped<Services.Workflows.WorkflowGovernanceService>();
         services.AddScoped<IWorkflowGovernanceService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>());
         services.AddScoped<IAgentMutationGuard, Services.Workflows.WorkflowMutationGuard>();
@@ -266,12 +276,10 @@ public sealed class AgentsModule : IModule
         services.AddKeyedSingleton<IWorkflowFactory, ReconciliationWorkflowFactory>(
             ReconciliationWorkflowFactory.Name);
 
-        // Generic graph-driven runner — translates the editor's saved
-        // Workflow + WorkflowNode + WorkflowEdge rows into a MAF Workflow
-        // and runs it directly via InProcessExecution. RunWorkflowEndpoint
-        // falls through to this when no keyed legacy factory matches the
-        // requested slug.
+        // One graph compiler/runner: legacy graph support plus pinned, durable MAF continuations.
+        // The legacy HTTP route never falls back to mutable editor graphs.
         services.AddScoped<IGraphWorkflowRunner, GraphWorkflowRunner>();
+        services.AddKeyedScoped<Aonik.SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Workflows.WorkflowContinuationTaskActionHandler>("workflow_continue");
 
         // NOTE: RagContextProvider registration is deferred to the composition root (Program.cs)
         // where both Infrastructure and Agents modules are registered, avoiding circular dependencies.

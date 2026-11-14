@@ -105,6 +105,9 @@ public sealed class FinanceModule : IModule
         // Registered concretely as well: InvoiceWriter needs the machine-authorised creation path,
         // which the user-facing interface deliberately does not expose.
         services.AddScoped<Services.Billing.BillingService>();
+        services.AddScoped<Services.Billing.InvoiceWorkflowFactsProvider>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowFactsProvider>(provider => provider.GetRequiredService<Services.Billing.InvoiceWorkflowFactsProvider>());
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler, Services.Billing.InvoiceIssueWorkflowAction>();
         services.AddScoped<Contracts.Services.Billing.IBillingService>(sp => sp.GetRequiredService<Services.Billing.BillingService>());
 
         // Spec 042 — SharedKernel write contracts (the write mirror of the ADR-006 read contracts)

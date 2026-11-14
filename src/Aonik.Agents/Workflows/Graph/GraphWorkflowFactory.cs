@@ -44,7 +44,7 @@ namespace Aonik.Agents.Workflows.Graph;
 /// </list>
 /// </para>
 /// </summary>
-internal static class GraphWorkflowBuilder
+internal static partial class GraphWorkflowBuilder
 {
     /// <summary>
     /// Loads the workflow graph identified by <paramref name="slug"/> and

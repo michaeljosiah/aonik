@@ -5,12 +5,20 @@ using Aonik.SharedKernel.Abstractions.Agents;
 
 namespace Aonik.Agents.Services.Workflows;
 
-internal sealed class WorkflowMutationGuard(WorkflowDraftPreparation drafts, WorkflowGovernancePreparation governance) : IAgentMutationGuard
+internal sealed class WorkflowMutationGuard(WorkflowDraftPreparation drafts, WorkflowGovernancePreparation governance, WorkflowRunService? runs = null) : IAgentMutationGuard
 {
     public Task ValidateAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
     public async Task<ToolGateContext> PrepareAsync(ToolGateContext context, CancellationToken cancellationToken = default)
     {
+        if (context.ToolName == "aonik_start_workflow")
+        {
+            RequireArguments(context, "slug", "request");
+            if (runs is null) throw new InvalidOperationException("Workflow execution is unavailable.");
+            var prepared = await runs.PrepareStartAsync(Read<string>(context, "slug"), Read<StartWorkflowRunRequest>(context, "request"), cancellationToken);
+            context.Arguments["request"] = JsonSerializer.SerializeToElement(prepared.Request, WorkflowDefinitionCodec.JsonOptions);
+            return context with { Preview = prepared.Preview };
+        }
         if (context.ToolName is "aonik_create_workflow" or "aonik_update_workflow")
         {
             RequireArguments(context, "draft");

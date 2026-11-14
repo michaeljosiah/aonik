@@ -30,6 +30,11 @@ public sealed record WorkflowCapabilities(
     IReadOnlyList<WorkflowCapability> NodeKinds, IReadOnlyList<string> FactSchemas,
     IReadOnlyList<DecisionFactField> InvoiceFacts,
     IReadOnlyList<string> ComparisonOperators,
-    JsonElement DecisionParametersSchema);
+    JsonElement DecisionParametersSchema,
+    IReadOnlyList<WorkflowActionCapability>? Actions = null,
+    JsonElement? ToolParametersSchema = null);
+
+public sealed record WorkflowActionCapability(string Key, int ContractVersion, string RequiredPermission, string RiskTier,
+    JsonElement InputSchema, JsonElement OutputSchema);
 
 public sealed record DecisionFactField(string Name, string Type, bool Required);

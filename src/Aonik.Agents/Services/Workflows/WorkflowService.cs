@@ -23,17 +23,20 @@ internal sealed class WorkflowService : IWorkflowService
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
     private readonly WorkflowAuthorization _authorization;
+    private readonly WorkflowPublicationValidator? _publication;
 
     public WorkflowService(
         AgentsDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
-        WorkflowAuthorization authorization)
+        WorkflowAuthorization authorization,
+        WorkflowPublicationValidator? publication = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _authorization = authorization;
+        _publication = publication;
     }
 
     public async Task<IReadOnlyList<WorkflowSummaryResponse>> ListAsync(
@@ -329,7 +332,9 @@ internal sealed class WorkflowService : IWorkflowService
         if (graph is null) return null;
         WorkflowDefinition definition = WorkflowDefinitionCodec.FromGraph(graph);
         string hash = WorkflowDefinitionCodec.Hash(WorkflowDefinitionCodec.Serialize(definition));
-        IReadOnlyList<WorkflowDiagnostic> diagnostics = WorkflowDefinitionValidator.Validate(definition, forPublication: true);
+        IReadOnlyList<WorkflowDiagnostic> diagnostics = _publication is not null
+            ? await _publication.ValidateAsync(definition, cancellationToken)
+            : WorkflowDefinitionValidator.Validate(definition, forPublication: true);
         return new(!diagnostics.Any(diagnostic => diagnostic.Severity == "Error"), hash, diagnostics);
     }
 
@@ -347,7 +352,11 @@ internal sealed class WorkflowService : IWorkflowService
     public async Task<WorkflowCapabilities> GetCapabilitiesAsync(CancellationToken cancellationToken = default)
     {
         await _authorization.RequireAsync("Workflow.Read", cancellationToken);
-        return WorkflowDefinitionValidator.Capabilities();
+        return WorkflowDefinitionValidator.Capabilities() with
+        {
+            Actions = _publication is null ? [] : await _publication.CapabilitiesAsync(cancellationToken),
+            ToolParametersSchema = WorkflowDefinitionCodec.ToolSchema(),
+        };
     }
 
     private static void ApplyDraft(Workflow workflow, WorkflowSaveRequest request)
