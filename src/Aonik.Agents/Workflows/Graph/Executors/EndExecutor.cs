@@ -40,8 +40,7 @@ internal sealed class EndExecutor : Executor<string>
             "[End] Yielding output (len={Len}): {Preview}",
             payload.Length,
             payload.Length > 80 ? payload[..80] + "…" : payload);
-        // Side-channel record so the runner can return the output even
-        // when MAF rc4's event stream withholds the WorkflowOutputEvent.
+        // Keep the terminal value alongside the recorded execution trace.
         _recorder.RecordOutput(payload);
         await context.YieldOutputAsync(payload, cancellationToken);
     }

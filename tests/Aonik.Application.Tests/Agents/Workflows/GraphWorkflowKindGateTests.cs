@@ -3,6 +3,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Workflows.Graph;
 using FluentAssertions;
+using Microsoft.Agents.AI.Workflows;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -17,6 +18,40 @@ namespace Aonik.Application.Tests.Agents.Workflows;
 /// </summary>
 public class GraphWorkflowKindGateTests
 {
+    [Fact]
+    public async Task Build_Should_EmitTerminalOutput_FromTheSavedEndNode()
+    {
+        // Arrange
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        WorkflowGraphResponse graph = Graph(WorkflowNodeKinds.Trigger, WorkflowNodeKinds.End);
+        graph = graph with
+        {
+            Edges = [new WorkflowGraphEdge(Guid.NewGuid(), graph.Nodes[0].Id, graph.Nodes[1].Id, 0, "")],
+        };
+        var service = new Mock<IWorkflowService>();
+        service.Setup(s => s.GetBySlugAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(graph);
+        using ServiceProvider services = new ServiceCollection()
+            .AddSingleton(service.Object)
+            .AddLogging()
+            .BuildServiceProvider();
+        var workflow = GraphWorkflowBuilder.Build(graph.Slug, services, out IWorkflowRunRecorder recorder);
+
+        // Act
+        await using StreamingRun run = await InProcessExecution.RunStreamingAsync(
+            workflow, "invoice-reference", cancellationToken: timeout.Token);
+        var events = new List<WorkflowEvent>();
+        await foreach (WorkflowEvent workflowEvent in run.WatchStreamAsync(timeout.Token))
+        {
+            events.Add(workflowEvent);
+        }
+
+        // Assert
+        events.OfType<ExecutorFailedEvent>().Should().BeEmpty();
+        events.OfType<WorkflowOutputEvent>().Select(e => e.Data).Should().Equal("invoice-reference");
+        recorder.Sequence.Should().Equal(graph.Nodes[1].Id);
+    }
+
     [Theory]
     [InlineData("Trigger")]
     [InlineData("Agent")]

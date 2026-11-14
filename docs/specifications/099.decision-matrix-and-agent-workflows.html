@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Spec 099 - Governed decision workflows and connector automation</title>
+  <style>
+    :root { color-scheme:light; --fg:#1c2730; --muted:#5a6a76; --line:#d9dde2; --accent:#055a60; }
+    * { box-sizing:border-box; }
+    body { max-width:1120px; margin:auto; padding:40px 24px 80px; color:var(--fg); font:16px/1.6 "Segoe UI",sans-serif; }
+    h1 { font-size:32px; line-height:1.2; } h2 { margin-top:40px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+    h3 { color:var(--accent); margin-top:26px; } a { color:var(--accent); }
+    .meta { color:var(--muted); } .note { padding:14px 18px; border-left:4px solid var(--accent); background:#eef5f5; }
+    table { border-collapse:collapse; width:100%; margin:18px 0; font-size:14px; }
+    th,td { border-bottom:1px solid var(--line); padding:10px; text-align:left; vertical-align:top; }
+    th { background:#f4f6f8; } code { background:#f4f6f8; padding:1px 4px; border-radius:3px; overflow-wrap:anywhere; }
+    pre { background:#f4f6f8; padding:18px; overflow:auto; font:14px/1.6 Consolas,monospace; }
+    li { margin:7px 0; } nav { background:#f4f6f8; padding:14px 20px; } footer { margin-top:40px; color:var(--muted); }
+    .table-wrap { overflow-x:auto; } @media(max-width:720px) { body { padding:24px 16px; } }
+    @media print { body { max-width:none; padding:0; font-size:11pt; } nav { display:none; } tr,pre { break-inside:avoid; } }
+  </style>
+</head>
+<body>
+<header>
+  <p class="meta">Spec 099 | Detailed specification, revision 5 | Implementation in progress | Created and updated 14 November 2026</p>
+  <h1>Governed decision workflows and connector automation</h1>
+  <p>Invoice handling and approval routing, authored through Aonik and the existing workflow editor, with automatic triggers, richer workflow execution, Gmail actions, connection requests and governed unattended operation.</p>
+  <p class="note"><strong>Implementation principle:</strong> extend the working platform before adding infrastructure. One workflow definition, one approval boundary, one existing task dispatcher. Decision tables and reusable rule libraries share the workflow version lifecycle. Connector actions use reviewed descriptors and existing adapters. Add persistence only for state that must survive a restart.</p>
+  <p><strong>Repository:</strong> michaeljosiah/aonik. <strong>Size:</strong> large, delivered in fifteen bounded slices. <strong>Priority:</strong> high. <strong>Target release:</strong> pilot after acceptance; no date committed. <strong>Implementation status:</strong> T1 compatibility changes implemented on <code>codex/decision-workflows-maf-438</code>; qualification and review tracked below. T2–T15 remain pending.</p>
+  <p id="epic"><strong>Tracking:</strong> <a href="https://github.com/michaeljosiah/aonik/issues/438">GitHub epic #438</a>. Requirement and task IDs in this document are stable. T1 is an independently reviewable compatibility change based on master <code>b5012cb42</code>.</p>
+</header>
+<nav aria-label="Contents">
+  <a href="#summary">Summary</a> | <a href="#context">Context</a> | <a href="#scope">Scope</a> |
+  <a href="#guardrails">Guardrails</a> | <a href="#architecture">Approach and reuse</a> |
+  <a href="#definitions">Definitions</a> | <a href="#semantics">Decision rules</a> |
+  <a href="#tools">Agent tools and API</a> | <a href="#runtime">Execution and approvals</a> |
+  <a href="#connectors">Connectors</a> | <a href="#connection-requests">Requests and settings</a> |
+  <a href="#invoice">Invoice pilot</a> | <a href="#maf">MAF</a> |
+  <a href="#automation">Expanded automation</a> | <a href="#requirements">Requirements</a> | <a href="#tasks">Tasks</a> |
+  <a href="#verification">Verification</a> | <a href="#decisions">Decision log</a> | <a href="#done">Done</a>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>Enable Aonik to discover, create, update, validate, simulate and delete workflow drafts, then propose publication through the existing approval system. Published workflows contain deterministic decision tables that route invoices to the correct authorized reviewer and action. A published revision remains immutable; a running workflow keeps its exact revision and action arguments across approval waits and process restarts.</p>
+<p>Expose Gmail read and write actions through the same registered capabilities used by agents and workflow Tool nodes, enabling each action only after its delivery and approval controls are verified. Users may connect their own mailbox; tenants may provision an organizational account with explicit grants. When a required connector, account, consent or grant is missing, Aonik can create a durable connection request and report its real status. A connection request never grants access by itself.</p>
+<p>Success means an operator can configure and explain an invoice route, Aonik can perform the complete draft lifecycle, an authorized reviewer can approve the exact domain action, and missing connections can be requested and fulfilled without bypassing tenant policy. The full epic also includes the seven automation areas previously deferred: automatic triggers, complex control flow, richer rules/shared libraries, Gmail writes, automated financial intake, unattended identities and a curated connector marketplace. The initial manual invoice/read-only Gmail pilot is a delivery milestone, not the epic's completion boundary.</p>
+
+<h2 id="context">2. Context and current state</h2>
+<p>The code already contains most of the composition points. Reuse them rather than implementing another workflow platform.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Existing component</th><th>Verified behavior</th><th>Work required</th></tr></thead>
+  <tbody>
+    <tr><td><a href="../../src/Aonik.Agents/Services/Workflows/WorkflowService.cs">WorkflowService</a>, workflow entities and endpoints</td><td>Graph CRUD exists. POST and PUT share an upsert. Saves replace node IDs. Validation is limited. Delete is soft deletion.</td><td>Separate create/update semantics, expose existing RowVersion, preserve logical keys, validate supported graphs and protect published history.</td></tr>
+    <tr><td><a href="../../src/Aonik.Agents/Entities/Workflows/WorkflowVersion.cs">WorkflowVersion</a></td><td>Stores display metadata, not an executable graph snapshot. Initial creation does not create a history row.</td><td>Add immutable executable snapshots; mark legacy metadata honestly.</td></tr>
+    <tr><td><a href="../../src/Aonik.Agents/Workflows/Graph/GraphWorkflowFactory.cs">GraphWorkflowBuilder</a></td><td>Supports Trigger, Agent, Notify, Emit and End. Decision, Tool, Human, Wait and Loop are rejected before execution. Edges are unconditional.</td><td>Deliver Decision and governed Tool first, then the bounded flow capabilities in section 14. Preserve rejection until each capability is implemented and qualified.</td></tr>
+    <tr><td><a href="../../src/Aonik.Agents/Workflows/Graph/IGraphWorkflowFactoryProvider.cs">GraphWorkflowRunner</a>, WorkflowRun, run recorder</td><td>Runner returns an in-memory sequence; it does not persist a live run/checkpoint. Keyed legacy workflows can shadow saved graphs.</td><td>Pin published versions, persist runs/steps, checkpoint and resume; isolate legacy names.</td></tr>
+    <tr><td><a href="../../src/Aonik.Agents/Framework/MasterOrchestratorService.cs">MasterOrchestratorService</a></td><td>Builds domain and cross-cutting tools, but no workflow CRUD tools.</td><td>Register a small Agents-owned WorkflowTools catalog through GateAll.</td></tr>
+    <tr><td><a href="../../src/Aonik.Agents/Services/ToolApprovalService.cs">ToolApprovalService</a> and <a href="../../src/Aonik.Agents/Services/ProposalApprovalPolicy.cs">ProposalApprovalPolicy</a></td><td>Enforcing server gate and durable requests/proposals exist. Medium approval currently requires the requesting user. Proposal policy checks authenticated same-tenant identity.</td><td>Add narrowly scoped workflow reviewer rules. Keep consumer requester-only behavior. Apply role/SoD checks on every decision entry point.</td></tr>
+    <tr><td><a href="../../src/Aonik.Platform/Services/Tasks/WorkItemDispatcher.cs">WorkItemDispatcher</a>, <a href="../../src/Aonik.SharedKernel/Abstractions/Tasks/ITaskActionHandler.cs">ITaskActionHandler</a>, transactional outbox/inbox</td><td>Existing durable scheduling, tenant restoration, leases, renewal and fenced outcome writes. Handlers must still be idempotent.</td><td>Add workflow continuation handlers and durable wake-up messages. Do not build another scheduler or lease service.</td></tr>
+    <tr><td><a href="../../src/Aonik.SharedKernel/Abstractions/Settings/ISettingProvider.cs">ISettingProvider</a>, audit writer, Data Protection</td><td>User/tenant/global preference lookup, exact-scope reads, audit logging and encryption already exist.</td><td>Add connector settings and explicit policy checks; reuse encryption substrate with a connector-specific purpose.</td></tr>
+    <tr><td><a href="../../src/Aonik.Agents/Framework/TenantMcpToolProvider.cs">TenantMcpToolProvider</a>, TenantHttpTool</td><td>Reviewed tenant tool integrations already exist. Stored auth kinds do not provide OAuth consent/refresh. MCP risk is currently assigned per reviewed server.</td><td>Keep current behavior. Gmail uses explicit per-action definitions. T14 adapts reviewed MCP/HTTP tools to the same catalog and execution boundary after the native foundation.</td></tr>
+    <tr><td><a href="../../src/Aonik.AdminUi/src/pages/workflows/WorkflowEditorPage.tsx">WorkflowEditorPage</a>, existing approval cards</td><td>Graph editor and chat/playground server-decision presentation exist.</td><td>Add table editing, publish diff, connection selection and traces to these surfaces. Verify voice separately.</td></tr>
+  </tbody>
+</table></div>
+<p><a href="https://github.com/michaeljosiah/aonik/issues/115">Issue #115</a> is closed: unsupported workflow kinds are now gated. This epic adds two usable capabilities; it must not reopen the old failure mode by advertising unimplemented nodes. Some older AGENTS.md/CLAUDE.md approval UI status text is stale relative to the inspected code.</p>
+
+<h2 id="scope">3. Scope</h2>
+<h3>Included in this epic</h3>
+<ul>
+  <li><strong>Foundation, T1–T7:</strong> MAF compatibility, workflow draft CRUD and publication, deterministic invoice routing, governed durable execution, Gmail reads, user/tenant connections and connection requests.</li>
+  <li><strong>Automatic triggers, T8/T9:</strong> invoice/domain events, Gmail push notifications with polling recovery and recurring schedules, under approved bindings and durable deduplication.</li>
+  <li><strong>Workflow control flow, T10:</strong> bounded loops, reusable child workflows, parallel branches/join, timed waits and human tasks using the existing MAF/task/approval infrastructure.</li>
+  <li><strong>Advanced decisions, T11:</strong> bounded compound predicates, FirstMatch/Unique/Collect/Score policies and separately published reusable decision libraries on the existing workflow-version model.</li>
+  <li><strong>Gmail writes, T12:</strong> drafts, send/reply/forward, labels, mark-read, archive, trash/restore and permanent deletion, with explicit action classification and applicable approvals.</li>
+  <li><strong>Financial intake, T13:</strong> email/attachment ingestion, real OCR, structured extraction, duplicate detection, proposed invoice/bill mapping, approved domain creation and governed payment initiation.</li>
+  <li><strong>Unattended identities, T8:</strong> tenant-owned automation actors independent of a chat session, with explicit action/resource grants, lifecycle management and human approvals for protected actions.</li>
+  <li><strong>Dynamic integrations, T14:</strong> a curated connector marketplace/catalog, reviewed downloadable manifests/packages, versioned install/update/disable and shared native/MCP/HTTP action exposure.</li>
+  <li><strong>Full qualification, T15:</strong> integrated automatic-trigger-to-domain-outcome rehearsal, operator controls, upgrade/recovery evidence and staged tenant rollout.</li>
+</ul>
+<h3>Implementation boundaries that remain</h3>
+<ul>
+  <li>No arbitrary script/SQL evaluation, unrestricted executable package loading, unbounded loops/recursion or user-supplied egress destinations.</li>
+  <li>No second workflow runtime, scheduler, generic policy engine, ledger or identity provider. Reuse MAF, WorkItem/Quartz, existing approval/authorization services and domain services.</li>
+  <li>No blanket approval that lets an agent or unattended actor mutate financial state. Automated intake prepares work; medium domain writes still require confirmation and high-risk actions still use approved durable Proposals.</li>
+  <li>No separate editable YAML/DMN/BPMN format or marketplace commerce/billing system. Curated discovery, download and governed provisioning satisfy the integration requirement.</li>
+</ul>
+<p>All seven formerly deferred areas are now completion requirements. Their delivery order limits implementation risk; it does not leave them outside the epic. Each capability remains unavailable at runtime until its corresponding tests and controls pass.</p>
+
+<h2 id="guardrails">4. Constraints And Guardrails</h2>
+<ol>
+  <li><strong>Preserve financial boundaries.</strong> Ledger is immutable financial truth; Orders remain business intent. Agents propose; domain services execute. A rule match, workflow publication or connection approval never authorizes a payment or ledger mutation.</li>
+  <li><strong>Reuse first.</strong> Extend WorkflowService, the graph builder, ToolApprovalService, ProposalDispatcher, WorkItem, outbox/inbox, settings, audit, current authorization and editor components. Every proposed new persistence type or abstraction must name the missing capability it supplies.</li>
+  <li><strong>Keep one representation.</strong> The editor draft graph is the authoring source. Published DefinitionJson is its immutable executable snapshot, including decision rows and connection bindings. Shared decision libraries use the same draft/publish/version services with a definition-kind discriminator, not a second matrix persistence engine or editable serialization.</li>
+  <li><strong>Keep logic plain.</strong> Use typed DTOs, small application services and ordinary validation/branching. No generic repository, event-sourcing framework, policy DSL, mediator pipeline or abstract connector hierarchy introduced for this feature. Keep curated package manifests declarative and use ordinary registered handlers.</li>
+  <li><strong>Add interfaces where they earn their place.</strong> Follow existing service interface conventions; use SharedKernel contracts only for actual cross-module consumers and provider boundaries. Keep local helpers concrete/internal.</li>
+  <li><strong>Fail closed.</strong> Enforce tenant, user, permissions, capability availability, connection grants and approval at the server service boundary. Hide unavailable UI actions as convenience, not enforcement.</li>
+  <li><strong>Respect existing schema rules.</strong> Entities remain anemic; use existing AuditableEntity.RowVersion and tenant filters. Configure entities in their owning module and add canonical DbSets. Only EF CLI-generated migrations against AonikDbContext are permitted.</li>
+  <li><strong>Preserve AI routing and audit.</strong> Every actual LLM call uses AiRoutePolicy and records an AiRun. Financially material AI output retains its AiRunId. Deterministic execution does not fabricate an AiRun.</li>
+  <li><strong>Bound changes.</strong> No unrelated dependency upgrades, module rewrite, new queue product or broad UI redesign. Keep existing tenant custom tool allowlists; do not silently expand them.</li>
+</ol>
+<p>Implementation instructions: read the linked current code before changing it; deliver the smallest complete vertical slice; record material deviations under Decision Log with a concrete reason; leave requirements open until verified. Resolve routine choices within these constraints without creating an extra approval process.</p>
+
+<h2 id="architecture">5. Approach and ownership</h2>
+<pre>Aonik tools / existing workflow editor
+  -> WorkflowService: draft, validate, simulate, request publication
+  -> existing approval gate + ProposalDispatcher
+  -> immutable WorkflowVersion
+  -> manual start -> existing outbox + WorkItem continuation
+  -> MAF graph: Trigger -> Decision table -> Tool -> End
+                                      -> manual-review result
+  -> existing approval gate / domain proposal
+  -> Finance service or authorized connector handler
+  -> WorkflowRun + step evidence + existing audit</pre>
+<p>A decision matrix is the user-facing table view of a Decision node. Foundation FirstMatch rows select one route; later hit policies have the explicit semantics in section 14. A reusable decision library is a pure decision definition stored and published through the same Workflow/WorkflowVersion services. Consumers pin its immutable version. Child workflows likewise pin complete versions; no dependency silently follows another definition's latest draft.</p>
+<table>
+  <thead><tr><th>Owner</th><th>Responsibility</th><th>Reuse boundary</th></tr></thead>
+  <tbody>
+    <tr><td>Agents</td><td>Workflow lifecycle, rules DTO/evaluator, graph execution, tools, approval correlation, run/checkpoint storage.</td><td>Existing Agents entities/services and approval infrastructure. Add Decision/Tool executors, not a competing runtime.</td></tr>
+    <tr><td>Finance</td><td>Authorized invoice facts, invoice invariants, existing domain actions and idempotent recovery.</td><td>Existing billing services/Finance tools. Provide a small facts contract in SharedKernel only where Agents requires it.</td></tr>
+    <tr><td>Platform</td><td>Connector catalog metadata, connection/request/grant lifecycle, settings, consent endpoints, policy checks and audit.</td><td>Existing settings, identity/role services, tasks, Data Protection and audit. Platform does not reference Agents entities.</td></tr>
+    <tr><td>Infrastructure</td><td>Gmail HTTP/OAuth provider client and composition; canonical migration stream.</td><td>IHttpClientFactory and existing secret/key infrastructure; allowlisted provider endpoints.</td></tr>
+    <tr><td>SharedKernel</td><td>Only neutral contracts actually consumed across modules: authorized connector/facts operations and existing task/approval contracts.</td><td>No reference back to Platform, Finance or Agents implementations.</td></tr>
+    <tr><td>API / Worker / AdminUi / Voice</td><td>Existing composition roots, task host and presentation surfaces.</td><td>Same application services, approval decisions and authorization regardless of entry point.</td></tr>
+  </tbody>
+</table>
+<p>Use a small registered descriptor collection and keyed handlers for connector actions, following existing registration patterns. Do not invent generic transport plugins. Native Gmail is the first adapter; T14 exposes reviewed MCP/HTTP actions through this same catalog and invocation path. The curated marketplace supplies reviewed descriptor packages, not another runtime. Finance partner-routing Connector entities retain their current purpose.</p>
+
+<h2 id="definitions">6. Definition lifecycle and persistence</h2>
+<h3>6.1 Existing records to extend</h3>
+<table>
+  <thead><tr><th>Record</th><th>Required additions or behavior</th></tr></thead>
+  <tbody>
+    <tr><td>Workflow</td><td>PublishedVersionId, published/retired metadata and schema version as needed. Existing nodes/edges remain the draft. Expose inherited RowVersion as an opaque concurrency token; keep stable logical node/edge keys across edits. Editing an active workflow does not alter the published pointer.</td></tr>
+    <tr><td>WorkflowVersion</td><td>DefinitionJson, SchemaVersion, DefinitionHash, PublishedAt/By, originating AiRunId where applicable. Snapshot includes rules, route keys, action contract versions, exact connection IDs and required grant/binding data. Existing metadata-only rows have no executable definition and cannot run or roll back.</td></tr>
+    <tr><td>WorkflowRun</td><td>WorkflowVersionId/hash, execution actor type/ID, optional initiating user, subject type/ID, idempotency key and input hash, mode, status/outcome, current wait reference, checkpoint ID, start/end/error. Identity is server-derived. Preserve existing run-list/SequenceJson presentation.</td></tr>
+    <tr><td>ToolApprovalRequest / Proposal</td><td>Optional workflow-run/step correlation, originating user, trusted reviewer requirement and subject version/hash. Reuse existing argument hashing, expiry, single consumption and dispatcher. Requests outside a workflow keep current consumer semantics.</td></tr>
+    <tr><td>WorkItem / schedule request</td><td>Reuse action payload and subject links. Add a scoped idempotency key only if needed to make repeated scheduling of the same run continuation return the same work item. The current contract does not itself promise that guarantee.</td></tr>
+  </tbody>
+</table>
+<h3>6.2 Small set of new durable records</h3>
+<p>The foundation adds five record types. The expanded scope adds only the independently durable actor/trigger/subscription state described in section 14. Reuse WorkflowVersion for shared decision libraries, WorkflowRun/StepRun for nested/parallel work and DocumentExtraction for intake evidence. Do not add parallel decision-evaluation, connector-action-run, catalog/rule or scheduler stores.</p>
+<table>
+  <thead><tr><th>Record / owner</th><th>Minimum persisted information</th><th>Reason it is needed</th></tr></thead>
+  <tbody>
+    <tr><td>WorkflowStepRun / Agents</td><td>TenantId, RunId, logical NodeKey, status, action key/version, argument hash, operation key, attempts, result/error references, decision trace, approval/proposal IDs, AiRun links, timestamps and RowVersion.</td><td>Durable step outcome, decision explanation and replay/reconciliation anchor. Unique (TenantId, RunId, NodeKey, InvocationPath); InvocationPath identifies branch/loop/child invocation, with a root value for the foundation. Retries of one invocation reuse its operation key; another loop iteration gets a different key.</td></tr>
+    <tr><td>WorkflowCheckpoint / Agents</td><td>TenantId, RunId, WorkflowVersionId, MAF checkpoint ID/parent metadata, serialized payload, MAF/storage format version, created time.</td><td>Adapter for MAF checkpoint storage. Unique tenant/run/checkpoint identity; read only within an authorized run. Store framework state rather than a second custom interpreter.</td></tr>
+    <tr><td>ConnectorConnection / Platform</td><td>TenantId, ConnectorKey, Ownership User/Tenant, OwnerUserId for User, provisioning actor for Tenant, display label, provider account identity, actual granted scopes, protected tokens, credential version, status, last health/error and RowVersion.</td><td>OAuth identity and credentials are neither a preference nor a payment-routing entity. Never store tokens in graph JSON or tool arguments.</td></tr>
+    <tr><td>ConnectorConnectionGrant / Platform</td><td>TenantId, ConnectionId, grantee type User/Role/Workflow/AutomationIdentity, grantee ID, explicit action keys, grant issuer, expiry/revocation and RowVersion.</td><td>Independent authorization for account use. Workflow grants also require an authorized initiating user and run permission. A role's ability to administer settings is not a content-use grant.</td></tr>
+    <tr><td>ConnectorConnectionRequest / Platform</td><td>TenantId, requester, connector key, intended owner/ownership, required action versions and scopes, purpose, optional workflow/run references and AiRunId, status, blocking reason, assigned authority, request hash/idempotency key, expiry, decision evidence, fulfilled connection/grant IDs and RowVersion.</td><td>Durable access dependency and review lifecycle, distinct from executing a scheduled WorkItem.</td></tr>
+  </tbody>
+</table>
+<p>All five foundation records are tenant-scoped, anemic entities with module-owned configurations and canonical AonikDbContext DbSets. Use Ank-prefixed tables. Store bounded configuration/trace objects as typed JSON rather than introducing relational children for every rule/predicate/scope. Extend the definition schema explicitly when advanced hit policies or flow nodes land; old snapshots keep their original semantics. Add indexes for workflow history/run status, active requests, grantee lookup and the unique replay identities.</p>
+<p>Use existing IAuditLogWriter for connector reads outside workflows and for management/consent/request/grant events. A workflow connector call uses its WorkflowStepRun and correlated audit entry. Do not duplicate the same invocation into another new action-run table. Redact tokens, authorization codes and mail bodies from logs, proposals, error responses and approval arguments.</p>
+
+<h3>6.3 State and update semantics</h3>
+<ul>
+  <li><strong>Create:</strong> duplicate tenant slug is a conflict; POST must not edit an existing workflow. Slug is stable after creation for the pilot.</li>
+  <li><strong>Update:</strong> requires expected RowVersion; unknown workflow is not found; stale edits conflict. Return canonical graph and fresh token. UI and agent use the same DTO/service.</li>
+  <li><strong>Validate:</strong> drafts may report unresolved connections, but invalid syntax, unknown kinds or malformed references cannot be published. Save and validate remain distinct so a draft can be completed incrementally.</li>
+  <li><strong>Publish:</strong> propose the exact draft token and canonical content hash. Authorized approval revalidates and atomically stores the immutable snapshot and active pointer. Editing the draft invalidates an older publish proposal. Hash canonical server DTO serialization, not client whitespace.</li>
+  <li><strong>Retire:</strong> approved retirement blocks new runs. A run rechecks retirement before its next effect and stops as Cancelled if retired; already dispatched effects reconcile to their actual outcome. Retirement cannot undo an invoice or payment.</li>
+  <li><strong>Delete:</strong> soft-delete an unpublished draft with no executable published version, run or active reference. Preserve any draft-save audit/history; such metadata alone does not prevent deleting an unused draft. Published workflows use retirement; never erase financial or execution history through an agent tool.</li>
+  <li><strong>Rollback:</strong> propose activation of an earlier executable snapshot through the same publication handler. Revalidate current capabilities, grants and policy; rollback is not permission to restore revoked access.</li>
+</ul>
+<p>Existing saved graphs remain drafts until validated and explicitly published. Preserve their graph data and history metadata; do not invent historical snapshots or activate seeded examples. Keep legacy keyed workflows in an explicit legacy namespace/path so names cannot bypass publication. Update affected clients with the API semantics change.</p>
+
+<h2 id="semantics">7. Decision table contract</h2>
+<h3>7.1 Deliberately limited evaluator</h3>
+<ul>
+  <li>The foundation hit policy is <strong>FirstMatch</strong>. Sort rows by unique numeric priority, evaluate in order, select one route. A mandatory default route handles no match.</li>
+  <li>Each row contains an <strong>all</strong> list of typed comparisons. Support eq, ne, gt, gte, lt, lte, in and isMissing only. OR is expressed as another row. The foundation has no nested boolean tree. T11 adds bounded compound predicates and explicit scoring as defined in section 14; arbitrary scripts, regex and dynamic function invocation remain excluded.</li>
+  <li>Facts come from an allowlisted schema. Live invoice facts are loaded by tenant-authorized domain services from the supplied InvoiceId; users/models cannot replace amount, currency, status or risk checks in live input.</li>
+  <li>Money uses decimal and an explicit ISO currency. Numeric constants serialize invariantly, with monetary values as decimal strings to avoid JavaScript floating-point round trips. No cross-currency comparison or automatic conversion.</li>
+  <li>Schema declares required facts. A missing required fact, invalid value, absent currency configuration or fact-provider failure yields NeedsManualReview/Blocked with a reason before any mutation. Missing optional facts make comparisons false except isMissing; they do not become zero or false facts.</li>
+  <li>String comparisons are ordinal and schema-defined; IDs/enums/currency are normalized by the facts provider. UTC timestamps are typed if a later allowed field needs them.</li>
+  <li>Reject duplicate row IDs/priorities, empty routes and unknown fields/operators. Warn about identical/shadowed rows where cheaply detectable; a full overlap theorem prover is not required.</li>
+  <li>Record the evaluated rows, compared values or protected references, match/default reason and selected route on the decision step. Stop evaluation after the first match.</li>
+</ul>
+<h3>7.2 Example Decision node parameters</h3>
+<p>This is a contract example, not a production threshold. The table editor and agent construct this same DTO; it lives inside the workflow snapshot.</p>
+<pre>{
+  "schemaVersion": 1,
+  "factSchema": "invoice-approval.v1",
+  "hitPolicy": "FirstMatch",
+  "rows": [
+    {
+      "id": "gbp-elevated",
+      "priority": 10,
+      "all": [
+        { "field": "invoice.currency", "operator": "eq", "value": "GBP" },
+        { "field": "invoice.total", "operator": "gte", "value": "5000.00" }
+      ],
+      "route": "elevated-review"
+    },
+    {
+      "id": "gbp-standard",
+      "priority": 20,
+      "all": [
+        { "field": "invoice.currency", "operator": "eq", "value": "GBP" },
+        { "field": "invoice.total", "operator": "lt", "value": "5000.00" }
+      ],
+      "route": "standard-review"
+    }
+  ],
+  "defaultRoute": "manual-review"
+}</pre>
+<p>The invoice fact adapter performs status/completeness checks before these amount rules. Unknown or unconfigured currencies reach manual review. Risk/duplicate checks are declared required only if there is a real authoritative provider; absence is not interpreted as a clean result.</p>
+<h3>7.3 Graph and simulation validation</h3>
+<p>For foundation graphs, require one Trigger, unique stable keys, valid endpoints, reachable nodes and terminal paths, explicit Decision route-to-edge mappings and exactly one selected path. T10/T11 extend validation only for their declared flow/hit policies. Non-decision pilot nodes have at most one outgoing edge; cycles and parallel fan-out are rejected until T10's explicitly bounded node contracts are enabled. Validate Tool inputs/outputs and capability versions at publication. Existing Notify/Emit behavior is retained for legacy workflows; the governed invoice pilot cannot use arbitrary Notify/Emit payloads. Human/Wait/Loop remain unavailable until T10 passes its capability-specific acceptance tests.</p>
+<p>Tool argument bindings support literals and named, schema-checked references to authorized facts or prior typed outputs. Do not evaluate expression strings or model-generated code. Existing params.expr examples require an explicit supported conversion; otherwise they remain non-runnable drafts.</p>
+<p>Simulation takes fixture facts and fixture action outputs and returns rule/step traces. It never invokes a real model, connector, notification, outbox business event or domain write. It may record a system audit of the simulation. The UI clearly marks fixture results. Publication requires syntactic/semantic validation and a saved invoice fixture set covering normal, boundary and missing-data paths.</p>
+
+<h2 id="tools">8. Aonik tools and API contracts</h2>
+<h3>8.1 Workflow tools</h3>
+<p>Create one WorkflowTools class plus its approval manifest in Agents. Use AIFunctionFactory.Create, register in MasterOrchestratorService's actual tool-building path and route the full set through IToolApprovalGate.GateAll. Do not create separate matrix CRUD tools: editing a Decision node or a DecisionLibrary definition uses the same workflow CRUD, validation, simulation and publication services.</p>
+<table>
+  <thead><tr><th>Tools</th><th>Contract</th><th>Classification</th></tr></thead>
+  <tbody>
+    <tr><td>aonik_list_workflows, aonik_get_workflow, aonik_get_workflow_capabilities</td><td>Paginated authorized metadata; get optionally includes versions/runs. Capabilities expose supported kinds, fact schema and allowed action contracts.</td><td>Read.</td></tr>
+    <tr><td>aonik_validate_workflow, aonik_simulate_workflow</td><td>Structured diagnostics with node/row paths; fixture-only execution trace.</td><td>Read/evaluation; no effects.</td></tr>
+    <tr><td>aonik_create_workflow, aonik_update_workflow, aonik_delete_workflow</td><td>Draft only; update/delete include expected token. Show exact proposed diff before the gate saves a mutation.</td><td>Medium; existing durable confirmation.</td></tr>
+    <tr><td>aonik_request_publish_workflow, aonik_request_retire_workflow</td><td>Exact definition hash/revision and expected pointer; publication also handles rollback to a historical snapshot.</td><td>High governance change; existing Proposal and typed handler.</td></tr>
+    <tr><td>aonik_start_workflow</td><td>Published version, subject ID, idempotency key. Creates run admission only; it conveys no approval for later domain actions.</td><td>Medium start confirmation. Each effect retains its own tier; avoid a separate blanket run Proposal.</td></tr>
+    <tr><td>aonik_get_workflow_run</td><td>Authorized run, selected rule, step outcomes and pending approval/connection references.</td><td>Read.</td></tr>
+  </tbody>
+</table>
+<p>All tool services independently authorize the caller; endpoint-only policies are insufficient. Tenant, actor, AiRun correlation and execution identity come from trusted server context, not model arguments. Workflow authoring tools are not exposed to agents executing a workflow. Capability discovery and persisted allowlists must remain consistent across chat/playground/voice.</p>
+<h3>8.2 Connector and connection-request tools</h3>
+<table>
+  <thead><tr><th>Tools</th><th>Behavior</th><th>Classification</th></tr></thead>
+  <tbody>
+    <tr><td>aonik_list_connectors, aonik_list_connector_connections, aonik_get_connector_readiness</td><td>Return available action schemas, accounts the caller may use, and a precise missing dependency. Unauthorized account identifiers/details are not exposed.</td><td>Read.</td></tr>
+    <tr><td>aonik_request_connector_connection</td><td>Preview owner, scope, actions, purpose and review queue; create/deduplicate a durable request after confirmation.</td><td>Medium. No installation, policy change or consent grant.</td></tr>
+    <tr><td>aonik_get_connection_request, aonik_list_connection_requests</td><td>Requester/authorized reviewer status and next step; bounded list.</td><td>Read.</td></tr>
+    <tr><td>aonik_cancel_connection_request</td><td>Requester cancels their pending request with expected revision. No connection revocation or history deletion.</td><td>Medium.</td></tr>
+    <tr><td>gmail_search_messages, gmail_get_message, gmail_get_attachment</td><td>Typed authorized read wrappers over the registered Gmail action handlers. They require an explicit authorized connection.</td><td>Read; still tenant/owner/grant/scope/policy checked and audited.</td></tr>
+  </tbody>
+</table>
+<p>No generic invoke-any-URL tool or agent approval/grant/provisioning tool is added. An agent can request access and explain status; actual privileged decisions and OAuth consent use authenticated UI/API flows.</p>
+<h3>8.3 HTTP surface</h3>
+<p>Extend existing FastEndpoints routes; endpoints and tools call the same services. Proposed additions below are route contracts for implementation, not existing APIs.</p>
+<table>
+  <thead><tr><th>Route</th><th>Result and authorization</th></tr></thead>
+  <tbody>
+    <tr><td>GET /ai/workflows and GET /ai/workflows/{slug}; existing versions/runs routes</td><td>Workflow read permission and tenant filtering. Preserve existing consumers while adding version/run fields.</td></tr>
+    <tr><td>POST /ai/workflows; PUT/DELETE /ai/workflows/{slug}</td><td>201 create, 200 update, 204 delete. PUT/DELETE require expectedVersion. Draft-edit permission; AI calls additionally use the mutation gate.</td></tr>
+    <tr><td>POST /ai/workflows/{slug}/validate and /simulate</td><td>200 diagnostics/fixture result; definition read permission. Unknown/cross-tenant ID returns 404.</td></tr>
+    <tr><td>POST /ai/workflows/{slug}/publication-requests and /retirement-requests</td><td>202 with ProposalId for the exact intended change; no direct activate bypass. Reuse existing proposal decide path.</td></tr>
+    <tr><td>POST /ai/workflows/{slug}/runs; GET /ai/workflow-runs/{id}</td><td>202 accepted RunId after authorization. Same idempotency key/content returns original run; changed content conflicts.</td></tr>
+    <tr><td>POST /ai/workflow-runs/{id}/resume and /cancel</td><td>Authorized explicit resume/cancel of the same run; no override of pending approvals or changed bindings. Cancellation cannot retract an already dispatched effect.</td></tr>
+    <tr><td>GET /integrations/connectors, /connections, /readiness</td><td>Safe catalog, authorized connections and readiness. Settings administration does not grant mailbox reads.</td></tr>
+    <tr><td>POST/GET /integrations/connection-requests; GET /{id}; POST /{id}/cancel or /decision</td><td>201 request or 200 existing duplicate. Decision route requires the assigned authority and expectedVersion; reject expired/cancelled/stale requests.</td></tr>
+    <tr><td>POST /integrations/connections/authorize; GET /integrations/oauth/gmail/callback</td><td>Start authenticated, request-bound consent and validate callback identity/state. Callback is not an agent tool and never returns credentials.</td></tr>
+    <tr><td>Connection grant/revoke and connector settings endpoints under /integrations</td><td>Small typed management operations with resource authorization and audit; no arbitrary JSON policy writes or generic OAuth broker API.</td></tr>
+  </tbody>
+</table>
+<p>Use existing permission vocabulary where adequate; otherwise add only WorkflowRead, WorkflowEdit, WorkflowPublish, WorkflowRun, ConnectorManage and ConnectionRequestReview equivalents. Permissions, current tenant roles and resource grants are enforced in services. Return 400 for invalid DTOs, 403 for a known forbidden operation, 404 to conceal inaccessible resources, and 409 for stale revision/replay conflict. Return machine-readable reason codes and safe messages; never return success for an execution failure.</p>
+<p>Direct UI saves are authenticated user commands and do not need a second AI confirmation. Publication always follows the governance proposal path. Medium AI confirmations use the existing server approval card; frontend confirmAction is never the execution authority.</p>
+
+<h2 id="runtime">9. Execution, approvals and recovery</h2>
+<h3>9.1 Trusted execution context and run states</h3>
+<p>Replace string-only financial routing with a typed context carrying RunId, WorkflowVersionId, actor type/ID, initiating user when present, subject references, verified fact snapshot/version and typed step outputs. Restore tenant/actor execution context from the persisted run in every worker scope; T8 extends this to a real AutomationIdentity without impersonating a user. A persisted identity is not perpetual authorization: recheck membership, roles, module state and connection grants before each continuation/effect. Missing or disabled agents fail with an explicit error, not advisory success text.</p>
+<pre>Queued -> Running -> Completed | Failed | Cancelled
+                  -> WaitingForApproval -> Queued
+                  -> WaitingForConnection -> Queued
+                  -> WaitingForTime | WaitingForHuman | WaitingForChildren -> Queued
+                  -> NeedsAttention
+</pre>
+<p>Completed has an outcome such as Issued, NeedsManualReview or Blocked; it does not invent an Invoice Approved state. Rejection/expiry terminates the requested action with a recorded reason. NeedsAttention is used for uncertain effect outcomes or incompatible checkpoints; an operator resolves/reconciles it explicitly.</p>
+<h3>9.2 Reuse the existing approval boundary</h3>
+<ul>
+  <li>Read actions run only after normal authorization. Medium actions require one durable, argument-bound, unexpired decision. High actions produce existing domain Proposals and execute only through the approved dispatcher/handler.</li>
+  <li>Tool nodes must use the same enforcing gate/approval service as agent tools. Invoking a domain method from a workflow is not an exemption. Extract a small shared invocation method from the gate only where necessary; do not implement a second policy engine.</li>
+  <li>For the pilot IssueInvoice step, store a trusted reviewer requirement selected by the published route: current role/permission and optional prohibition on self-approval. Extend ToolApprovalService's requester-equality rule only for these server-created workflow requests. Do not let a caller supply arbitrary reviewer roles to its own request.</li>
+  <li>One authorized reviewer confirmation satisfies the medium action's requirement when it covers the exact IssueInvoice arguments and subject version. Avoid a generic human review followed by a second identical confirmation. Additional distinct domain approvals remain separate.</li>
+  <li>Publication/retirement proposal handlers require WorkflowPublish authority and configured separation of duties. Extend ProposalApprovalPolicy/authorization context for these operations; protect both direct proposal decisions and ToolApprovalRequest decisions.</li>
+  <li>High money actions keep their current classification regardless of invoice amount. No low-value auto-payment rule, connection grant or published workflow may downgrade it.</li>
+  <li>Bind requests to tenant, initiating user, run, node, immutable definition, action contract, arguments hash, subject version and expiry. Revalidate the reviewer and operation at execution. Changed material facts make approval stale; resume must not re-use it with new data.</li>
+</ul>
+<h3>9.3 Durable continuation without another scheduler</h3>
+<ol>
+  <li>Persist run admission and an outbox wake-up in the same database transaction. Use the existing EnqueueIntegrationEvent/SaveChanges pattern; do not schedule only after committing the run.</li>
+  <li>An idempotent subscriber schedules the existing WorkItem action handler for the run/continuation identity. Use the existing Worker dispatcher for claiming, heartbeat and recovery. The handler processes until completion, a bounded yield or a durable wait.</li>
+  <li>Persist WorkflowStepRun and MAF checkpoint state at safe boundaries. Use MAF request/response ports for approvals; request ports transport the wait, while AONIK owns approval authority.</li>
+  <li>Save waiting state, pending approval/request references and checkpoint before returning. A wait releases the worker and HTTP request. It is successful completion of that continuation work item, not workflow completion; a later wake-up schedules the next continuation.</li>
+  <li>Approval decisions commit a correlated outbox wake-up with the durable decision. Re-delivery checks run state and already completed steps. Add a small handler for approved workflow continuations; keep callbacks and retries out of the UI.</li>
+  <li>Connection fulfilment updates readiness and notifies the requester. The pilot requires an explicit Resume after the user sees the exact account; it does not automatically execute held work. The same run/version can resume only if its pinned binding is unchanged.</li>
+  <li>Persist MAF and checkpoint format versions. An incompatible runtime stops with NeedsAttention; do not interpret old serialized state with a new schema or restart from node one. Runtime upgrades must test old pending checkpoints or drain affected pilot runs first.</li>
+</ol>
+<p>Reuse existing outbox/inbox transaction and replay patterns, but verify the complete sequence. Different module DbContexts do not share a transaction merely because they share a physical database. Use the existing owning-context outbox mechanism and idempotent consumer boundary; avoid a fragile synchronous cross-context dual write.</p>
+<h3>9.4 Idempotency is an action responsibility</h3>
+<p>WorkItem leases and checkpoints prevent some races; neither guarantees exactly-once effects. Before an action, persist a stable operation key and canonical arguments hash on WorkflowStepRun. Replays with changed arguments conflict. Completed steps return the recorded result. Reuse domain idempotency keys/Proposal records and provider receipts rather than inventing a generic financial action journal.</p>
+<p>A medium action's consumed approval is not proof that the action finished. If a worker dies between consuming approval and recording success, reconcile the existing domain operation first. For IssueInvoice, extend the existing service narrowly if necessary so subject concurrency, approval/operation identity and state transition establish whether this operation issued the invoice. A GET-before-act check alone cannot prove ownership of an already-issued invoice. If the result cannot be established, mark NeedsAttention and do not retry blindly or consume a new approval automatically.</p>
+<p>Read-only Gmail GETs may retry bounded transient errors. OAuth refresh uses connection RowVersion/single-flight coordination to avoid racing token replacement; retry only with the same provider identity. Provider 401/invalid grant marks ReauthorizationRequired. For T12 external mutations, require provider idempotency or reconciliation before enabling the action; a send timeout cannot be retried blindly.</p>
+<h3>9.5 Limits and audit</h3>
+<p>Pilot defaults: at most 30 nodes, 50 decision rows, 8 comparisons per row, 60 seconds of active work per continuation and 3 transient read attempts with bounded backoff/Retry-After. Approval/connection waiting time does not count as active work. Configure existing AI token/time budgets for optional Agent nodes. These are implementation defaults that may be tightened per tenant; changing them does not require a new limits subsystem.</p>
+<p>Correlate run/version/node, decision trace, protected fact evidence, actor/reviewer, domain result, approval/proposal IDs, connection/action IDs and AiRun references. Reuse existing retention configuration; keep essential domain and approval evidence even if mail content is no longer retained. Store no raw email body in workflow checkpoints/audit unless an existing protected content store and authorized retention policy require it; otherwise retain IDs and bounded derived metadata.</p>
+
+<h2 id="connectors">10. Connector-backed actions and Gmail</h2>
+<h3>10.1 Small code-defined catalog</h3>
+<p>Use immutable in-code descriptor records registered through DI: ConnectorKey, ActionKey, ContractVersion, input/output schema, required provider scopes, read/mutation classification, minimum approval tier, handler key and limits. Catalog entries are reviewed code/descriptors; T14 adds reviewed downloadable manifests/packages, never tenant-authored executable definitions. Adding the second connector should require another descriptor/handler or reviewed MCP/HTTP manifest and registration. T14 adds discovery/install metadata around these same descriptors, without a separate executable plugin framework.</p>
+<p>Agents expose typed wrappers; workflow Tool nodes reference the same action key/version. One connector execution service resolves the connection, verifies effective policy and grants, validates inputs, invokes the registered handler and records audit. Never infer risk from a tool name, HTTP verb or remote MCP description. Unknown action/version fails validation and invocation. Removing a referenced version requires retiring/draining dependents or retaining its handler.</p>
+<h3>10.2 Gmail pilot actions</h3>
+<table>
+  <thead><tr><th>Action key</th><th>Input/output</th><th>Initial bounds</th></tr></thead>
+  <tbody>
+    <tr><td>gmail.messages.search@1</td><td>Explicit connection, query and opaque page token; returns message/thread IDs, next token and bounded metadata only if separately fetched.</td><td>Default 20 and maximum 50 messages per call; no automatic full-mailbox crawl.</td></tr>
+    <tr><td>gmail.messages.get@1</td><td>Connection and message ID; returns permitted headers, sanitized text and attachment metadata. Provider account is derived from connection, never a model-supplied mailbox.</td><td>Default maximum 64 KiB returned text; mark truncation. Never mark as read as a side effect.</td></tr>
+    <tr><td>gmail.attachments.get@1</td><td>Connection, message ID and attachment ID; authorized protected file reference rather than base64 content in conversation/audit.</td><td>Maximum 10 MiB; use existing file safety/storage policy. Block unsupported types/unsafe content. No attachment execution. T13 explicitly routes eligible files through the existing document ingestion/OCR interfaces.</td></tr>
+  </tbody>
+</table>
+<p>Use <a href="https://developers.google.com/workspace/gmail/api/auth/scopes">gmail.readonly</a> for this read/body/attachment use case. It is a restricted scope: document applicable Google verification/security-assessment requirements for the deployment before enabling external production accounts. Metadata scope cannot read bodies and does not support the search query parameter. The <a href="https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list">list endpoint returns IDs/thread IDs</a>; message content requires an explicit get. Do not claim a read-only scope makes data non-sensitive.</p>
+<p>Use Google's supported <a href="https://developers.google.com/identity/protocols/oauth2/web-server">authorization-code web-server flow</a> with server-held OAuth configuration, state/CSRF validation, approved redirect URI, owner/tenant/request correlation and the client library's supported PKCE protection. Obtain offline refresh capability where needed; protect tokens at rest and never show them to the model. Reconnect must confirm the same provider account; changing account creates a new connection/binding.</p>
+<p>Reuse ASP.NET Data Protection and its persisted key management under a connector-specific protection purpose. Use tenant/connection identity when reading/decrypting; cache credentials by tenant, connection and credential version, never just connector name. Store actual granted scopes from the provider. Refresh failure, revocation or tenant disablement blocks the next call immediately; do not fall back to a host-wide or another user's token.</p>
+<p>Email/attachment content is untrusted data. It cannot instruct Aonik to grant access, alter approval tiers, publish workflows, request connections or perform financial actions. A read may provide invoice evidence, but the authoritative live decision still reads AONIK invoice facts. T13 adds structured candidate extraction and confirmed domain creation without treating model output as ledger truth. A supplier bill in Gmail is not automatically a sales Invoice or an Order.</p>
+
+<h2 id="connection-requests">11. Connection ownership, settings and requests</h2>
+<h3>11.1 Ownership and effective settings</h3>
+<table>
+  <thead><tr><th>Scope</th><th>Controls</th><th>Enforcement</th></tr></thead>
+  <tbody>
+    <tr><td>Platform</td><td>Available compiled adapters, OAuth app setup, allowed actions/endpoints, minimum risk and security limits.</td><td>No user/tenant setting can enable an absent adapter or lower a minimum.</td></tr>
+    <tr><td>Tenant</td><td>Connector enabled/disabled, allowed actions and ownership types, self-service connection policy, organizational accounts, connection managers and grants.</td><td>Tenant restrictions apply to every user and background run. Admin settings access is not mailbox-content access.</td></tr>
+    <tr><td>User within tenant</td><td>Personal account consent, default eligible connection, label and optional stricter preferences.</td><td>A user cannot override a tenant deny, broaden scopes or borrow another user's connection. The same person in two tenants has separate authorization.</td></tr>
+  </tbody>
+</table>
+<p>Use the existing settings store, with a short list of typed names such as Integrations.Gmail.Enabled, AllowedActions, AllowUserConnections, AllowSelfService and DefaultConnectionId. Avoid a new settings entity. Preference lookup may use User → Tenant → Global fallback; hard authorization reads explicit scopes with GetForScopeAsync and intersects platform/tenant/grant/provider allowances. Add a small ConnectorPolicyService with ordinary checks, not a generic policy engine.</p>
+<p>Enforce legal write scope at the settings service/API, because the existing SettingDefinition record does not declare allowed scopes. Tenant-only policy keys cannot be written through generic user settings routes. Deny wins; the minimum approval tier can only increase. Return policy source/reason for authorized diagnostics without exposing credentials or private account inventory.</p>
+<p><strong>User-owned:</strong> OwnerUserId is mandatory; private by default. Delegating a personal connection to a workflow requires explicit owner consent/grant and tenant permission. <strong>Tenant-owned:</strong> provisioned by an authorized administrator for a specifically authorized organizational mailbox; explicit users/roles/workflows receive grants. Organizational ownership does not grant access to all mailboxes in a Google domain.</p>
+<p>Interactive selection uses an explicit connection, then an authorized user preference, then an authorized tenant default. Resolve only among eligible connections. At publication, store the exact chosen connection and allowed action set in the workflow snapshot. A later preference change cannot switch a live run's account. Grants are revalidated live; a grant becoming broader cannot expand the snapshot's action set.</p>
+
+<h3>11.2 Readiness and request routing</h3>
+<table>
+  <thead><tr><th>Reason code</th><th>User-facing meaning</th><th>Next step</th></tr></thead>
+  <tbody>
+    <tr><td>ConnectorUnavailable</td><td>Adapter/OAuth setup is not provisioned on this platform.</td><td>Tenant integration reviewer coordinates platform provisioning. Persist a request; do not install code, buy access or promise automatic fulfilment.</td></tr>
+    <tr><td>TenantNotEnabled</td><td>Available connector is not yet enabled for this tenant.</td><td>Tenant integration admin decides enablement under platform policy.</td></tr>
+    <tr><td>NoAuthorizedConnection</td><td>No account the caller may use satisfies this action.</td><td>Self-service owner consent if permitted, otherwise admin review/provisioning. Do not reveal someone else's account.</td></tr>
+    <tr><td>ReauthorizationRequired / InsufficientScopes</td><td>Account needs renewed consent or required scopes.</td><td>Account owner completes reconnect/incremental consent. Existing narrower grants remain narrow.</td></tr>
+    <tr><td>ConnectionGrantRequired</td><td>A known authorized-to-request account lacks the requested use grant.</td><td>Owner/authorized organizational manager reviews the exact user/workflow/action grant.</td></tr>
+    <tr><td>WorkflowBindingRequired</td><td>Draft has no selected connection.</td><td>Authorized editor selects a ready connection; publication approves the exact binding.</td></tr>
+    <tr><td>ForbiddenByPolicy</td><td>An explicit policy denies this connector/action/ownership.</td><td>Explain denial; no ordinary connection request can bypass it. Policy changes use normal privileged settings controls.</td></tr>
+    <tr><td>Ready</td><td>Adapter, tenant policy, account, scopes and required grants pass.</td><td>Permitted action may proceed subject to its ordinary approval and current domain checks.</td></tr>
+  </tbody>
+</table>
+<p>Distinguish not-yet-enabled from explicitly forbidden. Readiness is evaluated for connector, action and intended use, not just a green provider status. Publication includes workflow grant/binding readiness; an interactive personal read checks the user's own grant. If no registered adapter exists for a requested provider, the same request may record a descriptive connector name and desired capability as Pending/ConnectorUnavailable, without invented action versions or scopes. An administrator must map it to a reviewed implementation before it can enter consent or become executable.</p>
+
+<h3>11.3 Minimal request lifecycle</h3>
+<pre>Pending -> AwaitingConsent -> Fulfilled
+        -> Fulfilled (existing eligible account/grant)
+        -> Rejected | Cancelled | Expired
+</pre>
+<p>Keep platform provisioning, tenant enablement, missing grant and provider retry problems as Reason/NextAction on Pending or AwaitingConsent. Do not add a state for every administrative sub-step. Pending records who is responsible next. A transient provider failure is actionable status detail; it is not a falsely successful request.</p>
+<ol>
+  <li>Aonik evaluates readiness and prepares a preview: connector, ownership/intended owner, requested actions/scopes, purpose, linked draft/run and next reviewer. User confirmation authorizes creation of the request only.</li>
+  <li>The service derives requester/tenant/AiRun, validates allowed request types and deduplicates. Use a request hash over tenant, requester, owner, actions and target workflow/use. Enforce one active equivalent request with a database uniqueness strategy, not only a pre-insert query. A client idempotency key reused for different content returns conflict.</li>
+  <li>If allowed self-service, proceed to AwaitingConsent for the current owner. Otherwise persist Pending for a real authorized reviewer. Reuse a WorkItem/internal notification to surface the request; completing that task does not fulfil access. If no reviewer is configured, return Pending with that explicit blocker.</li>
+  <li>The reviewer may approve/reject within their authority. Approval can authorize tenant enablement or the requested grant, but never substitutes for owner/provider consent. Requester cannot invent an owner or self-approve a grant they lack authority to issue.</li>
+  <li>A trusted Connect card opens an authenticated, short-lived request-bound authorization flow. Validate OAuth state, requesting session, intended owner, tenant, expiry and return location. Replayed/wrong-user callbacks cannot fulfil the request. The model receives status, not authorization codes/tokens.</li>
+  <li>After consent/provisioning, the service checks actual account identity, active status, required scopes and exact grants. Only then mark Fulfilled and record connection/grant IDs. Approval alone, successful redirect alone or a completed WorkItem is insufficient.</li>
+  <li>Fulfilment does not publish or activate the draft, change a published binding, start a subscription or send a message. The authorized user selects/binds the account and publishes or explicitly resumes the original allowed operation.</li>
+</ol>
+<p>Pilot request expiry defaults to seven days and is configurable. Approval expiry uses the existing approval policy. Rejection/cancellation/expiry is terminal; editing requested owner/scopes/actions creates a new request and invalidates earlier consent/review. Failed provider attempts may retry within the same unchanged, unexpired request with bounded rate limits. Recheck request status when applying a callback so cancellation cannot be raced.</p>
+<p>Request reads are limited to requester, intended consenting owner where relevant, or the assigned authorized review role. A tenant administrator may see operational status needed to review access, not mail bodies. Use existing audit for decisions and changes; no raw mail content in request purpose by default. Notifications resolve recipients from trusted identities and configured internal channels, not model-supplied addresses.</p>
+
+<h3>11.4 Waiting and revalidation</h3>
+<p>Drafts can save unresolved connection requirements and link a request; fixture simulation remains available. Publication is blocked until every required binding is ready. An active run whose pinned connection loses authorization enters WaitingForConnection before further access, preserving its version, connection/action identity and wait reason. Aonik may offer one confirmed connection request; mailbox content and retry loops cannot autonomously raise requests.</p>
+<p>After restoration, an authorized user explicitly resumes. Recheck the same account, grants, workflow permission, invoice facts and unexpired approval. A different account/binding requires a new draft/publication/run; do not splice it into an existing approved run. A user leaving the tenant or connector disablement blocks subsequent access. Tenant-owned accounts remain usable only through independently valid owners, users and grants.</p>
+<p>No new identity provider is required: manual launches persist the initiating user's identity; T8 introduces a narrow tenant-owned AutomationIdentity for unattended launches. Background processing validates the recorded actor plus workflow-specific grants; it never impersonates the last active chat user or relies on ambient HttpContext. T8 adds governed tenant automation identities, and T9 uses them for automatic triggers. The manual pilot identity model remains supported.</p>
+
+<h2 id="invoice">12. Invoice pilot and UI</h2>
+<h3>12.1 First supported financial journey</h3>
+<p>The pilot starts with an existing AONIK sales invoice in Draft and an explicit IssueInvoice intent. Currency thresholds and reviewer roles are tenant choices in the published definition. No invoice amount or compliance signal is invented to make the example runnable.</p>
+<table>
+  <thead><tr><th>Condition</th><th>Result</th><th>Approval</th></tr></thead>
+  <tbody>
+    <tr><td>Invoice missing/inaccessible, terminal or unsuitable for issue</td><td>Blocked with a safe reason.</td><td>No mutation.</td></tr>
+    <tr><td>Missing required data, configured review evidence unavailable, unsupported currency or no match</td><td>Completed / NeedsManualReview; visible in run list.</td><td>No issue/payment action.</td></tr>
+    <tr><td>Known duplicate/risk issue from an authoritative source</td><td>Manual/specialist review outcome.</td><td>No automatic resolution; operator uses existing domain process.</td></tr>
+    <tr><td>Valid draft below currency threshold</td><td>Route to standard reviewer and IssueInvoice Tool step.</td><td>One medium confirmation by the configured authorized reviewer.</td></tr>
+    <tr><td>Valid draft at/above threshold</td><td>Route to elevated reviewer and the same existing action.</td><td>One medium confirmation with stronger reviewer/SoD requirements.</td></tr>
+  </tbody>
+</table>
+<p>IssueInvoice's risk tier does not automatically change with amount; reviewer requirements may become stricter. CreatePaymentIntent, CapturePayment, CancelPayment and MarkInvoicePaid keep high-risk proposal handling and are excluded from the first executable invoice template. Approval routing does not add an Invoice Approved state.</p>
+<h3>12.2 Concrete acceptance walkthroughs</h3>
+<ol>
+  <li><strong>Author:</strong> ask Aonik to create an invoice route, inspect the preview, confirm draft creation, change a threshold, simulate below/equal/above/missing cases and delete an unused draft. All use the same service as the editor.</li>
+  <li><strong>Publish/run:</strong> an authorized publisher approves the exact revision. Start with an invoice ID, inspect the matched row and reviewer, restart the Worker while waiting, approve once and observe the original run finish with one domain action.</li>
+  <li><strong>Request access:</strong> ask for Gmail evidence when no connection exists. Aonik explains the specific blocker, previews/submits a request, reports its ID/status, and offers a trusted Connect card when permitted. Owner consent and a valid grant make it usable.</li>
+  <li><strong>Read evidence:</strong> explicitly select an authorized Gmail account, search/read a bounded message/attachment and link evidence to the existing invoice workflow. Email-supplied instructions cannot change routing or permissions.</li>
+  <li><strong>Recover safely:</strong> revoke the connection, see the next read wait/fail closed, reconnect the same account and explicitly resume. Changed invoice data, expired approval or a different account requires fresh review/new run as applicable.</li>
+</ol>
+<h3>12.3 Reuse existing screens</h3>
+<p>Add a Decision table panel to WorkflowEditorPage; table and graph edit the same DTO. Show supported nodes only, draft versus published revision, validation diagnostics, simulation results, exact connection, proposed diff and run trace. Restore navigation when the end-to-end flow works. Use the existing approval card/queue with reviewer and source details.</p>
+<p>Add My Connections for personal consent/preferences and Tenant Integrations for enabled connectors, organizational accounts, grants and requests. These are sections of existing settings patterns, not new standalone products. Show inherited preferences separately from enforced restrictions. Voice must use the same server operations; if voice cannot present a required decision safely, return a trusted review link without executing it.</p>
+
+<h2 id="maf">13. MAF compatibility plan</h2>
+<p>Checked against local package references and official NuGet/release documentation on 14 November 2026. Recheck when implementing if the work starts later.</p>
+<table>
+  <thead><tr><th>Package</th><th>Baseline before T1</th><th>Aligned T1 target</th></tr></thead>
+  <tbody>
+    <tr><td>Microsoft.Agents.AI</td><td>1.9.0 in Agents, SharedKernel, Voice</td><td><a href="https://www.nuget.org/packages/Microsoft.Agents.AI/">1.28.0 stable</a></td></tr>
+    <tr><td>Microsoft.Agents.AI.Workflows</td><td>1.9.0 in Agents</td><td><a href="https://www.nuget.org/packages/Microsoft.Agents.AI.Workflows/">1.28.0 stable</a></td></tr>
+    <tr><td>Microsoft.Agents.AI.Hosting.AGUI.AspNetCore</td><td>1.9.0-preview.260603.1 in Api</td><td><a href="https://www.nuget.org/packages/Microsoft.Agents.AI.Hosting.AGUI.AspNetCore/">1.28.0-preview.261106.1</a>; still preview</td></tr>
+    <tr><td>Microsoft.Extensions.AI and .OpenAI</td><td>10.6.0 across module references</td><td>10.11.0 initially; MAF's declared minimum and <a href="https://www.nuget.org/packages/Microsoft.Extensions.AI.OpenAI/10.11.0">aligned adapter</a>. An 11.x major upgrade is separate scope.</td></tr>
+  </tbody>
+</table>
+<p>MAF 1.9 already exposes conditional-edge and checkpoint APIs, so upgrading alone does not supply AONIK decision rules, durable persistence or policy enforcement. Upgrade for current fixes and compatibility before qualifying live workflows, keeping net10.0. Use MAF's <a href="https://learn.microsoft.com/en-us/agent-framework/concepts/workflows/edges">conditional edges</a>, <a href="https://learn.microsoft.com/en-us/agent-framework/workflows/checkpoints">checkpoint storage</a> and <a href="https://learn.microsoft.com/en-us/agent-framework/workflows/human-in-the-loop">request ports</a>; do not recreate them.</p>
+<p>The <a href="https://github.com/microsoft/agent-framework/releases/tag/dotnet-1.28.0">1.28 release notes</a> include changed workflow telemetry names and removed payload span attributes; use AONIK's own durable audit. Check intervening API changes, AG-UI, session/streaming, skill APIs, tool wrappers and provider dependency floors. Newer DI/logging abstraction minimums may require aligning Infrastructure's 10.0.8 pins. Do not upgrade EF or unrelated packages unless restore proves a requirement.</p>
+<p>T1 is an isolated PR with before/after restore/build/test evidence and a real conditional-edge/checkpoint-resume smoke test. No declarative/YAML package, new package-management framework or general dependency refresh is required. If a regression blocks adoption, record the specific compatibility issue; draft/evaluator work may proceed on the current supported APIs, but live runtime acceptance requires an explicitly qualified pinned package set.</p>
+
+<h3 id="maf-qualification">13.1 T1 implementation and qualification</h3>
+<p><strong>Qualification follow-up:</strong> AppHost now uses the aligned Aspire 13.6.5 SDK/JavaScript/SQL Server packages to clear GHSA-4g86-54fm-h9h8 without disabling audit. Remove the obsolete MessagePack 2.5.301 override: Aspire now requires the patched 2.5.307 floor. The complete AppHost dependency graph builds in Release with zero errors. The baseline and initial CI observations below remain historical evidence; subsequent CI results are tracked in the epic.</p>
+<p>Implementation started on 14 November 2026 in an isolated worktree from master <code>b5012cb42</code>. MAF AI/Workflows is pinned to 1.28.0, AG-UI to 1.28.0-preview.261106.1, and Extensions.AI/OpenAI to 10.11.0. Restore required DI/Hosting abstractions 10.0.13 and the API test host's Configuration package 10.0.13; EF stays on its existing version. The resolved MAF workflow dependency includes OpenTelemetry.Api 1.18.0.</p>
+<ul>
+  <li><strong>Graph compatibility:</strong> explicitly register End executors as terminal output sources, dispose streaming runs and replace obsolete rc4 comments. The existing supported-node gate remains in force.</li>
+  <li><strong>Tenant skills:</strong> adapt the context-aware filter and approval options, register file sources without requiring an executable runner, and materialize validated skill names as directory names required by MAF. A small context-provider adapter removes the newly advertised script tool from sources whose tenant script gate is closed. Read-only approved skill loading is exercised through a real ChatClientAgent; unreviewed skills and path-like names are refused.</li>
+  <li><strong>Native framework proof:</strong> three decimal-boundary routes, approved/rejected pending requests restored from JSON using rebuilt workflow/store instances, a real saved-graph output event, tenant skill discovery and a Voxa streaming turn with configured run options.</li>
+  <li><strong>Baseline:</strong> 684 affected agent/AI/memory tests, 139 voice tests and 774 API tests passed; 17 API cases skipped because their relational fixture was unavailable. The full API baseline TRX reports Completed.</li>
+  <li><strong>Build boundary:</strong> full-solution restore already fails on the critical <code>Aspire.Dashboard.Sdk.win-x64 13.2.1</code> advisory <a href="https://github.com/advisories/GHSA-4g86-54fm-h9h8">GHSA-4g86-54fm-h9h8</a>. The guard has not been suppressed. A temporary solution filter covering all 36 C# projects except AppHost builds with zero errors; unchanged AdminUi is outside this C# filter.</li>
+  <li><strong>Broader regression:</strong> Application 3,581 passed / 2 skipped; API 774 / 17; Voice 140 passed; Architecture 62; SharedKernel 72; CLI 35; Finance 27; PersonalFinance 1. Infrastructure passed 449 cases when its seven existing Plaid crypto cases were excluded. Finance integration skipped 10 cases requiring external prerequisites.</li>
+  <li><strong>Environment limits:</strong> SQL Server LocalDB fails to start and Docker is unavailable: database qualification has 265 skipped cases and five PublicationDeliverySqlServerTests failures during fixture creation, before application execution. The unfiltered infrastructure run was stopped after a native Windows CNG key-generation hang; a standalone PowerShell ECDsa.Create call reproduces the hang without AONIK or MAF. These seven crypto cases remain unqualified, not passed.</li>
+</ul>
+<p>The JSON checkpoint test qualifies a fresh 1.28 lineage and rebuilt executors. It does not establish cross-version checkpoint migration or the SQL durability/financial idempotency required by T4. Tenant skill cache directories are repopulated from the protected file store under the new validated-name layout; prior cache entries are not executable history.</p>
+<p><strong>Reproduction:</strong> use Release builds. The full-solution commands remain <code>dotnet build Aonik.sln --configuration Release</code> and <code>dotnet test Aonik.sln --configuration Release</code>; the local qualification filter contains all C# projects except AppHost. Focused coverage is <code>dotnet test tests/Aonik.Application.Tests --configuration Release --filter "FullyQualifiedName~MafWorkflowCompatibilityTests|FullyQualifiedName~GraphWorkflowKindGateTests|FullyQualifiedName~TenantSkillsProviderCompatibilityTests"</code> and <code>dotnet test tests/Aonik.Voice.Tests --configuration Release --filter FullyQualifiedName~MicrosoftAgentVoiceCompatibilityTests</code>. Infrastructure's diagnostic rerun uses <code>--filter FullyQualifiedName!~PlaidWebhookVerifierTests</code>; it is not a replacement for completing the crypto suite on a healthy Windows host. Raw local build/TRX evidence is retained outside the repository in the task's temporary qualification directory. Review/CI must clear or independently reproduce the stated build and environment limits before merge.</p>
+
+<h2 id="automation">14. Expanded automation — included in revision 5</h2>
+<p>The user explicitly brought the previously deferred capabilities into scope. The foundation remains intentionally small; the following additions extend the same services and are required for epic completion. They are separately enabled and tested, not alternative architectures.</p>
+
+<h3>14.1 T8 — Tenant automation identities</h3>
+<p>Add a narrow tenant-owned AutomationIdentity for work that must continue independently of a chat session. It is an internal execution actor resolved by the server, not a fake human User or a new identity provider. Reuse current tenant/role/permission checks where compatible; extend the trusted execution context with ActorType/ActorId so user-only assumptions cannot silently grant machine access.</p>
+<ul>
+  <li>Persist tenant, name, accountable administrator, status, expiry/revocation, explicit allowed workflow versions/actions/resource scopes and audit metadata. Reuse existing permission identifiers. No password or provider credential belongs on the actor record.</li>
+  <li>Creation and grants require a tenant integration/workflow administrator. Publication/activation binds the actor to exact workflow/trigger capabilities. Aonik can propose an actor or access request; it cannot grant itself privileges.</li>
+  <li>A run records the automation actor separately from the human who configured it and from any human who approves an action. A worker cannot set a user ID to bypass a service's user permission checks.</li>
+  <li>Connector grants must explicitly cover this actor and workflow. Tenant ownership of a connection is not enough. Loss of the former creator's login does not automatically impersonate or transfer access; ownership and grants are independently managed and auditable.</li>
+  <li>Read, extraction and permitted low-risk work can proceed unattended. Medium writes create a durable pending approval and wait for an authorized human interaction. High-risk actions create a durable Proposal and await authorized approval/dispatch. Human decisions remain mandatory where required by Spec 032.</li>
+  <li>Do not route arbitrary agent requests through Finance's existing internal CreateInvoiceForMachineAsync/IInvoiceWriter bypass. That path serves specific already-authorized business modules; workflow automation must supply its own verified action approval through the existing gate.</li>
+  <li>Disable/revoke/expire blocks new runs and the next continuation/effect, including queued work. A service identity cannot approve its own proposal or another actor's request.</li>
+</ul>
+<p>Expose minimal administrator create/get/update/disable operations under /integrations/automation-identities and show affected bindings before changing grants. No general token issuance, OAuth server or external machine-login product is required to meet this internal execution need.</p>
+
+<h3>14.2 T9 — Events, schedules and Gmail subscriptions</h3>
+<p>A versioned trigger binding selects a published workflow, execution actor, subject mapping, event/filter or schedule, admission limits and activation state. Activation is a governance change through the existing Proposal handler; events themselves never supply tenant identity, permissions or approved action arguments.</p>
+<table>
+  <thead><tr><th>Source</th><th>Implementation using existing components</th><th>Required semantics</th></tr></thead>
+  <tbody>
+    <tr><td>Invoice/domain event</td><td>Reuse typed integration events and the owning context's transactional outbox. Add an event at a missing business transition only where needed.</td><td>Consumer reloads authorized facts by subject ID. Unique (tenant, binding revision, source event ID) admission. Duplicate/out-of-order events do not repeat effects.</td></tr>
+    <tr><td>Recurring schedule</td><td>Use existing recurring WorkItem and RecurrenceCalculator/Quartz, with a workflow-admission handler.</td><td>Explicit IANA timezone, UTC occurrence identity, start/end bounds, maximum runs and paused state. Reject invalid timezone rather than inheriting the helper's silent UTC fallback. Default misfire policy skips missed occurrences; an explicitly approved bounded catch-up can replay them once.</td></tr>
+    <tr><td>Gmail push</td><td>One protected subscription per authorized connection; authenticated Pub/Sub ingress durably records a hint, then existing Worker processing reads history.</td><td>Provider account/topic/subscription resolve to a trusted local subscription. Never trust a tenant ID or an email address alone as authorization. Acknowledge only after durable handoff.</td></tr>
+    <tr><td>Gmail polling/recovery</td><td>Existing WorkItem recurrence calls the same history synchronizer, with limits/backoff.</td><td>Approved interval, bounded messages/bytes/time and no duplicate intake. Polling is an explicit fallback/health mechanism, not unlimited mailbox crawling.</td></tr>
+  </tbody>
+</table>
+<p>Per Google's <a href="https://developers.google.com/workspace/gmail/api/guides/push">push guide</a>, notifications carry a mailbox/history hint; fetch actual changes through the API. Renew watches daily and monitor the provider expiry. Push can be delayed or lost, so reconcile through polling. An expired history cursor returns 404 and needs a <a href="https://developers.google.com/workspace/gmail/api/guides/sync">full synchronization</a>; perform it in bounded resumable pages, preserve deduplication and suppress historical automation unless approved backfill was requested.</p>
+<ul>
+  <li>Commit cursor progress with durable discovered-event/outbox records; a failure between paging and admission must not lose or double-process mail. Store subscription identity, provider cursor, watch expiry, last success/error, mode and RowVersion.</li>
+  <li>Pin workflow version and binding revision at admission. A publication does not silently repoint active subscriptions; activating the new binding revision is explicit. Disable prevents new admissions and cancels/reconciles queued work before another effect.</li>
+  <li>Default one active run per binding/subject. Configure bounded concurrency and maximum starts per interval; duplicate causation or self-generated mail/label events must not create an infinite trigger loop. Carry causation/root-run IDs and ignore irrelevant change types.</li>
+  <li>A schedule occurrence or event wake-up is not a replay approval. Every admitted run still executes its action gates. Retrying an old event reuses the original run; an intentional reprocess is a new audited admission.</li>
+  <li>Gmail watches must not be overwritten by another connection for the same provider account/OAuth application. Detect that ownership conflict and use approved polling or isolated provider configuration rather than silently sharing account data across tenants. Multiple local workflows can consume one connection's normalized events through separate authorized bindings.</li>
+  <li>Test daylight-saving changes, invalid timezones, missed occurrences, duplicate notifications, stale/out-of-order history, watch expiry, forged ingress, grant revocation and cursor crash recovery.</li>
+</ul>
+<p>Add list/get/validate and request-activate/request-disable operations for trigger bindings under /ai/workflows/{slug}/triggers. Draft trigger authoring is medium-gated through workflow tools; activation/changed actor/filter/schedule/version is a high governance proposal. Reuse existing connection requests when provisioning/consent is missing.</p>
+
+<h3>14.3 T10 — Bounded workflow control flow</h3>
+<p>Use MAF's <a href="https://learn.microsoft.com/en-us/agent-framework/concepts/workflows/edges">conditional, fan-out and fan-in patterns</a>, request ports and checkpoints under the existing runner. Persist AONIK-specific invocation identity, outcomes and authorization; do not implement another graph interpreter. Unsupported node/version combinations still fail publication before any action.</p>
+<table>
+  <thead><tr><th>Capability</th><th>Minimal contract</th><th>Failure and recovery</th></tr></thead>
+  <tbody>
+    <tr><td>Loop / bounded foreach</td><td>Declared typed collection or condition, stable iteration keys, max iterations and deadline. Every iteration uses the same pinned action definitions and distinct invocation path.</td><td>Maximum reached routes to explicit exhausted/error outcome. Retries reuse an iteration's operation key; they never create another iteration. Arbitrary graph cycles remain invalid.</td></tr>
+    <tr><td>Child workflow</td><td>Exact WorkflowVersionId, typed input/output mapping, parent run/invocation reference and maximum nesting depth. Validate transitive dependency versions at publication.</td><td>Reject recursive version dependencies. Parent waits durably for its child; duplicate wake-ups reuse the child run. Cancellation propagates before new effects, while committed effects reconcile.</td></tr>
+    <tr><td>Parallel branches / Join</td><td>Explicit branch keys, bounded concurrency and All or AnySuccess join policy. Merge outputs under branch namespaces; no last-writer-wins mutable shared state.</td><td>All requires all required branches; AnySuccess cancels remaining work and is permitted only for read/pure branches. Unknown results cannot be treated as success. Serialize potentially conflicting writes to the same business resource.</td></tr>
+    <tr><td>Timed wait</td><td>UTC deadline or a bounded duration from a recorded time; schedule one continuation with the existing task service. Keep an overall run deadline.</td><td>Restart does not reset the clock. Duplicate timer delivery resumes once. Cancellation/expiry blocks later effects.</td></tr>
+    <tr><td>Human task</td><td>Fixed typed response schema, authorized user/role, task purpose, deadline and explicit reject/timeout route. Use WorkItem for assignment/reminders and the existing approval request/decision boundary for the response.</td><td>Record response hash and actor; stale, unauthorized or repeated responses fail. A separate informational response does not approve a financial action unless it is the exact action approval defined in section 9.</td></tr>
+  </tbody>
+</table>
+<p>Human tasks persist their pending input/result on WorkflowStepRun, correlate to existing WorkItem/ToolApprovalRequest and emit an outbox continuation on an authorized response. Extend the existing decision DTO only for a validated typed response; do not introduce a separate human-task engine or treat notification acknowledgement as approval.</p>
+<p>Initial expanded limits: maximum 100 loop iterations, 4 concurrent branches, nesting depth 5, 1,000 executed node invocations per root run and 7 days elapsed lifetime including waits. Continue to apply per-continuation time, token and action limits. Tenant policy may tighten these; increases require explicit configuration and load/recovery evidence. Exhaustion never converts a pending action into success.</p>
+<p>Persist the runtime feature/schema version in each definition and checkpoint. A join/loop/child changes the invocation path, not the financial operation's approved arguments. Crash tests must cover an effect in one branch while another branch is pending, cancellation during a wait and replay of a completed child.</p>
+
+<h3>14.4 T11 — Richer rules and reusable libraries</h3>
+<p>Extend the existing typed evaluator in a new schema version rather than adopting a policy DSL. Keep the original FirstMatch semantics for old snapshots. Schema v2 supports all/any/not groups with maximum nesting depth 4, at most 100 predicate nodes per table and the existing allowlisted operators/types. There is no arbitrary script, SQL, reflection or model-chosen executable function.</p>
+<table>
+  <thead><tr><th>Hit policy</th><th>Deterministic result</th><th>Ambiguity handling</th></tr></thead>
+  <tbody>
+    <tr><td>FirstMatch</td><td>One route, ordered by unique priority.</td><td>Mandatory default when no row matches.</td></tr>
+    <tr><td>Unique</td><td>Exactly one matching row/route.</td><td>Multiple matches are a validation/runtime conflict requiring manual attention; no arbitrary winner.</td></tr>
+    <tr><td>Collect</td><td>Ordered, deduplicated typed outputs from all matching rows.</td><td>Requires a declared list output consumer or explicit fan-out node. It does not implicitly execute every matched financial action.</td></tr>
+    <tr><td>Score</td><td>Sum configured decimal contributions of matching rows, then select one non-overlapping score band/route.</td><td>Persist each contribution and total. Gaps, overlapping bands or missing required inputs route to manual review. No cross-currency arithmetic or automatic risk-tier reduction.</td></tr>
+  </tbody>
+</table>
+<p>For compound predicates, missing/invalid required inputs propagate an Unknown result that cannot approve an action; negating Unknown does not make it true. isMissing is an explicit operator. Specify optional-field behavior in the schema and simulate it. Bound score weights/precision and total; overflow or an invalid definition is an error, not a default financial approval.</p>
+<p>Represent reusable libraries as Workflow.DefinitionKind = DecisionLibrary with a pure Trigger/Decision/End definition and declared input/output schema. Use the same WorkflowService, versions, permissions, authoring tools, hash/publish/retire proposals and simulation. No agents, connectors or effects are permitted inside a library. A consuming Decision node references a published version and maps only declared facts; it cannot supply a new permission context.</p>
+<p>Pin library versions in the consumer snapshot and show dependencies in the editor. Updating a library leaves existing consumers unchanged; an explicit consumer publication adopts a new revision. Retirement blocks new dependent admissions according to the same retirement policy. Keep referenced versions and traces for old runs. The editor supports table and bounded condition-builder views over one canonical DTO.</p>
+
+<h3>14.5 T12 — Gmail mutation actions</h3>
+<p>Extend the same versioned action descriptors and typed wrappers; there is no separate email automation executor. The table gives AONIK's proposed minimum classification after review, not a classification supplied by Google. Unclassified actions remain high/fail-closed. A tenant may require stronger approval.</p>
+<table>
+  <thead><tr><th>Actions</th><th>AONIK gate</th><th>Execution contract</th></tr></thead>
+  <tbody>
+    <tr><td>Create/update/delete unsent draft</td><td>Medium; explicit confirmation of the exact draft operation.</td><td>Bind account, draft version/content hash, recipients and attachments. External draft edits invalidate stale approval.</td></tr>
+    <tr><td>Send, reply, forward, send existing draft</td><td>High; durable Proposal with human approval and dispatcher execution.</td><td>Approve exact account, To/Cc/Bcc, subject, body/attachment hashes and thread/reply references. Preserve reviewed message bytes; do not regenerate with the model after approval.</td></tr>
+    <tr><td>Labels, mark read/unread, archive, trash/restore</td><td>Medium for explicitly reviewed reversible actions; otherwise high.</td><td>Preview exact bounded message IDs and changes. Archive/mark-read are label mutations, not hidden read side effects. Recheck current account/action grants.</td></tr>
+    <tr><td>Permanent delete</td><td>High, separately enabled by tenant policy and explicit approval.</td><td>Exact message IDs/count and irreversible-effect description; bounded batch. Never interpret a generic clean-up instruction as permanent deletion.</td></tr>
+  </tbody>
+</table>
+<p>Request incremental scopes for the selected action, using the <a href="https://developers.google.com/workspace/gmail/api/auth/scopes">official scope definitions</a>. Compose/modify scopes grant broader provider capabilities than draft/label operations alone, so AONIK's action grants still restrict use. <a href="https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/delete">Permanent deletion</a> requires the broad mail scope and cannot be undone; keep its consent and enablement separate. Read-only connections remain usable without consenting to writes.</p>
+<p>Use the documented <a href="https://developers.google.com/workspace/gmail/api/guides/sending">Gmail send/draft-send APIs</a> through the reviewed handler. Store operation identity, approved payload hash and provider result references before/after dispatch. A generated Message-ID is only a correlation aid, not proof of provider idempotency. If delivery times out after dispatch, inspect reliable provider evidence or hold NeedsAttention; do not blindly send again. A changed draft, expanded recipient list or attachment requires a fresh approval.</p>
+<p>Reuse WorkflowStepRun, existing Proposal execution records and audit for all effects. Direct agent calls and workflow calls have the same consent, grant and gate requirements. No permanent-delete/send bulk action may exceed the approved target set; test duplicate callbacks, revoked consent, externally edited drafts and uncertain send outcomes.</p>
+
+<h3>14.6 T13 — Automated financial intake and payment initiation</h3>
+<p>Reuse <a href="../../src/Aonik.Documents/Entities/DocumentExtraction.cs">DocumentExtraction</a>, the Documents ingestion pipeline and <a href="../../src/Aonik.SharedKernel/Abstractions/Documents/IDocumentTextExtractor.cs">IDocumentTextExtractor/IDocumentOcrExtractor</a>. The current OCR interface documents a deferred implementation, so this task includes one real, qualified OCR adapter for the supported file types. Do not create a separate file store, OCR framework or extraction journal.</p>
+<pre>Approved mailbox/event/schedule
+  -> bounded document ingestion + malware/content checks
+  -> native text / real OCR
+  -> structured candidate fields + provenance + AiRun when AI-assisted
+  -> duplicate and domain validation
+  -> authorized human confirmation of exact domain creation/update
+  -> existing Invoice/Bill/Order service as appropriate
+  -> decision workflow and approval routing
+  -> optional high-risk PaymentIntent/payment Proposal
+  -> human approval + existing dispatcher + ledger evidence</pre>
+<ul>
+  <li>Store extracted fields, source document/message/account IDs, source hash, model/prompt/extractor version, confidence/evidence and review status on existing extraction/document records. Add fields only where provenance or review concurrency is missing.</li>
+  <li>Deduplicate ingestion by tenant, connection, provider message/attachment identity and content hash. Detect repeated supplier/customer invoice number, party, currency and amount as a review signal; do not discard a changed invoice merely because it resembles another.</li>
+  <li>Read/create domain records only after authorized mapping. An incoming supplier bill is not a sales Invoice. Use the existing PersonalFinance Bill service only for an explicitly identified authorized user; unsupported tenant-payable types remain structured candidates for review rather than being misclassified or posted.</li>
+  <li>The delivered invoice path must demonstrate automated extraction and a confirmed CreateInvoice payload for a supported sales-invoice source, followed by existing issue routing. Also demonstrate incoming supplier evidence staying correctly classified. Automatic processing reduces data entry; it does not remove medium confirmation for agent-proposed domain writes.</li>
+  <li>Validate parties, line items, currency, totals/tax and source evidence before presenting the exact creation payload. Low confidence, conflicting totals, missing required facts or unknown parties route to manual review. High confidence is not approval.</li>
+  <li>After creation, any money-movement intent stays linked to the appropriate Order/business intent. Workflow steps can prepare CreatePaymentIntent/CapturePayment or other registered high-risk proposals; only the existing approved dispatcher executes them. Do not mark paid based on email text or payment-link claims.</li>
+  <li>All actual LLM extraction/enrichment uses AiRoutePolicy and AiRun. Document/tool content remains untrusted; it cannot alter tenant policy, account ownership, approval routes or tool availability.</li>
+  <li>Acceptance includes real scanned and text-based documents, duplicate forwarding, altered content, low-confidence fields, rejected creation, changed invoice facts and a payment proposal that cannot execute before human approval.</li>
+</ul>
+
+<h3>14.7 T14 — Curated connector marketplace and dynamic adapters</h3>
+<p>Provide an administrator-facing catalog to discover capabilities, inspect versions/scopes/risk, download a reviewed package/manifest, request installation and manage upgrades/disablement. Reuse the existing descriptor registry for discovery, TenantMcpServer/TenantHttpTool for reviewed remote configurations and ConnectorConnection for account consent. Marketplace here means curated discovery and provisioning, not a new executable plugin host or commerce system.</p>
+<ul>
+  <li>A versioned manifest declares provider key, action keys and contract schemas, auth/scopes, adapter kind, allowed endpoints, minimum tiers, resource limits, publisher, artifact digest/signature and compatibility range. Use a reviewed catalog index/artifact repository; no database-driven expression/code engine.</li>
+  <li>Native adapter packages are downloaded/verified by the platform deployment process and registered through normal application composition. MCP/HTTP descriptor packages import through existing tenant extension validation/review. Do not hot-load arbitrary DLLs or execute installation scripts from a tenant/agent request.</li>
+  <li>Reconcile manifest identity with deployed/reviewed action metadata. A manifest cannot downgrade a risk tier, change a schema under the same action version or claim access to a provider account. Verify destination/egress policy at invocation, including redirects, rather than trusting package text alone.</li>
+  <li>Expose approved MCP/HTTP actions through the same catalog, scoped invocation context and approval gate as native Gmail. Add per-action risk review for mixed read/write MCP servers; names and remote descriptions do not establish read-only behavior. Worker classification must work without HttpContext.</li>
+  <li>Maintain installation/version/disabled references on the existing native catalog configuration, tenant extension rows and connections. Immutable manifests live as release artifacts; do not add a parallel per-connector execution database.</li>
+  <li>Install/update requests are governance proposals/reviewed administration, separate from owner OAuth consent and workflow grants. Aonik raises the existing connection/provisioning request and reports status; it does not approve/install its own executable capabilities.</li>
+  <li>Pin package/action/schema versions in workflow snapshots. Upgrades show affected workflows and new scopes/tiers; retain an old handler while runs need it or block/drain explicitly. Security disablement overrides pins immediately and suspends future effects. Rollback cannot restore revoked consent.</li>
+  <li>Qualify a native Gmail package plus at least one reviewed MCP and one reviewed HTTP fixture through discover → install/review → connect → invoke → upgrade/disable. Demonstrate an additional connector/action without editing the workflow runtime, and reject tampered manifests, unapproved endpoints and schema drift.</li>
+</ul>
+
+<h3>14.8 Minimal persistence and common authoring surface</h3>
+<table>
+  <thead><tr><th>Extension</th><th>Missing durable state supplied</th><th>Reuse</th></tr></thead>
+  <tbody>
+    <tr><td>AutomationIdentity / Platform</td><td>Tenant-owned actor and its independent expiry/disable/grant lifecycle.</td><td>Existing role/permission identifiers, audit and ConnectorConnectionGrant. No human credential impersonation.</td></tr>
+    <tr><td>WorkflowTriggerBinding / Agents</td><td>Approved binding revision/hash, workflow version, actor, source/filter/schedule, admission limits, state and WorkItem/subscription references.</td><td>Current workflow governance/proposals, tasks and outbox. Configuration is bounded typed JSON, not another trigger engine.</td></tr>
+    <tr><td>ConnectorSubscription / Platform</td><td>Connection-scoped provider watch/cursor/mode/expiry/health with concurrency and durable synchronization progress.</td><td>One subscription per connection can supply many normalized event consumers. Reuse existing inbox/outbox; no custom broker.</td></tr>
+    <tr><td>Existing Workflow/Version/Run/StepRun</td><td>Definition kind/schema, pinned library/child references, actor type, parent/root run, invocation path, timer/join/human result metadata.</td><td>No separate rule-library, nested-run, loop-run or human-task aggregates.</td></tr>
+    <tr><td>Existing document, approval, tenant extension and catalog artifacts</td><td>Extraction provenance, exact mailbox-operation approval, installed descriptor version and review evidence.</td><td>No parallel extraction, mail-send, connector-run or marketplace transaction tables.</td></tr>
+  </tbody>
+</table>
+<p>The planned total is the five foundation records plus three narrowly justified automation records. All remain tenant-scoped; canonical configurations/migrations follow the same AonikDbContext rules. A demonstrated schema need may change this count with a recorded reason; the count is not a reason to hide independent security state in unvalidated JSON.</p>
+<p>Reuse workflow CRUD/capability discovery for new nodes, DecisionLibrary definitions and draft triggers. Add only missing typed trigger/automation-identity/catalog management endpoints and proposals. Reuse the same agent request/approval cards. Updating a child reference, shared library, trigger, service grant or action version shows an exact diff and cannot silently broaden a published definition.</p>
+
+<h2 id="requirements">15. Requirements and acceptance contract</h2>
+<p>Requirements remain open until their delivery is reviewed with evidence. T1 qualification is recorded in section 13.1; T2–T15 remain pending. A saved graph or passing mock alone is not evidence of a working financial workflow.</p>
+<table>
+  <thead><tr><th>ID</th><th>Required observable outcome</th><th>Verification / tasks</th></tr></thead>
+  <tbody>
+    <tr id="rq01"><td>RQ01</td><td>One existing workflow model/editor/runtime is extended; the curated connector marketplace reuses registered/reviewed adapters. No second rules engine or scheduler; new records/abstractions have a concrete need.</td><td>Code/design review against sections 3–6; T2–T7.</td></tr>
+    <tr id="rq02"><td>RQ02</td><td>MAF family is qualified on a pinned compatible version set; package upgrade can be reverted independently.</td><td>Baseline comparison, build and real branching/checkpoint test; T1.</td></tr>
+    <tr id="rq03"><td>RQ03</td><td>Create/update/delete have correct existence, concurrency and reference behavior; published snapshots/history are immutable and legacy metadata cannot execute.</td><td>Service/API plus SQL concurrency tests; T2.</td></tr>
+    <tr id="rq04"><td>RQ04</td><td>Foundation FirstMatch rules select exactly one route with decimal/currency precision and mandatory safe fallback; additional hit policies follow RQ27. Unsupported graphs fail before effects.</td><td>Boundary/default/type/cycle/route tests; T2.</td></tr>
+    <tr id="rq05"><td>RQ05</td><td>Simulation uses fixtures and produces an explanatory trace with zero live model/domain/connector/event effects.</td><td>Forbidden-dependency assertions and route fixtures; T2.</td></tr>
+    <tr id="rq06"><td>RQ06</td><td>Aonik can list/create/update/validate/simulate/delete drafts through actual tool calls; all mutations are classified and service-authorized.</td><td>Tool composition and conversation tests, denial/replay/stale-approval cases; T3.</td></tr>
+    <tr id="rq07"><td>RQ07</td><td>Only authorized publication/retirement proposals change live revisions; altered draft/hash makes an approval stale.</td><td>Handler and direct-endpoint bypass tests; T2/T3.</td></tr>
+    <tr id="rq08"><td>RQ08</td><td>Manual admission pins revision/subject/identity and deduplicates identical requests; it cannot approve downstream financial actions.</td><td>SQL replay/conflict and gate tests; T4.</td></tr>
+    <tr id="rq09"><td>RQ09</td><td>Authorized invoice role can decide its assigned medium action once; unauthorized/self approvers are denied as configured. Personal requester-only behavior is preserved.</td><td>Role/SoD tests across both approval endpoints and actual UI; T4/T7.</td></tr>
+    <tr id="rq10"><td>RQ10</td><td>Restart/duplicate wake-up resumes the same version; financial effects are not blindly repeated after approval consumption or uncertain outcome.</td><td>SQL/Worker crash injection, outcome reconciliation and checkpoint compatibility; T4.</td></tr>
+    <tr id="rq11"><td>RQ11</td><td>Agents and workflow Tool nodes use the same authorized connector handlers; unknown action/version and any ungated mutation path are refused.</td><td>Composition/contract and bypass tests; T5.</td></tr>
+    <tr id="rq12"><td>RQ12</td><td>Gmail search/get/attachment work within limits and readonly consent; tokens/body data do not leak; mail content cannot authorize actions.</td><td>Adapter/OAuth adversarial tests plus consenting test-account rehearsal; T5/T7.</td></tr>
+    <tr id="rq13"><td>RQ13</td><td>User-owned and tenant-owned accounts are isolated; admin status is not mailbox access; workflow bindings never follow changed preferences.</td><td>Cross-tenant/two-user/two-role tests and explicit grant/revoke cases; T5.</td></tr>
+    <tr id="rq14"><td>RQ14</td><td>Tenant/platform restrictions override user preferences and cannot be changed through generic user settings APIs.</td><td>Exact-scope resolution and settings-write authorization tests; T5.</td></tr>
+    <tr id="rq15"><td>RQ15</td><td>Aonik can create/deduplicate/read/cancel a real connection request with precise readiness reason, safe status and an authorized review/consent path.</td><td>Tool/service/API, simultaneous request and rate-limit tests; T6.</td></tr>
+    <tr id="rq16"><td>RQ16</td><td>Request fulfilment requires an eligible account and grants; consent/review alone, wrong identity, expired/cancelled state or explicit policy deny cannot grant access.</td><td>OAuth replay/race, grant and lifecycle tests; T5/T6.</td></tr>
+    <tr id="rq17"><td>RQ17</td><td>Unresolved drafts can be saved but not published; lost access suspends a live run and explicit resume revalidates pinned identity and approvals.</td><td>Revocation/reconnect/different-account and changed-subject tests; T4/T6/T7.</td></tr>
+    <tr id="rq18"><td>RQ18</td><td>Every route/action is explainable by exact definition, facts, actor, approval and domain evidence; actual AI outputs retain AiRun linkage.</td><td>Audit trace assertions, redaction and reviewer access checks; T2–T7.</td></tr>
+    <tr id="rq19"><td>RQ19</td><td>Existing editor, chat/playground approvals and settings support the end-to-end pilot; unsupported voice interactions offer a safe review link.</td><td>UI checks and manual journey evidence; T7.</td></tr>
+    <tr id="rq20"><td>RQ20</td><td>Canonical generated migrations, relevant solution/UI checks and disabled-by-default tenant rollout are documented and verified.</td><td>SQL migration test, build/tests, rollout/rollback rehearsal; T1–T7.</td></tr>
+    <tr id="rq21"><td>RQ21</td><td>Approved invoice/domain/Gmail events admit the pinned workflow once; forged, duplicate, self-caused or out-of-order events cannot bypass admission/approval.</td><td>Transactional event/admission and causation tests; T8/T9.</td></tr>
+    <tr id="rq22"><td>RQ22</td><td>Recurring schedules, polling and push recovery handle timezone/DST, misfires, cursor expiry and watch renewal without lost/duplicate financial effects.</td><td>Quartz/SQL tests, provider subscription rehearsal and cursor crash injection; T9.</td></tr>
+    <tr id="rq23"><td>RQ23</td><td>A tenant automation identity runs permitted work without an active user session, with explicit grants and revocation. It cannot impersonate or approve as a human.</td><td>Identity lifecycle, queued-work revocation and approval tests; T8.</td></tr>
+    <tr id="rq24"><td>RQ24</td><td>Bounded loops and pinned child workflows survive restart with distinct invocation identities and no recursive/unbounded execution.</td><td>Limit, child replay/cancellation and SQL recovery tests; T10.</td></tr>
+    <tr id="rq25"><td>RQ25</td><td>Parallel branches and All/AnySuccess joins have deterministic output, bounded concurrency and safe partial-failure handling; conflicting writes cannot race.</td><td>MAF integration, branch cancellation and duplicate-effect tests; T10.</td></tr>
+    <tr id="rq26"><td>RQ26</td><td>Timed waits and typed human tasks persist deadlines/responses, authorize reviewers and resume once across restarts, rejection and expiry.</td><td>Timer/response replay, wrong-reviewer and worker restart tests; T10.</td></tr>
+    <tr id="rq27"><td>RQ27</td><td>Compound predicates and FirstMatch/Unique/Collect/Score policies produce specified results, contributions and safe missing-data/ambiguity outcomes.</td><td>Deterministic schema-version, truth-table, scoring and limits tests; T11.</td></tr>
+    <tr id="rq28"><td>RQ28</td><td>Independent decision libraries publish through existing workflow services; consumers pin versions and show adoption diffs without silent updates.</td><td>Publish/retire/dependency and historical replay tests; T11.</td></tr>
+    <tr id="rq29"><td>RQ29</td><td>Gmail drafts, sends/replies/forwards, labels/read/archive/trash/restore and permanent delete use per-action consent, grants and exact required approval.</td><td>Provider adapter and actual test-account action rehearsals with exact payload/recipient checks; T12.</td></tr>
+    <tr id="rq30"><td>RQ30</td><td>Uncertain Gmail send outcomes never trigger blind retries; changed drafts/recipients/attachments invalidate approval and duplicate delivery is reconciled.</td><td>Dispatch-timeout, external-edit, duplicate callback and revocation tests; T12.</td></tr>
+    <tr id="rq31"><td>RQ31</td><td>Automated document intake uses existing ingestion/extraction plus a real OCR adapter, retains provenance/AiRun, deduplicates and maps supported invoice/bill candidates correctly.</td><td>Scanned/text document fixtures and real extraction-to-reviewed-domain-creation rehearsal; T13.</td></tr>
+    <tr id="rq32"><td>RQ32</td><td>Automatic intake/payment initiation preserves medium human confirmation and high-risk Proposal dispatch; neither confidence nor machine execution grants financial authority.</td><td>Approved/rejected CreateInvoice and unapproved/approved payment proposal tests; T8/T13.</td></tr>
+    <tr id="rq33"><td>RQ33</td><td>The curated marketplace supports discover/download/review/install/update/disable using reviewed versioned artifacts and existing native/MCP/HTTP infrastructure.</td><td>Native plus MCP/HTTP fixture lifecycle and tampered/unapproved artifact tests; T14.</td></tr>
+    <tr id="rq34"><td>RQ34</td><td>Native/MCP/HTTP actions share worker-safe authorization/classification; schema drift, version upgrades or missing scopes cannot broaden pinned capabilities.</td><td>Mixed-risk MCP, HTTP egress and old-run compatibility tests; T14.</td></tr>
+    <tr id="rq35"><td>RQ35</td><td>The full expanded journey and rollback are demonstrated after T8–T14; the foundation pilot alone does not close the epic.</td><td>End-to-end trigger/intake/decision/human/payment/mail journey, operator recovery and release evidence; T15.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="tasks">16. Tasks and delivery sequence</h2>
+<p>Status: T1 is implemented and undergoing qualification/review; T2–T15 are not started. T1–T7 establish the foundation; T8–T15 deliver and qualify the expanded scope. Implement one reviewable slice at a time. Child issues may be split using these stable IDs; do not mark the epic complete after the foundation alone.</p>
+<table>
+  <thead><tr><th>Task</th><th>Deliverable</th><th>Dependency and exit evidence</th></tr></thead>
+  <tbody>
+    <tr id="t1"><td>T1 — MAF compatibility</td><td>Implemented; qualification/review in progress. Baseline, aligned packages, graph outputs, tenant skills and framework/voice regression proof.</td><td>Evidence in section 13.1. Full-solution AppHost advisory documented separately from the passing C# build. RQ02/RQ20.</td></tr>
+    <tr id="t2"><td>T2 — Versioned drafts and decision tables</td><td>Correct CRUD, stable keys/RowVersion, immutable publication payload, limited evaluator, fixture simulation and invoice facts contract. Add publication validation and permissions.</td><td>May start alongside T1; no live launch. Snapshot/routing/SQL tests and supported-node editor capability list. RQ01/RQ03–05/RQ07/RQ18/RQ20.</td></tr>
+    <tr id="t3"><td>T3 — Aonik authoring and governance</td><td>WorkflowTools, manifest, orchestrator registration, diffs, publication/retirement handlers and existing approval cards.</td><td>After T2. Real create/update/simulate/delete conversation and approved publication with bypass tests. RQ06/RQ07.</td></tr>
+    <tr id="t4"><td>T4 — Durable invoice execution</td><td>Run/step/checkpoint records, Decision/Tool executors, WorkItem continuation/outbox integration, named reviewers, idempotency/reconciliation and run trace.</td><td>After qualified T1 and T2/T3. Restarted invoice run finishes once; changed facts/rejected/unauthorized decisions are blocked. RQ08–10/RQ17/RQ18.</td></tr>
+    <tr id="t5"><td>T5 — Connections and Gmail reads</td><td>Code descriptors, connection/grant records, explicit-scope settings policy, OAuth/refresh, bounded Gmail actions and same agent/workflow handlers.</td><td>Can develop against T2 contracts while T4 lands. Grant/ownership/policy tests and consenting test-account read. RQ11–14/RQ16/RQ18.</td></tr>
+    <tr id="t6"><td>T6 — Connection requests</td><td>Readiness, small request lifecycle, dedupe, agent request/status/cancel tools, existing task notifications and trusted Connect cards.</td><td>After T5 contracts; integrate T4 waits. Consent/approval/fulfilment race tests, unresolved draft and explicit resume behavior. RQ15–17.</td></tr>
+    <tr id="t7"><td>T7 — Integrated pilot and operator handoff</td><td>Decision panel, run trace, My Connections/Tenant Integrations, complete invoice/Gmail/request journeys, docs/changelog and tenant rollout.</td><td>After T3–T6. Foundation RQ01–RQ20 have linked evidence; production/provider prerequisites recorded; rollback rehearsed. Full epic completion is T15.</td></tr>
+    <tr id="t8"><td>T8 — Unattended identities</td><td>Narrow AutomationIdentity, actor-aware worker/domain authorization, grants and admin lifecycle; preserve human action approval.</td><td>After T3/T5 contracts. Userless read/extraction works; money and medium writes wait for humans. RQ23/RQ32.</td></tr>
+    <tr id="t9"><td>T9 — Automatic admission</td><td>Domain event bindings, recurring WorkItems, Gmail push/poll synchronization, cursor/causation dedupe and trigger governance.</td><td>After T4/T5/T8. Scheduled and push-triggered runs recover without duplicate effects. RQ21/RQ22.</td></tr>
+    <tr id="t10"><td>T10 — Richer workflow execution</td><td>Bounded loops, child workflows, parallel/join, timed waits and typed human tasks on MAF/tasks/current approval services.</td><td>After T4; can proceed alongside T8/T9. Limit/restart/partial-failure evidence for each node. RQ24–RQ26.</td></tr>
+    <tr id="t11"><td>T11 — Advanced decisions and libraries</td><td>Bounded predicate groups, Unique/Collect/Score and DecisionLibrary definitions with shared workflow publication/versioning.</td><td>After T2/T3; Collect execution integrates T10. Deterministic simulations and pinned consumer adoption. RQ27/RQ28.</td></tr>
+    <tr id="t12"><td>T12 — Gmail mutations</td><td>Typed draft/send/reply/forward/label/archive/read/trash/restore/delete actions, incremental consent, exact proposals and uncertain-outcome reconciliation.</td><td>After T4/T5; unattended use integrates T8. Each action is qualified before enablement. RQ29/RQ30.</td></tr>
+    <tr id="t13"><td>T13 — Financial intake</td><td>Existing Documents ingestion/extraction, one real OCR adapter, candidate validation/duplicates and confirmed invoice creation/payment proposals.</td><td>After T4/T5/T8/T9; reuse T10/T11 as needed. Correct domain mapping and human financial approvals proven. RQ31/RQ32.</td></tr>
+    <tr id="t14"><td>T14 — Curated connector marketplace</td><td>Reviewed manifest/package catalog, download/install/review/update/disable, native/MCP/HTTP action unification and per-action risk classification.</td><td>After T5/T6, extending existing tenant tools. Demonstrate second adapter without runtime changes. RQ33/RQ34.</td></tr>
+    <tr id="t15"><td>T15 — Full automation qualification</td><td>Integrated automatic journey, editor/settings for every supported capability, actor/grant revocation, failure recovery, load bounds and rollout/rollback runbooks.</td><td>After T7–T14. All RQ01–RQ35 have evidence. Includes production prerequisites for every enabled connector/OCR path. RQ35.</td></tr>
+  </tbody>
+</table>
+<p>A working invoice-only workflow is the first vertical delivery after T4. T7 completes the foundation milestone; T8–T15 are required to complete this expanded epic. Enable automatic triggers, graph features and connector writes separately after their acceptance gates. Invoice development does not wait for marketplace completion.</p>
+
+<h2 id="verification">17. Verification and rollout</h2>
+<ul>
+  <li><strong>Unit:</strong> table priorities/defaults, decimal boundaries, missing facts, allowed operators, graph validation, hash stability, settings precedence and request state decisions. Use existing xUnit/FluentAssertions patterns.</li>
+  <li><strong>Service/API:</strong> direct tool versus HTTP equivalence, tenant/resource access, named reviewer versus requester, stale revisions, exact approval hashes, request privacy, scopes and grant revocation. Use fresh InMemory contexts for ordinary service behavior with mocked ITenantProvider.</li>
+  <li><strong>SQL integration:</strong> generated migrations, RowVersion races, unique request/admission/continuation keys, atomic outbox writes, simultaneous approval consumption, cancellation/callback races and crash recovery. InMemory tests cannot prove these properties.</li>
+  <li><strong>Real runtime:</strong> MAF conditional routing/checkpoints, process restart at approval wait and after dispatch, incompatible checkpoint refusal and idempotent continuation. Simulate uncertain completion and verify NeedsAttention rather than repeat effects.</li>
+  <li><strong>Provider/UI:</strong> bounded Gmail reads using an authorized test account, reconnect/revocation, no mark-read/send side effects, malicious email instructions, reviewer cards, authoring CRUD and truthful request status. Fixtures are sufficient for CI; real-account rehearsal is required before claiming pilot readiness.</li>
+  <li><strong>Build:</strong> dotnet build Aonik.sln; dotnet test Aonik.sln with unrelated baseline failures explicitly recorded; relevant AdminUi type/build/test checks. No new tests that only mirror getters or reversible documentation edits.</li>
+  <li><strong>Migrations:</strong> generate through dotnet ef migrations add &lt;Name&gt; --project src/Aonik.Infrastructure --startup-project src/Aonik.Api; review tool output, apply locally and test upgrade. Never manually author migration operations or snapshots.</li>
+  <li><strong>Expanded automation:</strong> qualify recurring/event admission, Gmail cursor recovery, actor revocation, loop/child/parallel restart, compound rule policies, shared-library upgrades, exact email writes, real OCR/intake and reviewed package lifecycle. Include an end-to-end scheduled or Gmail-triggered run that pauses for human financial approval and records its final domain/mail outcomes.</li>
+</ul>
+<p>Feature-enable per tenant using existing configuration/module patterns, initially off. Verify configured currency thresholds, reviewer roles/SoD, consent configuration, Google production prerequisites, shared Data Protection keys and retention before allowing the pilot tenant. Start with manual launches and a small set of accounts, then enable T8–T15 capabilities per tenant after their independent qualification. Record tested package/action/definition versions for each rollout.</p>
+<p>Rollback disables new starts/connectors as appropriate and retires the problematic version. Pending runs are suspended/cancelled before further effects; preserve immutable versions, approval history and checkpoints for reconciliation. Do not drop tables or silently downgrade incompatible checkpoints during rollback. Publish clear operator instructions for NeedsAttention, consent expiry and reauthorization.</p>
+
+<h2 id="decisions">18. Decision Log</h2>
+<p>DEC01–DEC10 record revision 4 foundation choices. Revision 5 explicitly supersedes their deferrals through DEC11–DEC14 below; the expanded automation is now in scope.</p>
+<ul>
+  <li><strong>DEC01 — 2026-11-14:</strong> keep decision tables inside workflow definitions and publish together. Replaces revision 3's proposed separate matrix/rule/version/binding aggregates; the pilot has no independent rule-library lifecycle.</li>
+  <li><strong>DEC02 — 2026-11-14:</strong> use a flat all-comparisons FirstMatch table. Rich expression trees and multiple hit policies add validation complexity without improving the invoice pilot.</li>
+  <li><strong>DEC03 — 2026-11-14:</strong> reuse WorkItem leases, outbox/inbox and MAF checkpoints. Five new durable record types cover missing run/connection state; no duplicate scheduler, decision-evaluation store or connector-action-run store.</li>
+  <li><strong>DEC04 — 2026-11-14:</strong> start with code-registered native Gmail read actions. Dynamic connector catalogs, full MCP/HTTP adaptation and write actions are deferred.</li>
+  <li><strong>DEC05 — 2026-11-14:</strong> support both user and tenant ownership from the first connection model. Separate preferences from grants/restrictions; ordinary settings fallback must not decide authorization.</li>
+  <li><strong>DEC06 — 2026-11-14:</strong> use Pending/AwaitingConsent/Fulfilled plus terminal request outcomes and reason codes. Sub-step-specific state machines and automatic provider provisioning are unnecessary.</li>
+  <li><strong>DEC07 — 2026-11-14:</strong> treat workflow start as medium admission, not a blanket high-risk proposal. Governance publication remains high; every domain action keeps its own approval. One exact authorized invoice confirmation avoids duplicate prompts.</li>
+  <li><strong>DEC08 — 2026-11-14:</strong> current medium requester-only and proposal same-tenant checks need focused reviewer extensions; reuse both rather than adding a Human approval engine.</li>
+  <li><strong>DEC09 — 2026-11-14:</strong> pilot background continuations use the persisted initiating user and explicit workflow grant. New autonomous service identities, subscriptions and schedules wait for a concrete use case.</li>
+  <li><strong>DEC10 — 2026-11-14:</strong> MAF 1.28.0 is the researched upgrade target; net10.0 remains. API compatibility and pending checkpoint behavior must be proven, not assumed from version numbers.</li>
+  <li><strong>DEC11 — 2026-11-14:</strong> user explicitly includes all seven previously deferred automation areas. T1–T7 is now the foundation milestone; full completion is T1–T15/RQ01–RQ35.</li>
+  <li><strong>DEC12 — 2026-11-14:</strong> extend MAF/task/approval services for bounded control flow and typed evaluator schema v2. Shared libraries reuse Workflow/WorkflowVersion; this supersedes DEC01/DEC02's deferral without introducing a new engine.</li>
+  <li><strong>DEC13 — 2026-11-14:</strong> add three independently durable automation records for actor, trigger binding and provider subscription. Reuse existing Documents extraction/OCR contracts and never expose internal machine invoice creation as an agent bypass.</li>
+  <li><strong>DEC14 — 2026-11-14:</strong> include a curated connector marketplace, reviewed downloadable manifests/native deployment packages and MCP/HTTP adaptation. Keep one invocation/gate path; no arbitrary runtime code loading. Gmail writes, unattended execution and automatic triggers are now required, superseding DEC04/DEC09 deferrals.</li>
+</ul>
+<p>Tenant-specific thresholds, role IDs, self-approval policy and retention are deployment configuration, not hard-coded defaults. They must be supplied before publication/pilot enablement, but do not block implementing drafts, rules or request tools.</p>
+
+<h2 id="done">19. Done</h2>
+<p><strong>Delivered:</strong> the detailed design and T1 compatibility implementation, with qualification evidence in section 13.1. <strong>Pending:</strong> review/merge and T2–T15 workflow, connector and automation delivery. Check implementation requirements only after evidence is attached to the epic/tasks. The foundation is T1–T7/RQ01–RQ20; the complete epic requires T1–T15/RQ01–RQ35.</p>
+<footer>
+  <p>Related specifications: <a href="030.proposal-execution-dispatcher.html">030 Proposal dispatcher</a>,
+  <a href="032.tiered-ai-mutation-approval.html">032 Tiered approval</a>,
+  <a href="033.tenant-managed-agent-extensibility.html">033 Tenant tools</a>,
+  <a href="034.task-work-item-scheduling.html">034 Work items</a>,
+  <a href="097.per-tenant-module-enablement.html">097 Module enablement</a>.
+  Structure follows <a href="../templates/spec-template.md">the repository specification template</a>.
+  Source inspection and external version checks: 14 November 2026.</p>
+</footer>
+</body>
+</html>

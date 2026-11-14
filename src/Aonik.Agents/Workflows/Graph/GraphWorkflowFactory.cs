@@ -135,6 +135,11 @@ internal static class GraphWorkflowBuilder
             builder.AddEdge(from, to);
         }
 
+        foreach (EndExecutor endExecutor in executors.Values.OfType<EndExecutor>())
+        {
+            builder.WithOutputFrom(endExecutor);
+        }
+
         return builder.Build();
     }
 

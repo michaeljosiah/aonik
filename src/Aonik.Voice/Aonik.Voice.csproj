@@ -70,10 +70,10 @@
     <PackageReference Include="Voxa.Services.AzureVoiceLive" Version="0.4.0-alpha" />
 
     <!--
-      MAF aligned with Voxa at 1.5.0.
+      Spec 099: MAF 1.28 compatibility is verified with Voxa's agent-loop adapter.
     -->
-    <PackageReference Include="Microsoft.Agents.AI" Version="1.9.0" />
-    <PackageReference Include="Microsoft.Extensions.AI" Version="10.6.0" />
+    <PackageReference Include="Microsoft.Agents.AI" Version="1.28.0" />
+    <PackageReference Include="Microsoft.Extensions.AI" Version="10.11.0" />
 
     <!--
       EF Core (spec 024 Phase A — speech provider library). VoiceDbContext is module-scoped per
