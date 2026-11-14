@@ -123,22 +123,30 @@ internal sealed class TenantSkillsProviderFactory : ITenantSkillsProviderFactory
 
         if (plainDirs.Count > 0)
         {
-            // AllowedScriptExtensions = [] → no file is treated as a runnable script, so run_skill_script
-            // is not exposed for these skills even if a future package ships a scripts/ directory.
+            // Treat no files as runnable scripts, even if a future package ships a scripts/ directory.
             var strippedOptions = new AgentFileSkillsSourceOptions { AllowedScriptExtensions = [] };
-            builder = builder.UseFileSkills(plainDirs, strippedOptions);
+            builder = builder.UseSource(sourceLoggerFactory => new AgentFileSkillsSource(
+                plainDirs, options: strippedOptions, loggerFactory: sourceLoggerFactory));
         }
 
         if (scriptDirs.Count > 0)
         {
-            builder = builder.UseFileSkills(scriptDirs);
+            // No executable runner is configured by AONIK. Registering the source directly
+            // keeps skill reads available without the builder's mandatory-runner requirement.
+            builder = builder.UseSource(sourceLoggerFactory => new AgentFileSkillsSource(
+                scriptDirs, loggerFactory: sourceLoggerFactory));
         }
 
         builder = builder
             // Enforce the per-tenant enabled set (Spec 033 §8.1).
-            .UseFilter(skill => enabledNames.Contains(skill.Frontmatter.Name))
-            // Tenant skills always keep ScriptApproval on — even an enabled script is an approval event.
-            .UseScriptApproval(true);
+            .UseFilter((skill, _) => enabledNames.Contains(skill.Frontmatter.Name))
+            .UseOptions(options =>
+            {
+                options.DisableLoadSkillApproval = true;
+                options.DisableReadSkillResourceApproval = true;
+                // MAF 1.28 requires approval by default; retain it for script execution.
+                options.DisableRunSkillScriptApproval = false;
+            });
 
         var loggerFactory = serviceProvider.GetService<ILoggerFactory>();
         if (loggerFactory is not null)
@@ -146,6 +154,7 @@ internal sealed class TenantSkillsProviderFactory : ITenantSkillsProviderFactory
             builder = builder.UseLoggerFactory(loggerFactory);
         }
 
-        return builder.Build();
+        AgentSkillsProvider provider = builder.Build();
+        return scriptDirs.Count == 0 ? new ReadOnlySkillsContextProvider(provider) : provider;
     }
 }
