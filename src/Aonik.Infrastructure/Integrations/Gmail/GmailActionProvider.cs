@@ -46,6 +46,8 @@ internal sealed partial class GmailActionProvider(System.Net.Http.IHttpClientFac
         return call.Action.Key switch
         {
             GmailActionKeys.Search => ConnectorJson.Element(await SearchAsync(call, cancellationToken)),
+            GmailActionKeys.GetMessage when call.SourceMetadataOnly => ConnectorJson.Element(await ReadMessageAsync(call,
+                ConnectorJson.Read<GmailGetMessageRequest>(call.Arguments).MessageId, true, cancellationToken)),
             GmailActionKeys.GetMessage => ConnectorJson.Element(await MessageAsync(call, ConnectorJson.Read<GmailGetMessageRequest>(call.Arguments).MessageId, cancellationToken)),
             GmailActionKeys.GetAttachment => ConnectorJson.Element(await AttachmentAsync(call, cancellationToken)),
             GmailActionKeys.GetDraft => ConnectorJson.Element(await DraftAsync(call, ConnectorJson.Read<GmailGetDraftRequest>(call.Arguments).DraftId, cancellationToken)),
@@ -69,8 +71,12 @@ internal sealed partial class GmailActionProvider(System.Net.Http.IHttpClientFac
     }
 
     private async Task<GmailMessageResult> MessageAsync(ConnectorProviderCall call, string messageId, CancellationToken cancellationToken)
+        => (await ReadMessageAsync(call, messageId, false, cancellationToken)).Message;
+
+    private async Task<GmailSourceMessageResult> ReadMessageAsync(ConnectorProviderCall call, string messageId, bool metadataOnly, CancellationToken cancellationToken)
     {
-        JsonElement json = await GetAsync(call, $"messages/{Uri.EscapeDataString(messageId)}?format=full&fields=id,threadId,payload", 2 * 1024 * 1024, cancellationToken);
+        string fields = metadataOnly ? "id,threadId,internalDate,labelIds,payload(" + MetadataFields(12) + ")" : "id,threadId,payload";
+        JsonElement json = await GetAsync(call, $"messages/{Uri.EscapeDataString(messageId)}?format=full&fields={Uri.EscapeDataString(fields)}", 2 * 1024 * 1024, cancellationToken);
         string id = Text(json, "id", 256);
         if (id != messageId) throw new ConnectorProviderException("ProviderItemMismatch");
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -85,10 +91,11 @@ internal sealed partial class GmailActionProvider(System.Net.Http.IHttpClientFac
                 foreach (JsonElement header in sourceHeaders.EnumerateArray().Take(100))
                 {
                     string name = Text(header, "name", 100);
+                    if (metadataOnly && !name.Equals("Subject", StringComparison.OrdinalIgnoreCase)) continue;
                     if (name.Equals("Subject", StringComparison.OrdinalIgnoreCase) || name.Equals("From", StringComparison.OrdinalIgnoreCase)
                         || name.Equals("To", StringComparison.OrdinalIgnoreCase) || name.Equals("Date", StringComparison.OrdinalIgnoreCase)
                         || name.Equals("Message-ID", StringComparison.OrdinalIgnoreCase))
-                        headers.TryAdd(name, Clean(Text(header, "value", 2048)));
+                        headers.TryAdd(metadataOnly ? "Subject" : name, Clean(Text(header, "value", 2048)));
                 }
             Visit(payload, 0);
         }
@@ -98,7 +105,25 @@ internal sealed partial class GmailActionProvider(System.Net.Http.IHttpClientFac
         int byteCount = Math.Min(encoded.Length, MaximumTextBytes);
         while (byteCount > 0 && byteCount < encoded.Length && (encoded[byteCount] & 0xc0) == 0x80) byteCount--;
         text = Encoding.UTF8.GetString(encoded, 0, byteCount);
-        return new(id, Text(json, "threadId", 256), headers, text, truncated, attachments);
+        DateTime receivedAt = default;
+        List<string> labels = [];
+        if (metadataOnly && call.SourceMetadataOnly)
+        {
+            if (!long.TryParse(OptionalText(json, "internalDate", 20), System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out long milliseconds) || milliseconds <= 0)
+                throw new ConnectorProviderException("ProviderResponseInvalid");
+            try { receivedAt = DateTimeOffset.FromUnixTimeMilliseconds(milliseconds).UtcDateTime; }
+            catch (ArgumentOutOfRangeException) { throw new ConnectorProviderException("ProviderResponseInvalid"); }
+            if (!json.TryGetProperty("labelIds", out JsonElement sourceLabels) || sourceLabels.ValueKind != JsonValueKind.Array
+                || sourceLabels.GetArrayLength() > 100) throw new ConnectorProviderException("ProviderResponseInvalid");
+            foreach (JsonElement label in sourceLabels.EnumerateArray())
+            {
+                string? value = label.ValueKind == JsonValueKind.String ? label.GetString() : null;
+                if (value is not { Length: > 0 and <= 128 }) throw new ConnectorProviderException("ProviderResponseInvalid");
+                labels.Add(value);
+            }
+        }
+        return new(new(id, Text(json, "threadId", 256), headers, text, truncated, attachments), receivedAt, labels);
 
         void Visit(JsonElement part, int depth)
         {
@@ -110,7 +135,7 @@ internal sealed partial class GmailActionProvider(System.Net.Http.IHttpClientFac
                 string? attachmentId = OptionalText(body, "attachmentId", 4096);
                 long size = body.TryGetProperty("size", out JsonElement length) && length.TryGetInt64(out long count) ? count : 0;
                 if (attachmentId is not null) attachments.Add(new(attachmentId, FileName(fileName, mime), mime, size));
-                if (fileName.Length == 0 && (mime == "text/plain" || mime == "text/html") && body.TryGetProperty("data", out JsonElement data))
+                if (!metadataOnly && fileName.Length == 0 && (mime == "text/plain" || mime == "text/html") && body.TryGetProperty("data", out JsonElement data))
                 {
                     byte[] decoded = Decode(data.GetString() ?? "", 2 * 1024 * 1024);
                     StringBuilder target = mime == "text/plain" ? plain : html;
@@ -123,10 +148,13 @@ internal sealed partial class GmailActionProvider(System.Net.Http.IHttpClientFac
         }
     }
 
+    private static string MetadataFields(int depth) => "mimeType,filename,headers(name,value),body(attachmentId,size)"
+        + (depth > 0 ? ",parts(" + MetadataFields(depth - 1) + ")" : "");
+
     private async Task<GmailAttachmentResult> AttachmentAsync(ConnectorProviderCall call, CancellationToken cancellationToken)
     {
         GmailGetAttachmentRequest input = ConnectorJson.Read<GmailGetAttachmentRequest>(call.Arguments);
-        GmailMessageResult message = await MessageAsync(call, input.MessageId, cancellationToken);
+        GmailMessageResult message = (await ReadMessageAsync(call, input.MessageId, true, cancellationToken)).Message;
         GmailAttachmentMetadata metadata = message.Attachments.SingleOrDefault(attachment => attachment.Id == input.AttachmentId)
             ?? throw new ConnectorProviderException("ProviderItemNotFound");
         if (metadata.SizeBytes is < 1 or > MaximumAttachmentBytes) throw new ConnectorProviderException("AttachmentTooLarge");

@@ -120,6 +120,13 @@ internal sealed class WorkflowExecutionAuthorization(
             ?? throw new KeyNotFoundException("Workflow subject not found.");
     }
 
+    public async Task RequireSubjectModuleAsync(string subjectType, CancellationToken cancellationToken = default)
+    {
+        IWorkflowFactsProvider provider = factsProviders.SingleOrDefault(provider => provider.SubjectType == subjectType)
+            ?? throw new WorkflowExecutionException("SubjectProviderUnavailable");
+        await RequireModuleAsync(provider.GetType(), cancellationToken);
+    }
+
     public async Task RequireModuleAsync(Type implementation, CancellationToken cancellationToken = default)
     {
         string? module = ModuleCatalog.TryGetModuleId(implementation);

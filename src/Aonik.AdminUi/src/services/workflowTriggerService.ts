@@ -4,10 +4,10 @@ import type { WorkflowDiagnostic } from './workflowService';
 
 export interface TriggerDefinition {
   schemaVersion: 1; source: 'InvoiceCreated' | 'InvoiceIssued' | 'Schedule' | 'GmailMessageAdded'; workflowVersionId: string; automationIdentityId: string;
-  subject: { type: 'Invoice'; mapping: 'EventSubject' | 'Fixed'; fixedIds: string[] };
+  subject: { type: 'Invoice' | 'Document'; mapping: 'EventSubject' | 'Fixed' | 'MessageAttachments'; fixedIds: string[] };
   limits: { maximumStartsPerHour: number; maximumConcurrentRuns: number; maximumCausationDepth: number; ignoreSelfGenerated: boolean };
   schedule: { cron: string; timeZone: string; startAtUtc: string; endAtUtc: string; maximumOccurrences: number; maximumCatchUpOccurrences: number } | null;
-  mailbox: { connectionId: string; workflowGrantId: string; labelIds: string[]; mode: 'Polling' | 'PushWithPolling'; pollIntervalMinutes: number; allowPollingFallback: boolean; backfillSinceUtc: string | null } | null;
+  mailbox: { connectionId: string; workflowGrantId: string; labelIds: string[]; mode: 'Polling' | 'PushWithPolling'; pollIntervalMinutes: number; allowPollingFallback: boolean; backfillSinceUtc: string | null; subjectPrefix?: string | null } | null;
 }
 export interface WorkflowTrigger {
   id: string; workflowId: string; name: string; status: string; draftRevision: number; draftHash: string; draft: TriggerDefinition;

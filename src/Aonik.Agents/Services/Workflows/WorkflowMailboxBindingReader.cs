@@ -11,7 +11,8 @@ using Aonik.SharedKernel.Abstractions.Workflows;
 
 namespace Aonik.Agents.Services.Workflows;
 
-internal sealed class WorkflowMailboxBindingReader(AgentsDbContext database, ITenantProvider tenantProvider, WorkflowExecutionAuthorization execution, IConnectorService connectors)
+internal sealed class WorkflowMailboxBindingReader(AgentsDbContext database, ITenantProvider tenantProvider, WorkflowExecutionAuthorization execution,
+    IConnectorService connectors, IAutomationIdentityAuthorization? automation = null)
     : IWorkflowMailboxBindingReader
 {
     public async Task<ConnectorSubscriptionBinding> RequireActiveAsync(Guid bindingId, int revision, CancellationToken cancellationToken = default)
@@ -30,17 +31,26 @@ internal sealed class WorkflowMailboxBindingReader(AgentsDbContext database, ITe
             && workflow.State == Entities.Workflows.WorkflowStates.Active && workflow.RetiredAt == null, cancellationToken)) throw Denied();
         var version = await database.WorkflowVersions.AsNoTracking().SingleOrDefaultAsync(version => version.TenantId == tenantId && version.Id == definition.WorkflowVersionId
             && version.WorkflowId == binding.WorkflowId, cancellationToken) ?? throw Denied();
-        _ = WorkflowRunService.ReadDefinition(version);
+        var snapshot = WorkflowRunService.ReadDefinition(version);
+        if (WorkflowSubjectContract.Type(snapshot) != definition.Subject.Type) throw Denied();
+        await execution.RequireSubjectModuleAsync(definition.Subject.Type, cancellationToken);
         await execution.RequireEnabledAsync(cancellationToken);
         await execution.RequireAutomaticEnabledAsync(cancellationToken);
         var actor = new WorkflowActor("AutomationIdentity", definition.AutomationIdentityId, WorkflowVersionId: version.Id);
         await execution.RequireActorAsync(actor, cancellationToken);
+        if (definition.Subject.Type == WorkflowSubjects.Document)
+        {
+            if (automation is null || definition.Subject.Mapping != "MessageAttachments") throw Denied();
+            await automation.RequireAllSubjectsAsync(actor, WorkflowSubjects.Document, cancellationToken);
+        }
         foreach (Guid subjectId in definition.Subject.FixedIds) await execution.LoadFactsAsync(definition.Subject.Type, subjectId, actor, cancellationToken);
-        var connection = new WorkflowConnectorBinding(mailbox.ConnectionId, mailbox.WorkflowGrantId, [new(GmailActionKeys.Search, 1)]);
+        var connection = new WorkflowConnectorBinding(mailbox.ConnectionId, mailbox.WorkflowGrantId,
+            definition.Subject.Type == WorkflowSubjects.Document ? GmailActionKeys.ReadActions.Select(key => new ConnectorActionRef(key, 1)).ToArray() : [new(GmailActionKeys.Search, 1)]);
         await connectors.ValidateWorkflowBindingAsync(binding.WorkflowId, connection, new(GmailActionKeys.Search, 1), actor, cancellationToken);
         return new(binding.Id, revision, binding.WorkflowId, version.Id, definition.AutomationIdentityId,
             connection, mailbox.Mode, mailbox.PollIntervalMinutes,
-            mailbox.LabelIds, mailbox.AllowPollingFallback, mailbox.BackfillSinceUtc, binding.ActivatedAt);
+            mailbox.LabelIds, mailbox.AllowPollingFallback, mailbox.BackfillSinceUtc, binding.ActivatedAt,
+            definition.Subject.Type, mailbox.SubjectPrefix, definition.Limits.IgnoreSelfGenerated);
     }
 
     public Task<bool> IsDisabledAsync(Guid bindingId, CancellationToken cancellationToken = default)

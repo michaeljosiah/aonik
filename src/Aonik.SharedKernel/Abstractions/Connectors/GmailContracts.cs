@@ -11,6 +11,7 @@ public sealed record GmailMessageResult(string Id, string ThreadId, IReadOnlyDic
 public sealed record GmailGetAttachmentRequest(string MessageId, string AttachmentId);
 public sealed record GmailAttachmentResult(string MessageId, string AttachmentId, string FileReference, string ContentType,
     long SizeBytes, string Sha256);
+public sealed record GmailSourceMessageResult(GmailMessageResult Message, DateTime ReceivedAtUtc, IReadOnlyList<string> LabelIds);
 
 public static class GmailActionKeys
 {

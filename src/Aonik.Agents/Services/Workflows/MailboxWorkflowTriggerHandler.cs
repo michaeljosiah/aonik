@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Connectors;
+using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Events;
 using Aonik.SharedKernel.Events.Integration;
@@ -10,7 +11,7 @@ using Aonik.SharedKernel.Events.Integration;
 namespace Aonik.Agents.Services.Workflows;
 
 internal sealed class MailboxWorkflowTriggerHandler(AgentsDbContext database, ITenantProvider tenantProvider, IWorkflowMailboxBindingReader authority,
-    IClock clock, WorkflowTriggerTaskProtector proofs) : IEventHandler<ConnectorMessageAddedEvent>
+    IClock clock, WorkflowTriggerTaskProtector proofs, IFinancialDocumentMailboxIntake? documents = null) : IEventHandler<ConnectorMessageAddedEvent>
 {
     public async Task HandleAsync(ConnectorMessageAddedEvent message, CancellationToken cancellationToken = default)
     {
@@ -29,7 +30,10 @@ internal sealed class MailboxWorkflowTriggerHandler(AgentsDbContext database, IT
                 || mailbox.LabelIds.Any(label => !message.LabelIds.Contains(label, StringComparer.Ordinal))) continue;
             try { _ = await authority.RequireActiveAsync(binding.Id, binding.ActiveRevision!.Value, cancellationToken); }
             catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException) { continue; }
-            foreach (Guid subjectId in definition.Subject.FixedIds)
+            IReadOnlyList<Guid> subjectIds = definition.Subject.Type == "Document"
+                ? await (documents ?? throw new InvalidOperationException("Financial document intake is unavailable.")).AdmitAsync(binding.Id,
+                    binding.ActiveRevision.Value, message.MessageId, cancellationToken) : definition.Subject.FixedIds;
+            foreach (Guid subjectId in subjectIds)
             {
                 Guid taskId = Guid.NewGuid();
                 var payload = new WorkflowTriggerAdmissionPayload(binding.Id, binding.ActiveRevision!.Value, message.EventId, message.OccurredAt,

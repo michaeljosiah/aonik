@@ -50,6 +50,7 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<FinancialDocumentAuthorization>();
         services.AddScoped<FinancialDocumentService>();
         services.AddScoped<IFinancialDocumentReader>(sp => sp.GetRequiredService<FinancialDocumentService>());
+        services.AddScoped<IFinancialDocumentMailboxIntake, FinancialDocumentMailboxIntake>();
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowFactsProvider, FinancialDocumentFactsProvider>();
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler, FinancialDocumentWorkflowAction>();
         services.AddSingleton<SharedKernel.Abstractions.Agents.IToolApprovalManifest, FinancialDocumentToolApprovalManifest>();

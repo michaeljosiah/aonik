@@ -16,12 +16,13 @@ internal sealed class WorkflowTriggerValidator(IRecurrenceScheduleCalculator rec
         if (definition.Source is not ("InvoiceCreated" or "InvoiceIssued" or "Schedule" or "GmailMessageAdded"))
             errors.Add(new("UnsupportedTriggerSource", "source", "Select an available typed trigger source."));
         WorkflowTriggerSubject subject = definition.Subject;
-        if (subject is null || subject.Type != "Invoice" || subject.Mapping is not ("EventSubject" or "Fixed") || subject.FixedIds is null
+        bool documentSource = subject is { Type: "Document", Mapping: "MessageAttachments" } && definition.Source == "GmailMessageAdded";
+        if (subject is null || (!documentSource && (subject.Type != "Invoice" || subject.Mapping is not ("EventSubject" or "Fixed"))) || subject.FixedIds is null
             || subject.FixedIds.Count > 100 || subject.FixedIds.Any(id => id == Guid.Empty) || subject.FixedIds.Distinct().Count() != subject.FixedIds.Count
-            || (subject.Mapping == "EventSubject" ? subject.FixedIds.Count != 0 : subject.FixedIds.Count == 0)
-            || (definition.Source is "Schedule" or "GmailMessageAdded" && subject.Mapping != "Fixed")
-            || (definition.Source == "GmailMessageAdded" && subject.FixedIds.Count != 1))
-            errors.Add(new("InvalidTriggerSubject", "subject", "Select authoritative event invoice IDs or an explicit bounded list of fixed invoice IDs."));
+            || (subject.Mapping is "EventSubject" or "MessageAttachments" ? subject.FixedIds.Count != 0 : subject.FixedIds.Count == 0)
+            || (definition.Source is "Schedule" or "GmailMessageAdded" && !documentSource && subject.Mapping != "Fixed")
+            || (definition.Source == "GmailMessageAdded" && !documentSource && subject.FixedIds.Count != 1))
+            errors.Add(new("InvalidTriggerSubject", "subject", "Select event or fixed invoice IDs, or Document/MessageAttachments for Gmail with no fixed IDs."));
         WorkflowTriggerLimits limits = definition.Limits;
         if (limits is null || limits.MaximumStartsPerHour is < 1 or > 1000 || limits.MaximumConcurrentRuns is < 1 or > 10
             || limits.MaximumCausationDepth is < 1 or > 8)
@@ -30,6 +31,8 @@ internal sealed class WorkflowTriggerValidator(IRecurrenceScheduleCalculator rec
         else if (definition.Schedule is not null) errors.Add(new("UnexpectedSchedule", "schedule", "Only a schedule source may contain a recurrence."));
         if (definition.Source == "GmailMessageAdded") ValidateMailbox(definition.Mailbox, errors);
         else if (definition.Mailbox is not null) errors.Add(new("UnexpectedMailbox", "mailbox", "Only a Gmail source may contain mailbox synchronization settings."));
+        if (!documentSource && definition.Mailbox?.SubjectPrefix is not null)
+            errors.Add(new("UnexpectedMailboxSubjectPrefix", "mailbox.subjectPrefix", "Subject prefixes apply to Document attachment intake."));
         return errors;
     }
 
@@ -72,5 +75,8 @@ internal sealed class WorkflowTriggerValidator(IRecurrenceScheduleCalculator rec
             errors.Add(new("InvalidMailboxSynchronization", "mailbox", "Pin an account/grant, polling or push-with-polling mode, 5–1440 minute polling and at most twenty unique label IDs."));
         if (mailbox.BackfillSinceUtc is { } since && (since.Kind != DateTimeKind.Utc || since > clock.UtcNow || since < clock.UtcNow.AddDays(-7)))
             errors.Add(new("InvalidMailboxBackfill", "mailbox.backfillSinceUtc", "An explicit backfill is bounded to the preceding seven days. Omit it to suppress historical automation."));
+        if (mailbox.SubjectPrefix is not null && (string.IsNullOrWhiteSpace(mailbox.SubjectPrefix) || mailbox.SubjectPrefix.Length > 160
+            || mailbox.SubjectPrefix.Any(char.IsControl)))
+            errors.Add(new("InvalidMailboxSubjectPrefix", "mailbox.subjectPrefix", "Use an optional exact subject prefix of 1–160 printable characters."));
     }
 }

@@ -216,8 +216,13 @@ internal sealed class WorkflowTriggerService(AgentsDbContext database, ITenantPr
             && version.WorkflowId == workflow.Id && version.Id == definition.WorkflowVersionId, cancellationToken) ?? throw new KeyNotFoundException("Published workflow version not found.");
         WorkflowDefinition snapshot = WorkflowRunService.ReadDefinition(version);
         if (snapshot.DefinitionKind != "Workflow") throw new WorkflowConflictException("Automatic sources require a workflow; pure decision libraries are consumed through pinned Decision nodes.");
+        if (WorkflowSubjectContract.Type(snapshot) != definition.Subject.Type)
+            throw new WorkflowConflictException("The trigger subject must match the exact published workflow version.");
+        await execution.RequireSubjectModuleAsync(definition.Subject.Type, cancellationToken);
         var actor = new WorkflowActor("AutomationIdentity", definition.AutomationIdentityId, WorkflowVersionId: version.Id);
         await execution.RequireActorAsync(actor, cancellationToken);
+        if (definition.Subject.Type == WorkflowSubjects.Document)
+            await automation.RequireAllSubjectsAsync(actor, WorkflowSubjects.Document, cancellationToken);
         foreach (Guid subjectId in definition.Subject.FixedIds) await execution.LoadFactsAsync(definition.Subject.Type, subjectId, actor, cancellationToken);
         foreach (WorkflowDefinitionNode node in snapshot.Nodes.Where(node => WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Tool)))
         {
@@ -235,8 +240,10 @@ internal sealed class WorkflowTriggerService(AgentsDbContext database, ITenantPr
         {
             if (subscriptions is null) throw new ArgumentException("Mailbox synchronization is not provisioned.");
             await subscriptions.ValidateAsync(new(Guid.Empty, 0, workflow.Id, version.Id, actor.Id,
-                new(mailbox.ConnectionId, mailbox.WorkflowGrantId, [new(GmailActionKeys.Search, 1)]), mailbox.Mode, mailbox.PollIntervalMinutes,
-                mailbox.LabelIds, mailbox.AllowPollingFallback, mailbox.BackfillSinceUtc), cancellationToken);
+                new(mailbox.ConnectionId, mailbox.WorkflowGrantId, definition.Subject.Type == WorkflowSubjects.Document
+                    ? GmailActionKeys.ReadActions.Select(key => new ConnectorActionRef(key, 1)).ToArray() : [new(GmailActionKeys.Search, 1)]), mailbox.Mode, mailbox.PollIntervalMinutes,
+                mailbox.LabelIds, mailbox.AllowPollingFallback, mailbox.BackfillSinceUtc, SubjectType: definition.Subject.Type,
+                SubjectPrefix: mailbox.SubjectPrefix, IgnoreSelfGenerated: definition.Limits.IgnoreSelfGenerated), cancellationToken);
         }
     }
 

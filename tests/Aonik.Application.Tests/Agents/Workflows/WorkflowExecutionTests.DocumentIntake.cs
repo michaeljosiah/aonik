@@ -25,14 +25,90 @@ using Aonik.Platform.Entities.Integrations;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Documents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.Workflows;
+using Aonik.SharedKernel.Events.Integration;
 
 namespace Aonik.Application.Tests.Agents.Workflows;
 
 public partial class WorkflowExecutionTests
 {
+    [Fact]
+    public async Task MailboxIntake_Should_AdmitItsPrivateDocumentThroughProtectedOutbox_AndWaitForReviewedInvoiceCreation()
+    {
+        var fixture = new FinancialFixture(); ConnectorSubscriptionBinding? active = null;
+        using var host = new Host(services =>
+        {
+            fixture.Configure(services);
+            services.AddScoped<IWorkflowMailboxBindingReader, WorkflowMailboxBindingReader>();
+            services.AddScoped<MailboxWorkflowTriggerHandler>(); services.AddScoped<IFinancialDocumentMailboxIntake, FinancialDocumentMailboxIntake>();
+            var connectors = new Mock<IConnectorService>();
+            connectors.Setup(value => value.ValidateWorkflowBindingAsync(It.IsAny<Guid>(), It.IsAny<WorkflowConnectorBinding>(), It.IsAny<ConnectorActionRef>(), It.IsAny<WorkflowActor>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            services.AddSingleton(connectors.Object);
+            var subscriptions = new Mock<IConnectorSubscriptionService>(); subscriptions.Setup(value => value.ValidateAsync(It.IsAny<ConnectorSubscriptionBinding>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            services.AddSingleton(subscriptions.Object);
+            var sources = new Mock<IFinancialDocumentSourceAccess>(); sources.Setup(value => value.RequireAsync(It.IsAny<FinancialDocumentSource>(), It.IsAny<WorkflowActor>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+            services.AddSingleton(sources.Object);
+            var parties = new Mock<IPartyReader>(); parties.Setup(value => value.GetTenantPartyIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(Guid.NewGuid()); services.AddSingleton(parties.Object);
+            services.AddSingleton(Mock.Of<IAuditLogWriter>());
+            var mailbox = new Mock<IFinancialDocumentMailboxReader>();
+            mailbox.Setup(value => value.ReadAsync(It.IsAny<Guid>(), 1, "source-message", It.IsAny<CancellationToken>())).ReturnsAsync(() =>
+            {
+                ConnectorSubscriptionBinding binding = active!;
+                return new FinancialDocumentAttachment[] { new(new(binding.Connection.ConnectionId, "synthetic-google-account", binding.WorkflowId, binding.WorkflowVersionId,
+                    binding.Connection.WorkflowGrantId, binding.AutomationIdentityId, binding.BindingId, 1, "source-message", "source-attachment",
+                    Convert.ToHexStringLower(SHA256.HashData(fixture.Bytes))), "invoice.txt", "text/plain", fixture.Bytes) };
+            }); services.AddSingleton(mailbox.Object);
+            var store = new Mock<IDocumentFileStore>(); store.Setup(value => value.OpenReadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(() => new MemoryStream(fixture.Bytes));
+            store.Setup(value => value.UploadPrivateDocumentFileAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Stream>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync((Guid _, Guid documentId, Stream _, string name, string type, CancellationToken _) => new("PrivateTest", null, "private:" + documentId, type, name, fixture.Bytes.Length, Convert.ToHexStringLower(SHA256.HashData(fixture.Bytes))));
+            services.AddSingleton(store.Object);
+        });
+        WorkflowVersionPin child = await host.PublishChild(); WorkflowVersionPin intake = await host.PublishChild(draft => fixture.Definition(draft, child), "document-intake");
+        await fixture.SeedAsync(host);
+        Guid tenantId; Guid workflowId;
+        using (IServiceScope scope = host.Scope())
+        {
+            var services = scope.ServiceProvider; tenantId = services.GetRequiredService<ITenantProvider>().GetCurrentTenantId();
+            workflowId = (await services.GetRequiredService<AgentsDbContext>().Workflows.SingleAsync(workflow => workflow.Slug == "document-intake")).Id;
+            var identity = new AutomationIdentity { TenantId = tenantId, Name = "Approved mailbox intake", ConfiguredByUserId = host.Actor.Author, AccountableUserId = host.Actor.Author,
+                PermissionsJson = JsonSerializer.Serialize(new[] { "Workflow.Read", "Workflow.Run", "Integration.Use", "Document.Read", "Document.Extract", "Invoice.Read", "Invoice.Create", "Invoice.Issue" }),
+                GrantsJson = JsonSerializer.Serialize(new[] { new AutomationWorkflowGrant(intake.VersionId, "Document", true, [],
+                    [new(FinancialDocumentActions.Extract, 1), new(FinancialDocumentActions.CreateInvoice, 1), .. GmailActionKeys.ReadActions.Select(key => new AutomationActionRef(key, 1))]),
+                    new(child.VersionId, "Invoice", true, [], [new("finance.invoices.issue", 1)]) }, WorkflowDefinitionCodec.JsonOptions) };
+            var platform = services.GetRequiredService<PlatformDbContext>(); platform.AutomationIdentities.Add(identity); await platform.SaveChangesAsync();
+            var triggers = services.GetRequiredService<WorkflowTriggerService>();
+            var definition = new WorkflowTriggerDefinition(1, "GmailMessageAdded", intake.VersionId, identity.Id, new("Document", "MessageAttachments", []), new(),
+                Mailbox: new(Guid.NewGuid(), Guid.NewGuid(), ["INBOX"], "Polling", 15, SubjectPrefix: "Qualification:"));
+            var draft = await triggers.SaveAsync("document-intake", null, new("Synthetic attachment intake", definition));
+            var publication = await triggers.RequestAsync("document-intake", draft.Id, new(draft.ExpectedVersion, draft.DraftHash), false);
+            (await services.GetRequiredService<IToolApprovalService>().DecideAsync(publication.ApprovalRequestId, new(ToolApprovalDecisionType.Approve))).Outcome.Should().Be(ToolApprovalDecisionOutcome.Approved);
+            active = await services.GetRequiredService<IWorkflowMailboxBindingReader>().RequireActiveAsync(draft.Id, 1);
+        }
+        host.Actor.Authenticated = false;
+        var message = new ConnectorMessageAddedEvent(Guid.NewGuid(), host.Clock.UtcNow, tenantId, active.Connection.ConnectionId, "source-message", "thread", host.Clock.UtcNow, ["INBOX"]);
+        Guid runId;
+        using (IServiceScope scope = host.Scope())
+        {
+            var services = scope.ServiceProvider; var handler = services.GetRequiredService<MailboxWorkflowTriggerHandler>();
+            await handler.HandleAsync(message); await handler.HandleAsync(message);
+            var wakes = await TriggerWakesAsync(services); wakes.Should().HaveCount(2);
+            foreach (var wake in wakes) (await services.GetRequiredService<WorkflowTriggerAdmissionTaskHandler>().ExecuteAsync(AdmissionContext(wake))).Outcome.Should().Be(SharedKernel.Abstractions.Tasks.TaskActionOutcome.Succeeded);
+            var run = await services.GetRequiredService<AgentsDbContext>().WorkflowRuns.SingleAsync(run => run.TriggerBindingId == active.BindingId);
+            runId = run.Id; run.ActorType.Should().Be("AutomationIdentity"); run.SubjectType.Should().Be("Document"); run.InitiatingUserId.Should().BeNull();
+            (await services.GetRequiredService<DocumentsDbContext>().Documents.CountAsync(document => document.Source == "Gmail")).Should().Be(1);
+        }
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForApproval);
+        await fixture.DecideAsync(host, runId, true); host.Actor.Authenticated = false;
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForChildren);
+        using IServiceScope final = host.Scope();
+        (await final.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be("Draft");
+        fixture.ParserCalls.Should().Be(1);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

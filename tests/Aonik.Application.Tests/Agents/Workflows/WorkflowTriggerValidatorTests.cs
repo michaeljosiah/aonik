@@ -85,6 +85,18 @@ public class WorkflowTriggerValidatorTests
         Validator().Validate(definition with { Mailbox = definition.Mailbox! with { PollIntervalMinutes = 1 } }).Should().NotBeEmpty();
     }
 
+    [Fact]
+    public void Mailbox_Should_AllowOnlyExplicitDocumentAttachmentMapping_WithBoundedSubjectPrefix()
+    {
+        var definition = Scheduled() with { Source = "GmailMessageAdded", Schedule = null, Subject = new("Document", "MessageAttachments", []),
+            Mailbox = new(Guid.NewGuid(), Guid.NewGuid(), ["INBOX"], "Polling", 15, SubjectPrefix: "Qualification:") };
+        Validator().Validate(definition).Should().BeEmpty();
+        Validator().Validate(definition with { Subject = new("Document", "Fixed", [Guid.NewGuid()]) }).Should().Contain(value => value.Code == "InvalidTriggerSubject");
+        Validator().Validate(definition with { Subject = definition.Subject with { FixedIds = [Guid.NewGuid()] } }).Should().Contain(value => value.Code == "InvalidTriggerSubject");
+        Validator().Validate(definition with { Mailbox = definition.Mailbox with { SubjectPrefix = "injected\nheader" } }).Should().Contain(value => value.Code == "InvalidMailboxSubjectPrefix");
+        Validator().Validate(definition with { Subject = new("Invoice", "Fixed", [Guid.NewGuid()]) }).Should().Contain(value => value.Code == "UnexpectedMailboxSubjectPrefix");
+    }
+
     private static WorkflowTriggerValidator Validator() => new(new RecurrenceCalculator(), new Clock());
     private static WorkflowTriggerDefinition Scheduled() => new(1, "Schedule", Guid.NewGuid(), Guid.NewGuid(), new("Invoice", "Fixed", [Guid.NewGuid()]), new(),
         new("0 0 9 * * ?", "Europe/London", new Clock().UtcNow, new Clock().UtcNow.AddDays(30), 30));

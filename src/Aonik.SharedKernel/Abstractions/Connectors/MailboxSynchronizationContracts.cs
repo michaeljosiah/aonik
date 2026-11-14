@@ -29,7 +29,8 @@ public interface IConnectorMailboxSyncProvider
 
 public sealed record ConnectorSubscriptionBinding(Guid BindingId, int Revision, Guid WorkflowId, Guid WorkflowVersionId,
     Guid AutomationIdentityId, WorkflowConnectorBinding Connection, string Mode, int PollIntervalMinutes,
-    IReadOnlyList<string> LabelIds, bool AllowPollingFallback, DateTime? BackfillSinceUtc, DateTime? ActivatedAtUtc = null);
+    IReadOnlyList<string> LabelIds, bool AllowPollingFallback, DateTime? BackfillSinceUtc, DateTime? ActivatedAtUtc = null,
+    string SubjectType = "Invoice", string? SubjectPrefix = null, bool IgnoreSelfGenerated = true);
 
 public interface IWorkflowMailboxBindingReader
 {

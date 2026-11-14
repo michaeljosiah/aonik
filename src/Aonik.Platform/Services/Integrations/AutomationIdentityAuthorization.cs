@@ -17,6 +17,19 @@ internal sealed class AutomationIdentityAuthorization(PlatformDbContext database
             && identity.Id == identityId && identity.Status == "Active" && identity.DisabledAt == null
             && (identity.ExpiresAt == null || identity.ExpiresAt > clock.UtcNow), cancellationToken);
 
+    public async Task RequireAllSubjectsAsync(WorkflowActor actor, string subjectType, CancellationToken cancellationToken = default)
+    {
+        await RequireAsync(actor, subjectType + ".Read", cancellationToken: cancellationToken);
+        string grants = await database.AutomationIdentities.AsNoTracking().Where(identity => identity.TenantId == tenantProvider.GetCurrentTenantId()
+            && identity.Id == actor.Id).Select(identity => identity.GrantsJson).SingleAsync(cancellationToken);
+        try
+        {
+            if (!ConnectorJson.Read<List<AutomationWorkflowGrant>>(grants).Any(grant => grant.WorkflowVersionId == actor.WorkflowVersionId
+                && grant.SubjectType == subjectType && grant.AllSubjects)) throw new PermissionDeniedException(subjectType + ".Read");
+        }
+        catch (System.Text.Json.JsonException) { throw new PermissionDeniedException(subjectType + ".Read"); }
+    }
+
     public async Task<Guid> RequireAsync(WorkflowActor actor, string permission, string? subjectType = null, Guid? subjectId = null,
         AutomationActionRef? action = null, CancellationToken cancellationToken = default)
     {

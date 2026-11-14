@@ -18,6 +18,8 @@ public interface IAutomationIdentityAuthorization
     /// <returns>The configuring human's ID for audit correlation only; it grants no human authority.</returns>
     Task<Guid> RequireAsync(WorkflowActor actor, string permission, string? subjectType = null, Guid? subjectId = null,
         AutomationActionRef? action = null, CancellationToken cancellationToken = default);
+    Task RequireAllSubjectsAsync(WorkflowActor actor, string subjectType, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Automatic admission of new subjects is unavailable.");
     Task<bool> IsActiveAsync(Guid identityId, CancellationToken cancellationToken = default);
 }
 

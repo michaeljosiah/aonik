@@ -11,7 +11,7 @@ public sealed record WorkflowTriggerSchedule(string Cron, string TimeZone, DateT
     int MaximumOccurrences, int MaximumCatchUpOccurrences = 0);
 public sealed record WorkflowTriggerMailbox(Guid ConnectionId, Guid WorkflowGrantId,
     IReadOnlyList<string> LabelIds, string Mode, int PollIntervalMinutes, bool AllowPollingFallback = false,
-    DateTime? BackfillSinceUtc = null);
+    DateTime? BackfillSinceUtc = null, string? SubjectPrefix = null);
 public sealed record SaveWorkflowTriggerRequest(string Name, WorkflowTriggerDefinition Definition, string? ExpectedVersion = null);
 public sealed record WorkflowTriggerCommand(string ExpectedVersion, string DefinitionHash);
 public sealed record WorkflowTriggerDetail(Guid Id, Guid WorkflowId, string Name, string Status, int DraftRevision,

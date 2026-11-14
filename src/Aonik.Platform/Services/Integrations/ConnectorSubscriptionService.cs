@@ -25,10 +25,17 @@ internal sealed partial class ConnectorSubscriptionService(PlatformDbContext dat
     public async Task ValidateAsync(ConnectorSubscriptionBinding binding, CancellationToken cancellationToken = default)
     {
         if (binding.Mode is not ("Polling" or "PushWithPolling") || binding.PollIntervalMinutes is < 5 or > 1440
-            || binding.Connection.AllowedActions.Count != 1 || !binding.Connection.AllowedActions.Contains(SyncAction)) throw new ArgumentException("Invalid mailbox synchronization bounds.");
+            || !binding.Connection.AllowedActions.Contains(SyncAction)
+            || (binding.SubjectType == "Document"
+                ? binding.Connection.AllowedActions.Count != 3 || GmailActionKeys.ReadActions.Any(key => !binding.Connection.AllowedActions.Contains(new(key, 1)))
+                : binding.SubjectType != "Invoice" || binding.Connection.AllowedActions.Count != 1)) throw new ArgumentException("Invalid mailbox synchronization bounds.");
         if (binding.Mode == "PushWithPolling" && Provider.PushTopic is null && !binding.AllowPollingFallback)
             throw new ConnectorAccessException("MailboxPushNotConfigured", "Provision authenticated Gmail push, or explicitly approve polling fallback.");
         await RequireUseAsync(binding, cancellationToken);
+        foreach (ConnectorActionRef action in binding.Connection.AllowedActions)
+            await authorization.RequireUseAsync(binding.Connection.ConnectionId, catalog.Resolve(action),
+                new(new("AutomationIdentity", binding.AutomationIdentityId, WorkflowVersionId: binding.WorkflowVersionId), binding.WorkflowId,
+                    binding.WorkflowVersionId, PinnedGrantId: binding.Connection.WorkflowGrantId, AllowedActions: binding.Connection.AllowedActions), cancellationToken);
     }
 
     public async Task<Guid> ActivateAsync(Guid bindingId, int revision, CancellationToken cancellationToken = default)

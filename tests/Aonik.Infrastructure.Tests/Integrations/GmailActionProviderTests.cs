@@ -62,6 +62,24 @@ public class GmailActionProviderTests
     }
 
     [Fact]
+    public async Task SourceMetadata_Should_ExcludeBodyData_AndReturnCurrentLabelsDateAndOnlySubject()
+    {
+        using var http = new HttpFixture(ConnectorJson.Serialize(new { id = "message-1", threadId = "thread-1", internalDate = "1794657600000", labelIds = new[] { "INBOX" },
+            payload = new { mimeType = "multipart/mixed", headers = new[] { new { name = "subject", value = "Qualification invoice" }, new { name = "From", value = "private@example.test" } },
+                parts = new object[] { new { mimeType = "text/plain", body = new { data = "not-valid-base64-and-must-never-be-read" } },
+                    new { mimeType = "application/pdf", filename = "invoice.pdf", body = new { attachmentId = "attachment-1", size = 42 } } } } }));
+
+        GmailSourceMessageResult result = ConnectorJson.Read<GmailSourceMessageResult>(await http.Provider().InvokeAsync(
+            http.Call(GmailActionKeys.GetMessage, new GmailGetMessageRequest("message-1")) with { SourceMetadataOnly = true }));
+
+        string fields = QueryHelpers.ParseQuery(http.LastUri!.Query)["fields"].ToString();
+        fields.Should().Contain("attachmentId,size").And.NotContain("data");
+        result.Message.Text.Should().BeEmpty(); result.Message.Headers.Keys.Should().Equal("Subject");
+        result.Message.Attachments.Should().ContainSingle().Which.Id.Should().Be("attachment-1");
+        result.LabelIds.Should().Equal("INBOX"); result.ReceivedAtUtc.Kind.Should().Be(DateTimeKind.Utc);
+    }
+
+    [Fact]
     public async Task Message_Should_RefuseAResponseForAnotherItem()
     {
         using var http = new HttpFixture("{\"id\":\"other-message\",\"threadId\":\"thread-1\"}");

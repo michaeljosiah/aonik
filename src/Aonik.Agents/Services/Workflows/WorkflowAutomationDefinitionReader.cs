@@ -34,12 +34,14 @@ internal sealed class WorkflowAutomationDefinitionReader(AgentsDbContext databas
             await execution.RequireModuleAsync(handler.GetType(), cancellationToken);
             capabilities.Add(new(handler.Descriptor.Key, handler.Descriptor.Version, handler.Descriptor.RequiredPermission));
         }
-        // A trigger may need metadata synchronization without adding a dummy search step to its graph.
-        var synchronization = actions.Descriptors.SingleOrDefault(action => action.Key == GmailActionKeys.Search && action.Version == 1 && action.Approval is null);
-        if (synchronization is not null && capabilities.All(action => action.Key != synchronization.Key || action.Version != synchronization.Version))
+        // Source admission uses the same explicitly granted read actions, without dummy graph steps.
+        IReadOnlyList<string> sourceActions = WorkflowSubjectContract.Type(definition) == WorkflowSubjects.Document
+            ? GmailActionKeys.ReadActions : [GmailActionKeys.Search];
+        foreach (var synchronization in actions.Descriptors.Where(action => sourceActions.Contains(action.Key) && action.Version == 1 && action.Approval is null))
         {
+            if (capabilities.Any(action => action.Key == synchronization.Key && action.Version == synchronization.Version)) continue;
             await execution.RequireModuleAsync(actions.Resolve(synchronization.Key, synchronization.Version).GetType(), cancellationToken);
-            capabilities.Add(new(synchronization.Key, synchronization.Version, synchronization.RequiredPermission, "Optional approved mailbox trigger synchronization"));
+            capabilities.Add(new(synchronization.Key, synchronization.Version, synchronization.RequiredPermission, "Optional approved mailbox source read"));
         }
         return new(version.WorkflowId, version.Id, version.DefinitionHash!, capabilities.Distinct().ToList(), WorkflowSubjectContract.Type(definition));
     }

@@ -120,7 +120,19 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
         return result;
     }
 
-    private async Task<JsonElement> InvokeAsync(Guid connectionId, ConnectorActionRef action, JsonElement arguments, ConnectorUseContext context, CancellationToken cancellationToken)
+    internal Task<JsonElement> InvokeSourceReadAsync(ConnectorSubscriptionBinding binding, ConnectorActionRef action, JsonElement arguments,
+        CancellationToken cancellationToken = default)
+    {
+        if (binding.SubjectType != "Document" || !GmailActionKeys.ReadActions.Contains(action.Key) || action.Version != 1
+            || !binding.Connection.AllowedActions.Contains(action)) throw ConnectorAuthorization.Access("WorkflowBindingRequired");
+        return InvokeAsync(binding.Connection.ConnectionId, action, arguments,
+            new(new("AutomationIdentity", binding.AutomationIdentityId, WorkflowVersionId: binding.WorkflowVersionId), binding.WorkflowId,
+                binding.WorkflowVersionId, PinnedGrantId: binding.Connection.WorkflowGrantId, AllowedActions: binding.Connection.AllowedActions), cancellationToken,
+            sourceMetadataOnly: action.Key == GmailActionKeys.GetMessage);
+    }
+
+    private async Task<JsonElement> InvokeAsync(Guid connectionId, ConnectorActionRef action, JsonElement arguments, ConnectorUseContext context,
+        CancellationToken cancellationToken, bool sourceMetadataOnly = false)
     {
         ConnectorActionDescriptor descriptor = catalog.Resolve(action);
         if (descriptor.Approval is not null) throw new PermissionDeniedException("Integration.Use", "Mutating connector actions require their enforcing approval path.");
@@ -142,8 +154,11 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
             {
                 string token = await credentials.AccessTokenAsync(connectionId, budget.Token);
                 connection = await authorization.RequireUseAsync(connectionId, descriptor, context, budget.Token);
-                JsonElement result = await provider.InvokeAsync(new(connection.Id, connection.ProviderAccountId, token, action, arguments, operationId), budget.Token);
-                await authorization.RequireUseAsync(connection.Id, descriptor, context, budget.Token);
+                string accountId = connection.ProviderAccountId;
+                JsonElement result = await provider.InvokeAsync(new(connection.Id, accountId, token, action, arguments, operationId,
+                    SourceMetadataOnly: sourceMetadataOnly), budget.Token);
+                ConnectorConnection current = await authorization.RequireUseAsync(connection.Id, descriptor, context, budget.Token);
+                if (current.ProviderAccountId != accountId) throw ConnectorAuthorization.Access("ProviderAccountChanged");
                 await RecordAsync("Connector.ReadCompleted", connection.Id, context, action, operationId, argumentsHash, attempt, null, budget.Token);
                 return result;
             }
