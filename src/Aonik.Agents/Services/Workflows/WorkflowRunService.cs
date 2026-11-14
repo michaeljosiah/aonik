@@ -12,6 +12,7 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Workflows;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Events.Integration;
 using Aonik.SharedKernel.Events.Outbox;
 
@@ -20,7 +21,7 @@ namespace Aonik.Agents.Services.Workflows;
 internal sealed class WorkflowRunService(
     AgentsDbContext database, ITenantProvider tenantProvider, WorkflowAuthorization authorization,
     WorkflowExecutionAuthorization executionAuthorization, IClock clock, WorkflowActionRegistry? actions = null,
-    WorkflowReviewerAuthorization? reviewers = null) : IWorkflowRunService
+    WorkflowReviewerAuthorization? reviewers = null, IConnectorService? connectors = null) : IWorkflowRunService
 {
     public async Task<WorkflowRunDetail> StartAsync(string slug, StartWorkflowRunRequest request, CancellationToken cancellationToken = default)
     {
@@ -127,6 +128,19 @@ internal sealed class WorkflowRunService(
             WorkflowExecutionAuthorization.Actor(run), cancellationToken);
         if (WorkflowFactsHash.Compute(current) != run.FactsHash && !await HasAppliedPendingOperationAsync(run, cancellationToken))
             throw new WorkflowConflictException("The workflow subject changed. Review a new run instead of replacing its approved facts.");
+        if (run.Status == WorkflowRunStatuses.WaitingForConnection)
+        {
+            WorkflowStepRun pending = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == run.TenantId
+                && step.RunId == run.Id && step.Id == run.PendingStepRunId, cancellationToken);
+            WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == run.TenantId
+                && version.Id == run.WorkflowVersionId && version.WorkflowId == run.WorkflowId, cancellationToken);
+            if (version.DefinitionHash != run.DefinitionHash) throw new WorkflowConflictException("The pinned definition changed.");
+            WorkflowToolParameters parameters = ReadDefinition(version).Nodes.Single(node => node.Key == pending.NodeKey).Parameters
+                .Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
+            if (connectors is null || parameters.Connection is null) throw new WorkflowConflictException("The published connector binding is unavailable.");
+            await connectors.ValidateWorkflowBindingAsync(run.WorkflowId, parameters.Connection, new(parameters.ActionKey, parameters.ContractVersion),
+                WorkflowExecutionAuthorization.Actor(run), cancellationToken);
+        }
         run.Status = WorkflowRunStatuses.Queued;
         run.ErrorCode = null;
         run.Continuation++;

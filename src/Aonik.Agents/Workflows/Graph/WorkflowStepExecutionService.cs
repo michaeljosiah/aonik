@@ -276,6 +276,8 @@ internal sealed class WorkflowStepExecutionService(
         {
             WorkflowFactsSnapshot current = await authorization.LoadFactsAsync(Run.SubjectType!, Run.SubjectId!.Value,
                 WorkflowExecutionAuthorization.Actor(Run), cancellationToken);
+            if (step.ActionKey is { } key && step.ActionVersion is { } version && actions.Resolve(key, version).Descriptor.Approval is null
+                && WorkflowFactsHash.Compute(current) != Run.FactsHash) throw new WorkflowExecutionException("SubjectChanged");
             Run.FactsJson = JsonSerializer.Serialize(current, WorkflowDefinitionCodec.JsonOptions);
             Run.FactsHash = WorkflowFactsHash.Compute(current);
         }

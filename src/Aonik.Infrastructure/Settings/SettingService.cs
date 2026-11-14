@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 
 using Aonik.Application.Abstractions.Persistence;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -12,6 +14,7 @@ using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Infrastructure.Caching;
 using Aonik.SharedKernel.Caching;
+using Aonik.SharedKernel.Abstractions.Connectors;
 
 namespace Aonik.Infrastructure.Settings;
 
@@ -26,6 +29,9 @@ public class SettingService : ISettingProvider, ISettingManager, ITenantSettingS
     private readonly ICurrentUserProvider _currentUserProvider;
     private readonly IPermissionService _permissionService;
     private readonly ICacheInvalidationPublisher _cacheInvalidationPublisher;
+    private readonly IAuthorizationService? _authorizationService;
+    private readonly IHttpContextAccessor? _httpContextAccessor;
+    private readonly IConnectorPreferenceValidator? _connectorPreferences;
 
     public SettingService(
         IAonikDbContext dbContext,
@@ -35,7 +41,10 @@ public class SettingService : ISettingProvider, ISettingManager, ITenantSettingS
         ITenantProvider tenantProvider,
         ICurrentUserProvider currentUserProvider,
         IPermissionService permissionService,
-        ICacheInvalidationPublisher cacheInvalidationPublisher)
+        ICacheInvalidationPublisher cacheInvalidationPublisher,
+        IAuthorizationService? authorizationService = null,
+        IHttpContextAccessor? httpContextAccessor = null,
+        IConnectorPreferenceValidator? connectorPreferences = null)
     {
         _dbContext = dbContext;
         _configuration = configuration;
@@ -45,6 +54,9 @@ public class SettingService : ISettingProvider, ISettingManager, ITenantSettingS
         _currentUserProvider = currentUserProvider;
         _permissionService = permissionService;
         _cacheInvalidationPublisher = cacheInvalidationPublisher;
+        _authorizationService = authorizationService;
+        _httpContextAccessor = httpContextAccessor;
+        _connectorPreferences = connectorPreferences;
     }
 
     public Task<string?> GetAsync(string key, CancellationToken cancellationToken = default)
@@ -260,7 +272,41 @@ public class SettingService : ISettingProvider, ISettingManager, ITenantSettingS
         ValidateScope(scope, tenantId, userId);
 
         var normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        if (key.StartsWith("Integrations.", StringComparison.OrdinalIgnoreCase))
+        {
+            key = IntegrationSettingNames.All.SingleOrDefault(name => string.Equals(name, key, StringComparison.OrdinalIgnoreCase))
+                ?? throw new ArgumentException("Unknown integration setting.");
+            if (scope == SettingScope.User && key != IntegrationSettingNames.GmailDefaultConnectionId)
+                throw new PermissionDeniedException("Integration.Manage", "Integration policy settings cannot be written at user scope.");
+            if (scope == SettingScope.Global)
+            {
+                if (_authorizationService is null || _httpContextAccessor?.HttpContext?.User is not { } principal
+                    || !(await _authorizationService.AuthorizeAsync(principal, null, "PlatformAdmin")).Succeeded)
+                    throw new PermissionDeniedException("Integration.ManagePlatform");
+            }
+            else
+            {
+                string requiredPermission = scope == SettingScope.Tenant ? "Integration.Manage" : "Integration.Use";
+                if (!_currentUserProvider.TryGetCurrentUserId(out Guid userIdValue)
+                    || !await _permissionService.HasPermissionAsync(userIdValue, requiredPermission, cancellationToken))
+                    throw new PermissionDeniedException(requiredPermission);
+                if (!_tenantProvider.TryGetCurrentTenantId(out Guid currentTenant) || currentTenant == Guid.Empty || tenantId != currentTenant
+                    || (scope == SettingScope.User && userId != userIdValue)) throw new PermissionDeniedException(requiredPermission);
+            }
+        }
+        if (scope == SettingScope.User && (string.Equals(key, WorkflowSettingNames.ExecutionEnabled, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key, WorkflowSettingNames.RequireSeparatePublisher, StringComparison.OrdinalIgnoreCase)))
+            throw new PermissionDeniedException("Workflow.Publish", "Workflow policy settings cannot be written at user scope.");
         var definition = SettingDefinitions.Get(key);
+
+        if (key == IntegrationSettingNames.GmailDefaultConnectionId && normalized is not null)
+        {
+            if (scope == SettingScope.Global || !Guid.TryParse(normalized, out Guid connectionId) || connectionId == Guid.Empty)
+                throw new ArgumentException("A default account is a tenant/user preference and requires an eligible connection ID.");
+            if (_connectorPreferences is null || _currentUserProvider.GetCurrentUserId() is not { } selector)
+                throw new PermissionDeniedException("Integration.Use");
+            await _connectorPreferences.RequireEligibleAsync(connectionId, selector, cancellationToken);
+        }
 
         var existing = await _dbContext.Settings
             .FirstOrDefaultAsync(

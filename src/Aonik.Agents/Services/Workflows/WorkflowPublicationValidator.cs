@@ -6,12 +6,15 @@ using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
+using Aonik.SharedKernel.Abstractions.Connectors;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Agents.Services.Workflows;
 
 internal sealed class WorkflowPublicationValidator(
     WorkflowActionRegistry actions, ITenantRoleReader roles, ITenantProvider tenantProvider,
-    WorkflowExecutionAuthorization authorization)
+    WorkflowExecutionAuthorization authorization, IEnumerable<IConnectorDescriptor>? connectors = null,
+    IConnectorService? connectorService = null, ICurrentUserProvider? currentUser = null)
 {
     public async Task<IReadOnlyList<WorkflowActionCapability>> CapabilitiesAsync(CancellationToken cancellationToken = default)
     {
@@ -26,7 +29,7 @@ internal sealed class WorkflowPublicationValidator(
         return available;
     }
 
-    public async Task<IReadOnlyList<WorkflowDiagnostic>> ValidateAsync(WorkflowDefinition definition, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<WorkflowDiagnostic>> ValidateAsync(WorkflowDefinition definition, CancellationToken cancellationToken = default, Guid? workflowId = null)
     {
         var diagnostics = WorkflowDefinitionValidator.Validate(definition, forPublication: true).ToList();
         if (definition.Nodes.Count > 30) diagnostics.Add(new("ExecutableNodeLimit", "nodes", "Executable workflows support at most 30 nodes."));
@@ -51,6 +54,15 @@ internal sealed class WorkflowPublicationValidator(
                     ?? throw new ArgumentException("Action parameters are required.");
                 var handler = actions.Resolve(parameters.ActionKey, parameters.ContractVersion);
                 await authorization.RequireModuleAsync(handler.GetType(), cancellationToken);
+                ConnectorActionDescriptor? connector = connectors?.SelectMany(item => item.Descriptor.Actions)
+                    .SingleOrDefault(action => action.Key == parameters.ActionKey && action.Version == parameters.ContractVersion);
+                if (connector is not null)
+                {
+                    if (connectorService is null || workflowId is null || parameters.Connection is null || currentUser?.GetCurrentUserId() is not { } userId)
+                        throw new ArgumentException("An exact authorized connection and workflow grant are required before publication.");
+                    await connectorService.ValidateWorkflowBindingAsync(workflowId.Value, parameters.Connection, new(connector.Key, connector.Version), new("User", userId, userId), cancellationToken);
+                }
+                else if (parameters.Connection is not null) throw new ArgumentException("Native domain actions cannot carry connector bindings.");
                 WorkflowInputBinder.ValidateNames(parameters, handler.Descriptor);
                 if (handler.Descriptor.Approval?.Tier is ToolApprovalTier.Medium or ToolApprovalTier.High)
                 {
@@ -94,7 +106,7 @@ internal sealed class WorkflowPublicationValidator(
                     handler.ValidateArguments(WorkflowInputBinder.Bind(parameters, new("fixture", new Dictionary<string, JsonElement>(), ""),
                         new Dictionary<string, SharedKernel.Abstractions.Workflows.WorkflowActionResult>()));
             }
-            catch (Exception exception) when (exception is ArgumentException or JsonException or WorkflowConflictException or WorkflowExecutionException)
+            catch (Exception exception) when (exception is ArgumentException or JsonException or WorkflowConflictException or WorkflowExecutionException or ConnectorAccessException or PermissionDeniedException)
             {
                 diagnostics.Add(new("ActionContract", node.Key, exception is WorkflowExecutionException ? "The action's module is unavailable." : exception.Message));
             }

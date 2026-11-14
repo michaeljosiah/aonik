@@ -12,6 +12,7 @@ using Aonik.Platform.Entities.Tasks;
 using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Entities.SignupLists;
 using Aonik.Platform.Entities.ContactEnquiries;
+using Aonik.Platform.Entities.Integrations;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Persistence;
@@ -68,6 +69,9 @@ internal class PlatformDbContext : AonikDbContextBase
     public DbSet<SignupSubscription> SignupSubscriptions { get; set; } = null!;
     public DbSet<ContactEnquiry> ContactEnquiries { get; set; } = null!;
     public DbSet<ContactEnquiryAttachment> ContactEnquiryAttachments { get; set; } = null!;
+    public DbSet<ConnectorConnection> ConnectorConnections { get; set; } = null!;
+    public DbSet<ConnectorConnectionGrant> ConnectorConnectionGrants { get; set; } = null!;
+    public DbSet<ConnectorConnectionRequest> ConnectorConnectionRequests { get; set; } = null!;
 
     // Compliance
     public DbSet<ScreeningCheck> ScreeningChecks { get; set; } = null!;
@@ -228,6 +232,9 @@ internal class PlatformDbContext : AonikDbContextBase
         MapTable<AzureMonitorAlertEvent>(modelBuilder, "AzureMonitorAlertEvents");
 
         MapTable<Setting>(modelBuilder, "Settings");
+        MapTable<ConnectorConnection>(modelBuilder, "ConnectorConnections");
+        MapTable<ConnectorConnectionGrant>(modelBuilder, "ConnectorConnectionGrants");
+        MapTable<ConnectorConnectionRequest>(modelBuilder, "ConnectorConnectionRequests");
         MapTable<TenantFeature>(modelBuilder, "TenantFeatures");
         MapTable<TenantModule>(modelBuilder, "TenantModules");
 

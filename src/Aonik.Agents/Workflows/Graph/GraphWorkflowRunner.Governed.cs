@@ -9,6 +9,7 @@ using Aonik.Agents.Services;
 using Aonik.Agents.Services.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Connectors;
 
 namespace Aonik.Agents.Workflows.Graph;
 
@@ -59,6 +60,7 @@ internal sealed partial class GraphWorkflowRunner
             if (version.DefinitionHash != run.DefinitionHash) throw new WorkflowExecutionException("DefinitionHashMismatch");
             context.OriginatingAiRunId = version.AiRunId;
             var definition = WorkflowRunService.ReadDefinition(version);
+            context.Definition = definition;
             if (definition.Nodes.Count > 30) throw new WorkflowExecutionException("GraphLimitExceeded");
             WorkflowStepExecutionService execution = scope.ServiceProvider.GetRequiredService<WorkflowStepExecutionService>();
             var workflow = GraphWorkflowBuilder.BuildGoverned(definition, execution);
@@ -120,11 +122,15 @@ internal sealed partial class GraphWorkflowRunner
             {
                 WorkflowExecutionException execution => execution.Code,
                 WorkflowConflictException => "WorkflowConflict",
+                ConnectorAccessException connector => connector.Code,
+                ConnectorProviderException connector => connector.Code,
                 PermissionDeniedException => "ExecutionAuthorityChanged",
                 OperationCanceledException => "ActiveTimeLimit",
                 _ => "ExecutionFailed",
             };
             status = error is "WorkflowRetired" or "RunCancelled" ? WorkflowRunStatuses.Cancelled : WorkflowRunStatuses.NeedsAttention;
+            if (cause is ConnectorAccessException || (cause is ConnectorProviderException && error is "ReauthorizationRequired" or "InsufficientScopes"))
+                status = WorkflowRunStatuses.WaitingForConnection;
             outcome = error == "SubjectChanged" ? "NeedsManualReview" : null;
             _logger.LogWarning("Workflow {RunId} stopped with {ErrorCode}", run.Id, error);
             if (run.PendingStepRunId is { } stepId)
@@ -157,6 +163,7 @@ internal sealed partial class GraphWorkflowRunner
             }
             context.Step = null;
             context.Run = null;
+            context.Definition = null;
         }
         return new(run.Status, run.Outcome, run.ErrorCode);
     }

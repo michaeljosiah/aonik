@@ -19,6 +19,14 @@ public static class SettingDefinitions
             [StripeSettingNames.ConnectorId] = new SettingDefinition(StripeSettingNames.ConnectorId),
             [WorkflowSettingNames.RequireSeparatePublisher] = new SettingDefinition(WorkflowSettingNames.RequireSeparatePublisher, "false"),
             [WorkflowSettingNames.ExecutionEnabled] = new SettingDefinition(WorkflowSettingNames.ExecutionEnabled, "false"),
+            [IntegrationSettingNames.GmailEnabled] = new(IntegrationSettingNames.GmailEnabled, "false"),
+            [IntegrationSettingNames.GmailAllowedActions] = new(IntegrationSettingNames.GmailAllowedActions),
+            [IntegrationSettingNames.GmailAllowUserConnections] = new(IntegrationSettingNames.GmailAllowUserConnections, "true"),
+            [IntegrationSettingNames.GmailAllowSelfService] = new(IntegrationSettingNames.GmailAllowSelfService, "false"),
+            [IntegrationSettingNames.GmailAllowWorkflowConnections] = new(IntegrationSettingNames.GmailAllowWorkflowConnections, "false"),
+            [IntegrationSettingNames.GmailDefaultConnectionId] = new(IntegrationSettingNames.GmailDefaultConnectionId),
+            [IntegrationSettingNames.RequestReviewerRoleId] = new(IntegrationSettingNames.RequestReviewerRoleId),
+            [IntegrationSettingNames.RequestExpiryDays] = new(IntegrationSettingNames.RequestExpiryDays, "7"),
 
             // ── Auth ──────────────────────────────────────────────────────
             [AuthSettingNames.Provider] = new SettingDefinition(AuthSettingNames.Provider, "AzureAd", IsVisibleToClients: true),

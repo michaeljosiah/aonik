@@ -9,4 +9,5 @@ internal sealed class WorkflowInvocationContext
     public WorkflowStepRun? Step { get; set; }
     public Guid LeaseId { get; set; }
     public Guid? OriginatingAiRunId { get; set; }
+    public Contracts.Models.Workflows.WorkflowDefinition? Definition { get; set; }
 }

@@ -83,7 +83,7 @@ internal sealed class WorkflowGovernancePreparation(
         if (publication is null && definition.Nodes.Any(node => WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Tool)))
             throw new ArgumentException("Governed action validation is unavailable in this host.");
         IReadOnlyList<WorkflowDiagnostic> diagnostics = publication is not null
-            ? await publication.ValidateAsync(definition, cancellationToken)
+            ? await publication.ValidateAsync(definition, cancellationToken, workflow.Id)
             : WorkflowDefinitionValidator.Validate(definition, forPublication: true);
         if (diagnostics.Any(diagnostic => diagnostic.Severity == "Error"))
             throw new ArgumentException("Publication validation failed: " + string.Join("; ", diagnostics.Where(diagnostic => diagnostic.Severity == "Error").Take(10).Select(diagnostic => diagnostic.Message)));

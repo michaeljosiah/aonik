@@ -333,7 +333,7 @@ internal sealed class WorkflowService : IWorkflowService
         WorkflowDefinition definition = WorkflowDefinitionCodec.FromGraph(graph);
         string hash = WorkflowDefinitionCodec.Hash(WorkflowDefinitionCodec.Serialize(definition));
         IReadOnlyList<WorkflowDiagnostic> diagnostics = _publication is not null
-            ? await _publication.ValidateAsync(definition, cancellationToken)
+            ? await _publication.ValidateAsync(definition, cancellationToken, graph.Id)
             : WorkflowDefinitionValidator.Validate(definition, forPublication: true);
         return new(!diagnostics.Any(diagnostic => diagnostic.Severity == "Error"), hash, diagnostics);
     }

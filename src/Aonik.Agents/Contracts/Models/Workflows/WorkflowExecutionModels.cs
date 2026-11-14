@@ -1,6 +1,7 @@
 using System.Text.Json;
 
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Connectors;
 
 namespace Aonik.Agents.Contracts.Models.Workflows;
 
@@ -18,6 +19,6 @@ public sealed record WorkflowStepApproval(Guid Id, string RiskTier, string Actio
 public sealed record WorkflowRunCommand(string ExpectedVersion);
 public sealed record WorkflowToolParameters(
     string ActionKey, int ContractVersion, IReadOnlyDictionary<string, WorkflowInputBinding> Inputs,
-    WorkflowReviewerRequirement? Reviewer = null);
+    WorkflowReviewerRequirement? Reviewer = null, WorkflowConnectorBinding? Connection = null);
 public sealed record WorkflowInputBinding(JsonElement? Literal = null, string? Fact = null, string? Step = null, string? Output = null);
 public sealed record WorkflowReviewerRequirement(Guid RoleId, bool ForbidSelfApproval = true);
