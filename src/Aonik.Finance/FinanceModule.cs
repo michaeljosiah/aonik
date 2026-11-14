@@ -81,7 +81,8 @@ public sealed class FinanceModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Payments.IRecurringPaymentInitiator, Services.Payments.RecurringPaymentInitiator>();
 
         // Payments
-        services.AddScoped<Contracts.Services.Payments.IPaymentService, Services.Payments.PaymentService>();
+        services.AddScoped<Services.Payments.PaymentService>();
+        services.AddScoped<Contracts.Services.Payments.IPaymentService>(provider => provider.GetRequiredService<Services.Payments.PaymentService>());
         services.AddScoped<Contracts.Services.Payments.IPublicPaymentService, Services.Payments.PublicPaymentService>();
         services.AddScoped<Services.Payments.CheckoutPaymentService>();
         services.AddScoped<Contracts.Services.Payments.IStripeConnectorResolver, Services.Payments.StripeConnectorResolver>();
@@ -109,6 +110,8 @@ public sealed class FinanceModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowFactsProvider>(provider => provider.GetRequiredService<Services.Billing.InvoiceWorkflowFactsProvider>());
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler, Services.Billing.InvoiceIssueWorkflowAction>();
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler, Services.Billing.InvoiceCreateFromDocumentWorkflowAction>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler, Services.Payments.InvoicePaymentIntentWorkflowAction>();
+        services.AddKeyedScoped<IProposalHandler, Services.Payments.InvoicePaymentIntentProposalHandler>(Services.Payments.InvoicePaymentIntentWorkflowAction.ProposalType);
         services.AddScoped<Contracts.Services.Billing.IBillingService>(sp => sp.GetRequiredService<Services.Billing.BillingService>());
 
         // Spec 042 — SharedKernel write contracts (the write mirror of the ADR-006 read contracts)

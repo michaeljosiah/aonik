@@ -17,6 +17,7 @@ using Aonik.Documents.Persistence;
 using Aonik.Documents.Services;
 using Aonik.Finance.Entities;
 using Aonik.Finance.Entities.Billing;
+using Aonik.Finance.Entities.Orders;
 using Aonik.Finance.Entities.ReferenceData;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Billing;
@@ -349,6 +350,8 @@ public partial class WorkflowExecutionTests
         public Guid FileId { get; } = Guid.NewGuid();
         public Guid CustomerId { get; } = Guid.NewGuid();
         public Guid AiRunId { get; } = Guid.NewGuid();
+        public Guid? OrderId { get; set; }
+        public bool IncludePayment { get; set; }
         public byte[] Bytes { get; set; } = Encoding.UTF8.GetBytes("AONIK DEMO SALES INVOICE\nCustomer: Demo Customer\nInvoice: DEMO-1001\nCurrency: GBP\nConsulting: 2 x 125.00 = 250.00\nTOTAL: 250.00\nDue: 2026-12-01");
         public FinancialDocumentFields Fields { get; set; } = new("SalesInvoice", "DEMO-1001", "Demo Customer", "GBP",
             new DateTime(2026, 12, 1, 0, 0, 0, DateTimeKind.Utc), [new("Consulting", 2m, 125m, 250m)], 250m, 0m, 0m, 250m, .99,
@@ -396,9 +399,12 @@ public partial class WorkflowExecutionTests
                 StorageKey = "private:source.txt", FileName = "source.txt", ContentType = ContentType, FileSizeBytes = Bytes.Length,
                 Sha256 = Convert.ToHexStringLower(SHA256.HashData(Bytes)) });
             await documents.SaveChangesAsync();
-            FinanceDbContext finance = services.GetRequiredService<FinanceDbContext>(); Guid partyId = Guid.NewGuid();
+            FinanceDbContext finance = services.GetRequiredService<FinanceDbContext>(); Guid partyId = Guid.NewGuid(); Guid merchantId = Guid.NewGuid();
             finance.Parties.Add(new PartyReadModel { Id = partyId, TenantId = tenant, DisplayName = "Demo Customer", Status = "Active" });
-            finance.CustomerAccounts.Add(new CustomerAccount { Id = CustomerId, TenantId = tenant, CustomerPartyId = partyId, MerchantPartyId = Guid.NewGuid(), Status = "Active" });
+            finance.Parties.Add(new PartyReadModel { Id = merchantId, TenantId = tenant, DisplayName = "Demo Merchant", Status = "Active" });
+            finance.CustomerAccounts.Add(new CustomerAccount { Id = CustomerId, TenantId = tenant, CustomerPartyId = partyId, MerchantPartyId = merchantId, Status = "Active" });
+            if (OrderId is { } orderId) finance.Orders.Add(new Order { Id = orderId, TenantId = tenant, OrderType = "Invoice", PayerPartyId = partyId,
+                AmountIn = Fields.Total, CurrencyIn = Fields.Currency, Status = "Draft", ProvenanceJson = "{}" });
             finance.Currencies.Add(new CurrencyReadModel { Code = "GBP", Name = "Pound sterling", MinorUnit = 2, IsActive = true });
             await finance.SaveChangesAsync();
         }
@@ -408,10 +414,10 @@ public partial class WorkflowExecutionTests
             if (!automatic) return (await services.GetRequiredService<IWorkflowRunService>().StartAsync("document-intake", new(intake.VersionId, "Document", DocumentId, "document-1"))).Id;
             Guid tenant = services.GetRequiredService<ITenantProvider>().GetCurrentTenantId();
             var identity = new AutomationIdentity { TenantId = tenant, Name = "Financial intake", AccountableUserId = host.Actor.Author, ConfiguredByUserId = host.Actor.Author,
-                PermissionsJson = JsonSerializer.Serialize(new[] { "Workflow.Read", "Workflow.Run", "Document.Read", "Document.Extract", "Invoice.Read", "Invoice.Create", "Invoice.Issue" }),
+                PermissionsJson = JsonSerializer.Serialize(new[] { "Workflow.Read", "Workflow.Run", "Document.Read", "Document.Extract", "Invoice.Read", "Invoice.Create", "Invoice.Issue", "Payment.Create", "Orders.Read" }),
                 GrantsJson = JsonSerializer.Serialize(new[] {
                     new AutomationWorkflowGrant(intake.VersionId, "Document", true, [], [new(FinancialDocumentActions.Extract, 1), new(FinancialDocumentActions.CreateInvoice, 1)]),
-                    new AutomationWorkflowGrant(child.VersionId, "Invoice", true, [], [new("finance.invoices.issue", 1)]),
+                    new AutomationWorkflowGrant(child.VersionId, "Invoice", true, [], IncludePayment ? [new("finance.invoices.issue", 1), new("finance.payments.create_invoice_intent", 1)] : [new("finance.invoices.issue", 1)]),
                 }, WorkflowDefinitionCodec.JsonOptions) };
             PlatformDbContext platform = services.GetRequiredService<PlatformDbContext>(); platform.AutomationIdentities.Add(identity); await platform.SaveChangesAsync();
             return await services.GetRequiredService<WorkflowRunService>().AdmitAsync(identity.Id, intake.VersionId, "Document", DocumentId, "document-automatic-1");
@@ -421,9 +427,10 @@ public partial class WorkflowExecutionTests
             var reviewer = JsonSerializer.Deserialize<WorkflowToolParameters>(draft.Nodes.Single(node => node.ClientId == "issue").ParamsJson, WorkflowDefinitionCodec.JsonOptions)!.Reviewer;
             string extract = JsonSerializer.Serialize(new WorkflowToolParameters(FinancialDocumentActions.Extract, 1,
                 new Dictionary<string, WorkflowInputBinding> { ["documentId"] = new(Fact: "document.id"), ["fileId"] = new(Fact: "document.fileId") }), WorkflowDefinitionCodec.JsonOptions);
-            string create = JsonSerializer.Serialize(new WorkflowToolParameters(FinancialDocumentActions.CreateInvoice, 1,
-                new Dictionary<string, WorkflowInputBinding> { ["extractionId"] = new(Step: "extract", Output: "extractionId"),
-                    ["candidateHash"] = new(Step: "extract", Output: "candidateHash"), ["customerId"] = new(Literal: JsonSerializer.SerializeToElement(CustomerId)) }, reviewer), WorkflowDefinitionCodec.JsonOptions);
+            Dictionary<string, WorkflowInputBinding> createInputs = new() { ["extractionId"] = new(Step: "extract", Output: "extractionId"),
+                ["candidateHash"] = new(Step: "extract", Output: "candidateHash"), ["customerId"] = new(Literal: JsonSerializer.SerializeToElement(CustomerId)) };
+            if (OrderId is { } orderId) createInputs["orderId"] = new(Literal: JsonSerializer.SerializeToElement(orderId));
+            string create = JsonSerializer.Serialize(new WorkflowToolParameters(FinancialDocumentActions.CreateInvoice, 1, createInputs, reviewer), WorkflowDefinitionCodec.JsonOptions);
             return draft with { SchemaVersion = 2,
                 Nodes = [new("start", "Trigger", "Financial source", "", "", 0, 0, "{\"subjectType\":\"Document\"}"),
                     new("extract", "Tool", "Extract candidate", "", "", 1, 0, extract), new("create", "Tool", "Review sales invoice", "", "", 2, 0, create),

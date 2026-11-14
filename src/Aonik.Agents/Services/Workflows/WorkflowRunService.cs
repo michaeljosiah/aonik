@@ -309,10 +309,12 @@ internal sealed class WorkflowRunService(
     {
         if (actions is null || run.PendingStepRunId is not { } pending) return false;
         WorkflowStepRun? step = await database.WorkflowStepRuns.AsNoTracking().SingleOrDefaultAsync(step => step.TenantId == run.TenantId
-            && step.RunId == run.Id && step.Id == pending && step.Status == "Executing", cancellationToken);
+            && step.RunId == run.Id && step.Id == pending && (step.Status == "Executing" || step.ProposalId != null), cancellationToken);
         if (step is null || step.ActionKey is null || step.ActionVersion is null || step.ArgumentsJson is null) return false;
         IWorkflowActionHandler handler = actions.Resolve(step.ActionKey, step.ActionVersion.Value);
+        if (step.Status != "Executing" && !handler.Descriptor.SupportsProposalReconciliation) return false;
         await executionAuthorization.RequireModuleAsync(handler.GetType(), cancellationToken);
+        await executionAuthorization.RequireActionAsync(WorkflowExecutionAuthorization.Actor(run), handler.Descriptor, run.SubjectType!, run.SubjectId!.Value, cancellationToken);
         var invocation = new WorkflowActionInvocation(run.Id, step.Id, step.OperationId, WorkflowExecutionAuthorization.Actor(run),
             run.SubjectType!, run.SubjectId!.Value, step.ExpectedSubjectVersion!, step.FactsHash!,
             JsonSerializer.Deserialize<JsonElement>(step.ArgumentsJson), step.ApprovalRequestId);

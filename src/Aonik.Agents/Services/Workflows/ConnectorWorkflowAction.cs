@@ -11,7 +11,7 @@ internal sealed class ConnectorWorkflowAction(ConnectorActionDescriptor action, 
     IEnumerable<IConnectorActionProvider> providers, WorkflowInvocationContext context, IConnectorMutationService? mutations = null) : IWorkflowActionHandler
 {
     public WorkflowActionDescriptor Descriptor { get; } = new(action.Key, action.Version, action.ToolName, "Integration.Use",
-        action.Approval, action.InputSchema, action.OutputSchema);
+        action.Approval, action.InputSchema, action.OutputSchema, SupportsProposalReconciliation: GmailActionPolicies.IsMutation(action.Key));
     public void ValidateArguments(JsonElement arguments) => providers.Single(provider => provider.ConnectorKey == action.ConnectorKey)
         .ValidateArguments(new(action.Key, action.Version), arguments);
     public Task<SharedKernel.Abstractions.Agents.ToolApprovalPreview?> GetPreviewAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken = default)

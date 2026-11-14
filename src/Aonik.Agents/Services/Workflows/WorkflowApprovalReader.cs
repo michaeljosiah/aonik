@@ -15,6 +15,43 @@ internal sealed class WorkflowApprovalReader(
     WorkflowReviewerAuthorization reviewers, IClock clock, IAutomationIdentityAuthorization? automation = null,
     WorkflowExecutionAuthorization? execution = null) : IWorkflowApprovalReader
 {
+    public async Task<ApprovedWorkflowProposal> RequireApprovedProposalAsync(Guid proposalId, WorkflowActionDescriptor action,
+        CancellationToken cancellationToken = default)
+    {
+        Guid tenantId = tenantProvider.GetCurrentTenantId();
+        if (execution is null || action.Approval is not { Tier: SharedKernel.Abstractions.Agents.ToolApprovalTier.High } policy)
+            throw new PermissionDeniedException("Workflow.Run");
+        Proposal proposal = await database.Proposals.AsNoTracking().SingleOrDefaultAsync(proposal => proposal.TenantId == tenantId && proposal.Id == proposalId, cancellationToken)
+            ?? throw new PermissionDeniedException(action.RequiredPermission);
+        var step = await database.WorkflowStepRuns.AsNoTracking().SingleOrDefaultAsync(step => step.TenantId == tenantId
+            && step.Id == proposal.WorkflowStepRunId, cancellationToken) ?? throw new PermissionDeniedException(action.RequiredPermission);
+        var run = await database.WorkflowRuns.AsNoTracking().SingleAsync(run => run.TenantId == tenantId && run.Id == step.RunId, cancellationToken);
+        ToolApprovalRequest request = await database.ToolApprovalRequests.AsNoTracking().SingleOrDefaultAsync(request => request.TenantId == tenantId
+            && request.Id == step.ApprovalRequestId && request.ProposalId == proposalId, cancellationToken) ?? throw new PermissionDeniedException(action.RequiredPermission);
+        JsonElement arguments = JsonSerializer.Deserialize<JsonElement>(step.ArgumentsJson ?? "null");
+        if (arguments.ValueKind != JsonValueKind.Object) throw new PermissionDeniedException(action.RequiredPermission);
+        string hash = SharedKernel.Abstractions.Agents.ToolArgumentsHash.Compute(arguments.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value));
+        JsonElement payload = JsonSerializer.Deserialize<JsonElement>(proposal.PayloadJson);
+        if (payload.ValueKind != JsonValueKind.Object) throw new PermissionDeniedException(action.RequiredPermission);
+        string payloadHash = SharedKernel.Abstractions.Agents.ToolArgumentsHash.Compute(payload.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value));
+        if (proposal.Status != ProposalStatus.Approved || proposal.ProposalType != policy.ProposalType || proposal.RiskTier != "High"
+            || proposal.ApprovedByUserId is not { } reviewer || proposal.ApprovedAt is null || request.DecidedByUserId != reviewer
+            || request.DecidedAt is null || request.ConsumedAt is null || request.Status != ToolApprovalRequestStatus.Approved || request.RiskTier != "High"
+            || request.ExpiresAt <= clock.UtcNow || request.WorkflowStepRunId != step.Id || request.ToolName != action.ToolName
+            || step.OperationId == Guid.Empty || step.ProposalId != proposal.Id || step.Status != "WaitingForApproval" || run.PendingStepRunId != step.Id
+            || step.ActionKey != action.Key || step.ActionVersion != action.Version || step.RequiredPermission != action.RequiredPermission
+            || hash != payloadHash || hash != request.ArgsHash || hash != step.ArgumentsHash || request.PreviewJson is null
+            || run.Status is not (Entities.Workflows.WorkflowRunStatuses.WaitingForApproval or Entities.Workflows.WorkflowRunStatuses.Running))
+            throw new PermissionDeniedException(action.RequiredPermission, "The exact workflow proposal has no current durable human approval.");
+        await execution.RequireSubjectModuleAsync(run.SubjectType!, cancellationToken);
+        await execution.RequireEnabledAsync(cancellationToken);
+        await reviewers.RequireAsync(request, reviewer, cancellationToken);
+        var invocation = new WorkflowActionInvocation(run.Id, step.Id, step.OperationId, WorkflowExecutionAuthorization.Actor(run), run.SubjectType!,
+            run.SubjectId!.Value, step.ExpectedSubjectVersion!, step.FactsHash!, arguments, request.Id);
+        return new(invocation, reviewer, JsonSerializer.Deserialize<SharedKernel.Abstractions.Agents.ToolApprovalPreview>(request.PreviewJson,
+            WorkflowDefinitionCodec.JsonOptions) ?? throw new PermissionDeniedException(action.RequiredPermission), step.AiRunId);
+    }
+
     public async Task RequireActiveInvocationAsync(WorkflowActionInvocation invocation, string actionKey, int actionVersion,
         CancellationToken cancellationToken = default)
     {

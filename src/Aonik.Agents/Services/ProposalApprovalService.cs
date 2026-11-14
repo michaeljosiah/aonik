@@ -160,12 +160,12 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         // that lets one status field support both recovery models.
         var isHighRisk = string.Equals(proposal.RiskTier, "High", StringComparison.OrdinalIgnoreCase);
 
-        ToolApprovalRequest? connectorRequest = await RequireConnectorDecisionAsync(proposal, ct);
+        ToolApprovalRequest? dispatchRequest = await RequireDispatchDecisionAsync(proposal, ct);
 
         proposal.Status = ProposalStatus.Approved;
         proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();
         proposal.ApprovedAt = _clock.UtcNow;
-        if (connectorRequest is not null) StampConnectorDecision(connectorRequest, ToolApprovalRequestStatus.Approved);
+        if (dispatchRequest is not null) StampDispatchDecision(dispatchRequest, ToolApprovalRequestStatus.Approved);
         await _dbContext.SaveChangesAsync(ct);
 
         ProposalHandlerResult result;
@@ -232,6 +232,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         {
             // Execution confirmed: Approved → Applied (terminal success).
             proposal.Status = ProposalStatus.Applied;
+            if (result.AiRunId is { } aiRunId && aiRunId != Guid.Empty) proposal.AiRunId = aiRunId;
             proposal.ExecutionResultJson ??= System.Text.Json.JsonSerializer.Serialize(result);
             EnqueueDecisionResolved(proposal, "Applied"); // Spec 041 — learn from the resolved decision
             if (proposal.WorkflowStepRunId.HasValue) await RequireWorkflowContinuations().AfterProposalAsync(proposal, ct);
@@ -259,7 +260,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
                 $"Proposal {proposalId} is already {proposal.Status} and cannot be dismissed.");
         }
 
-        ToolApprovalRequest? connectorRequest = await RequireConnectorDecisionAsync(proposal, ct);
+        ToolApprovalRequest? dispatchRequest = await RequireDispatchDecisionAsync(proposal, ct);
         proposal.Status = ProposalStatus.Rejected;
         // V1 reuses ApprovedByUserId / ApprovedAt to record the dismisser and
         // dismissal time (spec 030 §5.6 — schema deliberately unchanged in v1).
@@ -267,7 +268,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         // made the Approve-or-Dismiss decision."
         proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();
         proposal.ApprovedAt = _clock.UtcNow;
-        if (connectorRequest is not null) StampConnectorDecision(connectorRequest, ToolApprovalRequestStatus.Rejected);
+        if (dispatchRequest is not null) StampDispatchDecision(dispatchRequest, ToolApprovalRequestStatus.Rejected);
         if (proposal.WorkflowStepRunId.HasValue) await RequireWorkflowContinuations().AfterProposalAsync(proposal, ct);
         await _dbContext.SaveChangesAsync(ct);
 
@@ -333,17 +334,23 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
     private WorkflowContinuationWriter RequireWorkflowContinuations() => _workflowContinuations
         ?? throw new InvalidOperationException("Workflow continuation is unavailable.");
 
-    private async Task<ToolApprovalRequest?> RequireConnectorDecisionAsync(Proposal proposal, CancellationToken cancellationToken)
+    private async Task<ToolApprovalRequest?> RequireDispatchDecisionAsync(Proposal proposal, CancellationToken cancellationToken)
     {
-        if (GmailActionPolicies.ActionForProposal(proposal.ProposalType) is null) return null;
+        bool connector = GmailActionPolicies.ActionForProposal(proposal.ProposalType) is not null;
+        if (!connector && (!proposal.WorkflowStepRunId.HasValue || proposal.RiskTier != "High")) return null;
         ToolApprovalRequest request = await _dbContext.ToolApprovalRequests.SingleOrDefaultAsync(request => request.TenantId == proposal.TenantId && request.ProposalId == proposal.Id, cancellationToken)
             ?? throw new PermissionDeniedException("Integration.Use");
-        if (_connectorMutations is null) throw new PermissionDeniedException("Integration.Use");
-        await _connectorMutations.RequireReviewAsync(request.Id, cancellationToken);
+        if (request.Status != ToolApprovalRequestStatus.Pending || request.ExpiresAt <= _clock.UtcNow || request.RiskTier != "High")
+            throw new WorkflowConflictException("The proposal approval changed or expired.");
+        if (connector)
+        {
+            if (_connectorMutations is null) throw new PermissionDeniedException("Integration.Use");
+            await _connectorMutations.RequireReviewAsync(request.Id, cancellationToken);
+        }
         return request;
     }
 
-    private void StampConnectorDecision(ToolApprovalRequest request, ToolApprovalRequestStatus status)
+    private void StampDispatchDecision(ToolApprovalRequest request, ToolApprovalRequestStatus status)
     {
         request.Status = status;
         request.DecidedByUserId = _currentUserProvider.GetCurrentUserId();

@@ -4,28 +4,32 @@ using System.Net.Http.Json;
 using FluentAssertions;
 
 using Aonik.Agents.Contracts.Models.Workflows;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Workflows;
 
 namespace Aonik.Api.Tests;
 
 public class AutomationIdentityEndpointsTests(CustomWebApplicationFactory factory) : IClassFixture<CustomWebApplicationFactory>
 {
-    [Fact]
-    public async Task Administrator_Should_ManageExactPublishedGrants_WithoutCreatingAHumanLogin()
+    [Theory]
+    [InlineData("Invoice")]
+    [InlineData("Document")]
+    public async Task Administrator_Should_ManageExactPublishedGrants_WithoutCreatingAHumanLogin(string subjectType)
     {
         TestAuthOptions options = TestAuthOptions.Create().WithRoles("PersonalUser").WithPermissions("Integration.Read", "Integration.Manage", "Workflow.Read",
-            "Workflow.Write", "Workflow.Run", "Workflow.Publish", "Invoice.Read");
+            "Workflow.Write", "Workflow.Run", "Workflow.Publish", "Invoice.Read", "Document.Read");
         using HttpClient client = await factory.CreateAuthenticatedClientAsync(options);
         client.DefaultRequestHeaders.Add("X-Tenant-Id", options.TenantId.ToString());
         var draft = new WorkflowSaveRequest("automation-routing", "Automation routing", "", "Draft", "v0.1", false, "", null, [],
-            [new("start", "Trigger", "Start", "", "", 0, 0, "{}"), new("end", "End", "Done", "", "", 1, 0, "{}")], [new("start", "end", 0, "")], null);
+            [new("start", "Trigger", "Start", "", "", 0, 0, subjectType == "Document" ? "{\"subjectType\":\"Document\"}" : "{}"), new("end", "End", "Done", "", "", 1, 0, "{}")], [new("start", "end", 0, "")], null)
+            with { SchemaVersion = subjectType == "Document" ? 2 : 1 };
         WorkflowGraphResponse graph = (await (await client.PostAsJsonAsync("/ai/workflows", draft)).Content.ReadFromJsonAsync<WorkflowGraphResponse>())!;
         WorkflowValidation validation = (await (await client.PostAsJsonAsync($"/ai/workflows/{draft.Slug}/validate", new { })).Content.ReadFromJsonAsync<WorkflowValidation>())!;
         WorkflowGovernanceRequestResult publication = (await (await client.PostAsJsonAsync($"/ai/workflows/{draft.Slug}/publication-requests",
             new WorkflowGovernanceCommand(draft.Slug, graph.ExpectedVersion, validation.DefinitionHash, null))).Content.ReadFromJsonAsync<WorkflowGovernanceRequestResult>())!;
         (await client.PostAsJsonAsync($"/ai/tool-approvals/{publication.ApprovalRequestId}/decide", new { decision = "Approve" })).StatusCode.Should().Be(HttpStatusCode.OK);
         Guid versionId = (await client.GetFromJsonAsync<WorkflowGraphResponse>($"/ai/workflows/{draft.Slug}"))!.PublishedVersionId!.Value;
-        var command = new AutomationIdentityCommand("Invoice checks", options.UserId, null, [new(versionId, "Invoice", false, [Guid.NewGuid()], [])]);
+        var command = new AutomationIdentityCommand("Subject checks", options.UserId, null, [new(versionId, subjectType, false, [Guid.NewGuid()], [])]);
 
         HttpResponseMessage response = await client.PostAsJsonAsync("/v1/integrations/automation-identities", command);
 
@@ -35,7 +39,8 @@ public class AutomationIdentityEndpointsTests(CustomWebApplicationFactory factor
         identity.Status.Should().Be("Active");
         (await client.GetFromJsonAsync<AutomationIdentityUsage>($"/v1/integrations/automation-identities/{identity.Id}/usage"))!.ActiveRuns.Should().Be(0);
         AutomationWorkflowCapability capability = (await client.GetFromJsonAsync<AutomationWorkflowCapability>($"/v1/integrations/automation-identities/workflow-versions/{versionId}"))!;
-        capability.Actions.Should().ContainSingle(action => action.Purpose == "Optional approved mailbox trigger synchronization");
+        capability.Actions.Should().ContainSingle(action => action.Key == GmailActionKeys.Search && action.Version == 1 && action.RequiredPermission == "Integration.Use");
+        if (subjectType == "Document") capability.Actions.Select(action => action.Key).Should().BeEquivalentTo(GmailActionKeys.ReadActions);
         identity.Grants.Single().Actions.Should().BeEmpty("discovering a synchronization capability must not grant it");
         (await client.PutAsJsonAsync($"/v1/integrations/automation-identities/{identity.Id}", command with { ExpectedVersion = "stale" })).StatusCode.Should().Be(HttpStatusCode.Conflict);
         var update = await client.PutAsJsonAsync($"/v1/integrations/automation-identities/{identity.Id}", command with { Name = "Reviewed checks", ExpectedVersion = identity.ExpectedVersion });

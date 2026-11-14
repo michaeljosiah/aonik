@@ -28,6 +28,8 @@ internal sealed class FinanceToolApprovalManifest : IToolApprovalManifest
                 High("Finance.CancelPayment", "Cancel a payment intent"),
             ["finance_create_payment_intent"] =
                 High("Finance.CreatePaymentIntent", "Create a payment intent (authorises funds)"),
+            [Services.Payments.InvoicePaymentIntentWorkflowAction.ToolName] =
+                High(Services.Payments.InvoicePaymentIntentWorkflowAction.ProposalType, "Create the exact Order-linked invoice payment intent"),
             ["finance_mark_invoice_paid"] =
                 High("Finance.MarkInvoicePaid", "Mark an invoice paid (posts to the ledger)"),
 

@@ -78,7 +78,7 @@ internal sealed partial class WorkflowStepExecutionService(
         await authorization.RequireModuleAsync(handler.GetType(), cancellationToken);
         await authorization.RequireActionAsync(WorkflowExecutionAuthorization.Actor(Run), handler.Descriptor, Run.SubjectType!, Run.SubjectId!.Value, cancellationToken);
         WorkflowFactsSnapshot facts = await UnchangedFactsAsync(cancellationToken);
-        if (facts.BlockReason is { } blocked)
+        if (facts.BlockReason is { } blocked && handler.Descriptor.AllowedSubjectBlockReasons?.Contains(blocked, StringComparer.Ordinal) != true)
         {
             step.Status = "Blocked";
             step.ErrorCode = blocked;
@@ -141,18 +141,33 @@ internal sealed partial class WorkflowStepExecutionService(
         if (step.ProposalId is { } proposalId)
         {
             Proposal proposal = await database.Proposals.AsNoTracking().SingleAsync(proposal => proposal.Id == proposalId, cancellationToken);
+            if (proposal.Status == ProposalStatus.Proposed && step.ApprovalRequestId is { } pendingId)
+            {
+                ToolApprovalRequest pending = await database.ToolApprovalRequests.SingleAsync(request => request.TenantId == Run.TenantId && request.Id == pendingId, cancellationToken);
+                if (pending.Status == ToolApprovalRequestStatus.Pending && pending.ExpiresAt <= clock.UtcNow)
+                    pending.Status = ToolApprovalRequestStatus.Expired;
+                if (pending.Status == ToolApprovalRequestStatus.Expired)
+                {
+                    step.Status = "Blocked"; step.ErrorCode = "ApprovalExpired";
+                    await database.SaveChangesAsync(cancellationToken);
+                    return new(Run.Id, Outcome: step.ErrorCode, Stopped: true);
+                }
+            }
+            if (proposal.Status == ProposalStatus.Approved && actions.Resolve(step.ActionKey!, step.ActionVersion!.Value).Descriptor.SupportsProposalReconciliation)
+            {
+                WorkflowActionReconciliation recovered = await ReconcileActionAsync(step, cancellationToken);
+                if (recovered.Result is { } receipt) return await CompleteToolAsync(step, receipt, cancellationToken);
+                ToolApprovalRequest request = await database.ToolApprovalRequests.AsNoTracking().SingleAsync(request => request.TenantId == Run.TenantId && request.Id == step.ApprovalRequestId, cancellationToken);
+                if (request.ExpiresAt <= clock.UtcNow) throw new WorkflowExecutionException("ActionOutcomeUnknown");
+                return null;
+            }
             if (proposal.Status is ProposalStatus.Proposed or ProposalStatus.Approved) return null;
             if (proposal.Status == ProposalStatus.Applied) return new(Run.Id);
-            if (proposal.Status == ProposalStatus.Failed && SharedKernel.Abstractions.Connectors.GmailActionPolicies.IsMutation(step.ActionKey ?? ""))
+            if (proposal.Status == ProposalStatus.Failed && actions.Resolve(step.ActionKey!, step.ActionVersion!.Value).Descriptor.SupportsProposalReconciliation)
             {
-                invocationContext.Step = step;
-                try
-                {
-                    WorkflowActionReconciliation recovered = await actions.Resolve(step.ActionKey!, step.ActionVersion!.Value).ReconcileAsync(Invocation(step), cancellationToken);
-                    if (recovered.Result is { } receipt) return await CompleteToolAsync(step, receipt, cancellationToken);
-                    throw new WorkflowExecutionException("ActionOutcomeUnknown");
-                }
-                finally { invocationContext.Step = null; }
+                WorkflowActionReconciliation recovered = await ReconcileActionAsync(step, cancellationToken);
+                if (recovered.Result is { } receipt) return await CompleteToolAsync(step, receipt, cancellationToken);
+                throw new WorkflowExecutionException("ActionOutcomeUnknown");
             }
             step.Status = "Blocked";
             step.ErrorCode = proposal.Status == ProposalStatus.Failed ? "ProposalFailed" : "ApprovalRejected";
@@ -186,7 +201,7 @@ internal sealed partial class WorkflowStepExecutionService(
             if (proposal.Status != ProposalStatus.Applied || proposal.ExecutionResultJson is null) throw new WorkflowExecutionException("ProposalNotApplied");
             // High effects ran only through their typed proposal handler, never through this worker.
             var receipt = JsonSerializer.Deserialize<ProposalHandlerResult>(proposal.ExecutionResultJson, WorkflowDefinitionCodec.JsonOptions)!;
-            return await CompleteToolAsync(step, new("Applied", receipt.Output ?? JsonSerializer.SerializeToElement(receipt, WorkflowDefinitionCodec.JsonOptions)), cancellationToken);
+            return await CompleteToolAsync(step, new("Applied", receipt.Output ?? JsonSerializer.SerializeToElement(receipt, WorkflowDefinitionCodec.JsonOptions), receipt.AiRunId), cancellationToken);
         }
         if (step.Status == "Executing")
         {
@@ -239,8 +254,7 @@ internal sealed partial class WorkflowStepExecutionService(
         if (step is null) return;
         try
         {
-            WorkflowActionReconciliation recovered = await actions.Resolve(step.ActionKey!, step.ActionVersion!.Value)
-                .ReconcileAsync(Invocation(step), cancellationToken);
+            WorkflowActionReconciliation recovered = await ReconcileActionAsync(step, cancellationToken);
             if (recovered.Result is { } receipt)
             {
                 step.ResultJson = JsonSerializer.Serialize(receipt, WorkflowDefinitionCodec.JsonOptions);
@@ -261,6 +275,16 @@ internal sealed partial class WorkflowStepExecutionService(
             step.ErrorCode = "ReconciliationUnavailable";
         }
         await database.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<WorkflowActionReconciliation> ReconcileActionAsync(WorkflowStepRun step, CancellationToken cancellationToken)
+    {
+        IWorkflowActionHandler handler = actions.Resolve(step.ActionKey!, step.ActionVersion!.Value);
+        await authorization.RequireModuleAsync(handler.GetType(), cancellationToken);
+        await authorization.RequireActionAsync(WorkflowExecutionAuthorization.Actor(Run), handler.Descriptor, Run.SubjectType!, Run.SubjectId!.Value, cancellationToken);
+        invocationContext.Step = step;
+        try { return await handler.ReconcileAsync(Invocation(step), cancellationToken); }
+        finally { invocationContext.Step = null; }
     }
 
     private async Task<WorkflowStepRun> StepAsync(string nodeKey, CancellationToken cancellationToken, string invocationPath = "root")

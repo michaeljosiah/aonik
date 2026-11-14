@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.Documents.Entities;
 using Aonik.Finance.Entities.Billing;
+using Aonik.Finance.Entities.Orders;
+using Aonik.Finance.Entities.Payments;
 using Aonik.Infrastructure.Persistence;
 using Aonik.IntegrationTests.Support;
 using Aonik.Platform.Entities.Compliance;
@@ -86,6 +88,56 @@ public class FinancialIntakeSqlServerTests(SqlLocalDbFixture database) : IClassF
 
         await save.Should().ThrowAsync<DbUpdateConcurrencyException>();
         await using AonikDbContext saved = Context(tenantId); (await saved.DocumentExtractions.CountAsync(extraction => extraction.TenantId == tenantId)).Should().Be(0);
+    }
+
+    [SkippableFact]
+    public async Task ConcurrentInvoicePaymentOperations_Should_CommitOneIntentAndItsProvenance_UsingTheExistingIdempotencyIndex()
+    {
+        Skip.IfNot(database.IsAvailable, database.SkipReason); Guid tenantId = Guid.NewGuid();
+        var order = new Order { TenantId = tenantId, OrderType = "Invoice", PayerPartyId = Guid.NewGuid(), AmountIn = 250, CurrencyIn = "GBP", Status = "Draft", ProvenanceJson = "{}" };
+        var invoice = new Invoice { TenantId = tenantId, OrderId = order.Id, CustomerAccountId = Guid.NewGuid(), Currency = "GBP", Total = 250, Status = "Issued", ProvenanceJson = "{}" };
+        await using (AonikDbContext seed = Context(tenantId)) { seed.Set<Order>().Add(order); seed.Set<Invoice>().Add(invoice); await seed.SaveChangesAsync(); }
+        Task<bool>[] writes = Enumerable.Range(0, 8).Select(async _ =>
+        {
+            await using AonikDbContext context = Context(tenantId);
+            var currentOrder = await context.Set<Order>().SingleAsync(value => value.TenantId == tenantId && value.Id == order.Id);
+            var currentInvoice = await context.Set<Invoice>().SingleAsync(value => value.TenantId == tenantId && value.Id == invoice.Id);
+            context.Entry(currentOrder).Property(value => value.Status).IsModified = true;
+            context.Entry(currentInvoice).Property(value => value.Status).IsModified = true;
+            context.Set<PaymentIntent>().Add(new() { TenantId = tenantId, OrderId = order.Id, InvoiceId = invoice.Id, Amount = 250, Currency = "GBP", Status = "Pending",
+                PurposeType = "Order", PurposeId = order.Id, IdempotencyKey = "workflow-invoice-intent-v1-" + invoice.Id.ToString("N"), ProvenanceJson = "{\"operationId\":\"" + Guid.NewGuid() + "\"}" });
+            try { return await TrySaveAsync(context); }
+            catch (DbUpdateConcurrencyException) { return false; }
+        }).ToArray();
+
+        (await Task.WhenAll(writes)).Count(success => success).Should().Be(1);
+
+        await using AonikDbContext saved = Context(tenantId);
+        var receipt = await saved.Set<PaymentIntent>().SingleAsync(value => value.TenantId == tenantId);
+        receipt.InvoiceId.Should().Be(invoice.Id); receipt.OrderId.Should().Be(order.Id); receipt.ProvenanceJson.Should().Contain("operationId");
+    }
+
+    [SkippableFact]
+    public async Task ConcurrentOrderCancellation_Should_RollBackTheInvoiceIntentAndItsProvenance()
+    {
+        Skip.IfNot(database.IsAvailable, database.SkipReason); Guid tenantId = Guid.NewGuid();
+        var order = new Order { TenantId = tenantId, OrderType = "Invoice", AmountIn = 250, CurrencyIn = "GBP", Status = "Draft", ProvenanceJson = "{}" };
+        await using (AonikDbContext seed = Context(tenantId)) { seed.Set<Order>().Add(order); await seed.SaveChangesAsync(); }
+        await using AonikDbContext stale = Context(tenantId);
+        var old = await stale.Set<Order>().SingleAsync(value => value.TenantId == tenantId && value.Id == order.Id);
+        await using (AonikDbContext canceller = Context(tenantId))
+        {
+            var current = await canceller.Set<Order>().SingleAsync(value => value.TenantId == tenantId && value.Id == order.Id);
+            current.Status = "Cancelled"; await canceller.SaveChangesAsync();
+        }
+        stale.Entry(old).Property(value => value.Status).IsModified = true;
+        stale.Set<PaymentIntent>().Add(new() { TenantId = tenantId, OrderId = order.Id, Amount = 250, Currency = "GBP", Status = "Pending",
+            PurposeType = "Order", PurposeId = order.Id, IdempotencyKey = "workflow-stale-order", ProvenanceJson = "{\"operationId\":\"uncommitted\"}" });
+
+        Func<Task> save = async () => { await stale.SaveChangesAsync(); };
+
+        await save.Should().ThrowAsync<DbUpdateConcurrencyException>();
+        await using AonikDbContext saved = Context(tenantId); (await saved.Set<PaymentIntent>().CountAsync(value => value.TenantId == tenantId)).Should().Be(0);
     }
 
     private AonikDbContext Context(Guid tenantId) => new(database.CreateOptions<AonikDbContext>(), new TestTenantProvider(tenantId));

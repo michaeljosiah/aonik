@@ -11166,6 +11166,9 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("ProvenanceJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ProviderAccountId")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");

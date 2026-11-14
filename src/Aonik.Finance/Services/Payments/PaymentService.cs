@@ -14,13 +14,16 @@ using Aonik.Finance.Services.Observability;
 
 namespace Aonik.Finance.Services.Payments;
 
-internal class PaymentService : FinanceServiceBase, IPaymentService
+internal partial class PaymentService : FinanceServiceBase, IPaymentService
 {
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly FinanceMetrics _metrics;
     private readonly LedgerPostingService _ledgerPoster;
     private readonly ILogger<PaymentService> _logger;
+    private readonly SharedKernel.Abstractions.Workflows.IWorkflowApprovalReader? _workflowApprovals;
+    private readonly Billing.InvoiceWorkflowFactsProvider? _invoiceFacts;
+    private readonly SharedKernel.Abstractions.Documents.IFinancialDocumentReader? _financialDocuments;
 
     public PaymentService(
         FinanceDbContext dbContext,
@@ -29,7 +32,10 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         ICurrentUserProvider currentUserProvider,
         FinanceMetrics metrics,
         LedgerPostingService ledgerPoster,
-        ILogger<PaymentService> logger)
+        ILogger<PaymentService> logger,
+        SharedKernel.Abstractions.Workflows.IWorkflowApprovalReader? workflowApprovals = null,
+        Billing.InvoiceWorkflowFactsProvider? invoiceFacts = null,
+        SharedKernel.Abstractions.Documents.IFinancialDocumentReader? financialDocuments = null)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
@@ -37,11 +43,20 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         _metrics = metrics;
         _ledgerPoster = ledgerPoster;
         _logger = logger;
+        _workflowApprovals = workflowApprovals;
+        _invoiceFacts = invoiceFacts;
+        _financialDocuments = financialDocuments;
     }
 
     public async Task<PaymentIntentResponse> CreatePaymentIntentAsync(CreatePaymentIntentRequest request, CancellationToken cancellationToken = default)
     {
         await EnsurePermissionAsync("Payment.Create", cancellationToken);
+        return await CreatePaymentIntentCoreAsync(request, null, cancellationToken);
+    }
+
+    private async Task<PaymentIntentResponse> CreatePaymentIntentCoreAsync(CreatePaymentIntentRequest request,
+        WorkflowInvoicePayment? workflow, CancellationToken cancellationToken)
+    {
         var tenantId = _tenantProvider.GetCurrentTenantId();
 
         // An intent always funds an order, and the order is the canonical record of who
@@ -55,6 +70,7 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
         {
             throw new NotFoundException($"Order with ID {request.OrderId} not found");
         }
+        if (workflow is not null) await FenceInvoicePaymentAsync(order, workflow, cancellationToken);
 
         // Null (never Guid.Empty / a fabricated "Card") models genuine absence on a draft;
         // both payer and method are enforced at the authorize money-movement boundary.
@@ -72,12 +88,14 @@ internal class PaymentService : FinanceServiceBase, IPaymentService
             PurposeType = "Order",
             PurposeId = request.OrderId,
             PayerPartyId = payerPartyId,
-            PayeePartyId = null,
+            PayeePartyId = workflow?.Provenance.PayeePartyId,
             OrderId = request.OrderId,
             InvoiceId = request.InvoiceId,
             PaymentMethodType = paymentMethodType,
             PaymentMethodRef = request.Reference,
-            TenantId = tenantId
+            TenantId = tenantId,
+            IdempotencyKey = workflow?.IdempotencyKey,
+            ProvenanceJson = workflow is null ? null : System.Text.Json.JsonSerializer.Serialize(workflow.Provenance, InvoicePaymentIntentWorkflowAction.JsonOptions),
         };
 
         _dbContext.PaymentIntents.Add(paymentIntent);
