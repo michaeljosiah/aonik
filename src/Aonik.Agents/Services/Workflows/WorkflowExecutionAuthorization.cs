@@ -71,6 +71,16 @@ internal sealed class WorkflowExecutionAuthorization(
     {
         if (run.DeadlineUtc is { } deadline && deadline <= (clock?.UtcNow ?? DateTime.UtcNow)) throw new WorkflowExecutionException("RunDeadlineExceeded");
         await RequireActorAsync(Actor(run), cancellationToken);
+        if (database is not null && run.WorkflowVersionId is { } versionId)
+        {
+            WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleOrDefaultAsync(version => version.TenantId == run.TenantId
+                && version.Id == versionId, cancellationToken) ?? throw new WorkflowExecutionException("DefinitionMissing");
+            foreach (WorkflowDefinitionNode node in WorkflowRunService.ReadDefinition(version).Nodes.Where(WorkflowDecisionLibraries.IsReference))
+            {
+                try { _ = await WorkflowPinnedVersions.RequireAsync(database, run.TenantId, WorkflowDecisionLibraries.Reference(node).Library, "DecisionLibrary", cancellationToken); }
+                catch (ArgumentException) { throw new WorkflowExecutionException("LibraryUnavailable"); }
+            }
+        }
         if (run.ActorType == "AutomationIdentity" && automation is not null && run.SubjectId is { } subjectId)
             await automation.RequireAsync(Actor(run), "Workflow.Run", run.SubjectType, subjectId, cancellationToken: cancellationToken);
         if (run.ParentRunId is { } parentId)

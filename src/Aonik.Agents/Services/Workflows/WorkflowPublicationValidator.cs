@@ -36,7 +36,7 @@ internal sealed class WorkflowPublicationValidator(
         int maximumNodes = definition.SchemaVersion == 1 ? 30 : WorkflowControlLimits.MaximumGraphNodes;
         if (definition.Nodes.Count > maximumNodes) diagnostics.Add(new("ExecutableNodeLimit", "nodes", $"This workflow schema supports at most {maximumNodes} nodes."));
         if (diagnostics.Any(diagnostic => diagnostic.Severity == "Error")) return diagnostics;
-        if (definition.Nodes.Any(WorkflowControlContracts.IsComposition))
+        if (definition.Nodes.Any(node => WorkflowControlContracts.IsComposition(node) || WorkflowDecisionLibraries.IsReference(node)))
         {
             try
             {
@@ -71,10 +71,11 @@ internal sealed class WorkflowPublicationValidator(
                 foreach (WorkflowParallelBranch branch in WorkflowControlContracts.Parallel(node).Branches) ValidateChildBinding(branch.InvoiceId, node.Key);
             if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Decision))
             {
+                if (WorkflowDecisionLibraries.IsReference(node)) continue;
                 DecisionTable table = node.Parameters.Deserialize<DecisionTable>(WorkflowDefinitionCodec.JsonOptions)!;
                 if (table.Rows.Count > 50 || table.Rows.Any(row => row.All.Count > 8))
                     diagnostics.Add(new("DecisionLimit", node.Key, "Executable decisions support at most 50 rows and eight comparisons per row."));
-                foreach (DecisionRow row in table.Rows)
+                foreach (DecisionRow row in table.SchemaVersion == 1 ? table.Rows : [])
                     if (row.All.Any(comparison => comparison.Field == "invoice.total" && comparison.Operator is "gt" or "gte" or "lt" or "lte")
                         && !row.All.Any(comparison => comparison.Field == "invoice.currency" && comparison.Operator is "eq" or "in"))
                         diagnostics.Add(new("CurrencyRequired", $"{node.Key}.{row.Id}", "An amount threshold must explicitly select its invoice currency."));

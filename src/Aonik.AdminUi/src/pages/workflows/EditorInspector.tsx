@@ -28,6 +28,7 @@ import { WorkflowToolPanel } from './WorkflowToolPanel';
 import { WorkflowWaitPanel } from './WorkflowWaitPanel';
 import { WorkflowHumanPanel } from './WorkflowHumanPanel';
 import { WorkflowCompositionPanel } from './WorkflowCompositionPanel';
+import { WorkflowLibraryContractPanel } from './WorkflowDecisionLibraryPanel';
 
 // ─── Field primitives ───────────────────────────────────────────────
 
@@ -162,13 +163,14 @@ function InspectorShell({ title, eyebrow, kindTint, children }: InspectorShellPr
 
 interface NodeInspectorProps {
   workflowId: string;
+  definitionKind?: string;
   node: WorkflowNode;
   errors: ValidationError[];
   onUpdate: (patch: Partial<WorkflowNode> & { params?: Partial<WorkflowNodeParams> }) => void;
   onDelete: () => void;
 }
 
-function NodeInspector({ workflowId, node, errors, onUpdate, onDelete }: NodeInspectorProps) {
+function NodeInspector({ workflowId, definitionKind, node, errors, onUpdate, onDelete }: NodeInspectorProps) {
   const meta = NODE_KIND[node.kind];
 
   const updateParam = <K extends keyof WorkflowNodeParams>(
@@ -201,7 +203,8 @@ function NodeInspector({ workflowId, node, errors, onUpdate, onDelete }: NodeIns
         rows={2}
       />
 
-      {node.kind === 'trigger' && (
+      {node.kind === 'trigger' && definitionKind === 'DecisionLibrary' && <WorkflowLibraryContractPanel parameters={node.params} onChange={params => onUpdate({ params })} />}
+      {node.kind === 'trigger' && definitionKind !== 'DecisionLibrary' && (
         <>
           <TextField
             label="Source"
@@ -248,9 +251,9 @@ function NodeInspector({ workflowId, node, errors, onUpdate, onDelete }: NodeIns
         </>
       )}
       {node.kind === 'decision' && (
-        <DecisionTablePanel parameters={node.params} onChange={params => onUpdate({ params })} />
+        <DecisionTablePanel workflowId={workflowId} isLibrary={definitionKind === 'DecisionLibrary'} parameters={node.params} onChange={params => onUpdate({ params })} />
       )}
-      {node.kind === 'end' && <SelectField label="Outcome" value={node.params.outcome ?? 'Completed'} onChange={value => updateParam('outcome', value)} options={['Completed', 'NeedsManualReview', 'Blocked']} />}
+      {node.kind === 'end' && (definitionKind === 'DecisionLibrary' ? <p className="text-xs text-muted-foreground">Returns the table's declared route or collection. Financial actions belong to the consuming workflow.</p> : <SelectField label="Outcome" value={node.params.outcome ?? 'Completed'} onChange={value => updateParam('outcome', value)} options={['Completed', 'NeedsManualReview', 'Blocked']} />)}
       {node.kind === 'human' && <WorkflowHumanPanel parameters={node.params} onChange={params => onUpdate({ params })} />}
       {node.kind === 'wait' && <WorkflowWaitPanel parameters={node.params} onChange={params => onUpdate({ params })} />}
       {node.kind === 'notify' && (
@@ -506,6 +509,7 @@ export function EditorInspector({
     return (
       <NodeInspector
         workflowId={workflow.id}
+        definitionKind={workflow.definitionKind}
         node={node}
         errors={errs}
         onUpdate={(p) => onUpdateNode(node.id, p)}

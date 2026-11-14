@@ -32,7 +32,9 @@ internal static class WorkflowControlContracts
         WorkflowLoopParameters value = node.Parameters.Deserialize<WorkflowLoopParameters>(WorkflowDefinitionCodec.JsonOptions)
             ?? throw new ArgumentException("Provide a bounded foreach contract.");
         Pin(value.Body); Routes(value.CompletedRoute, value.ExhaustedRoute, value.ErrorRoute);
-        if (value.SchemaVersion != 1 || value.MaxIterations is < 1 or > WorkflowControlLimits.MaximumLoopIterations
+        if (value.SchemaVersion is not (1 or 2) || (value.SchemaVersion == 2) != (value.ItemsFromDecision is not null)
+            || (value.ItemsFromDecision is not null && (!WorkflowDefinitionCodec.IsKey(value.ItemsFromDecision) || value.Items?.Count != 0))
+            || value.MaxIterations is < 1 or > WorkflowControlLimits.MaximumLoopIterations
             || value.TimeoutSeconds is < 1 or > WorkflowControlLimits.MaximumLifetimeSeconds || value.Items is null || value.Items.Count > 100
             || value.Items.Any(item => item is null || !IsItemKey(item.Key) || item.InvoiceId == Guid.Empty)
             || value.Items.Select(item => item.Key).Distinct(StringComparer.Ordinal).Count() != value.Items.Count)
@@ -72,7 +74,7 @@ internal static class WorkflowControlContracts
             throw new ArgumentException("Map the child's Invoice identifier from one UUID literal, invoice.id fact, or declared prior UUID output.");
     }
 
-    private static void Pin(WorkflowVersionPin? pin)
+    internal static void Pin(WorkflowVersionPin? pin)
     {
         if (pin is null || pin.VersionId == Guid.Empty || pin.DefinitionHash is not { Length: 64 }
             || !pin.DefinitionHash.All(Uri.IsHexDigit)) throw new ArgumentException("Pin an exact published workflow version and SHA-256 definition hash.");

@@ -54,13 +54,14 @@ export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onCh
       {approval && <ServerApprovalCard approval={busy ? { ...approval, status: 'deciding' } : approval} onDecide={(_value, decision) => { void act(async () => {
         await workflowService.decide(approval.approvalRequestId!, decision); setApproval({ ...approval, status: decision === 'Approve' ? 'approved' : 'rejected' }); onChanged();
       }); }} />}
-      {workflow.publishedVersionId && workflow.state === 'Active' && <div className="space-y-2 rounded-md border p-3"><label className="block space-y-1 text-xs">Stored invoice ID for a live run<Input value={invoiceId} onChange={event => setInvoiceId(event.target.value)} /></label>
+      {workflow.definitionKind === 'DecisionLibrary' && <p className="text-xs text-muted-foreground">This pure library is evaluated by a consumer pinned to its exact published version. Simulation and publication use the same governed lifecycle.</p>}
+      {workflow.definitionKind !== 'DecisionLibrary' && workflow.publishedVersionId && workflow.state === 'Active' && <div className="space-y-2 rounded-md border p-3"><label className="block space-y-1 text-xs">Stored invoice ID for a live run<Input value={invoiceId} onChange={event => setInvoiceId(event.target.value)} /></label>
         <p className="text-xs text-muted-foreground">This starts version {workflow.publishedVersionId}. Its financial actions still require their own human approval.</p>
         <Button disabled={busy || !/^[0-9a-f-]{36}$/i.test(invoiceId)} onClick={() => void act(async () => { const run = await workflowService.start(workflow.slug, workflow.publishedVersionId!, invoiceId, crypto.randomUUID()); navigate(`/ai/workflow-runs/${run.id}`); })}>Start live invoice run</Button>
       </div>}
       <Link to="/approvals" className="text-sm text-primary underline">Open approvals</Link>
     </div></div>
-    <Button variant="outline" onClick={() => setTriggersOpen(value => !value)}>{triggersOpen ? 'Hide automatic triggers' : 'Manage automatic triggers'}</Button>
-    {triggersOpen && <WorkflowTriggerPanel slug={workflow.slug} workflowId={workflow.id} publishedVersionId={workflow.publishedVersionId} />}
+    {workflow.definitionKind !== 'DecisionLibrary' && <Button variant="outline" onClick={() => setTriggersOpen(value => !value)}>{triggersOpen ? 'Hide automatic triggers' : 'Manage automatic triggers'}</Button>}
+    {workflow.definitionKind !== 'DecisionLibrary' && triggersOpen && <WorkflowTriggerPanel slug={workflow.slug} workflowId={workflow.id} publishedVersionId={workflow.publishedVersionId} />}
   </div>;
 }

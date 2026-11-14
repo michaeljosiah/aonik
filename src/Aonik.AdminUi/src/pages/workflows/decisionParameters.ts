@@ -1,4 +1,7 @@
-import type { DecisionParameters, WorkflowGraph, WorkflowNode, WorkflowNodeParams } from './workflowTypes';
+import type { DecisionComparison, DecisionParameters, DecisionPredicate, WorkflowGraph, WorkflowNode, WorkflowNodeParams } from './workflowTypes';
+
+export const defaultComparison = (): DecisionComparison => ({ field: 'invoice.status', operator: 'eq', value: 'Draft' });
+export function predicateSize(value: DecisionPredicate): number { return 1 + (value.children ?? []).reduce((sum, child) => sum + predicateSize(child), 0); }
 
 export const invoiceDecision = (): DecisionParameters => {
   const facts = (amount: string) => ({ 'invoice.id': '00000000-0000-0000-0000-000000000001', 'invoice.total': amount, 'invoice.currency': 'GBP', 'invoice.status': 'Draft' });
@@ -10,6 +13,9 @@ export const invoiceDecision = (): DecisionParameters => {
 };
 
 export function decisionRoutes(params: WorkflowNodeParams): string[] {
+  if (params.library) return params.routes ?? [];
+  if (params.hitPolicy === 'Collect') return [...new Set([params.collectRoute ?? 'collected', params.defaultRoute ?? 'manual'])];
+  if (params.hitPolicy === 'Score') return [...new Set([...(params.scoreBands ?? []).map(band => band.route), params.defaultRoute ?? 'manual'])];
   return [...new Set([...(params.rows ?? []).map(row => row.route), params.defaultRoute ?? 'manual'])];
 }
 
@@ -39,7 +45,9 @@ export function replaceNodeParameters(graph: WorkflowGraph, nodeId: string, para
   const routed = ['decision', 'human', 'child', 'loop', 'parallel'].includes(node?.kind ?? '');
   const beforeRoutes = nodeRoutes(node?.kind, node?.params ?? {});
   const routes = nodeRoutes(node?.kind, parameters);
-  return { ...graph, ...(['wait', 'human', 'child', 'loop', 'parallel'].includes(node?.kind ?? '') ? { schemaVersion: 2 } : {}), nodes: graph.nodes.map(item => item.id === nodeId ? { ...item, ...patch, params: parameters } : item),
+  return { ...graph, ...(['wait', 'human', 'child', 'loop', 'parallel'].includes(node?.kind ?? '') || (node?.kind === 'decision' && (parameters.schemaVersion === 2 || parameters.library)) ? { schemaVersion: 2 } : {}), nodes: graph.nodes.map(item => item.id === nodeId ? { ...item, ...patch, params: parameters }
+    : graph.definitionKind === 'DecisionLibrary' && node?.kind === 'decision' && item.kind === 'trigger' && item.params.libraryContract
+      ? { ...item, params: { libraryContract: { ...item.params.libraryContract, routes: decisionRoutes(parameters), outputType: parameters.hitPolicy === 'Collect' ? 'InvoiceList' : 'Route' } } } : item),
     edges: !routed ? graph.edges : graph.edges.flatMap(edge => {
       if (edge.from !== nodeId) return [edge];
       const route = edge.routeKey ?? beforeRoutes[edge.fromIdx ?? 0];

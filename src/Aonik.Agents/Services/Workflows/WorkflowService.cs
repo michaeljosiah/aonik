@@ -26,13 +26,14 @@ internal sealed class WorkflowService : IWorkflowService
     private readonly WorkflowAuthorization _authorization;
     private readonly WorkflowPublicationValidator? _publication;
     private readonly IEnumerable<IWorkflowUsageReader> _usageReaders;
+    private readonly WorkflowDependencyValidator? _dependencies;
 
     public WorkflowService(
         AgentsDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
         WorkflowAuthorization authorization,
-        WorkflowPublicationValidator? publication = null, IEnumerable<IWorkflowUsageReader>? usageReaders = null)
+        WorkflowPublicationValidator? publication = null, IEnumerable<IWorkflowUsageReader>? usageReaders = null, WorkflowDependencyValidator? dependencies = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -40,6 +41,7 @@ internal sealed class WorkflowService : IWorkflowService
         _authorization = authorization;
         _publication = publication;
         _usageReaders = usageReaders ?? [];
+        _dependencies = dependencies;
     }
 
     public async Task<IReadOnlyList<WorkflowSummaryResponse>> ListAsync(
@@ -133,7 +135,7 @@ internal sealed class WorkflowService : IWorkflowService
                     .OrderBy(n => n.X)
                     .Select(n => new WorkflowStepSummary(n.Kind, n.Label, n.Summary))
                     .ToList(),
-                UpdatedAt: w.UpdatedAt ?? w.CreatedAt);
+                UpdatedAt: w.UpdatedAt ?? w.CreatedAt, DefinitionKind: w.DefinitionKind);
         }).ToList();
     }
 
@@ -354,7 +356,21 @@ internal sealed class WorkflowService : IWorkflowService
             || JsonSerializer.Serialize(request).Length > 128_000)
             throw new ArgumentException("Fixture input exceeds the supported limits.");
         WorkflowGraphResponse? graph = await GetGraphAsync(slug, cancellationToken);
-        return graph is null ? null : WorkflowSimulator.Simulate(WorkflowDefinitionCodec.FromGraph(graph), request);
+        if (graph is null) return null;
+        WorkflowDefinition definition = WorkflowDefinitionCodec.FromGraph(graph);
+        var libraries = new Dictionary<Guid, WorkflowDefinition>();
+        foreach (WorkflowDefinitionNode node in definition.Nodes.Where(WorkflowDecisionLibraries.IsReference))
+        {
+            try
+            {
+                DecisionLibraryReference reference = WorkflowDecisionLibraries.Reference(node);
+                if (_dependencies is null) throw new ArgumentException("Decision library validation is unavailable.");
+                libraries[reference.Library.VersionId] = await _dependencies.RequireLibraryAsync(reference, cancellationToken);
+            }
+            catch (Exception exception) when (exception is ArgumentException or JsonException or WorkflowConflictException)
+            { return new("Fixture", "Invalid", WorkflowDefinitionCodec.Hash(WorkflowDefinitionCodec.Serialize(definition)), [], [new("DecisionLibrary", node.Key, exception.Message)]); }
+        }
+        return WorkflowSimulator.Simulate(definition, request, libraries);
     }
 
     public async Task<WorkflowCapabilities> GetCapabilitiesAsync(CancellationToken cancellationToken = default)
@@ -369,6 +385,11 @@ internal sealed class WorkflowService : IWorkflowService
             ChildParametersSchema = WorkflowDefinitionCodec.ParametersSchema<WorkflowChildParameters>(),
             LoopParametersSchema = WorkflowDefinitionCodec.ParametersSchema<WorkflowLoopParameters>(),
             ParallelParametersSchema = WorkflowDefinitionCodec.ParametersSchema<WorkflowParallelParameters>(),
+            DecisionLibraryReferenceSchema = WorkflowDefinitionCodec.ParametersSchema<DecisionLibraryReference>(),
+            DecisionLibraryContractSchema = WorkflowDefinitionCodec.ParametersSchema<DecisionLibraryTriggerParameters>(),
+            DefinitionKinds = ["Workflow", "DecisionLibrary"],
+            DecisionHitPolicies = ["FirstMatch", "Unique", "Collect", "Score"],
+            DecisionLimits = new(50, 4, 100, 10000, 4),
             ControlLimits = new(WorkflowControlLimits.MaximumGraphNodes, WorkflowControlLimits.MaximumRootInvocations,
                 WorkflowControlLimits.MaximumLoopIterations, WorkflowControlLimits.MaximumBranches, WorkflowControlLimits.MaximumNestingDepth,
                 WorkflowControlLimits.MaximumLifetimeSeconds),
@@ -594,7 +615,18 @@ internal sealed class WorkflowService : IWorkflowService
             DefinitionHash: v.DefinitionHash,
             IsExecutable: v.PublishedAt.HasValue && v.DefinitionJson is not null,
             PublishedAt: v.PublishedAt,
-            SchemaVersion: v.SchemaVersion)).ToList();
+            SchemaVersion: v.SchemaVersion, LibraryContract: LibraryContract(v))).ToList();
+    }
+
+    private static DecisionLibraryContract? LibraryContract(WorkflowVersion version)
+    {
+        if (version.PublishedAt is null || version.DefinitionJson is null) return null;
+        try
+        {
+            WorkflowDefinition definition = WorkflowRunService.ReadDefinition(version);
+            return definition.DefinitionKind == "DecisionLibrary" ? WorkflowDecisionLibraries.Read(definition).Contract : null;
+        }
+        catch (Exception exception) when (exception is JsonException or ArgumentException or WorkflowConflictException) { return null; }
     }
 
     // ── Helpers ──────────────────────────────────────────────────

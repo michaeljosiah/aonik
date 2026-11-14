@@ -61,10 +61,10 @@ function computeValidation(
         message: `${n.label}: dangling output — connect to the next step or an End node.`,
       });
     }
-    if (n.kind === 'decision' && outDeg[n.id] < 2) {
+    if (n.kind === 'decision' && outDeg[n.id] < nodeRoutes(n.kind, n.params).length) {
       errs.push({
         nodeId: n.id,
-        message: `${n.label}: decision needs both yes and no branches wired.`,
+        message: `${n.label}: connect every declared decision route.`,
       });
     }
   });
@@ -395,7 +395,7 @@ export function WorkflowEditorPage() {
       )}
 
       <div className="flex min-h-0 flex-1">
-        <EditorPalette collapsed={paletteCollapsed} setCollapsed={setPaletteCollapsed} />
+        <EditorPalette collapsed={paletteCollapsed} setCollapsed={setPaletteCollapsed} definitionKind={wf.definitionKind} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <WorkflowCanvas

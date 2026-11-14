@@ -21,6 +21,16 @@ internal sealed partial class WorkflowStepExecutionService
             if (step.Status == "Completed") return new(Run.Id, step.SelectedRoute, ToolResult(step).Outcome, Failed: ToolResult(step).Outcome != "Completed");
             if (step.DeadlineUtc is null)
             {
+                if (parameters.ItemsFromDecision is { } source)
+                {
+                    WorkflowStepRun decision = await database.WorkflowStepRuns.AsNoTracking().SingleOrDefaultAsync(step => step.TenantId == Run.TenantId
+                        && step.RunId == Run.Id && step.NodeKey == source && step.InvocationPath == "root" && step.Status == "Completed", cancellationToken)
+                        ?? throw new WorkflowExecutionException("CollectionSourceUnavailable");
+                    DecisionEvaluation evaluated = JsonSerializer.Deserialize<DecisionEvaluation>(decision.DecisionTraceJson!, WorkflowDefinitionCodec.JsonOptions)!;
+                    if (evaluated.Status != "Completed" || evaluated.Items is null || evaluated.Items.Count > WorkflowControlLimits.MaximumLoopIterations)
+                        throw new WorkflowExecutionException("CollectionSourceInvalid");
+                    parameters = parameters with { Items = evaluated.Items };
+                }
                 step.DeadlineUtc = new[] { clock.UtcNow.AddSeconds(parameters.TimeoutSeconds), Run.DeadlineUtc!.Value }.Min();
                 step.ActionKey = WorkflowControlContracts.LoopActionKey; step.ActionVersion = 1; step.Status = "Looping";
                 step.ArgumentsJson = JsonSerializer.Serialize(parameters, WorkflowDefinitionCodec.JsonOptions);
@@ -30,6 +40,7 @@ internal sealed partial class WorkflowStepExecutionService
                     DateTime.SpecifyKind(step.DeadlineUtc.Value, DateTimeKind.Utc)));
                 await database.SaveChangesAsync(cancellationToken);
             }
+            else parameters = StoredLoopParameters(step);
             WorkflowLoopState state = ReadLoopState(step);
             string? route = state.Index >= parameters.Items.Count ? parameters.CompletedRoute
                 : clock.UtcNow >= step.DeadlineUtc || state.Index >= parameters.MaxIterations ? parameters.ExhaustedRoute : null;
@@ -41,7 +52,7 @@ internal sealed partial class WorkflowStepExecutionService
         {
             await RequireActiveAsync(frame.RunId, cancellationToken);
             WorkflowStepRun loop = await StepAsync(node.Key, cancellationToken);
-            WorkflowLoopParameters parameters = WorkflowControlContracts.Loop(node);
+            WorkflowLoopParameters parameters = StoredLoopParameters(loop);
             WorkflowLoopState state = ReadLoopState(loop);
             if (state.Index >= Math.Min(parameters.Items.Count, parameters.MaxIterations) || loop.DeadlineUtc <= clock.UtcNow)
                 throw new WorkflowExecutionException("IterationNotAdmitted");
@@ -61,7 +72,7 @@ internal sealed partial class WorkflowStepExecutionService
             WorkflowChildEvidence evidence = JsonSerializer.Deserialize<WorkflowChildEvidence>(call.ArgumentsJson!, WorkflowDefinitionCodec.JsonOptions)!;
             if (evidence.OwnerStepRunId != loop.Id || evidence.ItemKey is null) throw new WorkflowExecutionException("IterationIdentityMismatch");
             if (loop.Status == "Completed") return new(Run.Id, loop.SelectedRoute, ToolResult(loop).Outcome, Failed: ToolResult(loop).Outcome != "Completed");
-            WorkflowLoopParameters parameters = WorkflowControlContracts.Loop(node);
+            WorkflowLoopParameters parameters = StoredLoopParameters(loop);
             WorkflowLoopState state = ReadLoopState(loop);
             WorkflowExecutionFrame completed = await CompleteChildCallAsync(call, cancellationToken);
             bool success = completed.Route == "iteration-completed";
@@ -85,7 +96,7 @@ internal sealed partial class WorkflowStepExecutionService
             await RequireActiveAsync(frame.RunId, cancellationToken);
             WorkflowStepRun step = await StepAsync(node.Key, cancellationToken);
             if (step.Status == "Completed") return new(Run.Id, step.SelectedRoute, ToolResult(step).Outcome, Failed: ToolResult(step).Outcome != "Completed");
-            WorkflowLoopParameters parameters = WorkflowControlContracts.Loop(node);
+            WorkflowLoopParameters parameters = StoredLoopParameters(step);
             if (!WorkflowControlContracts.Routes(node).Contains(frame.Route)) throw new WorkflowExecutionException("LoopTerminalRouteMissing");
             WorkflowLoopState state = ReadLoopState(step);
             string outcome = frame.Route == parameters.CompletedRoute ? "Completed" : frame.Route == parameters.ExhaustedRoute ? "Exhausted" : "NeedsManualReview";
@@ -98,6 +109,8 @@ internal sealed partial class WorkflowStepExecutionService
 
     private static WorkflowLoopState ReadLoopState(WorkflowStepRun step)
         => JsonSerializer.Deserialize<WorkflowLoopState>(step.ResultJson!, WorkflowDefinitionCodec.JsonOptions) ?? throw new WorkflowExecutionException("LoopStateMissing");
+    private static WorkflowLoopParameters StoredLoopParameters(WorkflowStepRun step)
+        => JsonSerializer.Deserialize<WorkflowLoopParameters>(step.ArgumentsJson!, WorkflowDefinitionCodec.JsonOptions) ?? throw new WorkflowExecutionException("LoopArgumentsMissing");
 }
 
 internal sealed record WorkflowLoopState(int Index, IReadOnlyList<WorkflowLoopReceipt> Iterations);

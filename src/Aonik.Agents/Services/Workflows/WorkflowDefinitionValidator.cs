@@ -34,8 +34,15 @@ internal static class WorkflowDefinitionValidator
     public static IReadOnlyList<WorkflowDiagnostic> Validate(WorkflowDefinition definition, bool forPublication)
     {
         var errors = new List<WorkflowDiagnostic>();
-        if (definition.SchemaVersion is not (1 or 2) || definition.DefinitionKind != "Workflow")
+        if (definition.SchemaVersion is not (1 or 2) || definition.DefinitionKind is not ("Workflow" or "DecisionLibrary"))
             errors.Add(new("DefinitionSchema", "definition", "Use a supported workflow definition schema."));
+        DecisionLibraryContract? libraryContract = null;
+        if (definition.DefinitionKind == "DecisionLibrary")
+        {
+            try { libraryContract = WorkflowDecisionLibraries.Read(definition).Contract; }
+            catch (Exception exception) when (exception is ArgumentException or JsonException)
+            { errors.Add(new("DecisionLibrary", "definition", exception.Message)); }
+        }
         if (definition.Nodes.Count == 0 || definition.Nodes.Count > MaxNodes || definition.Edges.Count > MaxEdges)
         {
             errors.Add(new("GraphSize", "nodes", $"Provide 1–{MaxNodes} nodes and at most {MaxEdges} edges."));
@@ -105,16 +112,32 @@ internal static class WorkflowDefinitionValidator
             }
             else if (IsKind(node, WorkflowNodeKinds.Decision))
             {
+                if (WorkflowDecisionLibraries.IsReference(node))
+                {
+                    try
+                    {
+                        DecisionLibraryReference reference = WorkflowDecisionLibraries.Reference(node);
+                        if (definition.SchemaVersion != 2) errors.Add(new("DecisionSchema", node.Key, "A library consumer requires workflow schema 2."));
+                        if (outgoing.Count != reference.Routes.Count || outgoing.Any(edge => edge.RouteKey is null || !reference.Routes.Contains(edge.RouteKey))
+                            || outgoing.Select(edge => edge.RouteKey).Distinct(StringComparer.Ordinal).Count() != reference.Routes.Count)
+                            errors.Add(new("DecisionRoutes", node.Key, "Map every pinned library route exactly once."));
+                    }
+                    catch (Exception exception) when (exception is ArgumentException or JsonException)
+                    { errors.Add(new("DecisionLibrary", node.Key, exception.Message)); }
+                    continue;
+                }
                 var tableDiagnostics = new List<WorkflowDiagnostic>();
                 DecisionTable? table = ReadDecision(node, tableDiagnostics);
                 errors.AddRange(tableDiagnostics);
                 if (table is not null && !tableDiagnostics.Any(error => error.Severity == "Error"))
                 {
-                    HashSet<string> routes = table.Rows.Select(row => row.Route).Append(table.DefaultRoute).ToHashSet(StringComparer.Ordinal);
+                    if (table.SchemaVersion == 2 && definition.SchemaVersion != 2)
+                        errors.Add(new("DecisionSchema", node.Key, "Advanced decisions require workflow schema 2."));
+                    HashSet<string> routes = DecisionTableEvaluator.Routes(table).ToHashSet(StringComparer.Ordinal);
                     if (outgoing.Count != routes.Count || outgoing.Any(edge => edge.RouteKey is null || !routes.Contains(edge.RouteKey))
                         || outgoing.Select(edge => edge.RouteKey).Distinct(StringComparer.Ordinal).Count() != routes.Count)
                         errors.Add(new("DecisionRoutes", node.Key, "Map each decision route, including default, to exactly one outgoing edge."));
-                    if (forPublication) ValidateFixtures(table, node.Key, errors);
+                    if (forPublication) ValidateFixtures(table, node.Key, errors, libraryContract);
                 }
             }
             else if (outgoing.Count != 1)
@@ -143,10 +166,31 @@ internal static class WorkflowDefinitionValidator
             }
         }
 
+        if (definition.DefinitionKind == "Workflow" && !errors.Any(error => error.Severity == "Error"))
+        {
+            foreach (WorkflowDefinitionNode loop in definition.Nodes.Where(node => IsKind(node, WorkflowNodeKinds.Loop)))
+            {
+                WorkflowLoopParameters parameters = WorkflowControlContracts.Loop(loop);
+                if (parameters.ItemsFromDecision is not { } source) continue;
+                WorkflowDefinitionNode? decision = definition.Nodes.SingleOrDefault(node => node.Key == source);
+                if (decision is null || !IsCollectedDecision(decision) || !definition.Edges.Any(edge => edge.From == source && edge.To == loop.Key)
+                    || definition.Edges.Any(edge => edge.To == loop.Key && edge.From != source))
+                    errors.Add(new("CollectConsumer", loop.Key, "A decision collection must feed its explicitly bound foreach directly on every path."));
+            }
+            foreach (WorkflowDefinitionNode decision in definition.Nodes.Where(IsCollectedDecision))
+                if (!definition.Nodes.Any(node => IsKind(node, WorkflowNodeKinds.Loop) && WorkflowControlContracts.Loop(node).ItemsFromDecision == decision.Key
+                    && definition.Edges.Any(edge => edge.From == decision.Key && edge.To == node.Key)))
+                    errors.Add(new("CollectConsumer", decision.Key, "Collect requires an explicit typed foreach consumer; matching rows never implicitly launch actions."));
+        }
+
         return errors;
     }
 
-    private static void ValidateFixtures(DecisionTable table, string path, List<WorkflowDiagnostic> diagnostics)
+    private static bool IsCollectedDecision(WorkflowDefinitionNode node) => IsKind(node, WorkflowNodeKinds.Decision)
+        && (WorkflowDecisionLibraries.IsReference(node) ? WorkflowDecisionLibraries.Reference(node).OutputType == "InvoiceList"
+            : node.Parameters.Deserialize<DecisionTable>(WorkflowDefinitionCodec.JsonOptions)?.HitPolicy == "Collect");
+
+    private static void ValidateFixtures(DecisionTable table, string path, List<WorkflowDiagnostic> diagnostics, DecisionLibraryContract? library = null)
     {
         string[] required = ["Normal", "Boundary", "MissingData"];
         if (table.Fixtures is null || required.Any(kind => !table.Fixtures.Any(fixture => fixture?.Kind == kind)))
@@ -163,7 +207,9 @@ internal static class WorkflowDefinitionValidator
                 diagnostics.Add(new("InvalidFixture", path, "Use unique fixture names, bounded facts and a supported fixture kind."));
                 continue;
             }
-            DecisionEvaluation actual = DecisionTableEvaluator.Evaluate(table, fixture.Facts);
+            DecisionEvaluation actual = library is null ? DecisionTableEvaluator.Evaluate(table, fixture.Facts)
+                : fixture.Facts.Keys.Any(name => !library.Inputs.Any(field => field.Name == name))
+                    ? new("NeedsManualReview", [], [], [], "UndeclaredLibraryInput") : DecisionTableEvaluator.EvaluateAdvanced(table, fixture.Facts, library.Inputs);
             if (actual.Status != fixture.ExpectedStatus || !actual.Routes.SequenceEqual(fixture.ExpectedRoutes, StringComparer.Ordinal))
                 diagnostics.Add(new("FixtureMismatch", $"{path}.fixtures[{fixture.Name}]", "Fixture outcome differs from its expected status or routes."));
         }

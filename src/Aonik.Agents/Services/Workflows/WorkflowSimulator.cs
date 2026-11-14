@@ -8,7 +8,8 @@ namespace Aonik.Agents.Services.Workflows;
 /// <summary>Pure fixture preview. It has no domain, model, connector or event dependencies.</summary>
 internal static class WorkflowSimulator
 {
-    public static WorkflowSimulation Simulate(WorkflowDefinition definition, WorkflowSimulationRequest request)
+    public static WorkflowSimulation Simulate(WorkflowDefinition definition, WorkflowSimulationRequest request,
+        IReadOnlyDictionary<Guid, WorkflowDefinition>? libraries = null)
     {
         string hash = WorkflowDefinitionCodec.Hash(WorkflowDefinitionCodec.Serialize(definition));
         IReadOnlyList<WorkflowDiagnostic> diagnostics = WorkflowDefinitionValidator.Validate(definition, forPublication: false);
@@ -24,8 +25,19 @@ internal static class WorkflowSimulator
             string? route = null;
             if (WorkflowDefinitionValidator.IsKind(current, WorkflowNodeKinds.Decision))
             {
-                DecisionTable table = current.Parameters.Deserialize<DecisionTable>(WorkflowDefinitionCodec.JsonOptions)!;
-                decision = DecisionTableEvaluator.Evaluate(table, request.Facts);
+                if (WorkflowDecisionLibraries.IsReference(current))
+                {
+                    DecisionLibraryReference reference = WorkflowDecisionLibraries.Reference(current);
+                    if (libraries is null || !libraries.TryGetValue(reference.Library.VersionId, out WorkflowDefinition? library))
+                        return new("Fixture", "Invalid", hash, steps, [new("DecisionLibrary", current.Key, "The pinned library fixture definition is unavailable.")]);
+                    decision = WorkflowDecisionLibraries.Evaluate(reference, library, request.Facts);
+                }
+                else
+                {
+                    DecisionTable table = current.Parameters.Deserialize<DecisionTable>(WorkflowDefinitionCodec.JsonOptions)!;
+                    decision = definition.DefinitionKind == "DecisionLibrary" ? WorkflowDecisionLibraries.EvaluateDefinition(definition, request.Facts)
+                        : DecisionTableEvaluator.Evaluate(table, request.Facts);
+                }
                 if (decision.Status != "Completed")
                 {
                     steps.Add(new(current.Key, current.Kind, decision.Status, decision));

@@ -6,6 +6,7 @@
 
 import { api } from '@/lib/api';
 import type { ToolApprovalPreview } from '@/lib/toolApprovalPreview';
+import type { DecisionLibraryContract } from '@/pages/workflows/workflowTypes';
 
 // ── Response shapes (keep aligned with C# Contracts/Models/Workflows) ──
 
@@ -17,6 +18,7 @@ export interface WorkflowStepSummaryDto {
 
 export interface WorkflowSummaryDto {
   id: string;
+  definitionKind?: string;
   slug: string;
   name: string;
   description: string;
@@ -106,6 +108,7 @@ export interface WorkflowRunDto {
 
 export interface WorkflowVersionDto {
   id: string;
+  libraryContract?: DecisionLibraryContract | null;
   definitionHash?: string | null;
   publishedAt?: string | null;
   isExecutable?: boolean;
@@ -121,7 +124,7 @@ export interface WorkflowVersionDto {
 export interface WorkflowDiagnostic { code: string; path: string; message: string; severity: string }
 export interface WorkflowValidation { isValid: boolean; definitionHash: string; diagnostics: WorkflowDiagnostic[] }
 export interface WorkflowActionCapability { key: string; contractVersion: number; requiredPermission: string; riskTier: string; inputSchema: Record<string, unknown>; outputSchema: Record<string, unknown> }
-export interface WorkflowCapabilities { schemaVersion: number; nodeKinds: { kind: string; canSimulate: boolean; canExecute: boolean }[]; invoiceFacts: { name: string; type: string }[]; comparisonOperators: string[]; actions: WorkflowActionCapability[] }
+export interface WorkflowCapabilities { schemaVersion: number; nodeKinds: { kind: string; canSimulate: boolean; canExecute: boolean }[]; invoiceFacts: { name: string; type: string; required?: boolean }[]; comparisonOperators: string[]; actions: WorkflowActionCapability[] }
 export interface WorkflowSimulation { mode: string; status: string; definitionHash: string; steps: { nodeKey: string; kind: string; status: string; decision?: unknown; fixtureOutput?: unknown }[]; diagnostics: WorkflowDiagnostic[] }
 export interface WorkflowRunDetail {
   id: string; workflowId: string; workflowVersionId: string; definitionHash: string; status: string; outcome: string | null; errorCode: string | null;

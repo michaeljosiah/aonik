@@ -235,7 +235,8 @@ internal sealed class WorkflowRunService(
         WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == tenantId
             && version.WorkflowId == workflow.Id && version.Id == request.WorkflowVersionId, cancellationToken);
         WorkflowDefinition definition = ReadDefinition(version);
-        if (definition.Nodes.Any(WorkflowControlContracts.IsComposition))
+        if (definition.DefinitionKind != "Workflow") throw new WorkflowConflictException("A pure decision library is consumed by a pinned Decision node; it cannot admit an effectful workflow run.");
+        if (definition.Nodes.Any(node => WorkflowControlContracts.IsComposition(node) || WorkflowDecisionLibraries.IsReference(node)))
         {
             if (dependencies is null) throw new WorkflowConflictException("Workflow composition validation is unavailable.");
             _ = await dependencies.ValidateAsync(definition, workflow.Id, cancellationToken);

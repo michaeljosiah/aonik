@@ -12,7 +12,8 @@ public sealed record WorkflowChildParameters(int SchemaVersion, WorkflowVersionP
     string CompletedRoute = "completed", string ErrorRoute = "error");
 public sealed record WorkflowLoopItem(string Key, Guid InvoiceId);
 public sealed record WorkflowLoopParameters(int SchemaVersion, WorkflowVersionPin Body, IReadOnlyList<WorkflowLoopItem> Items,
-    int MaxIterations, int TimeoutSeconds, string CompletedRoute = "completed", string ExhaustedRoute = "exhausted", string ErrorRoute = "error");
+    int MaxIterations, int TimeoutSeconds, string CompletedRoute = "completed", string ExhaustedRoute = "exhausted", string ErrorRoute = "error",
+    string? ItemsFromDecision = null);
 public sealed record WorkflowParallelBranch(string Key, WorkflowVersionPin Workflow, WorkflowInputBinding InvoiceId);
 public sealed record WorkflowParallelParameters(int SchemaVersion, IReadOnlyList<WorkflowParallelBranch> Branches,
     int MaxConcurrency, string JoinPolicy, string CompletedRoute = "completed", string ErrorRoute = "error");

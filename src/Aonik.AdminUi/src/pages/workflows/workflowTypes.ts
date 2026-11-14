@@ -40,6 +40,7 @@ export interface WorkflowStep {
 
 export interface WorkflowSummary {
   id: string;
+  definitionKind?: string;
   slug: string;
   name: string;
   desc: string;
@@ -61,9 +62,12 @@ export interface WorkflowSummary {
 }
 
 export interface DecisionComparison { field: string; operator: string; value?: unknown }
-export interface DecisionRow { id: string; priority: number; all: DecisionComparison[]; route: string }
+export interface DecisionPredicate { kind: 'Comparison' | 'All' | 'Any' | 'Not'; comparison?: DecisionComparison; children?: DecisionPredicate[] }
+export interface DecisionRow { id: string; priority: number; all: DecisionComparison[]; route: string; condition?: DecisionPredicate; scoreWeight?: string; collectInvoiceId?: WorkflowInputBinding }
 export interface DecisionFixture { name: string; kind: 'Normal' | 'Boundary' | 'MissingData'; facts: Record<string, unknown>; expectedStatus: string; expectedRoutes: string[] }
-export interface DecisionParameters { schemaVersion: number; factSchema: string; hitPolicy: string; rows: DecisionRow[]; defaultRoute: string; fixtures: DecisionFixture[] }
+export interface DecisionParameters { schemaVersion: number; factSchema: string; hitPolicy: string; rows: DecisionRow[]; defaultRoute: string; fixtures: DecisionFixture[]; currency?: string; optionalFactBehavior?: 'Unknown'; collectRoute?: string; scoreBands?: { minimumInclusive: string; maximumExclusive: string; route: string }[] }
+export interface DecisionFactField { name: string; type: string; required: boolean }
+export interface DecisionLibraryContract { schemaVersion: number; inputs: DecisionFactField[]; routes: string[]; outputType: 'Route' | 'InvoiceList' }
 export interface WorkflowInputBinding { literal?: unknown; fact?: string; step?: string; output?: string }
 export interface WorkflowToolParameters { actionKey: string; contractVersion: number; inputs: Record<string, WorkflowInputBinding>; reviewer?: { roleId?: string; userId?: string; forbidSelfApproval: boolean }; connection?: { connectionId: string; workflowGrantId: string; allowedActions: { key: string; version: number }[] } }
 export interface WorkflowHumanChoice { key: string; label: string; route: string }
@@ -85,6 +89,10 @@ export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial
   expr?: string;
   yesLabel?: string;
   noLabel?: string;
+  library?: WorkflowVersionPin;
+  routes?: string[];
+  outputType?: 'Route' | 'InvoiceList';
+  libraryContract?: DecisionLibraryContract;
   // human
   group?: string;
   sla?: string;
@@ -109,6 +117,7 @@ export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial
   invoiceId?: WorkflowInputBinding;
   body?: WorkflowVersionPin;
   items?: WorkflowLoopItem[];
+  itemsFromDecision?: string;
   completedRoute?: string;
   exhaustedRoute?: string;
   errorRoute?: string;

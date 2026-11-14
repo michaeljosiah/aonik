@@ -1,7 +1,5 @@
 using System.Text.Json;
 
-using Microsoft.EntityFrameworkCore;
-
 using Aonik.Agents.Contracts.Models.Workflows;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
@@ -17,17 +15,15 @@ internal sealed class WorkflowDependencyValidator(AgentsDbContext database, ITen
     public Task<WorkflowDependencySummary> ValidateAsync(WorkflowDefinition definition, Guid workflowId, CancellationToken cancellationToken = default)
         => VisitAsync(definition, [workflowId], 0, cancellationToken);
 
-    public async Task<WorkflowVersion> RequirePinAsync(WorkflowVersionPin pin, CancellationToken cancellationToken = default)
+    public Task<WorkflowVersion> RequirePinAsync(WorkflowVersionPin pin, CancellationToken cancellationToken = default)
+        => WorkflowPinnedVersions.RequireAsync(database, tenantProvider.GetCurrentTenantId(), pin, "Workflow", cancellationToken);
+
+    public async Task<WorkflowDefinition> RequireLibraryAsync(DecisionLibraryReference reference, CancellationToken cancellationToken = default)
     {
-        Guid tenantId = tenantProvider.GetCurrentTenantId();
-        WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleOrDefaultAsync(version => version.TenantId == tenantId
-            && version.Id == pin.VersionId && version.PublishedAt != null, cancellationToken) ?? throw new ArgumentException("A pinned published dependency is unavailable in this tenant.");
-        if (!string.Equals(version.DefinitionHash, pin.DefinitionHash, StringComparison.Ordinal)
-            || !await database.Workflows.AsNoTracking().AnyAsync(workflow => workflow.TenantId == tenantId && workflow.Id == version.WorkflowId
-                && workflow.State == WorkflowStates.Active && workflow.RetiredAt == null, cancellationToken))
-            throw new ArgumentException("The dependency hash differs or its workflow is retired.");
-        _ = WorkflowRunService.ReadDefinition(version);
-        return version;
+        WorkflowVersion version = await WorkflowPinnedVersions.RequireAsync(database, tenantProvider.GetCurrentTenantId(), reference.Library, "DecisionLibrary", cancellationToken);
+        WorkflowDefinition definition = WorkflowRunService.ReadDefinition(version);
+        WorkflowDecisionLibraries.ValidateReference(reference, definition);
+        return definition;
     }
 
     private async Task<WorkflowDependencySummary> VisitAsync(WorkflowDefinition definition, HashSet<Guid> ancestry, int depth, CancellationToken cancellationToken)
@@ -36,6 +32,11 @@ internal sealed class WorkflowDependencyValidator(AgentsDbContext database, ITen
         int invocations = definition.Nodes.Count; int concurrency = 1; bool readOnly = true;
         foreach (WorkflowDefinitionNode node in definition.Nodes)
         {
+            if (WorkflowDecisionLibraries.IsReference(node))
+            {
+                WorkflowDefinition library = await RequireLibraryAsync(WorkflowDecisionLibraries.Reference(node), cancellationToken);
+                invocations = checked(invocations + library.Nodes.Count);
+            }
             if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Tool))
             {
                 var parameters = node.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
@@ -59,7 +60,8 @@ internal sealed class WorkflowDependencyValidator(AgentsDbContext database, ITen
             {
                 WorkflowLoopParameters loop = WorkflowControlContracts.Loop(node);
                 nested = await ChildAsync(loop.Body);
-                invocations = checked(invocations + Math.Min(loop.Items.Count, loop.MaxIterations) * (nested.Invocations + 1));
+                int iterations = loop.ItemsFromDecision is not null ? loop.MaxIterations : Math.Min(loop.Items.Count, loop.MaxIterations);
+                invocations = checked(invocations + iterations * (nested.Invocations + 1));
                 concurrency = Math.Max(concurrency, nested.Concurrency); readOnly &= nested.ReadOnly;
             }
             else
@@ -77,6 +79,8 @@ internal sealed class WorkflowDependencyValidator(AgentsDbContext database, ITen
             if (invocations > WorkflowControlLimits.MaximumRootInvocations || concurrency > WorkflowControlLimits.MaximumBranches)
                 throw new ArgumentException("The pinned graph exceeds 1,000 root invocations or four concurrent branches.");
         }
+        if (invocations > WorkflowControlLimits.MaximumRootInvocations || concurrency > WorkflowControlLimits.MaximumBranches)
+            throw new ArgumentException("The pinned graph exceeds 1,000 root invocations or four concurrent branches.");
         return new(invocations, concurrency, readOnly);
 
         async Task<WorkflowDependencySummary> ChildAsync(WorkflowVersionPin pin)

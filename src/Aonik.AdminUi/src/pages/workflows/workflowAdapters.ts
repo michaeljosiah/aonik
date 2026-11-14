@@ -98,6 +98,7 @@ function parseParams(json: string | null | undefined): WorkflowNodeParams {
 export function adaptSummary(dto: WorkflowSummaryDto): WorkflowSummary {
   return {
     id: dto.id,
+    definitionKind: dto.definitionKind ?? 'Workflow',
     slug: dto.slug,
     name: dto.name,
     desc: dto.description,

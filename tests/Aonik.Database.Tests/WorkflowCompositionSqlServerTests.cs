@@ -35,6 +35,8 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
     [InlineData("Human")]
     [InlineData("HumanTimeout")]
     [InlineData("Loop")]
+    [InlineData("Collect")]
+    [InlineData("Library")]
     public async Task NativeChildRequestAndCheckpoint_Should_RestoreFromSqlAfterAllServicesAreRecreated(string mode)
     {
         Skip.IfNot(database.IsAvailable, database.SkipReason);
@@ -48,7 +50,7 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
             parent.Status.Should().Be(WorkflowRunStatuses.WaitingForChildren, parent.ErrorCode);
             childId = (await services.GetRequiredService<AgentsDbContext>().WorkflowRuns.AsNoTracking().SingleAsync(run => run.ParentRunId == parentId)).Id;
             var child = await services.GetRequiredService<IGraphWorkflowRunner>().ContinueAsync(childId, 0);
-            child.Status.Should().Be(mode is "Timer" or "Loop" ? WorkflowRunStatuses.WaitingForTimer : WorkflowRunStatuses.WaitingForApproval, child.ErrorCode);
+            child.Status.Should().Be(mode is "Timer" or "Loop" or "Collect" or "Library" ? WorkflowRunStatuses.WaitingForTimer : WorkflowRunStatuses.WaitingForApproval, child.ErrorCode);
         }
         // No EF change tracker, MAF executor, session or in-memory checkpoint manager survives this boundary.
         using (ServiceProvider restarted = Provider(fixture, fixture.ReviewerId))
@@ -72,12 +74,25 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
             child.Status.Should().Be(WorkflowRunStatuses.Completed, child.ErrorCode);
             var parent = await services.GetRequiredService<IGraphWorkflowRunner>().ContinueAsync(parentId, 0);
             parent.Status.Should().Be(WorkflowRunStatuses.Completed, parent.ErrorCode);
-            parent.Outcome.Should().Be(mode is "HumanTimeout" or "Loop" ? "NeedsManualReview" : "Completed");
+            parent.Outcome.Should().Be(mode is "HumanTimeout" or "Loop" or "Collect" ? "NeedsManualReview" : "Completed");
             (await services.GetRequiredService<IGraphWorkflowRunner>().ContinueAsync(parentId, 0)).Status.Should().Be(WorkflowRunStatuses.Completed);
             AgentsDbContext saved = services.GetRequiredService<AgentsDbContext>();
             (await saved.WorkflowRuns.CountAsync(run => run.ParentRunId == parentId)).Should().Be(1);
             var wake = await saved.Set<OutboxMessage>().SingleAsync(message => message.EventId == childId);
             JsonSerializer.Deserialize<WorkflowContinuationRequestedEvent>(wake.Payload, OutboxSerialization.Options)!.RunId.Should().Be(parentId);
+            if (mode is "Collect" or "Library")
+            {
+                WorkflowStepRun decision = await saved.WorkflowStepRuns.SingleAsync(step => step.RunId == parentId && step.NodeKey == "decision");
+                DecisionEvaluation trace = JsonSerializer.Deserialize<DecisionEvaluation>(decision.DecisionTraceJson!, WorkflowDefinitionCodec.JsonOptions)!;
+                trace.Status.Should().Be("Completed");
+                if (mode == "Library") trace.Library!.DefinitionHash.Should().HaveLength(64);
+                else
+                {
+                    trace.Items.Should().HaveCount(2);
+                    WorkflowStepRun loop = await saved.WorkflowStepRuns.SingleAsync(step => step.RunId == parentId && step.NodeKey == "child" && step.InvocationPath == "root");
+                    JsonSerializer.Deserialize<WorkflowLoopParameters>(loop.ArgumentsJson!, WorkflowDefinitionCodec.JsonOptions)!.Items.Should().HaveCount(2);
+                }
+            }
         }
     }
 
@@ -151,7 +166,7 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
     {
         JsonElement Empty() => JsonSerializer.SerializeToElement(new { });
         var child = new Workflow { TenantId = fixture.TenantId, Slug = "sql-child", Name = "SQL child", State = WorkflowStates.Active, DefinitionSchemaVersion = 2 };
-        WorkflowDefinition childDefinition = mode is "Timer" or "Loop"
+        WorkflowDefinition childDefinition = mode is "Timer" or "Loop" or "Collect" or "Library"
             ? new(2, "Workflow", child.Slug, child.Name, "", [new("start", "Trigger", "Start", Empty()), new("wait", "Wait", "Wait", JsonSerializer.SerializeToElement(new WorkflowWaitParameters(1, DelaySeconds: 60), WorkflowDefinitionCodec.JsonOptions)), new("done", "End", "Done", Empty())],
                 [new("first", "start", "wait", 0, null), new("last", "wait", "done", 0, null)])
             : new(2, "Workflow", child.Slug, child.Name, "", [new("start", "Trigger", "Start", Empty()), new("human", "Human", "Review", JsonSerializer.SerializeToElement(new WorkflowHumanParameters(1, "Review evidence", new(UserId: fixture.ReviewerId), 60,
@@ -163,12 +178,40 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
             new("child", "Child", "Child", JsonSerializer.SerializeToElement(new WorkflowChildParameters(1, new(childVersion.Id, childVersion.DefinitionHash!), new(Fact: "invoice.id")), WorkflowDefinitionCodec.JsonOptions)),
             new("done", "End", "Done", Empty()), new("manual", "End", "Manual", JsonSerializer.SerializeToElement(new { outcome = "NeedsManualReview" }))],
             [new("first", "start", "child", 0, null), new("yes", "child", "done", 0, "completed"), new("no", "child", "manual", 1, "error")]);
-        if (mode == "Loop") parentDefinition = parentDefinition with
+        if (mode is "Loop" or "Collect") parentDefinition = parentDefinition with
         {
             Nodes = parentDefinition.Nodes.Select(node => node.Key == "child" ? node with { Kind = "Loop", Parameters = JsonSerializer.SerializeToElement(
                 new WorkflowLoopParameters(1, new(childVersion.Id, childVersion.DefinitionHash!), [new("first", fixture.InvoiceId), new("second", fixture.InvoiceId)], 1, 3600), WorkflowDefinitionCodec.JsonOptions) } : node).ToList(),
             Edges = [.. parentDefinition.Edges, new("exhausted", "child", "manual", 2, "exhausted")],
         };
+        if (mode is "Library" or "Collect")
+        {
+            var table = new DecisionTable(2, "invoice-approval.v1", mode == "Collect" ? "Collect" : "FirstMatch",
+                [new("first", 1, [new("invoice.status", "eq", JsonSerializer.SerializeToElement("Draft"))], "first", CollectInvoiceId: mode == "Collect" ? new(Fact: "invoice.id") : null),
+                 .. mode == "Collect" ? new[] { new DecisionRow("second", 2, [new("invoice.status", "eq", JsonSerializer.SerializeToElement("Draft"))], "second", CollectInvoiceId: new(Fact: "invoice.id")) } : []],
+                "manual", Currency: "GBP", OptionalFactBehavior: "Unknown", CollectRoute: mode == "Collect" ? "consume" : null);
+            table = table with { Fixtures = [new("normal", "Normal", ScenarioFacts(fixture.InvoiceId), "Completed", [mode == "Collect" ? "consume" : "first"]),
+                new("boundary", "Boundary", ScenarioFacts(fixture.InvoiceId), "Completed", [mode == "Collect" ? "consume" : "first"]),
+                new("missing", "MissingData", new Dictionary<string, JsonElement>(), "NeedsManualReview", [])] };
+            JsonElement decisionParameters = JsonSerializer.SerializeToElement(table, WorkflowDefinitionCodec.JsonOptions);
+            if (mode == "Library")
+            {
+                var library = new Workflow { TenantId = fixture.TenantId, Slug = "sql-library", Name = "SQL pure library", DefinitionKind = "DecisionLibrary", DefinitionSchemaVersion = 2, State = WorkflowStates.Active };
+                var contract = new DecisionLibraryContract(1, [new("invoice.id", "Id", true), new("invoice.status", "String", true), new("invoice.currency", "Currency", true), new("invoice.total", "Decimal", true)], ["first", "manual"], "Route");
+                var libraryDefinition = new WorkflowDefinition(2, "DecisionLibrary", library.Slug, library.Name, "", [new("start", "Trigger", "Inputs", JsonSerializer.SerializeToElement(new DecisionLibraryTriggerParameters(contract), WorkflowDefinitionCodec.JsonOptions)),
+                    new("decision", "Decision", "Pure table", decisionParameters), new("done", "End", "Return", Empty())],
+                    [new("first", "start", "decision", 0, null), new("yes", "decision", "done", 0, "first"), new("no", "decision", "done", 1, "manual")]);
+                WorkflowVersion libraryVersion = Version(library, libraryDefinition);
+                context.Workflows.Add(library); context.WorkflowVersions.Add(libraryVersion);
+                decisionParameters = JsonSerializer.SerializeToElement(new DecisionLibraryReference(1, new(libraryVersion.Id, libraryVersion.DefinitionHash!),
+                    contract.Inputs.ToDictionary(field => field.Name, field => new WorkflowInputBinding(Fact: field.Name)), contract.Routes, contract.OutputType), WorkflowDefinitionCodec.JsonOptions);
+            }
+            else parentDefinition = parentDefinition with { Nodes = parentDefinition.Nodes.Select(node => node.Key == "child" ? node with
+                { Parameters = JsonSerializer.SerializeToElement(new WorkflowLoopParameters(2, new(childVersion.Id, childVersion.DefinitionHash!), [], 1, 3600, ItemsFromDecision: "decision"), WorkflowDefinitionCodec.JsonOptions) } : node).ToList() };
+            parentDefinition = parentDefinition with { Nodes = [.. parentDefinition.Nodes, new("decision", "Decision", "Routing", decisionParameters)],
+                Edges = [.. parentDefinition.Edges.Where(edge => edge.From != "start"), new("enter", "start", "decision", 0, null),
+                    new("selected", "decision", "child", 0, mode == "Collect" ? "consume" : "first"), new("fallback", "decision", "manual", 1, "manual")] };
+        }
         WorkflowVersion parentVersion = Version(parent, parentDefinition);
         context.Workflows.AddRange(child, parent); context.WorkflowVersions.AddRange(childVersion, parentVersion); await context.SaveChangesAsync();
         return parentVersion;
@@ -192,6 +235,8 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
     {
         public string SubjectType => "Invoice"; public string Schema => "invoice-approval.v1";
         public Task<WorkflowFactsSnapshot?> LoadAsync(Guid id, WorkflowActor actor, CancellationToken cancellationToken = default)
-            => Task.FromResult<WorkflowFactsSnapshot?>(id == fixture.InvoiceId ? new(Schema, new Dictionary<string, JsonElement> { ["invoice.id"] = JsonSerializer.SerializeToElement(id) }, "facts-v1", SubjectCreatedByUserId: fixture.AuthorId) : null);
+            => Task.FromResult<WorkflowFactsSnapshot?>(id == fixture.InvoiceId ? new(Schema, ScenarioFacts(id), "facts-v1", SubjectCreatedByUserId: fixture.AuthorId) : null);
     }
+    private static Dictionary<string, JsonElement> ScenarioFacts(Guid id) => new() { ["invoice.id"] = JsonSerializer.SerializeToElement(id),
+        ["invoice.status"] = JsonSerializer.SerializeToElement("Draft"), ["invoice.total"] = JsonSerializer.SerializeToElement("42.00"), ["invoice.currency"] = JsonSerializer.SerializeToElement("GBP") };
 }

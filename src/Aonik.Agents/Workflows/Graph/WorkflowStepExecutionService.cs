@@ -31,10 +31,20 @@ internal sealed partial class WorkflowStepExecutionService(
         if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Decision))
         {
             WorkflowFactsSnapshot facts = Facts();
-            DecisionTable table = node.Parameters.Deserialize<DecisionTable>(WorkflowDefinitionCodec.JsonOptions)!;
-            if (table.Rows.Count > 50 || table.Rows.Any(row => row.All.Count > 8)) throw new WorkflowExecutionException("DecisionLimitExceeded");
-            DecisionEvaluation evaluated = facts.BlockReason is { } reason
-                ? new("NeedsManualReview", [], [], [], reason) : DecisionTableEvaluator.Evaluate(table, facts.Facts);
+            DecisionEvaluation evaluated;
+            if (facts.BlockReason is { } reason) evaluated = new("NeedsManualReview", [], [], [], reason);
+            else if (WorkflowDecisionLibraries.IsReference(node))
+            {
+                DecisionLibraryReference reference = WorkflowDecisionLibraries.Reference(node);
+                WorkflowVersion library = await WorkflowPinnedVersions.RequireAsync(database, Run.TenantId, reference.Library, "DecisionLibrary", cancellationToken);
+                evaluated = WorkflowDecisionLibraries.Evaluate(reference, WorkflowRunService.ReadDefinition(library), facts.Facts);
+            }
+            else
+            {
+                DecisionTable table = node.Parameters.Deserialize<DecisionTable>(WorkflowDefinitionCodec.JsonOptions)!;
+                if (table.Rows.Count > 50 || table.Rows.Any(row => row.All.Count > 8)) throw new WorkflowExecutionException("DecisionLimitExceeded");
+                evaluated = DecisionTableEvaluator.Evaluate(table, facts.Facts);
+            }
             step.DecisionTraceJson = JsonSerializer.Serialize(evaluated, WorkflowDefinitionCodec.JsonOptions);
             step.SelectedRoute = evaluated.Routes.SingleOrDefault();
             output = evaluated.Status == "Completed" ? output with { Route = step.SelectedRoute }

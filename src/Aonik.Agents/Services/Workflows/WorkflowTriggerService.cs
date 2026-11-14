@@ -215,6 +215,7 @@ internal sealed class WorkflowTriggerService(AgentsDbContext database, ITenantPr
         WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleOrDefaultAsync(version => version.TenantId == workflow.TenantId
             && version.WorkflowId == workflow.Id && version.Id == definition.WorkflowVersionId, cancellationToken) ?? throw new KeyNotFoundException("Published workflow version not found.");
         WorkflowDefinition snapshot = WorkflowRunService.ReadDefinition(version);
+        if (snapshot.DefinitionKind != "Workflow") throw new WorkflowConflictException("Automatic sources require a workflow; pure decision libraries are consumed through pinned Decision nodes.");
         var actor = new WorkflowActor("AutomationIdentity", definition.AutomationIdentityId, WorkflowVersionId: version.Id);
         await execution.RequireActorAsync(actor, cancellationToken);
         foreach (Guid subjectId in definition.Subject.FixedIds) await execution.LoadFactsAsync(definition.Subject.Type, subjectId, actor, cancellationToken);

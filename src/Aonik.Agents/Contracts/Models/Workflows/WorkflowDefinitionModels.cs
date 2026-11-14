@@ -38,7 +38,14 @@ public sealed record WorkflowCapabilities(
     JsonElement? ChildParametersSchema = null,
     JsonElement? LoopParametersSchema = null,
     JsonElement? ParallelParametersSchema = null,
-    WorkflowControlCapabilityLimits? ControlLimits = null);
+    WorkflowControlCapabilityLimits? ControlLimits = null,
+    JsonElement? DecisionLibraryReferenceSchema = null,
+    JsonElement? DecisionLibraryContractSchema = null,
+    IReadOnlyList<string>? DefinitionKinds = null,
+    IReadOnlyList<string>? DecisionHitPolicies = null,
+    DecisionCapabilityLimits? DecisionLimits = null);
+public sealed record DecisionCapabilityLimits(int MaximumRows, int MaximumPredicateDepth, int MaximumPredicateNodes,
+    int MaximumScoreWeightMagnitude, int MaximumScoreDecimalPlaces);
 public sealed record WorkflowControlCapabilityLimits(int MaximumGraphNodes, int MaximumInvocations, int MaximumLoopIterations,
     int MaximumConcurrentBranches, int MaximumNestingDepth, int MaximumLifetimeSeconds);
 

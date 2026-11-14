@@ -54,6 +54,7 @@ export function WorkflowCard({ wf, active, onClick }: WorkflowCardProps) {
             <span className="text-[14px] font-semibold text-foreground">
               {wf.name}
             </span>
+            {wf.definitionKind === 'DecisionLibrary' && <span className="rounded-sm bg-muted px-1.5 py-px text-xs text-muted-foreground">Decision library</span>}
             <span
               className="text-[10.5px] text-muted-foreground"
               style={{ fontFamily: 'var(--font-mono)' }}

@@ -93,9 +93,10 @@ function PaletteItem({ kind }: PaletteItemProps) {
 export interface EditorPaletteProps {
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
+  definitionKind?: string;
 }
 
-export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
+export function EditorPalette({ collapsed, setCollapsed, definitionKind }: EditorPaletteProps) {
   const [executable, setExecutable] = useState<string[]>([]);
   useEffect(() => { void workflowService.capabilities().then(result => setExecutable(result.nodeKinds.filter(kind => kind.canExecute).map(kind => kind.kind.toLowerCase()))).catch(() => setExecutable([])); }, []);
   return (
@@ -140,7 +141,7 @@ export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
                 {g.name}
               </div>
               <div className="flex flex-col gap-0.5">
-                {g.kinds.filter(kind => executable.includes(kind)).map((k) => (
+                {g.kinds.filter(kind => executable.includes(kind) && (definitionKind !== 'DecisionLibrary' || ['trigger', 'decision', 'end'].includes(kind))).map((k) => (
                   <PaletteItem key={k} kind={k} />
                 ))}
               </div>

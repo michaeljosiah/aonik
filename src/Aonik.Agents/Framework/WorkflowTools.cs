@@ -11,7 +11,7 @@ namespace Aonik.Agents.Framework;
 
 internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGovernanceService governance, IWorkflowRunService? runs = null)
 {
-    [Description("List authorized tenant workflow metadata, with bounded pagination.")]
+    [Description("List authorized tenant workflow and pure DecisionLibrary metadata, with bounded pagination.")]
     public async Task<object> ListWorkflows(int skip = 0, int take = 20, CancellationToken cancellationToken = default)
     {
         var items = await workflows.ListAsync(skip, take, cancellationToken);
@@ -26,7 +26,7 @@ internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGoverna
         return new { workflow, versions = includeHistory ? await workflows.ListVersionsAsync(workflow.Id, cancellationToken) : null };
     }
 
-    [Description("Discover available workflow nodes, invoice fact fields/operators and the typed Decision parameters JSON schema. Unsupported executors cannot publish.")]
+    [Description("Discover supported workflow/library definitions, nodes, actions, invoice facts, typed parameters and bounds. Schema 1 retains FirstMatch; schema 2 supports bounded conditions, Unique/Collect/Score and exact-pinned pure libraries. Collect needs an explicit typed foreach consumer. Unsupported executors cannot publish.")]
     public Task<WorkflowCapabilities> GetCapabilities(CancellationToken cancellationToken = default) => workflows.GetCapabilitiesAsync(cancellationToken);
 
     [Description("Validate a saved draft for publication. Returns exact definition hash and diagnostics; does not publish or execute it.")]
@@ -36,7 +36,7 @@ internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGoverna
     public Task<WorkflowSimulation?> SimulateWorkflow(string slug, WorkflowSimulationRequest fixture, CancellationToken cancellationToken = default)
         => workflows.SimulateAsync(slug, fixture, cancellationToken);
 
-    [Description("Propose a new workflow draft. Read the capability/schema tool first. The server shows the exact change and requires human confirmation before saving. A duplicate slug conflicts.")]
+    [Description("Propose a new Workflow or DecisionLibrary draft. Read the capability/schema tool first; a library contains one pure Trigger/Decision/End table with declared inputs/outputs. The server shows the exact change and requires human confirmation before saving. A duplicate slug conflicts.")]
     public Task<WorkflowGraphResponse> CreateWorkflow(WorkflowSaveRequest draft, CancellationToken cancellationToken = default)
         => workflows.CreateAsync(draft, cancellationToken);
 

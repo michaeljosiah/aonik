@@ -5,7 +5,7 @@ using Aonik.Agents.Contracts.Models.Workflows;
 
 namespace Aonik.Agents.Services.Workflows;
 
-internal static class DecisionTableEvaluator
+internal static partial class DecisionTableEvaluator
 {
     public const string InvoiceSchema = "invoice-approval.v1";
     private static readonly IReadOnlyDictionary<string, string> InvoiceFields = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -28,9 +28,13 @@ internal static class DecisionTableEvaluator
 
     public static IReadOnlyList<WorkflowDiagnostic> Validate(DecisionTable table, string path = "decision")
     {
+        if (table.SchemaVersion == 2) return ValidateAdvanced(table, path);
         var errors = new List<WorkflowDiagnostic>();
         if (table.SchemaVersion != 1 || table.FactSchema != InvoiceSchema || table.HitPolicy != "FirstMatch")
             errors.Add(new("DecisionSchema", path, "Use schema 1, invoice-approval.v1 and FirstMatch."));
+        if (table.Currency is not null || table.OptionalFactBehavior is not null || table.CollectRoute is not null || table.ScoreBands is not null
+            || table.Rows?.Any(row => row?.Condition is not null || row?.ScoreWeight is not null || row?.CollectInvoiceId is not null) == true)
+            errors.Add(new("DecisionSchema", path, "Advanced conditions and hit policies require decision schema 2."));
         if (!WorkflowDefinitionCodec.IsKey(table.DefaultRoute))
             errors.Add(new("DefaultRouteRequired", path, "A default route is required."));
         if (table.Fixtures?.Count > 50)
@@ -95,6 +99,7 @@ internal static class DecisionTableEvaluator
 
     public static DecisionEvaluation Evaluate(DecisionTable table, IReadOnlyDictionary<string, JsonElement> facts)
     {
+        if (table.SchemaVersion == 2) return EvaluateAdvanced(table, facts);
         IReadOnlyList<WorkflowDiagnostic> errors = Validate(table);
         if (errors.Any(error => error.Severity == "Error")) return new("Blocked", [], [], [], errors.First(error => error.Severity == "Error").Message);
         foreach (string field in RequiredInvoiceFields)

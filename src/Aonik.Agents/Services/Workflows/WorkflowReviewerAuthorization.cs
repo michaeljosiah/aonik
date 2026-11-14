@@ -59,7 +59,7 @@ internal sealed class WorkflowReviewerAuthorization(
             || (requirement.ForbidSelfApproval && (run.InitiatingUserId == userId || recorded.SubjectCreatedByUserId == userId)))
             throw new PermissionDeniedException(step.RequiredPermission, "The current user cannot decide this workflow action.");
         try { await execution.RequireRunAsync(run, cancellationToken); }
-        catch (WorkflowExecutionException) { throw new WorkflowConflictException("The workflow's automatic source is disabled or no longer has its approved configuration."); }
+        catch (WorkflowExecutionException) { throw new WorkflowConflictException("The workflow's source, dependencies or execution authority changed. Review the run before deciding."); }
         await execution.RequireRecordedActionAsync(WorkflowExecutionAuthorization.Actor(run), step.RequiredPermission!, step.ActionKey!, step.ActionVersion!.Value,
             run.SubjectType!, run.SubjectId!.Value, cancellationToken);
         await execution.RequireEnabledAsync(cancellationToken);

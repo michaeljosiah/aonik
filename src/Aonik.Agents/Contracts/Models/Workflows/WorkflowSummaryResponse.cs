@@ -25,7 +25,8 @@ public sealed record WorkflowSummaryResponse(
     IReadOnlyList<string> Contributors,
     /// <summary>Compact step list for the inline rail (kind + label + meta only).</summary>
     IReadOnlyList<WorkflowStepSummary> Steps,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string DefinitionKind = "Workflow");
 
 /// <summary>
 /// One entry in the inline horizontal step rail. Just enough metadata to
