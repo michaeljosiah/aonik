@@ -28,6 +28,9 @@ internal class WorkflowRunConfiguration : IEntityTypeConfiguration<WorkflowRun>
         builder.Property(r => r.FrameworkSessionId).HasMaxLength(128);
         builder.Property(r => r.TriggerDefinitionHash).HasMaxLength(64);
         builder.Property(r => r.TriggerPathJson).HasColumnType("nvarchar(max)").HasDefaultValue("[]");
+        builder.Property(r => r.InvocationPath).HasMaxLength(1024).HasDefaultValue("root");
+        builder.HasIndex(r => new { r.TenantId, r.ParentStepRunId }).IsUnique().HasFilter("[ParentStepRunId] IS NOT NULL");
+        builder.HasIndex(r => new { r.TenantId, r.ExecutionRootRunId, r.Status });
         builder.HasIndex(r => new { r.TenantId, r.TriggerBindingId, r.SubjectId, r.Status });
         builder.HasIndex(r => new { r.TenantId, r.TriggerBindingId, r.StartedAt });
         builder.HasIndex(r => new { r.TenantId, r.ActorType, r.ActorId, r.IdempotencyKey })

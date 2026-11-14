@@ -17,6 +17,8 @@ public static class WorkflowNodeKinds
     public const string Emit = "Emit";
     public const string Loop = "Loop";
     public const string End = "End";
+    public const string Child = "Child";
+    public const string Parallel = "Parallel";
 
     /// <summary>
     /// The subset of kinds the graph runtime (<c>GraphWorkflowBuilder</c>) can

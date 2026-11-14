@@ -14,6 +14,7 @@ public static class WorkflowRunStatuses
     public const string Cancelled = "Cancelled";
     public const string WaitingForApproval = "WaitingForApproval";
     public const string WaitingForTimer = "WaitingForTimer";
+    public const string WaitingForChildren = "WaitingForChildren";
     public const string WaitingForConnection = "WaitingForConnection";
     public const string NeedsAttention = "NeedsAttention";
 }

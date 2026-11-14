@@ -68,8 +68,18 @@ Disable automatic tenant admission first. Request disabling the exact trigger re
 
 Use the existing workflow retirement/rollback proposal for a bad published graph. Preserve immutable versions, source IDs, approvals, operation receipts and checkpoints. Resolve uncertain financial/provider outcomes from recorded evidence before deliberately reprocessing. A new publication does not silently repoint an existing trigger or run.
 
+## Child workflows, foreach and parallel branches
+
+Publish the child first, then select its exact version/hash in the parent. Child input is an invoice reference; its output is the recorded run/outcome receipt. Publication validates transitive dependencies. Editing or publishing a child never changes a parent's pin. Retiring a dependency prevents new effects until an explicitly reviewed parent revision adopts a valid replacement.
+
+For unattended work, grant the actor each child version, action and invoice scope explicitly. A parent grant does not imply descendant access. Named human financial approval remains separate for every invocation; revoking the actor's action grant also blocks a pending approval.
+
+Foreach accepts a declared typed invoice collection with unique stable item keys, maximum iterations and timeout. Wire completion, exhaustion and error separately. Parallel accepts two to four named children, explicit concurrency and All/AnySuccess. Write-capable or human-task branches must run serially with All. AnySuccess permits read/pure children, selects a deterministic recorded winner and cancels the remaining reads. A missing or uncertain outcome never wins.
+
+Limits are 100 iterations, four simultaneous branches, depth five, a conservative 1,000 node invocations across the execution tree, and seven days elapsed lifetime. Publication rejects a graph whose worst case exceeds these bounds. Every child uses the existing runner and its own scoped database context. The run page links parent/child evidence. Duplicate delivery reuses the same child and operation identities. Cancellation withdraws pending approvals and propagates to descendants; dispatched effects retain reconciliation evidence. Keep the original database/key ring when restarting API or Worker.
+
 ## Qualification evidence
 
 Workflow schema v2 adds durable waits and typed human tasks. Choose one wait duration or an explicit UTC deadline; a run retains its original deadline across restarts and has a seven-day lifetime. An operator can revalidate a due timer but cannot shorten it. For a human task, select a current tenant user or role, purpose, bounded choices and timeout, then wire every response/rejection/timeout route. The recorded expiry is a WorkItem; named-user tasks carry that assignment without turning the worker into that user. Review and respond from the run page. Responses are hash-bound audit evidence, and subsequent financial actions still require their own approval. Cancelling the run invalidates its pending response and timer. Schema v1 publications and checkpoints retain their original interpretation.
 
-Spec 099 sections 13.1–13.8 and GitHub epic #438 carry commit/CI evidence. SQL migration and concurrency qualification runs in CI against an isolated SQL Server container because LocalDB cannot initialize on this development machine. A live consenting Gmail/Pub/Sub rehearsal and the full automatic document/payment/mail journey remain distinct release gates; passing local fixtures does not establish those external prerequisites.
+Spec 099 sections 13.1–13.10 and GitHub epic #438 carry commit/CI evidence. SQL migration and concurrency qualification runs in CI against an isolated SQL Server container because LocalDB cannot initialize on this development machine. A live consenting Gmail/Pub/Sub rehearsal and the full automatic document/payment/mail journey remain distinct release gates; passing local fixtures does not establish those external prerequisites.

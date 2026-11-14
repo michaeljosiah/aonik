@@ -40,6 +40,8 @@ const VALID_NODE_KINDS: ReadonlySet<EditorNodeKind> = new Set([
   'notify',
   'emit',
   'loop',
+  'child',
+  'parallel',
   'end',
 ]);
 

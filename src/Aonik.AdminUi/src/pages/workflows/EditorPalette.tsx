@@ -47,7 +47,7 @@ interface PaletteGroup {
 const GROUPS: PaletteGroup[] = [
   { name: 'Triggers', kinds: ['trigger'] },
   { name: 'Actions', kinds: ['tool', 'agent', 'notify', 'emit'] },
-  { name: 'Logic', kinds: ['decision', 'loop', 'wait'] },
+  { name: 'Logic', kinds: ['decision', 'child', 'loop', 'parallel', 'wait'] },
   { name: 'Coordination', kinds: ['human', 'end'] },
 ];
 

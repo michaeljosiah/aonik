@@ -129,6 +129,10 @@ export interface WorkflowRunDetail {
   configuredByUserId?: string | null;
   deadlineUtc?: string | null;
   waitUntilUtc?: string | null;
+  parentRunId?: string | null;
+  executionRootRunId?: string | null;
+  invocationPath?: string;
+  children?: { id: string; workflowVersionId: string; invocationPath: string; status: string; outcome: string | null; errorCode: string | null; subjectId: string }[] | null;
   source?: { bindingId: string; revision: number; eventId: string; occurredAtUtc: string; causationRunId: string | null; rootRunId: string | null } | null;
   steps: { id: string; nodeKey: string; invocationPath: string; status: string; actionKey: string | null; actionVersion: number | null; selectedRoute: string | null;
     decisionTrace: unknown; result: unknown; approvalRequestId: string | null; proposalId: string | null; aiRunId: string | null; errorCode: string | null;

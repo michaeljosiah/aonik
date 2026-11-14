@@ -8,5 +8,5 @@ internal sealed class GovernedHumanResumeExecutor(WorkflowDefinitionNode node, W
     : Executor<WorkflowExecutionFrame, WorkflowExecutionFrame>($"{node.Key}:execute")
 {
     public override async ValueTask<WorkflowExecutionFrame> HandleAsync(WorkflowExecutionFrame message, IWorkflowContext context, CancellationToken cancellationToken = default)
-        => await execution.CompleteHumanAsync(node, message, cancellationToken);
+        => await execution.SerializeControlAsync(() => execution.CompleteHumanAsync(node, message, cancellationToken), cancellationToken);
 }

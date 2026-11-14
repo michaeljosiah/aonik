@@ -2,14 +2,27 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Events.Integration;
+using Aonik.SharedKernel.Events.Outbox;
 
 namespace Aonik.Agents.Services.Workflows;
 
 /// <summary>Stages a wake-up in the same Agents save as its approval decision.</summary>
 internal sealed class WorkflowContinuationWriter(AgentsDbContext database, IClock clock)
 {
+    public async Task AfterChildAsync(Entities.Workflows.WorkflowRun child, CancellationToken cancellationToken = default)
+    {
+        if (child.ParentRunId is not { } parentId || child.ParentStepRunId is null) return;
+        var parent = await database.WorkflowRuns.AsNoTracking().SingleAsync(run => run.TenantId == child.TenantId && run.Id == parentId, cancellationToken);
+        if (WorkflowStepExecutionService.IsTerminal(parent)
+            || await database.Set<OutboxMessage>().AnyAsync(message => message.TenantId == child.TenantId && message.EventId == child.Id, cancellationToken)) return;
+        DateTime due = parent.LeaseExpiresAt is { } lease && lease > clock.UtcNow ? lease : clock.UtcNow;
+        database.EnqueueIntegrationEvent(new WorkflowContinuationRequestedEvent(child.Id, clock.UtcNow, child.TenantId, parent.Id,
+            parent.Continuation, DateTime.SpecifyKind(due, DateTimeKind.Utc)));
+    }
+
     public async Task AfterDecisionAsync(ToolApprovalRequest request, CancellationToken cancellationToken = default)
     {
         if (request.WorkflowStepRunId is not { } stepId) return;

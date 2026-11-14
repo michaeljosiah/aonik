@@ -34,7 +34,13 @@ public sealed record WorkflowCapabilities(
     IReadOnlyList<WorkflowActionCapability>? Actions = null,
     JsonElement? ToolParametersSchema = null,
     JsonElement? WaitParametersSchema = null,
-    JsonElement? HumanParametersSchema = null);
+    JsonElement? HumanParametersSchema = null,
+    JsonElement? ChildParametersSchema = null,
+    JsonElement? LoopParametersSchema = null,
+    JsonElement? ParallelParametersSchema = null,
+    WorkflowControlCapabilityLimits? ControlLimits = null);
+public sealed record WorkflowControlCapabilityLimits(int MaximumGraphNodes, int MaximumInvocations, int MaximumLoopIterations,
+    int MaximumConcurrentBranches, int MaximumNestingDepth, int MaximumLifetimeSeconds);
 
 public sealed record WorkflowActionCapability(string Key, int ContractVersion, string RequiredPermission, string RiskTier,
     JsonElement InputSchema, JsonElement OutputSchema);

@@ -9,5 +9,5 @@ internal sealed class GovernedEndExecutor(WorkflowDefinitionNode node, WorkflowS
     protected override ProtocolBuilder ConfigureProtocol(ProtocolBuilder protocol) => base.ConfigureProtocol(protocol).YieldsOutput<WorkflowExecutionFrame>();
 
     public override async ValueTask HandleAsync(WorkflowExecutionFrame message, IWorkflowContext context, CancellationToken cancellationToken = default)
-        => await context.YieldOutputAsync(await execution.ExecuteNodeAsync(node, message, cancellationToken), cancellationToken);
+        => await context.YieldOutputAsync(await execution.SerializeControlAsync(() => execution.ExecuteNodeAsync(node, message, cancellationToken), cancellationToken), cancellationToken);
 }

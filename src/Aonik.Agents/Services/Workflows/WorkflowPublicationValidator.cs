@@ -14,7 +14,8 @@ namespace Aonik.Agents.Services.Workflows;
 internal sealed class WorkflowPublicationValidator(
     WorkflowActionRegistry actions, ITenantRoleReader roles, ITenantProvider tenantProvider,
     WorkflowExecutionAuthorization authorization, IEnumerable<IConnectorDescriptor>? connectors = null,
-    IConnectorService? connectorService = null, ICurrentUserProvider? currentUser = null, IUserDirectoryReader? users = null, IClock? clock = null)
+    IConnectorService? connectorService = null, ICurrentUserProvider? currentUser = null, IUserDirectoryReader? users = null, IClock? clock = null,
+    WorkflowDependencyValidator? dependencies = null)
 {
     public async Task<IReadOnlyList<WorkflowActionCapability>> CapabilitiesAsync(CancellationToken cancellationToken = default)
     {
@@ -35,6 +36,16 @@ internal sealed class WorkflowPublicationValidator(
         int maximumNodes = definition.SchemaVersion == 1 ? 30 : WorkflowControlLimits.MaximumGraphNodes;
         if (definition.Nodes.Count > maximumNodes) diagnostics.Add(new("ExecutableNodeLimit", "nodes", $"This workflow schema supports at most {maximumNodes} nodes."));
         if (diagnostics.Any(diagnostic => diagnostic.Severity == "Error")) return diagnostics;
+        if (definition.Nodes.Any(WorkflowControlContracts.IsComposition))
+        {
+            try
+            {
+                if (dependencies is null || workflowId is null) throw new ArgumentException("Dependency validation requires a stored tenant workflow.");
+                _ = await dependencies.ValidateAsync(definition, workflowId.Value, cancellationToken);
+            }
+            catch (Exception exception) when (exception is ArgumentException or JsonException or WorkflowConflictException)
+            { diagnostics.Add(new("WorkflowDependency", "nodes", exception.Message)); }
+        }
         Dictionary<string, HashSet<string>> dominators = Dominators(definition);
         foreach (WorkflowDefinitionNode node in definition.Nodes)
         {
@@ -51,6 +62,13 @@ internal sealed class WorkflowPublicationValidator(
                         .Any(user => user.UserId == userId && user.Status == "Active"))))
                     diagnostics.Add(new("HumanReviewer", node.Key, "Select a current tenant user or reviewer role."));
             }
+            if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Child))
+            {
+                WorkflowInputBinding binding = WorkflowControlContracts.Child(node).InvoiceId;
+                ValidateChildBinding(binding, node.Key);
+            }
+            if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Parallel))
+                foreach (WorkflowParallelBranch branch in WorkflowControlContracts.Parallel(node).Branches) ValidateChildBinding(branch.InvoiceId, node.Key);
             if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Decision))
             {
                 DecisionTable table = node.Parameters.Deserialize<DecisionTable>(WorkflowDefinitionCodec.JsonOptions)!;
@@ -108,10 +126,15 @@ internal sealed class WorkflowPublicationValidator(
                     {
                         WorkflowDefinitionNode? prior = definition.Nodes.SingleOrDefault(candidate => candidate.Key == source);
                         if (source == node.Key || prior is null || binding.Output is null || !dominators[node.Key].Contains(source)
-                            || !WorkflowDefinitionValidator.IsKind(prior, WorkflowNodeKinds.Tool))
+                            || !(WorkflowDefinitionValidator.IsKind(prior, WorkflowNodeKinds.Tool) || WorkflowDefinitionValidator.IsKind(prior, WorkflowNodeKinds.Child)))
                             throw new ArgumentException("A referenced output must come from an action on every prior path.");
-                        WorkflowToolParameters priorParameters = prior.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
-                        JsonElement schema = actions.Resolve(priorParameters.ActionKey, priorParameters.ContractVersion).Descriptor.OutputSchema;
+                        JsonElement schema;
+                        if (WorkflowDefinitionValidator.IsKind(prior, WorkflowNodeKinds.Child)) schema = WorkflowControlContracts.ChildDescriptor.OutputSchema;
+                        else
+                        {
+                            WorkflowToolParameters priorParameters = prior.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
+                            schema = actions.Resolve(priorParameters.ActionKey, priorParameters.ContractVersion).Descriptor.OutputSchema;
+                        }
                         if (!schema.TryGetProperty("properties", out JsonElement properties) || !properties.TryGetProperty(binding.Output, out _))
                             throw new ArgumentException("The referenced output field is not declared by its action contract.");
                     }
@@ -126,6 +149,26 @@ internal sealed class WorkflowPublicationValidator(
             }
         }
         return diagnostics;
+
+        void ValidateChildBinding(WorkflowInputBinding binding, string nodeKey)
+        {
+            if (binding.Step is not { } source) return;
+            WorkflowDefinitionNode? prior = definition.Nodes.SingleOrDefault(candidate => candidate.Key == source);
+            JsonElement schema;
+            if (prior is null || source == nodeKey || !dominators[nodeKey].Contains(source))
+            { diagnostics.Add(new("ChildInput", nodeKey, "Child input must be a UUID output on every preceding path.")); return; }
+            if (WorkflowDefinitionValidator.IsKind(prior, WorkflowNodeKinds.Tool))
+            {
+                WorkflowToolParameters parameters = prior.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
+                schema = actions.Resolve(parameters.ActionKey, parameters.ContractVersion).Descriptor.OutputSchema;
+            }
+            else if (WorkflowDefinitionValidator.IsKind(prior, WorkflowNodeKinds.Child)) schema = WorkflowControlContracts.ChildDescriptor.OutputSchema;
+            else { diagnostics.Add(new("ChildInput", nodeKey, "Child input requires a declared UUID output.")); return; }
+            if (!schema.TryGetProperty("properties", out JsonElement properties) || !properties.TryGetProperty(binding.Output!, out JsonElement field)
+                || !field.TryGetProperty("type", out JsonElement type) || type.GetString() != "string"
+                || !field.TryGetProperty("format", out JsonElement format) || format.GetString() != "uuid")
+                diagnostics.Add(new("ChildInput", nodeKey, "The referenced child input is not a UUID field."));
+        }
     }
 
     private static Dictionary<string, HashSet<string>> Dominators(WorkflowDefinition definition)

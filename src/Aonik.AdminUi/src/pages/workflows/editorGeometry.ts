@@ -5,7 +5,7 @@
 
 import type { WorkflowNode } from './workflowTypes';
 import { NODE_KIND } from './stepKindCatalog';
-import { decisionRoutes, humanRoutes } from './decisionParameters';
+import { nodeRoutes } from './decisionParameters';
 
 export const NODE_W = 220;
 export const NODE_H = 76;
@@ -43,7 +43,7 @@ export function bezierPath(x1: number, y1: number, x2: number, y2: number): stri
 
 /** Resolve a node's output port count from the kind catalog. */
 export function outputCount(n: Pick<WorkflowNode, 'kind' | 'params'>): number {
-  if (n.kind === 'decision' && n.params.rows) return decisionRoutes(n.params).length;
-  if (n.kind === 'human' && n.params.choices) return humanRoutes(n.params).length;
+  if ((n.kind === 'decision' && n.params.rows) || (n.kind === 'human' && n.params.choices)
+    || (n.kind === 'loop' && n.params.body) || n.kind === 'child' || n.kind === 'parallel') return nodeRoutes(n.kind, n.params).length;
   return NODE_KIND[n.kind].outputs ?? 1;
 }

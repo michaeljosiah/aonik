@@ -42,6 +42,23 @@ namespace Aonik.Application.Tests.Agents.Workflows;
 public partial class WorkflowExecutionTests
 {
     [Fact]
+    public async Task AutomationActionGrantRevokedWhileWaiting_Should_RefuseAHumanDecision_BeforeAnyDomainWrite()
+    {
+        using var host = new Host(); Guid runId = await host.StartAutomation(); await host.Continue(runId);
+        using IServiceScope scope = host.Scope(); var services = scope.ServiceProvider;
+        var platform = services.GetRequiredService<PlatformDbContext>();
+        AutomationIdentity identity = await platform.AutomationIdentities.SingleAsync();
+        var grants = JsonSerializer.Deserialize<List<AutomationWorkflowGrant>>(identity.GrantsJson, WorkflowDefinitionCodec.JsonOptions)!;
+        identity.GrantsJson = JsonSerializer.Serialize(grants.Select(grant => grant with { Actions = [] }), WorkflowDefinitionCodec.JsonOptions); await platform.SaveChangesAsync();
+        var agents = services.GetRequiredService<AgentsDbContext>(); WorkflowRun run = await agents.WorkflowRuns.SingleAsync(run => run.Id == runId);
+        Guid requestId = (await agents.ToolApprovalRequests.SingleAsync(request => request.WorkflowStepRunId == run.PendingStepRunId)).Id;
+        host.Actor.Id = host.Reviewer;
+        var decision = await services.GetRequiredService<IToolApprovalService>().DecideAsync(requestId, new(ToolApprovalDecisionType.Approve));
+        decision.Outcome.Should().Be(ToolApprovalDecisionOutcome.Forbidden);
+        (await services.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be("Draft");
+    }
+
+    [Fact]
     public async Task AutomationDisabledAfterHumanApproval_Should_StopBeforeTheFinancialWrite()
     {
         using var host = new Host();
@@ -437,6 +454,7 @@ public partial class WorkflowExecutionTests
         public Guid Reviewer { get; } = Guid.NewGuid();
         private readonly Guid _roleId = Guid.NewGuid();
         private readonly Guid _invoiceId = Guid.NewGuid();
+        public Guid InvoiceId => _invoiceId;
         public bool CrashAfterIssue { get; set; }
         public bool Enabled { get; set; } = true;
         public TestClock Clock { get; } = new();
@@ -491,6 +509,7 @@ public partial class WorkflowExecutionTests
             services.AddScoped<IWorkflowGovernanceService>(provider => provider.GetRequiredService<WorkflowGovernanceService>());
             services.AddScoped<IAgentMutationGuard, WorkflowMutationGuard>();
             services.AddScoped<WorkflowPublicationValidator>();
+            services.AddScoped<WorkflowDependencyValidator>();
             services.AddScoped<WorkflowTriggerValidator>(); services.AddScoped<WorkflowTriggerTaskProtector>();
             services.AddScoped<WorkflowTriggerService>(); services.AddScoped<WorkflowTriggerAdmissionService>();
             services.AddScoped<IWorkflowTriggerService>(provider => provider.GetRequiredService<WorkflowTriggerService>());
@@ -533,6 +552,14 @@ public partial class WorkflowExecutionTests
         }
 
         public IServiceScope Scope() => _provider.CreateScope();
+        public async Task<Guid> AddInvoice()
+        {
+            using IServiceScope scope = Scope(); var services = scope.ServiceProvider;
+            var invoice = new Invoice { TenantId = services.GetRequiredService<ITenantProvider>().GetCurrentTenantId(), CustomerAccountId = Guid.NewGuid(),
+                Currency = "GBP", Total = 42.25m, Status = "Draft", CreatedBy = Actor.Author, ProvenanceJson = "{}" };
+            FinanceDbContext finance = services.GetRequiredService<FinanceDbContext>(); finance.Invoices.Add(invoice); await finance.SaveChangesAsync();
+            return invoice.Id;
+        }
         public async Task<Guid> StartAutomation()
         {
             Guid manualId = await Start();
@@ -569,10 +596,24 @@ public partial class WorkflowExecutionTests
                 .RequestAsync(new(draft.Slug, draft.ExpectedVersion!, validation.DefinitionHash, null), false);
             (await services.GetRequiredService<IToolApprovalService>().DecideAsync(publication.ApprovalRequestId, new(ToolApprovalDecisionType.Approve)))
                 .Outcome.Should().Be(ToolApprovalDecisionOutcome.Approved);
-            Guid versionId = (await services.GetRequiredService<AgentsDbContext>().Workflows.SingleAsync()).PublishedVersionId!.Value;
+            Guid versionId = (await services.GetRequiredService<AgentsDbContext>().Workflows.SingleAsync(workflow => workflow.Slug == request.Slug)).PublishedVersionId!.Value;
             return (await services.GetRequiredService<IWorkflowRunService>().StartAsync(draft.Slug, new(versionId, "Invoice", _invoiceId, "invoice-route-1"))).Id;
         }
-        private WorkflowSaveRequest Draft()
+        public async Task<WorkflowVersionPin> PublishChild(Func<WorkflowSaveRequest, WorkflowSaveRequest>? configure = null, string slug = "child-invoice")
+        {
+            using IServiceScope scope = Scope(); var services = scope.ServiceProvider;
+            WorkflowSaveRequest request = Draft() with { Slug = slug, Name = "Child invoice", SchemaVersion = 2 };
+            request = configure is not null ? configure(request) : request with
+            { Nodes = request.Nodes.Where(node => node.ClientId is "start" or "issue" or "done").ToList(), Edges = [new("start", "issue", 0, ""), new("issue", "done", 0, "")] };
+            WorkflowGraphResponse draft = await services.GetRequiredService<IWorkflowService>().CreateAsync(request);
+            WorkflowValidation validation = (await services.GetRequiredService<IWorkflowService>().ValidateAsync(draft.Slug))!;
+            validation.Diagnostics.Where(item => item.Severity == "Error").Should().BeEmpty();
+            var publication = await services.GetRequiredService<WorkflowGovernanceService>().RequestAsync(new(draft.Slug, draft.ExpectedVersion!, validation.DefinitionHash, null), false);
+            (await services.GetRequiredService<IToolApprovalService>().DecideAsync(publication.ApprovalRequestId, new(ToolApprovalDecisionType.Approve))).Outcome.Should().Be(ToolApprovalDecisionOutcome.Approved);
+            var workflow = await services.GetRequiredService<AgentsDbContext>().Workflows.SingleAsync(workflow => workflow.Slug == request.Slug);
+            return new(workflow.PublishedVersionId!.Value, validation.DefinitionHash);
+        }
+        public WorkflowSaveRequest Draft()
         {
             DecisionTable table = DecisionTableEvaluatorTests.InvoiceTable() with
             {

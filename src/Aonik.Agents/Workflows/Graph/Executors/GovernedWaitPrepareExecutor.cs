@@ -8,5 +8,5 @@ internal sealed class GovernedWaitPrepareExecutor(WorkflowDefinitionNode node, W
     : Executor<WorkflowExecutionFrame, WorkflowStepWait>($"{node.Key}:prepare")
 {
     public override async ValueTask<WorkflowStepWait> HandleAsync(WorkflowExecutionFrame message, IWorkflowContext context, CancellationToken cancellationToken = default)
-        => await execution.PrepareWaitAsync(node, message, cancellationToken);
+        => await execution.SerializeControlAsync(() => execution.PrepareWaitAsync(node, message, cancellationToken), cancellationToken);
 }

@@ -1919,12 +1919,18 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int>("Depth")
+                        .HasColumnType("int");
+
                     b.Property<int>("DurationMs")
                         .HasColumnType("int");
 
                     b.Property<string>("ErrorCode")
                         .HasMaxLength(80)
                         .HasColumnType("nvarchar(80)");
+
+                    b.Property<Guid?>("ExecutionRootRunId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("FactsHash")
                         .HasMaxLength(64)
@@ -1949,6 +1955,13 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<string>("InvocationPath")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)")
+                        .HasDefaultValue("root");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -1968,6 +1981,12 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<string>("Outcome")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid?>("ParentRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ParentStepRunId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("PendingStepRunId")
                         .HasColumnType("uniqueidentifier");
@@ -2047,8 +2066,14 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TenantId", "ParentStepRunId")
+                        .IsUnique()
+                        .HasFilter("[ParentStepRunId] IS NOT NULL");
+
                     b.HasIndex("WorkflowId", "StartedAt")
                         .HasDatabaseName("IX_WorkflowRuns_WorkflowId_StartedAt");
+
+                    b.HasIndex("TenantId", "ExecutionRootRunId", "Status");
 
                     b.HasIndex("TenantId", "TriggerBindingId", "StartedAt");
 

@@ -56,6 +56,7 @@ internal static class WorkflowDefinitionCodec
         JsonOptions.GetJsonSchemaAsNode(typeof(WorkflowWaitParameters)));
     public static JsonElement HumanSchema() => JsonSerializer.SerializeToElement(
         JsonOptions.GetJsonSchemaAsNode(typeof(WorkflowHumanParameters)));
+    public static JsonElement ParametersSchema<T>() => JsonSerializer.SerializeToElement(JsonOptions.GetJsonSchemaAsNode(typeof(T)));
 
     private static void WriteCanonical(Utf8JsonWriter writer, JsonElement element)
     {

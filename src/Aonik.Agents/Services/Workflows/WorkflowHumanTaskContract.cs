@@ -30,9 +30,10 @@ internal static class WorkflowHumanTaskContract
             || parameters.TimeoutSeconds is < 1 or > WorkflowControlLimits.MaximumLifetimeSeconds
             || parameters.Choices is null || parameters.Choices.Count is < 1 or > 10
             || parameters.Choices.Any(choice => choice is null || !WorkflowDefinitionCodec.IsKey(choice.Key)
-                || string.IsNullOrWhiteSpace(choice.Label) || choice.Label.Length > 100 || !WorkflowDefinitionCodec.IsKey(choice.Route))
+                || string.IsNullOrWhiteSpace(choice.Label) || choice.Label.Length > 100 || !WorkflowDefinitionCodec.IsKey(choice.Route) || choice.Route.Length > 100)
             || parameters.Choices.Select(choice => choice.Key).Distinct(StringComparer.Ordinal).Count() != parameters.Choices.Count
-            || !WorkflowDefinitionCodec.IsKey(parameters.RejectRoute) || !WorkflowDefinitionCodec.IsKey(parameters.TimeoutRoute))
+            || !WorkflowDefinitionCodec.IsKey(parameters.RejectRoute) || !WorkflowDefinitionCodec.IsKey(parameters.TimeoutRoute)
+            || parameters.RejectRoute.Length > 100 || parameters.TimeoutRoute.Length > 100)
             throw new ArgumentException("Use a purpose, one current user or role, bounded choices and deadline, and explicit rejection/timeout routes.");
         return parameters;
     }

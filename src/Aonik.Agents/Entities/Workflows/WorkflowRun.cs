@@ -52,6 +52,11 @@ public class WorkflowRun : AuditableEntity, ITenantScoped
     public DateTime? SourceOccurredAtUtc { get; set; }
     public Guid? CausationRunId { get; set; }
     public Guid? RootRunId { get; set; }
+    public Guid? ExecutionRootRunId { get; set; }
+    public Guid? ParentRunId { get; set; }
+    public Guid? ParentStepRunId { get; set; }
+    public string InvocationPath { get; set; } = "root";
+    public int Depth { get; set; }
     public string TriggerPathJson { get; set; } = "[]";
     public string? SubjectType { get; set; }
     public Guid? SubjectId { get; set; }

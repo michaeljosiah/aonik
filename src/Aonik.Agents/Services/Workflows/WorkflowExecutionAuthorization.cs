@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Agents.Entities;
+using Aonik.Agents.Contracts.Models.Workflows;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Framework;
 using Aonik.Agents.Persistence;
@@ -39,10 +40,14 @@ internal sealed class WorkflowExecutionAuthorization(
 
     public async Task RequireActionAsync(WorkflowActor actor, WorkflowActionDescriptor action, string subjectType, Guid subjectId,
         CancellationToken cancellationToken = default)
+        => await RequireRecordedActionAsync(actor, action.RequiredPermission, action.Key, action.Version, subjectType, subjectId, cancellationToken);
+
+    public async Task RequireRecordedActionAsync(WorkflowActor actor, string permission, string actionKey, int actionVersion, string subjectType, Guid subjectId,
+        CancellationToken cancellationToken = default)
     {
         if (actor.Type != "AutomationIdentity") return;
-        if (automation is null) throw new PermissionDeniedException(action.RequiredPermission);
-        await automation.RequireAsync(actor, action.RequiredPermission, subjectType, subjectId, new(action.Key, action.Version), cancellationToken);
+        if (automation is null) throw new PermissionDeniedException(permission);
+        await automation.RequireAsync(actor, permission, subjectType, subjectId, new(actionKey, actionVersion), cancellationToken);
     }
 
     public async Task RequireEnabledAsync(CancellationToken cancellationToken = default)
@@ -66,6 +71,19 @@ internal sealed class WorkflowExecutionAuthorization(
     {
         if (run.DeadlineUtc is { } deadline && deadline <= (clock?.UtcNow ?? DateTime.UtcNow)) throw new WorkflowExecutionException("RunDeadlineExceeded");
         await RequireActorAsync(Actor(run), cancellationToken);
+        if (run.ActorType == "AutomationIdentity" && automation is not null && run.SubjectId is { } subjectId)
+            await automation.RequireAsync(Actor(run), "Workflow.Run", run.SubjectType, subjectId, cancellationToken: cancellationToken);
+        if (run.ParentRunId is { } parentId)
+        {
+            if (database is null || run.Depth is < 1 or > WorkflowControlLimits.MaximumNestingDepth) throw new WorkflowExecutionException("ParentRunUnavailable");
+            WorkflowRun parent = await database.WorkflowRuns.AsNoTracking().SingleOrDefaultAsync(parent => parent.TenantId == run.TenantId
+                && parent.Id == parentId && parent.Depth == run.Depth - 1, cancellationToken) ?? throw new WorkflowExecutionException("ParentRunUnavailable");
+            if (parent.Status is WorkflowRunStatuses.Cancelled or WorkflowRunStatuses.Completed or WorkflowRunStatuses.Failed
+                || run.ExecutionRootRunId != (parent.ExecutionRootRunId ?? parent.Id)
+                || await database.Workflows.AsNoTracking().AnyAsync(workflow => workflow.TenantId == run.TenantId && workflow.Id == parent.WorkflowId
+                    && workflow.RetiredAt != null, cancellationToken)) throw new WorkflowExecutionException("ParentRunCancelled");
+            await RequireRunAsync(parent, cancellationToken);
+        }
         if (run.TriggerBindingId is not { } bindingId) return;
         await RequireAutomaticEnabledAsync(cancellationToken);
         if (database is null || run.ActorType != "AutomationIdentity" || run.TriggerBindingRevision is null || run.TriggerApprovalProposalId is null

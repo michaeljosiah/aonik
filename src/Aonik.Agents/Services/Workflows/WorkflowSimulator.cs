@@ -40,6 +40,19 @@ internal static class WorkflowSimulator
             }
             else if (WorkflowDefinitionValidator.IsKind(current, WorkflowNodeKinds.Wait))
                 fixture = current.Parameters.Clone();
+            else if (WorkflowControlContracts.IsComposition(current))
+            {
+                if (request.ActionOutputs is null || !request.ActionOutputs.TryGetValue(current.Key, out JsonElement output))
+                {
+                    steps.Add(new(current.Key, current.Kind, "NeedsFixture"));
+                    return new("Fixture", "NeedsFixture", hash, steps, diagnostics);
+                }
+                route = output.ValueKind == JsonValueKind.Object && output.TryGetProperty("route", out JsonElement value)
+                    && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+                if (route is null || !WorkflowControlContracts.Routes(current).Contains(route))
+                    return new("Fixture", "Invalid", hash, steps, [new("ControlFixture", current.Key, "A control fixture must select one declared route.")]);
+                fixture = output.Clone();
+            }
             else if (WorkflowDefinitionValidator.IsKind(current, WorkflowNodeKinds.Human))
             {
                 if (request.ActionOutputs is null || !request.ActionOutputs.TryGetValue(current.Key, out JsonElement response))

@@ -27,6 +27,7 @@ import { DecisionTablePanel } from './DecisionTablePanel';
 import { WorkflowToolPanel } from './WorkflowToolPanel';
 import { WorkflowWaitPanel } from './WorkflowWaitPanel';
 import { WorkflowHumanPanel } from './WorkflowHumanPanel';
+import { WorkflowCompositionPanel } from './WorkflowCompositionPanel';
 
 // ─── Field primitives ───────────────────────────────────────────────
 
@@ -276,22 +277,7 @@ function NodeInspector({ workflowId, node, errors, onUpdate, onDelete }: NodeIns
           onChange={(v) => updateParam('event', v)}
         />
       )}
-      {node.kind === 'loop' && (
-        <>
-          <TextField
-            label="Iterate over"
-            mono
-            value={node.params.over}
-            onChange={(v) => updateParam('over', v)}
-          />
-          <TextField
-            label="Max iterations"
-            mono
-            value={String(node.params.maxIterations ?? '')}
-            onChange={(v) => updateParam('maxIterations', v)}
-          />
-        </>
-      )}
+      {(node.kind === 'child' || node.kind === 'loop' || node.kind === 'parallel') && <WorkflowCompositionPanel workflowId={workflowId} kind={node.kind} parameters={node.params} onChange={params => onUpdate({ params })} />}
 
       {/* Footer */}
       <div

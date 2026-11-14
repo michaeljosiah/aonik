@@ -287,7 +287,7 @@ export function NodeShape({
                 fill="var(--muted-foreground)"
                 pointerEvents="none"
               >
-                {node.kind === 'decision' || node.kind === 'human'
+                {['decision', 'human', 'child', 'loop', 'parallel'].includes(node.kind)
                   ? nodeRoutes(node.kind, node.params)[idx]
                   : idx === 0
                     ? 'body'

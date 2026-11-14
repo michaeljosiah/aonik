@@ -6,7 +6,9 @@ import { humanTaskParameters } from './decisionParameters';
 import type { WorkflowNodeParams } from './workflowTypes';
 
 export function WorkflowHumanPanel({ parameters, onChange }: { parameters: WorkflowNodeParams; onChange: (value: WorkflowNodeParams) => void }) {
-  if (!parameters.choices || !parameters.reviewer) return <div className="space-y-2 text-xs"><p>Choose a typed response contract before publication.</p><Button variant="outline" size="sm" onClick={() => onChange(humanTaskParameters())}>Configure a human task</Button></div>;
+  if (parameters.schemaVersion !== 1 || !Array.isArray(parameters.choices) || !parameters.reviewer || typeof parameters.reviewer !== 'object'
+    || parameters.choices.some(choice => !choice || typeof choice.key !== 'string' || typeof choice.label !== 'string' || typeof choice.route !== 'string'))
+    return <div className="space-y-2 text-xs"><p>Choose a typed response contract before publication.</p><Button variant="outline" size="sm" onClick={() => onChange(humanTaskParameters())}>Configure a human task</Button></div>;
   const named = parameters.reviewer.userId !== undefined;
   const change = (patch: Partial<WorkflowNodeParams>) => onChange({ ...parameters, ...patch });
   return <div className="space-y-3 text-xs">

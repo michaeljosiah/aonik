@@ -15,18 +15,19 @@ internal static class WorkflowDefinitionValidator
         WorkflowNodeKinds.Trigger, WorkflowNodeKinds.Decision, WorkflowNodeKinds.Tool, WorkflowNodeKinds.End,
         WorkflowNodeKinds.Agent, WorkflowNodeKinds.Notify, WorkflowNodeKinds.Emit,
         WorkflowNodeKinds.Human, WorkflowNodeKinds.Wait, WorkflowNodeKinds.Loop,
+        WorkflowNodeKinds.Child, WorkflowNodeKinds.Parallel,
     };
 
     // Expand only alongside each governed executor and its recovery tests.
     internal static readonly IReadOnlySet<string> GovernedKinds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         WorkflowNodeKinds.Trigger, WorkflowNodeKinds.Decision, WorkflowNodeKinds.Tool, WorkflowNodeKinds.End,
-        WorkflowNodeKinds.Wait, WorkflowNodeKinds.Human,
+        WorkflowNodeKinds.Wait, WorkflowNodeKinds.Human, WorkflowNodeKinds.Child, WorkflowNodeKinds.Loop, WorkflowNodeKinds.Parallel,
     };
 
     public static WorkflowCapabilities Capabilities() => new(2, MaxNodes, MaxEdges,
         KnownKinds.Order(StringComparer.Ordinal).Select(kind => new WorkflowCapability(kind,
-            kind != WorkflowNodeKinds.Loop,
+            true,
             GovernedKinds.Contains(kind))).ToList(), [DecisionTableEvaluator.InvoiceSchema],
         DecisionTableEvaluator.FactFields(), DecisionTableEvaluator.ComparisonOperators(), WorkflowDefinitionCodec.DecisionSchema());
 
@@ -61,10 +62,10 @@ internal static class WorkflowDefinitionValidator
         foreach (WorkflowDefinitionNode node in definition.Nodes)
         {
             if (!KnownKinds.Contains(node.Kind)) errors.Add(new("UnknownKind", node.Key, "Unknown node kind."));
-            bool versionTwoControl = IsKind(node, WorkflowNodeKinds.Wait) || IsKind(node, WorkflowNodeKinds.Human);
+            bool versionTwoControl = IsKind(node, WorkflowNodeKinds.Wait) || IsKind(node, WorkflowNodeKinds.Human) || WorkflowControlContracts.IsComposition(node);
             if (forPublication && (!GovernedKinds.Contains(node.Kind) || (definition.SchemaVersion == 1 && versionTwoControl)))
                 errors.Add(new("CapabilityUnavailable", node.Key, "This governed executor is not yet available."));
-            if (!forPublication && (IsKind(node, WorkflowNodeKinds.Loop) || (definition.SchemaVersion == 1 && versionTwoControl)))
+            if (!forPublication && definition.SchemaVersion == 1 && versionTwoControl)
                 errors.Add(new("CapabilityUnavailable", node.Key, "Simulation for this control-flow node is not yet available."));
             if (IsKind(node, WorkflowNodeKinds.Wait))
             {
@@ -76,6 +77,18 @@ internal static class WorkflowDefinitionValidator
             if (IsKind(node, WorkflowNodeKinds.End))
             {
                 if (outgoing.Count != 0) errors.Add(new("TerminalEdge", node.Key, "End cannot have outgoing edges."));
+            }
+            else if (WorkflowControlContracts.IsComposition(node))
+            {
+                try
+                {
+                    IReadOnlyList<string> routes = WorkflowControlContracts.Routes(node);
+                    if (outgoing.Count != routes.Count || outgoing.Any(edge => edge.RouteKey is null || !routes.Contains(edge.RouteKey))
+                        || outgoing.Select(edge => edge.RouteKey).Distinct(StringComparer.Ordinal).Count() != routes.Count)
+                        errors.Add(new("ControlRoutes", node.Key, "Map every declared completion, failure and exhaustion route exactly once."));
+                }
+                catch (Exception exception) when (exception is JsonException or ArgumentException)
+                { errors.Add(new("ControlParameters", node.Key, exception.Message)); }
             }
             else if (IsKind(node, WorkflowNodeKinds.Human))
             {

@@ -16,7 +16,8 @@ namespace Aonik.Agents.Workflows.Graph;
 /// <summary>Durable action evidence and authorization around MAF executors; MAF owns graph routing.</summary>
 internal sealed partial class WorkflowStepExecutionService(
     AgentsDbContext database, WorkflowInvocationContext invocationContext, WorkflowExecutionAuthorization authorization,
-    WorkflowActionRegistry actions, IToolApprovalService approvals, IClock clock, WorkflowReviewerAuthorization reviewers)
+    WorkflowActionRegistry actions, IToolApprovalService approvals, IClock clock, WorkflowReviewerAuthorization reviewers,
+    WorkflowRunService admissions)
 {
     private WorkflowRun Run => invocationContext.Run ?? throw new WorkflowExecutionException("ExecutionIdentityMissing");
 
@@ -44,7 +45,9 @@ internal sealed partial class WorkflowStepExecutionService(
             string? outcome = node.Parameters.TryGetProperty("outcome", out JsonElement configured) && configured.ValueKind == JsonValueKind.String
                 ? configured.GetString() : null;
             if (outcome is not (null or "Completed" or "NeedsManualReview" or "Blocked")) throw new WorkflowExecutionException("InvalidTerminalOutcome");
-            output = output with { Outcome = outcome ?? frame.Outcome ?? "Completed" };
+            string finalOutcome = outcome ?? frame.Outcome ?? "Completed";
+            output = output with { Outcome = finalOutcome, Failed = outcome == "Completed" ? false
+                : frame.Failed || finalOutcome is "NeedsManualReview" or "Blocked" or "Exhausted" };
         }
         step.Status = output.Stopped ? "Blocked" : "Completed";
         step.ResultJson = JsonSerializer.Serialize(output, WorkflowDefinitionCodec.JsonOptions);
@@ -115,6 +118,7 @@ internal sealed partial class WorkflowStepExecutionService(
     {
         if (wait.Kind == "Timer") return await ReadyTimerResponseAsync(wait, cancellationToken);
         if (wait.Kind == "Human") return await ReadyHumanResponseAsync(wait, cancellationToken);
+        if (wait.Kind == "Child") return await ReadyChildResponseAsync(wait, cancellationToken);
         if (wait.Kind != "Action") throw new WorkflowExecutionException("UnsupportedWaitContract");
         await RequireActiveAsync(wait.RunId, cancellationToken, allowWaiting: true);
         WorkflowStepRun step = await database.WorkflowStepRuns.SingleAsync(step => step.RunId == Run.Id && step.Id == wait.StepRunId, cancellationToken);
@@ -193,7 +197,7 @@ internal sealed partial class WorkflowStepExecutionService(
         await database.Entry(Run).ReloadAsync(cancellationToken);
         if (Run.LeaseId != invocationContext.LeaseId || Run.LeaseExpiresAt <= clock.UtcNow) throw new WorkflowExecutionException("RunLeaseLost");
         if (Run.Status == WorkflowRunStatuses.Cancelled) throw new WorkflowExecutionException("RunCancelled");
-        if (Run.Status != WorkflowRunStatuses.Running && !(allowWaiting && Run.Status is WorkflowRunStatuses.WaitingForApproval or WorkflowRunStatuses.WaitingForTimer))
+        if (Run.Status != WorkflowRunStatuses.Running && !(allowWaiting && Run.Status is WorkflowRunStatuses.WaitingForApproval or WorkflowRunStatuses.WaitingForTimer or WorkflowRunStatuses.WaitingForChildren))
             throw new WorkflowExecutionException("RunNotRunning");
         bool retired = await database.Workflows.AsNoTracking().AnyAsync(workflow => workflow.Id == Run.WorkflowId && workflow.RetiredAt != null, cancellationToken);
         if (retired) throw new WorkflowExecutionException("WorkflowRetired");
@@ -234,14 +238,14 @@ internal sealed partial class WorkflowStepExecutionService(
         await database.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<WorkflowStepRun> StepAsync(string nodeKey, CancellationToken cancellationToken)
+    private async Task<WorkflowStepRun> StepAsync(string nodeKey, CancellationToken cancellationToken, string invocationPath = "root")
     {
         WorkflowStepRun? step = await database.WorkflowStepRuns.SingleOrDefaultAsync(step => step.RunId == Run.Id && step.NodeKey == nodeKey
-            && step.InvocationPath == "root", cancellationToken);
+            && step.InvocationPath == invocationPath, cancellationToken);
         if (step is not null) return step;
         if (invocationContext.Definition?.SchemaVersion >= 2 && await database.WorkflowStepRuns.CountAsync(step => step.RunId == Run.Id, cancellationToken) >= WorkflowControlLimits.MaximumRootInvocations)
             throw new WorkflowExecutionException("InvocationLimitExceeded");
-        step = new() { TenantId = Run.TenantId, RunId = Run.Id, NodeKey = nodeKey, StartedAt = clock.UtcNow,
+        step = new() { TenantId = Run.TenantId, RunId = Run.Id, NodeKey = nodeKey, InvocationPath = invocationPath, StartedAt = clock.UtcNow,
             FactsJson = Run.FactsJson, FactsHash = Run.FactsHash, AiRunId = invocationContext.OriginatingAiRunId };
         step.OperationId = step.Id;
         database.WorkflowStepRuns.Add(step);
@@ -251,6 +255,29 @@ internal sealed partial class WorkflowStepExecutionService(
     }
 
     private WorkflowFactsSnapshot Facts() => JsonSerializer.Deserialize<WorkflowFactsSnapshot>(Run.FactsJson!, WorkflowDefinitionCodec.JsonOptions)!;
+    internal async Task<WorkflowExecutionFrame?> ReadRecordedTerminalAsync(CancellationToken cancellationToken)
+    {
+        Guid lastId = WorkflowService.ParseGuidArray(Run.SequenceJson).LastOrDefault();
+        WorkflowStepRun? step = await database.WorkflowStepRuns.AsNoTracking().SingleOrDefaultAsync(step => step.TenantId == Run.TenantId
+            && step.RunId == Run.Id && step.Id == lastId && step.Status == "Completed", cancellationToken);
+        if (step?.ResultJson is null || invocationContext.Definition?.Nodes.Any(node => node.Key == step.NodeKey
+            && WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.End)) != true) return null;
+        WorkflowExecutionFrame? frame = JsonSerializer.Deserialize<WorkflowExecutionFrame>(step.ResultJson, WorkflowDefinitionCodec.JsonOptions);
+        return frame?.RunId == Run.Id && !frame.Stopped ? frame : null;
+    }
+    internal async Task<WorkflowExecutionFrame?> ReadRecordedStopAsync(CancellationToken cancellationToken)
+    {
+        Guid? lastId = WorkflowService.ParseGuidArray(Run.SequenceJson).LastOrDefault();
+        WorkflowStepRun? step = await database.WorkflowStepRuns.AsNoTracking().SingleOrDefaultAsync(step => step.TenantId == Run.TenantId
+            && step.RunId == Run.Id && step.Id == lastId && step.Status == "Blocked", cancellationToken);
+        if (step is null) return null;
+        if (step.ResultJson is { } result)
+        {
+            WorkflowExecutionFrame? frame = JsonSerializer.Deserialize<WorkflowExecutionFrame>(result, WorkflowDefinitionCodec.JsonOptions);
+            return frame is { Stopped: true } && frame.RunId == Run.Id ? frame : null;
+        }
+        return new(Run.Id, Outcome: step.ErrorCode ?? "NeedsManualReview", Stopped: true);
+    }
     private async Task<WorkflowFactsSnapshot> UnchangedFactsAsync(CancellationToken cancellationToken)
     {
         WorkflowFactsSnapshot current = await authorization.LoadFactsAsync(Run.SubjectType!, Run.SubjectId!.Value,
@@ -260,7 +287,7 @@ internal sealed partial class WorkflowStepExecutionService(
     }
 
     private async Task<IReadOnlyDictionary<string, WorkflowActionResult>> OutputsAsync(CancellationToken cancellationToken)
-        => (await database.WorkflowStepRuns.AsNoTracking().Where(step => step.RunId == Run.Id && step.ActionKey != null && step.ActionKey != WorkflowHumanTaskContract.Key
+        => (await database.WorkflowStepRuns.AsNoTracking().Where(step => step.RunId == Run.Id && step.InvocationPath == "root" && step.ActionKey != null && step.ActionKey != WorkflowHumanTaskContract.Key
                 && step.Status == "Completed" && step.ResultJson != null).ToListAsync(cancellationToken))
             .ToDictionary(step => step.NodeKey, ToolResult, StringComparer.Ordinal);
 

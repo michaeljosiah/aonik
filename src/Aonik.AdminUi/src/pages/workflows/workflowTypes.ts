@@ -15,6 +15,8 @@ export type WorkflowNodeKind =
   | 'notify'
   | 'emit'
   | 'loop'
+  | 'child'
+  | 'parallel'
   | 'end';
 
 /**
@@ -65,6 +67,9 @@ export interface DecisionParameters { schemaVersion: number; factSchema: string;
 export interface WorkflowInputBinding { literal?: unknown; fact?: string; step?: string; output?: string }
 export interface WorkflowToolParameters { actionKey: string; contractVersion: number; inputs: Record<string, WorkflowInputBinding>; reviewer?: { roleId?: string; userId?: string; forbidSelfApproval: boolean }; connection?: { connectionId: string; workflowGrantId: string; allowedActions: { key: string; version: number }[] } }
 export interface WorkflowHumanChoice { key: string; label: string; route: string }
+export interface WorkflowVersionPin { versionId: string; definitionHash: string }
+export interface WorkflowLoopItem { key: string; invoiceId: string }
+export interface WorkflowParallelBranch { key: string; workflow: WorkflowVersionPin; invoiceId: WorkflowInputBinding }
 export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial<WorkflowToolParameters> {
   outcome?: string;
   // trigger
@@ -100,6 +105,16 @@ export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial
   // loop
   over?: string;
   maxIterations?: number | string;
+  workflow?: WorkflowVersionPin;
+  invoiceId?: WorkflowInputBinding;
+  body?: WorkflowVersionPin;
+  items?: WorkflowLoopItem[];
+  completedRoute?: string;
+  exhaustedRoute?: string;
+  errorRoute?: string;
+  branches?: WorkflowParallelBranch[];
+  maxConcurrency?: number;
+  joinPolicy?: 'All' | 'AnySuccess';
 }
 
 export interface WorkflowNode {

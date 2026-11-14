@@ -366,6 +366,12 @@ internal sealed class WorkflowService : IWorkflowService
             ToolParametersSchema = WorkflowDefinitionCodec.ToolSchema(),
             WaitParametersSchema = WorkflowDefinitionCodec.WaitSchema(),
             HumanParametersSchema = WorkflowDefinitionCodec.HumanSchema(),
+            ChildParametersSchema = WorkflowDefinitionCodec.ParametersSchema<WorkflowChildParameters>(),
+            LoopParametersSchema = WorkflowDefinitionCodec.ParametersSchema<WorkflowLoopParameters>(),
+            ParallelParametersSchema = WorkflowDefinitionCodec.ParametersSchema<WorkflowParallelParameters>(),
+            ControlLimits = new(WorkflowControlLimits.MaximumGraphNodes, WorkflowControlLimits.MaximumRootInvocations,
+                WorkflowControlLimits.MaximumLoopIterations, WorkflowControlLimits.MaximumBranches, WorkflowControlLimits.MaximumNestingDepth,
+                WorkflowControlLimits.MaximumLifetimeSeconds),
         };
     }
 

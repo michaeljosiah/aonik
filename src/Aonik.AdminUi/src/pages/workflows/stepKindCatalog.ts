@@ -42,6 +42,8 @@ export const STEP_KIND: Record<StepKind, StepKindMeta> = {
   notify: { icon: 'Send', label: 'Notify', tint: 'var(--chart-3)' },
   emit: { icon: 'Zap', label: 'Emit event', tint: 'var(--chart-5)' },
   loop: { icon: 'RefreshCw', label: 'Loop', tint: 'var(--chart-9)' },
+  child: { icon: 'GitFork', label: 'Child workflow', tint: 'var(--chart-4)' },
+  parallel: { icon: 'GitFork', label: 'Parallel branches', tint: 'var(--chart-7)' },
 };
 
 // Editor node kinds (read from workflow-editor.jsx NODE_KINDS) — superset
@@ -137,4 +139,6 @@ export const NODE_KIND: Record<EditorNodeKind, StepKindMeta> = {
     outputs: 0,
     defaults: {},
   },
+  child: { label: 'Child workflow', tint: 'var(--chart-4)', icon: 'GitFork', desc: 'Call an exact published version', inputs: 1, outputs: 2, defaults: {} },
+  parallel: { label: 'Parallel branches', tint: 'var(--chart-7)', icon: 'GitFork', desc: 'Join bounded named child runs', inputs: 1, outputs: 2, defaults: {} },
 };

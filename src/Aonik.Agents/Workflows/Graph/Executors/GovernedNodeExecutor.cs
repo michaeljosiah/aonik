@@ -8,5 +8,10 @@ internal sealed class GovernedNodeExecutor(WorkflowDefinitionNode node, Workflow
     : Executor<WorkflowExecutionFrame, WorkflowExecutionFrame>(node.Key)
 {
     public override async ValueTask<WorkflowExecutionFrame> HandleAsync(WorkflowExecutionFrame message, IWorkflowContext context,
-        CancellationToken cancellationToken = default) => await execution.ExecuteNodeAsync(node, message, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        WorkflowExecutionFrame result = await execution.SerializeControlAsync(() => execution.ExecuteNodeAsync(node, message, cancellationToken), cancellationToken);
+        if (result.Stopped) await context.AddEventAsync(new WorkflowStoppedEvent(result), cancellationToken);
+        return result;
+    }
 }

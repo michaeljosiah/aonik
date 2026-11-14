@@ -8,5 +8,5 @@ internal sealed class GovernedWaitResumeExecutor(WorkflowDefinitionNode node, Wo
     : Executor<WorkflowExecutionFrame, WorkflowExecutionFrame>($"{node.Key}:execute")
 {
     public override async ValueTask<WorkflowExecutionFrame> HandleAsync(WorkflowExecutionFrame message, IWorkflowContext context, CancellationToken cancellationToken = default)
-        => await execution.CompleteWaitAsync(node, message, cancellationToken);
+        => await execution.SerializeControlAsync(() => execution.CompleteWaitAsync(node, message, cancellationToken), cancellationToken);
 }

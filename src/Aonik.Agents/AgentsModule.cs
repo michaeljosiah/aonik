@@ -70,6 +70,7 @@ public sealed class AgentsModule : IModule
         services.AddScoped<Services.Workflows.WorkflowInvocationContext>();
         services.AddScoped<Services.Workflows.WorkflowReviewerAuthorization>();
         services.AddScoped<Services.Workflows.WorkflowContinuationWriter>();
+        services.AddScoped<Services.Workflows.WorkflowDependencyValidator>();
         services.AddScoped<Services.Workflows.WorkflowActionRegistry>();
         services.AddScoped<Services.Workflows.WorkflowPublicationValidator>();
         services.AddScoped<Services.Workflows.WorkflowTriggerValidator>();

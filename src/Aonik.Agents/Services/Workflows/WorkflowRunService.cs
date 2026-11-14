@@ -23,7 +23,8 @@ internal sealed class WorkflowRunService(
     AgentsDbContext database, ITenantProvider tenantProvider, WorkflowAuthorization authorization,
     WorkflowExecutionAuthorization executionAuthorization, IClock clock, WorkflowActionRegistry? actions = null,
     WorkflowReviewerAuthorization? reviewers = null, IConnectorService? connectors = null,
-    IAutomationIdentityAuthorization? automation = null, IWorkflowMailboxBindingReader? mailboxBindings = null) : IWorkflowRunService, IWorkflowAutomationAdmission
+    IAutomationIdentityAuthorization? automation = null, IWorkflowMailboxBindingReader? mailboxBindings = null,
+    WorkflowDependencyValidator? dependencies = null, WorkflowContinuationWriter? continuations = null) : IWorkflowRunService, IWorkflowAutomationAdmission
 {
     public async Task<WorkflowRunDetail> StartAsync(string slug, StartWorkflowRunRequest request, CancellationToken cancellationToken = default)
     {
@@ -57,13 +58,13 @@ internal sealed class WorkflowRunService(
     }
 
     private async Task<WorkflowRun> AdmitCoreAsync(string slug, StartWorkflowRunRequest request, WorkflowActor actor,
-        Guid configuringUserId, bool requireCurrent, CancellationToken cancellationToken, WorkflowTriggerSource? source = null)
+        Guid configuringUserId, bool requireCurrent, CancellationToken cancellationToken, WorkflowTriggerSource? source = null, WorkflowChildAdmission? child = null)
     {
         await executionAuthorization.RequireActorAsync(actor, cancellationToken);
         await executionAuthorization.RequireEnabledAsync(cancellationToken);
         ValidateRequest(request);
         Guid tenantId = tenantProvider.GetCurrentTenantId();
-        string inputHash = InputHash(slug, request, source);
+        string inputHash = InputHash(slug, request, source, child);
         WorkflowRun? existing = await FindReplayAsync(tenantId, actor, request.IdempotencyKey, cancellationToken);
         if (existing is not null) return await ReplayAsync(existing, inputHash, actor, cancellationToken);
         (Workflow workflow, WorkflowVersion version, WorkflowFactsSnapshot facts) = await PrepareAdmissionAsync(slug, request, actor, cancellationToken, requireCurrent);
@@ -88,6 +89,15 @@ internal sealed class WorkflowRunService(
             Status = WorkflowRunStatuses.Queued, StartedAt = clock.UtcNow, StartedBy = $"{(actor.Type == "User" ? "manual" : "automation")}:{actor.Id:D}",
             DeadlineUtc = version.SchemaVersion >= 2 ? clock.UtcNow.AddSeconds(WorkflowControlLimits.MaximumLifetimeSeconds) : null,
         };
+        if (version.SchemaVersion >= 2) run.ExecutionRootRunId = run.Id;
+        if (child is not null)
+        {
+            run.ParentRunId = child.ParentRunId; run.ParentStepRunId = child.ParentStepRunId; run.Depth = child.Depth;
+            run.ExecutionRootRunId = child.ExecutionRootRunId; run.InvocationPath = child.InvocationPath;
+            run.RootRunId = child.SourceRootRunId; run.CausationRunId = child.ParentRunId; run.TriggerPathJson = child.TriggerPathJson;
+            run.DeadlineUtc = child.DeadlineUtc;
+            run.StartedBy = $"child:{child.ParentRunId:D}";
+        }
         if (source is not null && trigger is { } admitted)
         {
             run.TriggerBindingId = source.BindingId; run.TriggerBindingRevision = source.Revision;
@@ -100,12 +110,13 @@ internal sealed class WorkflowRunService(
         database.WorkflowRuns.Add(run);
         // Updating this tracked root also detects a concurrent retirement/publication during admission.
         workflow.TriggerCount = checked(workflow.TriggerCount + 1);
-        Guid eventId = Queue(run, clock.UtcNow);
+        List<Guid> wakeIds = [Queue(run, clock.UtcNow)];
+        if (run.DeadlineUtc is { } runDeadline) wakeIds.Add(Queue(run, DateTime.SpecifyKind(runDeadline, DateTimeKind.Utc)));
         try { await database.SaveChangesAsync(cancellationToken); }
         catch (DbUpdateException exception) when (exception.InnerException is SqlException { Number: 2601 or 2627 })
         {
             database.Entry(run).State = EntityState.Detached;
-            foreach (var entry in database.ChangeTracker.Entries<OutboxMessage>().Where(entry => entry.Entity.EventId == eventId))
+            foreach (var entry in database.ChangeTracker.Entries<OutboxMessage>().Where(entry => wakeIds.Contains(entry.Entity.EventId)))
                 entry.State = EntityState.Detached;
             await database.Entry(workflow).ReloadAsync(cancellationToken);
             if (trigger is { } raced) await database.Entry(raced.Binding).ReloadAsync(cancellationToken);
@@ -115,6 +126,31 @@ internal sealed class WorkflowRunService(
         }
         catch (DbUpdateConcurrencyException) { throw new WorkflowConflictException("The workflow changed during admission. Retry the same admission key."); }
         return run;
+    }
+
+    internal async Task<WorkflowRun> AdmitChildAsync(WorkflowRun parent, WorkflowStepRun step, WorkflowVersionPin pin, Guid invoiceId,
+        DateTime? deadlineUtc = null, CancellationToken cancellationToken = default)
+    {
+        if (dependencies is null || continuations is null || parent.TenantId != tenantProvider.GetCurrentTenantId() || step.RunId != parent.Id || step.TenantId != parent.TenantId
+            || parent.Depth >= WorkflowControlLimits.MaximumNestingDepth || parent.DeadlineUtc is null
+            || !await database.WorkflowRuns.AsNoTracking().AnyAsync(run => run.TenantId == parent.TenantId && run.Id == parent.Id
+                && run.Status == WorkflowRunStatuses.Running && run.LeaseId == parent.LeaseId && run.LeaseExpiresAt > clock.UtcNow, cancellationToken))
+            throw new WorkflowExecutionException("ChildAdmissionAuthorityChanged");
+        await executionAuthorization.RequireRunAsync(parent, cancellationToken);
+        WorkflowVersion version = await dependencies.RequirePinAsync(pin, cancellationToken);
+        string slug = await database.Workflows.Where(workflow => workflow.TenantId == parent.TenantId && workflow.Id == version.WorkflowId)
+            .Select(workflow => workflow.Slug).SingleAsync(cancellationToken);
+        DateTime deadline = DateTime.SpecifyKind(new[] { parent.DeadlineUtc.Value, deadlineUtc ?? parent.DeadlineUtc.Value }.Min(), DateTimeKind.Utc);
+        if (deadline <= clock.UtcNow) throw new WorkflowExecutionException("ChildDeadlineExceeded");
+        var child = new WorkflowChildAdmission(parent.Id, step.Id, parent.ExecutionRootRunId ?? parent.Id, parent.Depth + 1,
+            $"{parent.InvocationPath}/{step.NodeKey}:{step.InvocationPath}", deadline, parent.RootRunId ?? parent.Id, parent.TriggerPathJson);
+        if (child.InvocationPath.Length > 1024) throw new WorkflowExecutionException("InvocationPathLimit");
+        // The same owning save fences cancellation while committing the child and its one wake-up.
+        parent.PendingStepRunId = step.Id;
+        database.Entry(parent).Property(run => run.PendingStepRunId).IsModified = true;
+        return await AdmitCoreAsync(slug, new(pin.VersionId, "Invoice", invoiceId, $"child-{step.Id:N}"),
+            WorkflowExecutionAuthorization.Actor(parent) with { WorkflowVersionId = pin.VersionId }, parent.ConfiguredByUserId!.Value,
+            requireCurrent: false, cancellationToken, child: child);
     }
 
     private async Task<(WorkflowTriggerBinding, Guid?, IReadOnlyList<Guid>)> PrepareTriggerAdmissionAsync(Workflow workflow,
@@ -198,7 +234,12 @@ internal sealed class WorkflowRunService(
             throw new WorkflowConflictException("Only the current published, non-retired workflow version can admit a new run.");
         WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == tenantId
             && version.WorkflowId == workflow.Id && version.Id == request.WorkflowVersionId, cancellationToken);
-        ReadDefinition(version);
+        WorkflowDefinition definition = ReadDefinition(version);
+        if (definition.Nodes.Any(WorkflowControlContracts.IsComposition))
+        {
+            if (dependencies is null) throw new WorkflowConflictException("Workflow composition validation is unavailable.");
+            _ = await dependencies.ValidateAsync(definition, workflow.Id, cancellationToken);
+        }
         WorkflowFactsSnapshot facts = await executionAuthorization.LoadFactsAsync(request.SubjectType, request.SubjectId, actor, cancellationToken);
         if (request.ExpectedFactsHash is { } expected && expected != WorkflowFactsHash.Compute(facts))
             throw new WorkflowConflictException("The subject changed after the workflow start was prepared. Review it again.");
@@ -257,6 +298,7 @@ internal sealed class WorkflowRunService(
         run.ErrorCode = null;
         run.Continuation++;
         Queue(run, clock.UtcNow);
+        if (run.DeadlineUtc is { } runDeadline) Queue(run, DateTime.SpecifyKind(runDeadline, DateTimeKind.Utc));
         await SaveAsync(cancellationToken);
         return await DetailAsync(run, cancellationToken);
     }
@@ -289,6 +331,11 @@ internal sealed class WorkflowRunService(
         run.CompletedAt = clock.UtcNow;
         run.Continuation++;
         await WorkflowRunCancellation.StageAsync(database, run, "RunCancelled", clock.UtcNow, cancellationToken);
+        if (run.ParentRunId.HasValue)
+        {
+            if (continuations is null) throw new WorkflowConflictException("Child continuation is unavailable.");
+            await continuations.AfterChildAsync(run, cancellationToken);
+        }
         // A late continuation can reconcile an already dispatched operation, but cannot start another action.
         Queue(run, run.LeaseExpiresAt is { } expiry && expiry > clock.UtcNow ? expiry : clock.UtcNow);
         await SaveAsync(cancellationToken);
@@ -367,15 +414,19 @@ internal sealed class WorkflowRunService(
             run.ActorType, run.ActorId, run.InitiatingUserId, run.SubjectType, run.SubjectId, Convert.ToBase64String(run.RowVersion),
             run.StartedAt, run.CompletedAt, details, run.ConfiguredByUserId, run.TriggerBindingId is { } bindingId
                 ? new(bindingId, run.TriggerBindingRevision!.Value, run.SourceEventId!.Value, DateTime.SpecifyKind(run.SourceOccurredAtUtc!.Value, DateTimeKind.Utc), run.CausationRunId, run.RootRunId) : null,
-            Utc(run.DeadlineUtc), Utc(steps.SingleOrDefault(step => step.Id == run.PendingStepRunId)?.DeadlineUtc));
+            Utc(run.DeadlineUtc), Utc(steps.SingleOrDefault(step => step.Id == run.PendingStepRunId)?.DeadlineUtc), run.ParentRunId, run.ExecutionRootRunId, run.InvocationPath,
+            await database.WorkflowRuns.AsNoTracking().Where(child => child.TenantId == run.TenantId && child.ParentRunId == run.Id)
+                .OrderBy(child => child.InvocationPath).Select(child => new WorkflowChildRunSummary(child.Id, child.WorkflowVersionId!.Value,
+                    child.InvocationPath, child.Status, child.Outcome, child.ErrorCode, child.SubjectId!.Value)).ToListAsync(cancellationToken));
     }
 
     private static DateTime? Utc(DateTime? value) => value is { } time ? DateTime.SpecifyKind(time, DateTimeKind.Utc) : null;
     private static JsonElement? ReadJson(string? value) => value is null ? null : JsonSerializer.Deserialize<JsonElement>(value);
-    private static string InputHash(string slug, StartWorkflowRunRequest request, WorkflowTriggerSource? source = null)
+    private static string InputHash(string slug, StartWorkflowRunRequest request, WorkflowTriggerSource? source = null, WorkflowChildAdmission? child = null)
     {
         var values = new Dictionary<string, object?> { ["slug"] = slug, ["versionId"] = request.WorkflowVersionId, ["subjectType"] = request.SubjectType, ["subjectId"] = request.SubjectId };
         if (source is not null) values["source"] = JsonSerializer.SerializeToElement(source, WorkflowDefinitionCodec.JsonOptions);
+        if (child is not null) values["child"] = JsonSerializer.SerializeToElement(child, WorkflowDefinitionCodec.JsonOptions);
         return ToolArgumentsHash.Compute(values);
     }
     private static void CheckVersion(WorkflowRun run, string token)
@@ -388,3 +439,6 @@ internal sealed class WorkflowRunService(
         catch (DbUpdateConcurrencyException) { throw new WorkflowConflictException("The run changed concurrently. Reload it before deciding."); }
     }
 }
+
+internal sealed record WorkflowChildAdmission(Guid ParentRunId, Guid ParentStepRunId, Guid ExecutionRootRunId, int Depth, string InvocationPath, DateTime DeadlineUtc,
+    Guid SourceRootRunId, string TriggerPathJson);
