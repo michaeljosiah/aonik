@@ -63,7 +63,7 @@ internal sealed class WorkflowGovernanceService(
             throw new WorkflowConflictException("The published pointer changed before approval could apply.");
         if (retiring)
         {
-            workflow.State = "Retired";
+            workflow.State = WorkflowStates.Retired;
             workflow.RetiredAt = clock.UtcNow;
             workflow.RetiredByUserId = actorId;
         }

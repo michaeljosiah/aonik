@@ -140,6 +140,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Services.Integrations.ConnectorCredentialProtector>();
         services.AddScoped<Services.Integrations.ConnectorCredentialService>();
         services.AddScoped<Services.Integrations.ConnectorGrantService>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowUsageReader, Services.Integrations.ConnectorWorkflowUsageReader>();
         services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorPreferenceValidator, Services.Integrations.ConnectorPreferenceValidator>();
         services.AddScoped<Services.Integrations.ConnectorConnectionManagementService>();
         services.AddScoped<Services.Integrations.ConnectorService>();

@@ -19,6 +19,8 @@ import {
   Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { workflowService } from '@/services/workflowService';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NODE_KIND } from './stepKindCatalog';
@@ -94,6 +96,8 @@ export interface EditorPaletteProps {
 }
 
 export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
+  const [executable, setExecutable] = useState<string[]>([]);
+  useEffect(() => { void workflowService.capabilities().then(result => setExecutable(result.nodeKinds.filter(kind => kind.canExecute).map(kind => kind.kind.toLowerCase()))).catch(() => setExecutable([])); }, []);
   return (
     <div
       className="flex flex-none flex-col border-r border-border bg-card transition-[width] duration-150"
@@ -136,7 +140,7 @@ export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
                 {g.name}
               </div>
               <div className="flex flex-col gap-0.5">
-                {g.kinds.map((k) => (
+                {g.kinds.filter(kind => executable.includes(kind)).map((k) => (
                   <PaletteItem key={k} kind={k} />
                 ))}
               </div>

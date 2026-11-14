@@ -7,6 +7,7 @@ using Aonik.Agents.Persistence;
 using Aonik.Agents.Services.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Workflows;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,7 +31,7 @@ public class WorkflowServiceTests
     private static (IWorkflowService Service, AgentsDbContext Db) BuildService(
         Guid tenantId,
         DateTime? now = null,
-        bool grantPermissions = true)
+        bool grantPermissions = true, IWorkflowUsageReader? usage = null)
     {
         var services = new ServiceCollection();
         var dbName = $"WorkflowServiceTests_{Guid.NewGuid()}";
@@ -52,7 +53,7 @@ public class WorkflowServiceTests
             .ReturnsAsync(grantPermissions);
         var tenant = sp.GetRequiredService<ITenantProvider>();
         var service = new WorkflowService(db, tenant, sp.GetRequiredService<IClock>(),
-            new WorkflowAuthorization(tenant, user.Object, permissions.Object));
+            new WorkflowAuthorization(tenant, user.Object, permissions.Object), usageReaders: usage is null ? [] : [usage]);
         return (service, db);
     }
 
@@ -318,6 +319,20 @@ public class WorkflowServiceTests
         // Assert
         await delete.Should().ThrowAsync<WorkflowConflictException>();
         workflow.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_Should_RefuseAnActiveCrossModuleReference_WithoutRemovingTheDraft()
+    {
+        var usage = new Mock<IWorkflowUsageReader>();
+        usage.Setup(reader => reader.HasActiveReferencesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var (service, db) = BuildService(TenantA, usage: usage.Object);
+        var draft = await service.CreateAsync(Draft());
+
+        Func<Task> delete = () => service.DeleteAsync(draft.Slug, draft.ExpectedVersion);
+
+        await delete.Should().ThrowAsync<WorkflowConflictException>();
+        (await db.Workflows.SingleAsync()).IsDeleted.Should().BeFalse();
     }
 
     [Fact]

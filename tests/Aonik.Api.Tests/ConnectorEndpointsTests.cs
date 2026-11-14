@@ -68,6 +68,7 @@ public class ConnectorEndpointsTests(CustomWebApplicationFactory factory) : ICla
         (await anonymous.GetAsync("/v1/integrations/connectors")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         using HttpClient denied = await ClientAsync(Guid.NewGuid());
         (await denied.GetAsync("/v1/integrations/connectors")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await denied.GetAsync($"/v1/integrations/connections/{Guid.NewGuid()}/workflow-binding?workflowId={Guid.NewGuid()}&actionKey=gmail.messages.search&version=1")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await anonymous.GetAsync($"/integrations/gmail/oauth/callback?state={Guid.NewGuid():N}.guessed&code=synthetic")).StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 

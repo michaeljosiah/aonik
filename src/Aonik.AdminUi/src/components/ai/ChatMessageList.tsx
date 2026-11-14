@@ -19,6 +19,7 @@ import {
 } from '@/components/ai-elements';
 import { Badge } from '@/components/ui/badge';
 import { AgentAvatar } from './AgentAvatar';
+import { ConnectionRequestResultCard } from './ConnectionRequestResultCard';
 import { agentDisplayName } from '@/lib/agentIdentity';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
@@ -156,7 +157,7 @@ export function ChatMessageList({
                           );
                         }
 
-                        return <ToolCallCard key={tc.toolCallId} toolCall={tc} />;
+                        return <div key={tc.toolCallId}><ToolCallCard toolCall={tc} /><ConnectionRequestResultCard toolName={tc.toolCallName} result={tc.result} /></div>;
                       })}
                     </div>
                   )}

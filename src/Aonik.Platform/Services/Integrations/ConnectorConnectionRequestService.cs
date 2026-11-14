@@ -62,7 +62,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             ConnectorJson.Serialize(prepared.Preview), cancellationToken);
         database.ConnectorConnectionRequests.Add(request);
         var eventIds = new List<Guid> { StageWake(request, "Expire", request.ExpiresAt) };
-        Guid? recipient = selfService ? userId : request.ReviewerUserId;
+        Guid? recipient = selfService ? request.OwnerUserId : request.ReviewerUserId;
         if (recipient.HasValue)
         {
             Guid notification = StageWake(request, "Notify", clock.UtcNow, recipient);
@@ -126,12 +126,14 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
     }
     public async Task<ConnectionRequestDetail> DecideAsync(Guid requestId, DecideConnectionRequest command, CancellationToken cancellationToken = default)
     {
-        Guid userId = await authorization.RequireUserAsync("Integration.Manage", cancellationToken);
+        Guid userId = await authorization.RequireUserAsync("Integration.Read", cancellationToken);
         ConnectorConnectionRequest request = await FindAsync(requestId, cancellationToken) ?? throw new KeyNotFoundException("Connection request not found.");
-        if (!await CanReviewAsync(request, userId, cancellationToken)) throw new PermissionDeniedException("Integration.Manage");
+        bool ownerRejection = command.Decision == "Reject" && request.Ownership == "User" && request.OwnerUserId == userId;
+        if (ownerRejection) await authorization.RequireActorAsync(new("User", userId, userId), "Integration.Use", cancellationToken);
+        else if (!await CanReviewAsync(request, userId, cancellationToken)) throw new PermissionDeniedException("Integration.Manage");
         ConnectorGrantService.Version(request.RowVersion, command.ExpectedVersion);
         RequireActive(request);
-        if (request.Status != "Pending") throw Conflict("The request is not awaiting an integration review.");
+        if (request.Status != "Pending" && !(ownerRejection && request.Status == "AwaitingConsent")) throw Conflict("The request is not awaiting an integration review.");
         if (command.Decision is not ("Approve" or "Reject")) throw new ArgumentException("Use Approve or Reject.");
         if (command.ConnectionId is { } selectedId)
         {
@@ -148,7 +150,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
         request.ReviewedByUserId = userId; request.ReviewedAt = clock.UtcNow;
         if (command.Decision == "Reject")
         {
-            request.Status = "Rejected"; request.ActiveRequestHash = null; request.NextAction = "The integration reviewer rejected this request."; ClearConsent(request);
+            request.Status = "Rejected"; request.ActiveRequestHash = null; request.NextAction = ownerRejection ? "The account owner rejected this request." : "The integration reviewer rejected this request."; ClearConsent(request);
             await AbandonPendingConnectionAsync(request, cancellationToken);
         }
         else
@@ -195,6 +197,9 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             if ((normalized.WorkflowId.HasValue && normalized.WorkflowId != target.WorkflowId) || (normalized.ConnectionId.HasValue && normalized.ConnectionId != target.ConnectionId)
                 || normalized.Actions.Any(action => !target.AllowedActions.Contains(action))) throw new ArgumentException("A run request must retain its published account and action binding.");
             normalized = normalized with { WorkflowId = target.WorkflowId, ConnectionId = target.ConnectionId };
+            ConnectorConnection pinned = await database.ConnectorConnections.AsNoTracking().SingleOrDefaultAsync(connection => connection.TenantId == authorization.TenantId
+                && connection.Id == target.ConnectionId && connection.ConnectorKey == normalized.ConnectorKey, cancellationToken) ?? throw new KeyNotFoundException("Pinned connection not found.");
+            normalized = normalized with { Ownership = pinned.Ownership };
             pinnedGrant = target.WorkflowGrantId;
         }
         else if (normalized.WorkflowId is { } workflowId)
@@ -221,19 +226,23 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
         }
         else if (normalized.Actions.Count != 0 || string.IsNullOrWhiteSpace(normalized.DesiredCapability) || normalized.DesiredCapability.Length > 500)
             throw new ArgumentException("An unavailable provider request needs a desired capability and must not invent action versions or scopes.");
+        Guid? ownerUserId = normalized.Ownership == "User" ? userId : null;
         if (normalized.ConnectionId is { } connectionId)
         {
             ConnectorConnection connection = await database.ConnectorConnections.AsNoTracking().SingleOrDefaultAsync(connection => connection.TenantId == authorization.TenantId
                 && connection.Id == connectionId && connection.ConnectorKey == normalized.ConnectorKey, cancellationToken) ?? throw new KeyNotFoundException("Connection not found.");
-            if (connection.Ownership != normalized.Ownership || (normalized.Ownership == "User" && connection.OwnerUserId != userId)
+            if (connection.Ownership != normalized.Ownership
                 || (!requester.HasValue && normalized.RunId is null && connection.OwnerUserId != userId && !await authorization.CanManageAsync(userId, cancellationToken)
                     && !await authorization.HasActorGrantAsync(connection, new("User", userId, userId), normalized.Actions[0], cancellationToken)))
                 throw new PermissionDeniedException("Integration.Request");
+            ownerUserId = connection.OwnerUserId;
+            if (connection.Ownership == "User" && (ownerUserId is null || !await authorization.IsActiveAsync(ownerUserId.Value, cancellationToken)))
+                throw ConnectorAuthorization.Access("NoAuthorizedConnection");
             if (!requester.HasValue && connection.Status == "PendingConsent") throw Conflict("Complete or cancel the existing account consent request first.");
         }
         string reason = !known || !Available(normalized.ConnectorKey)
             ? "ConnectorUnavailable" : policy.Code != "Ready" ? policy.Code : normalized.ConnectionId.HasValue ? "ConnectionGrantRequired" : "NoAuthorizedConnection";
-        return new(normalized, userId, policy, known, pinnedGrant, new(normalized.ConnectorKey, normalized.Ownership, normalized.Ownership == "User" ? userId : null,
+        return new(normalized, userId, policy, known, pinnedGrant, new(normalized.ConnectorKey, normalized.Ownership, ownerUserId,
             normalized.Actions, scopes.Order(StringComparer.Ordinal).ToList(), normalized.Purpose, normalized.WorkflowId, normalized.RunId, reason,
             ConnectorService.Readiness(reason).NextAction, policy.ReviewerRoleId, normalized.DesiredCapability));
     }
@@ -254,7 +263,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             !active && request.ExpiresAt <= clock.UtcNow && request.Status is "Pending" or "AwaitingConsent" ? "Expired" : request.Status,
             request.ReasonCode, request.NextAction, request.WorkflowId, request.RunId, request.ConnectionId, request.GrantId, request.WorkflowGrantId,
             request.ReviewerRoleId, request.ExpiresAt, Convert.ToBase64String(request.RowVersion), connect, review,
-            request.Ownership == "User" && request.OwnerUserId == userId ? $"/settings/my-connections?requestId={request.Id:D}" : $"/settings/tenant-integrations?requestId={request.Id:D}",
+            request.OwnerUserId == userId || request.RequesterUserId == userId ? $"/settings/my-connections?requestId={request.Id:D}" : $"/settings/tenant-integrations?requestId={request.Id:D}",
             connect ? request.ConsentedAccountLabel : null, request.DesiredCapability,
             connect && request.OAuthStartedByUserId == userId && request.ProtectedOAuthResult is not null && request.OAuthExpiresAt > clock.UtcNow,
             active && request.RequesterUserId == userId);
@@ -262,6 +271,8 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
     internal async Task RequireConsentPolicyAsync(ConnectorConnectionRequest request, CancellationToken cancellationToken)
     {
         Prepared prepared = await PrepareAsync(Input(request), cancellationToken, request.RequesterUserId);
+        if (prepared.Preview.OwnerUserId != request.OwnerUserId || prepared.Preview.Ownership != request.Ownership)
+            throw Conflict("The account ownership changed. Review a new request.");
         if (!prepared.Known || !Available(request.ConnectorKey))
             throw ConnectorAuthorization.Access("ConnectorUnavailable");
         if (prepared.Policy.Code != "Ready") throw ConnectorAuthorization.Access(prepared.Policy.Code);

@@ -26,7 +26,9 @@ import {
   NODE_W,
   PORT_R,
   outPortPos,
+  outputCount,
 } from './editorGeometry';
+import { decisionRoutes } from './decisionParameters';
 import type { WorkflowNode } from './workflowTypes';
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
@@ -66,7 +68,7 @@ export function NodeShape({
   const meta = NODE_KIND[node.kind];
   const Icon = ICON_BY_NAME[meta.icon] ?? Bolt;
   const tint = meta.tint;
-  const total = meta.outputs ?? 1;
+  const total = outputCount(node);
 
   let ringColor = 'transparent';
   if (traceCurrent) ringColor = 'var(--success)';
@@ -286,9 +288,7 @@ export function NodeShape({
                 pointerEvents="none"
               >
                 {node.kind === 'decision'
-                  ? idx === 0
-                    ? 'yes'
-                    : 'no'
+                  ? decisionRoutes(node.params)[idx]
                   : idx === 0
                     ? 'body'
                     : 'done'}

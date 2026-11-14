@@ -13,6 +13,35 @@ namespace Aonik.Application.Tests.Platform.Integrations;
 public class ConnectorConsentTests
 {
     [Fact]
+    public async Task SharedPersonalAccountRequest_Should_RetainTheActualOwner_AndRequireTheirConsent()
+    {
+        using var scenario = new ConnectorScenario();
+        await scenario.InitializeAsync();
+        using var scope = scenario.Scope();
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var account = new Aonik.Platform.Entities.Integrations.ConnectorConnection { TenantId = scenario.TenantId, ConnectorKey = "gmail", Ownership = "User",
+            OwnerUserId = scenario.Current.OwnerId, ProvisionedByUserId = scenario.Current.OwnerId, ProviderAccountId = "personal-account", Status = "Active",
+            GrantedScopesJson = ConnectorJson.Serialize(new[] { GmailActionKeys.ReadScope, "openid", "email" }) };
+        db.ConnectorConnections.Add(account); await db.SaveChangesAsync();
+        await scope.ServiceProvider.GetRequiredService<ConnectorGrantService>().IssueAsync(account.Id,
+            new("User", scenario.OutsiderId, [new(GmailActionKeys.Search, 1)], Convert.ToBase64String(account.RowVersion)));
+        scenario.Allowed.Add((scenario.OutsiderId, "Integration.Use")); scenario.Allowed.Add((scenario.OutsiderId, "Integration.Request"));
+        scenario.Current.Id = scenario.OutsiderId;
+        var requests = scope.ServiceProvider.GetRequiredService<ConnectorConnectionRequestService>();
+
+        var request = await requests.CreateAsync(scenario.Request() with { ConnectionId = account.Id });
+
+        request.OwnerUserId.Should().Be(scenario.Current.OwnerId);
+        request.CanConnect.Should().BeFalse(); request.CanCancel.Should().BeTrue();
+        Func<Task> wrongOwner = () => scope.ServiceProvider.GetRequiredService<ConnectorConsentService>().BeginAsync(request.Id, new(request.ExpectedVersion));
+        await wrongOwner.Should().ThrowAsync<Aonik.SharedKernel.Abstractions.PermissionDeniedException>();
+        scenario.Current.Id = scenario.Current.OwnerId;
+        (await requests.GetAsync(request.Id))!.CanConnect.Should().BeTrue();
+        (await requests.DecideAsync(request.Id, new(request.ExpectedVersion, "Reject"))).Status.Should().Be("Rejected");
+        account.Status.Should().Be("Active");
+    }
+
+    [Fact]
     public async Task OrganizationalReview_Should_SelectAnExistingAccount_AndGrantOnlyTheRequester()
     {
         using var scenario = new ConnectorScenario();

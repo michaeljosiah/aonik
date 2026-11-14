@@ -10,6 +10,7 @@ using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Workflows;
 using Aonik.SharedKernel.Persistence;
 
 namespace Aonik.Agents.Services.Workflows;
@@ -24,19 +25,21 @@ internal sealed class WorkflowService : IWorkflowService
     private readonly IClock _clock;
     private readonly WorkflowAuthorization _authorization;
     private readonly WorkflowPublicationValidator? _publication;
+    private readonly IEnumerable<IWorkflowUsageReader> _usageReaders;
 
     public WorkflowService(
         AgentsDbContext dbContext,
         ITenantProvider tenantProvider,
         IClock clock,
         WorkflowAuthorization authorization,
-        WorkflowPublicationValidator? publication = null)
+        WorkflowPublicationValidator? publication = null, IEnumerable<IWorkflowUsageReader>? usageReaders = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
         _authorization = authorization;
         _publication = publication;
+        _usageReaders = usageReaders ?? [];
     }
 
     public async Task<IReadOnlyList<WorkflowSummaryResponse>> ListAsync(
@@ -244,7 +247,7 @@ internal sealed class WorkflowService : IWorkflowService
                 DurationMs: r.DurationMs,
                 By: r.StartedBy,
                 Sequence: sequence,
-                Total: sequence.Count);
+                Total: sequence.Count, Mode: r.Mode, WorkflowVersionId: r.WorkflowVersionId);
         }).ToList();
     }
 
@@ -304,6 +307,9 @@ internal sealed class WorkflowService : IWorkflowService
             || await _dbContext.WorkflowVersions.AnyAsync(version => version.WorkflowId == workflow.Id && version.PublishedAt != null, cancellationToken)
             || await _dbContext.WorkflowRuns.AnyAsync(run => run.WorkflowId == workflow.Id, cancellationToken))
             throw new WorkflowConflictException("A published, referenced or previously executed workflow must be retired, not deleted.");
+        foreach (IWorkflowUsageReader reader in _usageReaders)
+            if (await reader.HasActiveReferencesAsync(workflow.Id, cancellationToken))
+                throw new WorkflowConflictException("This draft has active connector grants or requests. Revoke or cancel them before deleting it.");
         workflow.IsDeleted = true;
         workflow.DeletedAt = _clock.UtcNow;
         foreach (var node in await _dbContext.WorkflowNodes.Where(node => node.WorkflowId == workflow.Id).ToListAsync(cancellationToken))

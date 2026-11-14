@@ -55,6 +55,7 @@ function toState(apiState: string): WorkflowState {
     case 'Active':
     case 'Paused':
     case 'Draft':
+    case 'Retired':
       return apiState;
     default:
       return 'Draft';
@@ -64,12 +65,17 @@ function toState(apiState: string): WorkflowState {
 function toRunStatus(apiStatus: string): WorkflowRunSummary['status'] {
   switch (apiStatus) {
     case 'Success':
+    case 'Completed':
       return 'success';
     case 'Held':
+    case 'WaitingForApproval':
+    case 'WaitingForConnection':
+    case 'NeedsAttention':
       return 'held';
     case 'Failed':
       return 'failed';
     case 'Running':
+    case 'Queued':
       return 'running';
     default:
       return 'failed';
@@ -218,6 +224,7 @@ export function buildSaveRequest(
 export function adaptRun(dto: WorkflowRunDto): WorkflowRunSummary {
   return {
     id: dto.id,
+    mode: dto.mode,
     when: dto.when,
     status: toRunStatus(dto.status),
     duration: dto.duration,
@@ -230,6 +237,7 @@ export function adaptRun(dto: WorkflowRunDto): WorkflowRunSummary {
 export function adaptVersion(dto: WorkflowVersionDto): WorkflowVersion {
   return {
     id: dto.id,
+    publishedAt: dto.publishedAt,
     tag: dto.tag,
     when: dto.when,
     by: dto.authorName,

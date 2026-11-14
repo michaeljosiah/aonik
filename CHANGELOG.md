@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Decision workflow operator interface (#438):** Add server-backed decision tables/fixtures, action and pinned-account editors, exact publication/rollback previews, durable run traces and human approval/resume controls. Add My Connections and Tenant Integrations with account review, exact grants and trusted request cards in chat/playground. Shared personal accounts retain their actual consent owner. Unused-draft deletion checks connection dependencies. Automated application, HTTP and UI checks pass; live provider/Worker qualification remains open.
+
 ### Fixed
 
 - **Invited-creator dev acceptance (#436):** Complete native invitation acceptance and the packaged Studio → AONIK → Player flow with a fresh least-privilege creator. Record the corrected Studio importer and Player EPUB-position/book-poster fixes, final build hashes, signed in-place upgrade, exact review/release evidence, withdrawal at empty dev serial 28 and retained offline reading. Production and the legacy mirror remain unchanged.

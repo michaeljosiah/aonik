@@ -5,6 +5,7 @@
 
 import type { WorkflowNode } from './workflowTypes';
 import { NODE_KIND } from './stepKindCatalog';
+import { decisionRoutes } from './decisionParameters';
 
 export const NODE_W = 220;
 export const NODE_H = 76;
@@ -31,8 +32,7 @@ export function outPortPos(
   total = 1,
 ): Point {
   if (total <= 1) return { x: n.x + NODE_W, y: n.y + NODE_H / 2 };
-  // Decision/loop: 2 outputs split vertically
-  const offset = (idx === 0 ? -1 : 1) * (NODE_H / 4);
+  const offset = (idx / Math.max(1, total - 1) - 0.5) * (NODE_H - 24);
   return { x: n.x + NODE_W, y: n.y + NODE_H / 2 + offset };
 }
 
@@ -42,6 +42,7 @@ export function bezierPath(x1: number, y1: number, x2: number, y2: number): stri
 }
 
 /** Resolve a node's output port count from the kind catalog. */
-export function outputCount(n: Pick<WorkflowNode, 'kind'>): number {
+export function outputCount(n: Pick<WorkflowNode, 'kind' | 'params'>): number {
+  if (n.kind === 'decision' && n.params.rows) return decisionRoutes(n.params).length;
   return NODE_KIND[n.kind].outputs ?? 1;
 }

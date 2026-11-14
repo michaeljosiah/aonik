@@ -31,6 +31,8 @@
     "approvals": {},
     "settings": {},
     "settings.modules": {},
+    "settings.my-connections": {},
+    "settings.tenant-integrations": {},
     "settings.audit-logs": {},
     "arke.overview": {},
     "arke.families": {},

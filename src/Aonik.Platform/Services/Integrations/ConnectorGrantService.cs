@@ -12,6 +12,21 @@ internal sealed class ConnectorGrantService(PlatformDbContext database, Connecto
     ConnectorPolicyService policies, ITenantRoleReader roles, IAuditLogWriter audit, IClock clock,
     IWorkflowConnectorContextReader? workflows = null)
 {
+    public async Task<WorkflowConnectorBinding?> GetWorkflowBindingAsync(Guid connectionId, Guid workflowId, ConnectorActionRef action, CancellationToken cancellationToken = default)
+    {
+        Guid userId = await authorization.RequireUserAsync("Integration.Use", cancellationToken);
+        if (workflows is null) throw ConnectorAuthorization.Access("WorkflowBindingRequired");
+        await workflows.RequireGrantTargetAsync(workflowId, userId, cancellationToken);
+        ConnectorConnectionGrant? grant = await database.ConnectorConnectionGrants.AsNoTracking().SingleOrDefaultAsync(grant => grant.TenantId == authorization.TenantId
+            && grant.ConnectionId == connectionId && grant.GranteeType == "Workflow" && grant.GranteeId == workflowId && grant.RevokedAt == null
+            && (grant.ExpiresAt == null || grant.ExpiresAt > clock.UtcNow), cancellationToken);
+        if (grant is null) return null;
+        if (!ConnectorJson.Read<List<ConnectorActionRef>>(grant.AllowedActionsJson).Contains(action)) throw ConnectorAuthorization.Access("ConnectionGrantRequired");
+        await authorization.RequireUseAsync(connectionId, catalog.Resolve(action), new(new("User", userId, userId), workflowId,
+            PinnedGrantId: grant.Id, AllowedActions: [action]), cancellationToken);
+        return new(connectionId, grant.Id, [action]);
+    }
+
     public async Task<IReadOnlyList<ConnectorGrantDetail>> ListAsync(Guid connectionId, CancellationToken cancellationToken = default)
     {
         Guid userId = await authorization.RequireUserAsync("Integration.Read", cancellationToken);

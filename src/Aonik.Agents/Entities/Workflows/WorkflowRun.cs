@@ -32,7 +32,7 @@ public class WorkflowRun : AuditableEntity, ITenantScoped
     /// </summary>
     public string StartedBy { get; set; } = string.Empty;
 
-    /// <summary>JSON array of node ids visited, in order.</summary>
+    /// <summary>Ordered legacy node IDs or live step-run IDs; live details use the pinned version.</summary>
     public string SequenceJson { get; set; } = "[]";
 
     // Null metadata preserves the meaning of legacy, non-durable run history.

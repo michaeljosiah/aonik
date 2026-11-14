@@ -70,6 +70,10 @@ public class ConnectorWorkflowTests
         Guid runId = await host.StartAsync();
         using var scope = host.Scenario.Scope();
         var gateway = scope.ServiceProvider.GetRequiredService<IConnectorService>();
+        var binding = await scope.ServiceProvider.GetRequiredService<ConnectorGrantService>().GetWorkflowBindingAsync(host.ConnectionId, host.WorkflowId, new(GmailActionKeys.Search, 1));
+        binding!.ConnectionId.Should().Be(host.ConnectionId);
+        binding.WorkflowGrantId.Should().Be(host.WorkflowGrantId);
+        binding.AllowedActions.Should().Equal(new ConnectorActionRef(GmailActionKeys.Search, 1));
 
         Func<Task> direct = () => gateway.InvokeWorkflowReadAsync(runId, Guid.NewGuid(), host.ConnectionId,
             new(GmailActionKeys.Search, 1), ConnectorJson.Element(new GmailSearchRequest("invoice")));

@@ -32,6 +32,7 @@ internal sealed class ConnectorScenario : IDisposable
     public Actor Current { get; } = new();
     public TestClock Clock { get; } = new();
     public HashSet<(Guid, string)> Denied { get; } = [];
+    public HashSet<(Guid, string)> Allowed { get; } = [];
     public Mock<IConnectorOAuthProvider> OAuth { get; } = new();
     public Mock<IConnectorActionProvider> Actions { get; } = new();
     public Mock<IAuditLogWriter> Audit { get; } = new();
@@ -59,7 +60,7 @@ internal sealed class ConnectorScenario : IDisposable
         var permissions = new Mock<IPermissionService>();
         permissions.Setup(service => service.HasPermissionAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((Guid userId, string permission, CancellationToken _) => !Denied.Contains((userId, permission))
-                && (permission == "Integration.Read" || (userId == Current.OwnerId && permission != "Integration.Manage")
+                && (Allowed.Contains((userId, permission)) || permission == "Integration.Read" || (userId == Current.OwnerId && permission != "Integration.Manage")
                     || (userId == ReviewerId && permission == "Integration.Manage")));
         var services = new ServiceCollection();
         services.AddSingleton<ITenantProvider>(new TestTenantProvider(TenantId));
