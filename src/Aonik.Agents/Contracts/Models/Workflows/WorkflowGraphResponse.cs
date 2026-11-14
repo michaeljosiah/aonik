@@ -19,7 +19,10 @@ public sealed record WorkflowGraphResponse(
     IReadOnlyList<string> Contributors,
     IReadOnlyList<WorkflowGraphNode> Nodes,
     IReadOnlyList<WorkflowGraphEdge> Edges,
-    IReadOnlyList<WorkflowGraphComment> Comments);
+    IReadOnlyList<WorkflowGraphComment> Comments,
+    string ExpectedVersion = "",
+    string DefinitionKind = "Workflow",
+    Guid? PublishedVersionId = null);
 
 public sealed record WorkflowGraphNode(
     Guid Id,
@@ -30,14 +33,17 @@ public sealed record WorkflowGraphNode(
     int X,
     int Y,
     /// <summary>Per-kind parameters as raw JSON. UI knows the kind-specific shape.</summary>
-    string ParamsJson);
+    string ParamsJson,
+    string? Key = null);
 
 public sealed record WorkflowGraphEdge(
     Guid Id,
     Guid FromNodeId,
     Guid ToNodeId,
     int FromIndex,
-    string Label);
+    string Label,
+    string? RouteKey = null,
+    string? Key = null);
 
 public sealed record WorkflowGraphComment(
     Guid Id,

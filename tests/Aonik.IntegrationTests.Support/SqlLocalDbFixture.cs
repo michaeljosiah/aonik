@@ -48,6 +48,8 @@ namespace Aonik.IntegrationTests.Support;
 /// </summary>
 public sealed class SqlLocalDbFixture : IAsyncLifetime
 {
+    public bool ApplyMigrations { get; init; }
+
     private const string InstanceDataSource = @"(localdb)\MSSQLLocalDB";
 
     private const string OverrideVariable = "AONIK_SQLSERVER_TEST_CONNECTION";
@@ -121,7 +123,8 @@ public sealed class SqlLocalDbFixture : IAsyncLifetime
         // failing run. When creation failed before the database existed,
         // EnsureDeleted is a safe no-op.
         _databaseCreated = true;
-        await context.Database.EnsureCreatedAsync();
+        if (ApplyMigrations) await context.Database.MigrateAsync();
+        else await context.Database.EnsureCreatedAsync();
     }
 
     public async Task DisposeAsync()

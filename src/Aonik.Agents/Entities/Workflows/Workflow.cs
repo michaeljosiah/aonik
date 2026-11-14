@@ -45,4 +45,9 @@ public class Workflow : AuditableEntity, ITenantScoped
     /// list pages don't fan out to count rows on every request.
     /// </summary>
     public int TriggerCount { get; set; }
+
+    public string DefinitionKind { get; set; } = "Workflow";
+    public Guid? PublishedVersionId { get; set; }
+    public DateTime? RetiredAt { get; set; }
+    public Guid? RetiredByUserId { get; set; }
 }

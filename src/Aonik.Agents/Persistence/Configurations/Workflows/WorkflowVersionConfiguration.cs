@@ -15,6 +15,9 @@ internal class WorkflowVersionConfiguration : IEntityTypeConfiguration<WorkflowV
         builder.Property(v => v.Message).HasMaxLength(1000);
         builder.Property(v => v.AuthorName).HasMaxLength(200);
         builder.Property(v => v.AuthorColor).HasMaxLength(16);
+        builder.Property(v => v.DefinitionJson).HasColumnType("nvarchar(max)");
+        builder.Property(v => v.DefinitionHash).HasMaxLength(64);
+        builder.HasIndex(v => new { v.TenantId, v.WorkflowId, v.PublishedAt });
 
         // Tag is unique per workflow — version bumps must be deterministic.
         builder.HasIndex(v => new { v.WorkflowId, v.Tag })

@@ -18,6 +18,7 @@ internal class WorkflowConfiguration : IEntityTypeConfiguration<Workflow>
         builder.Property(w => w.State).HasMaxLength(32).IsRequired();
         builder.Property(w => w.Version).HasMaxLength(32).IsRequired();
         builder.Property(w => w.ContributorsJson).HasColumnType("nvarchar(max)");
+        builder.Property(w => w.DefinitionKind).HasMaxLength(32).HasDefaultValue("Workflow").IsRequired();
 
         // Slug is unique per tenant — used as the URL key for the editor.
         builder.HasIndex(w => new { w.TenantId, w.Slug })

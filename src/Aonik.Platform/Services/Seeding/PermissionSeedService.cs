@@ -190,6 +190,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
         {
             ["TenantAdmin"] =
             [
+                "Workflow.Read", "Workflow.Write", "Workflow.Publish", "Workflow.Run",
                 "Users.Read",
                 "Users.Invite",
                 "Users.Manage",
@@ -226,6 +227,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             ],
             ["Operations"] =
             [
+                "Workflow.Read", "Workflow.Run",
                 "Users.RevokeSessions",
                 "Ledger.Read",
                 "Ledger.Write",
@@ -248,6 +250,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             ],
             ["ReadOnly"] =
             [
+                "Workflow.Read",
                 "Users.Read",
                 "UserInfo.Read",
                 "Roles.Read",
@@ -370,6 +373,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             "Users.Delete",
             "UserInfo.Read",
             "UserInfo.Update",
+            "Workflow.Read", "Workflow.Write", "Workflow.Publish", "Workflow.Run",
             "Settings.Read",
             "Settings.Write",
             "Roles.Read",

@@ -1,4 +1,8 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
+
+using Microsoft.EntityFrameworkCore;
+
 using Aonik.Agents.Contracts.Models.Workflows;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
@@ -6,39 +10,46 @@ using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
-using Microsoft.EntityFrameworkCore;
+using Aonik.SharedKernel.Persistence;
 
 namespace Aonik.Agents.Services.Workflows;
 
 /// <summary>
-/// Read-only workflow registry service. Materialises the list-page summary
-/// + KPI aggregates from <see cref="WorkflowRun"/> rows inline rather than
-/// caching them, which is fine for the demo data volumes; if/when the run
-/// table grows the per-workflow stat block is the obvious thing to lift
-/// into a denormalised projection.
+/// Tenant-authorized workflow drafts, immutable history and registry summaries.
 /// </summary>
 internal sealed class WorkflowService : IWorkflowService
 {
     private readonly AgentsDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly IClock _clock;
+    private readonly WorkflowAuthorization _authorization;
 
     public WorkflowService(
         AgentsDbContext dbContext,
         ITenantProvider tenantProvider,
-        IClock clock)
+        IClock clock,
+        WorkflowAuthorization authorization)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _clock = clock;
+        _authorization = authorization;
     }
 
     public async Task<IReadOnlyList<WorkflowSummaryResponse>> ListAsync(
+        int skip = 0,
+        int take = 50,
         CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireAsync("Workflow.Read", cancellationToken);
+        if (skip is < 0 or > 100_000 || take is < 1 or > 100)
+            throw new ArgumentException("Use a nonnegative offset up to 100000 and between 1 and 100 workflows.");
         var workflows = await _dbContext.Workflows
+            .Where(w => w.TenantId == _tenantProvider.GetCurrentTenantId())
             .AsNoTracking()
             .OrderByDescending(w => w.UpdatedAt ?? w.CreatedAt)
+            .ThenBy(w => w.Id)
+            .Skip(skip).Take(take)
             .ToListAsync(cancellationToken);
 
         if (workflows.Count == 0)
@@ -102,7 +113,7 @@ internal sealed class WorkflowService : IWorkflowService
                 Slug: w.Slug,
                 Name: w.Name,
                 Description: w.Description,
-                State: w.State,
+                State: EffectiveState(w),
                 Version: w.Version,
                 AutoRetry: w.AutoRetry,
                 TriggerCount: w.TriggerCount,
@@ -124,9 +135,15 @@ internal sealed class WorkflowService : IWorkflowService
         string slug,
         CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireAsync("Workflow.Read", cancellationToken);
+        return await GetGraphAsync(slug, cancellationToken);
+    }
+
+    private async Task<WorkflowGraphResponse?> GetGraphAsync(string slug, CancellationToken cancellationToken)
+    {
         var workflow = await _dbContext.Workflows
             .AsNoTracking()
-            .FirstOrDefaultAsync(w => w.Slug == slug, cancellationToken);
+            .FirstOrDefaultAsync(w => w.TenantId == _tenantProvider.GetCurrentTenantId() && w.Slug == slug, cancellationToken);
 
         if (workflow is null) return null;
 
@@ -171,23 +188,28 @@ internal sealed class WorkflowService : IWorkflowService
                 .ToList();
         }
 
+        Dictionary<Guid, string> nodeKeys = nodes.ToDictionary(node => node.Id, node => node.LogicalKey ?? node.Id.ToString("D"));
         return new WorkflowGraphResponse(
             Id: workflow.Id,
             Slug: workflow.Slug,
             Name: workflow.Name,
             Description: workflow.Description,
-            State: workflow.State,
+            State: EffectiveState(workflow),
             Version: workflow.Version,
             AutoRetry: workflow.AutoRetry,
             OwnerColor: workflow.OwnerColor,
             OwnerName: ownerName,
             Contributors: contributorNames,
             Nodes: nodes.Select(n => new WorkflowGraphNode(
-                n.Id, n.Kind, n.Label, n.Summary, n.Notes, n.X, n.Y, n.ParamsJson)).ToList(),
+                n.Id, n.Kind, n.Label, n.Summary, n.Notes, n.X, n.Y, n.ParamsJson, n.LogicalKey ?? n.Id.ToString("D"))).ToList(),
             Edges: edges.Select(e => new WorkflowGraphEdge(
-                e.Id, e.FromNodeId, e.ToNodeId, e.FromIndex, e.Label)).ToList(),
+                e.Id, e.FromNodeId, e.ToNodeId, e.FromIndex, e.Label, e.RouteKey,
+                WorkflowDefinitionCodec.EdgeKey(nodeKeys[e.FromNodeId], nodeKeys[e.ToNodeId], e.FromIndex, e.RouteKey))).ToList(),
             Comments: comments.Select(c => new WorkflowGraphComment(
-                c.Id, c.X, c.Y, c.Author, c.Body)).ToList());
+                c.Id, c.X, c.Y, c.Author, c.Body)).ToList(),
+            ExpectedVersion: Convert.ToBase64String(workflow.RowVersion),
+            DefinitionKind: workflow.DefinitionKind,
+            PublishedVersionId: workflow.PublishedVersionId);
     }
 
     public async Task<IReadOnlyList<WorkflowRunResponse>> ListRunsAsync(
@@ -195,7 +217,9 @@ internal sealed class WorkflowService : IWorkflowService
         int take = 20,
         CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireAsync("Workflow.Read", cancellationToken);
         var runs = await _dbContext.WorkflowRuns
+            .Where(r => r.TenantId == _tenantProvider.GetCurrentTenantId())
             .AsNoTracking()
             .Where(r => r.WorkflowId == workflowId)
             .OrderByDescending(r => r.StartedAt)
@@ -221,188 +245,301 @@ internal sealed class WorkflowService : IWorkflowService
         }).ToList();
     }
 
-    public async Task<WorkflowGraphResponse> SaveAsync(
-        WorkflowSaveRequest request,
-        CancellationToken cancellationToken = default)
+    public async Task<WorkflowGraphResponse> CreateAsync(
+        WorkflowSaveRequest request, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(request.Slug))
+        Guid userId = await _authorization.RequireAsync("Workflow.Write", cancellationToken);
+        ValidateDraft(request);
+        if (!string.IsNullOrEmpty(request.State) && !string.Equals(request.State, WorkflowStates.Draft, StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("New workflows are drafts. Use a publication request to activate one.");
+        if (await _dbContext.Workflows.IncludeSoftDeleted().AnyAsync(
+            workflow => workflow.TenantId == _tenantProvider.GetCurrentTenantId() && workflow.Slug == request.Slug, cancellationToken))
+            throw new WorkflowConflictException("This workflow slug is already reserved in the tenant.");
+
+        var workflow = new Workflow
         {
-            throw new ArgumentException("Slug is required.", nameof(request));
+            TenantId = _tenantProvider.GetCurrentTenantId(),
+            Slug = request.Slug,
+            State = WorkflowStates.Draft,
+            Version = "v0.1",
+        };
+        ApplyDraft(workflow, request);
+        _dbContext.Workflows.Add(workflow);
+        await ReplaceGraphAsync(workflow, request, userId, cancellationToken);
+        return (await GetGraphAsync(workflow.Slug, cancellationToken))!;
+    }
+
+    public async Task<WorkflowGraphResponse?> UpdateAsync(
+        WorkflowSaveRequest request, CancellationToken cancellationToken = default)
+    {
+        Guid userId = await _authorization.RequireAsync("Workflow.Write", cancellationToken);
+        ValidateDraft(request);
+        Workflow? workflow = await _dbContext.Workflows.SingleOrDefaultAsync(
+            workflow => workflow.TenantId == _tenantProvider.GetCurrentTenantId() && workflow.Slug == request.Slug, cancellationToken);
+        if (workflow is null) return null;
+        CheckVersion(workflow, request.ExpectedVersion);
+        if (!string.IsNullOrEmpty(request.State) && !string.Equals(request.State, EffectiveState(workflow), StringComparison.OrdinalIgnoreCase))
+            throw new ArgumentException("State changes require publication or retirement; editing changes only the draft.");
+        if (request.DefinitionKind != workflow.DefinitionKind)
+            throw new ArgumentException("The definition kind cannot change after creation.");
+        await ValidateExistingKeysAsync(workflow.Id, request, cancellationToken);
+        workflow.Version = await NextAvailableVersionAsync(workflow, cancellationToken);
+        ApplyDraft(workflow, request);
+        await ReplaceGraphAsync(workflow, request, userId, cancellationToken);
+        return (await GetGraphAsync(workflow.Slug, cancellationToken))!;
+    }
+
+    public async Task<bool> DeleteAsync(
+        string slug, string? expectedVersion, CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireAsync("Workflow.Write", cancellationToken);
+        Workflow? workflow = await _dbContext.Workflows.SingleOrDefaultAsync(
+            workflow => workflow.TenantId == _tenantProvider.GetCurrentTenantId() && workflow.Slug == slug, cancellationToken);
+        if (workflow is null) return false;
+        CheckVersion(workflow, expectedVersion);
+        if (workflow.PublishedVersionId.HasValue || workflow.TriggerCount != 0
+            || await _dbContext.WorkflowVersions.AnyAsync(version => version.WorkflowId == workflow.Id && version.PublishedAt != null, cancellationToken)
+            || await _dbContext.WorkflowRuns.AnyAsync(run => run.WorkflowId == workflow.Id, cancellationToken))
+            throw new WorkflowConflictException("A published, referenced or previously executed workflow must be retired, not deleted.");
+        workflow.IsDeleted = true;
+        workflow.DeletedAt = _clock.UtcNow;
+        foreach (var node in await _dbContext.WorkflowNodes.Where(node => node.WorkflowId == workflow.Id).ToListAsync(cancellationToken))
+        {
+            node.IsDeleted = true;
+            node.DeletedAt = _clock.UtcNow;
         }
-        if (request.Nodes.Count == 0)
+        foreach (var edge in await _dbContext.WorkflowEdges.Where(edge => edge.WorkflowId == workflow.Id).ToListAsync(cancellationToken))
         {
-            throw new ArgumentException("Workflow must have at least one node.", nameof(request));
+            edge.IsDeleted = true;
+            edge.DeletedAt = _clock.UtcNow;
         }
-
-        ValidateGraph(request);
-
-        var existing = await _dbContext.Workflows
-            .FirstOrDefaultAsync(w => w.Slug == request.Slug, cancellationToken);
-
-        var contributorsJson = JsonSerializer.Serialize(request.Contributors);
-
-        Workflow workflow;
-        bool isNew = existing is null;
-
-        if (existing is null)
+        foreach (var comment in await _dbContext.WorkflowComments.Where(comment => comment.WorkflowId == workflow.Id).ToListAsync(cancellationToken))
         {
-            workflow = new Workflow
+            comment.IsDeleted = true;
+            comment.DeletedAt = _clock.UtcNow;
+        }
+        await SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<WorkflowValidation?> ValidateAsync(string slug, CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireAsync("Workflow.Read", cancellationToken);
+        WorkflowGraphResponse? graph = await GetGraphAsync(slug, cancellationToken);
+        if (graph is null) return null;
+        WorkflowDefinition definition = WorkflowDefinitionCodec.FromGraph(graph);
+        string hash = WorkflowDefinitionCodec.Hash(WorkflowDefinitionCodec.Serialize(definition));
+        IReadOnlyList<WorkflowDiagnostic> diagnostics = WorkflowDefinitionValidator.Validate(definition, forPublication: true);
+        return new(!diagnostics.Any(diagnostic => diagnostic.Severity == "Error"), hash, diagnostics);
+    }
+
+    public async Task<WorkflowSimulation?> SimulateAsync(
+        string slug, WorkflowSimulationRequest request, CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireAsync("Workflow.Read", cancellationToken);
+        if (request.Facts is null || request.Facts.Count > 100 || request.ActionOutputs?.Count > WorkflowDefinitionValidator.MaxNodes
+            || JsonSerializer.Serialize(request).Length > 128_000)
+            throw new ArgumentException("Fixture input exceeds the supported limits.");
+        WorkflowGraphResponse? graph = await GetGraphAsync(slug, cancellationToken);
+        return graph is null ? null : WorkflowSimulator.Simulate(WorkflowDefinitionCodec.FromGraph(graph), request);
+    }
+
+    public async Task<WorkflowCapabilities> GetCapabilitiesAsync(CancellationToken cancellationToken = default)
+    {
+        await _authorization.RequireAsync("Workflow.Read", cancellationToken);
+        return WorkflowDefinitionValidator.Capabilities();
+    }
+
+    private static void ApplyDraft(Workflow workflow, WorkflowSaveRequest request)
+    {
+        if (!workflow.PublishedVersionId.HasValue) workflow.State = WorkflowStates.Draft;
+        workflow.Name = request.Name;
+        workflow.Description = request.Description ?? "";
+        workflow.DefinitionKind = request.DefinitionKind;
+        workflow.AutoRetry = request.AutoRetry;
+        workflow.OwnerColor = request.OwnerColor ?? "";
+        workflow.OwnerAgentId = request.OwnerAgentId;
+        workflow.ContributorsJson = JsonSerializer.Serialize(request.Contributors);
+    }
+
+    private static string EffectiveState(Workflow workflow) => workflow.PublishedVersionId.HasValue ? workflow.State : WorkflowStates.Draft;
+
+    private async Task ReplaceGraphAsync(
+        Workflow workflow, WorkflowSaveRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        List<WorkflowNode> existingNodes = await _dbContext.WorkflowNodes
+            .Where(node => node.WorkflowId == workflow.Id).ToListAsync(cancellationToken);
+        List<WorkflowEdge> existingEdges = await _dbContext.WorkflowEdges
+            .Where(edge => edge.WorkflowId == workflow.Id).ToListAsync(cancellationToken);
+        var clientNodes = new Dictionary<string, WorkflowNode>(StringComparer.Ordinal);
+        foreach (WorkflowSaveNode requested in request.Nodes)
+        {
+            string key = requested.Key ?? requested.ClientId;
+            WorkflowNode? node = existingNodes.SingleOrDefault(node => (node.LogicalKey ?? node.Id.ToString("D")) == key
+                || IsNodeId(node.Id, requested.ClientId));
+            if (node is null)
             {
-                Slug = request.Slug,
-                Name = request.Name,
-                Description = request.Description ?? string.Empty,
-                State = string.IsNullOrWhiteSpace(request.State) ? WorkflowStates.Draft : request.State,
-                Version = string.IsNullOrWhiteSpace(request.Version) ? "v0.1" : request.Version,
-                AutoRetry = request.AutoRetry,
-                OwnerColor = request.OwnerColor ?? string.Empty,
-                OwnerAgentId = request.OwnerAgentId,
-                ContributorsJson = contributorsJson,
-            };
-            _dbContext.Workflows.Add(workflow);
-        }
-        else
-        {
-            // Each save bumps the minor version and stamps a new
-            // WorkflowVersion audit row. We pick a tag that doesn't
-            // already exist for this workflow — the seed catalog can
-            // pre-populate version rows (e.g. v1.4 already exists for
-            // match_and_apply), so a naive bump can collide.
-            var newVersion = await NextAvailableVersionAsync(existing, cancellationToken);
-            await SnapshotVersionAsync(existing, newVersion, request.VersionMessage, cancellationToken);
-
-            existing.Name = request.Name;
-            existing.Description = request.Description ?? string.Empty;
-            existing.State = string.IsNullOrWhiteSpace(request.State) ? existing.State : request.State;
-            existing.Version = newVersion;
-            existing.AutoRetry = request.AutoRetry;
-            existing.OwnerColor = request.OwnerColor ?? existing.OwnerColor;
-            existing.OwnerAgentId = request.OwnerAgentId ?? existing.OwnerAgentId;
-            existing.ContributorsJson = contributorsJson;
-            workflow = existing;
-
-            // Replace nodes + edges fully — diffing isn't worth the
-            // complexity for the graph sizes we have.
-            var oldNodes = await _dbContext.WorkflowNodes
-                .Where(n => n.WorkflowId == existing.Id)
-                .ToListAsync(cancellationToken);
-            var oldEdges = await _dbContext.WorkflowEdges
-                .Where(e => e.WorkflowId == existing.Id)
-                .ToListAsync(cancellationToken);
-            _dbContext.WorkflowNodes.RemoveRange(oldNodes);
-            _dbContext.WorkflowEdges.RemoveRange(oldEdges);
-        }
-
-        // Build the new node + edge rows. Map client ids → fresh Guids
-        // so edges can find their endpoints regardless of whether the
-        // client used a server Guid or an editor-local id.
-        var clientToGuid = new Dictionary<string, Guid>(request.Nodes.Count, StringComparer.Ordinal);
-        var newNodes = new List<WorkflowNode>(request.Nodes.Count);
-        foreach (var n in request.Nodes)
-        {
-            var id = Guid.NewGuid();
-            clientToGuid[n.ClientId] = id;
-            newNodes.Add(new WorkflowNode
-            {
-                Id = id,
-                WorkflowId = workflow.Id,
-                Kind = n.Kind ?? string.Empty,
-                Label = n.Label ?? string.Empty,
-                Summary = n.Summary ?? string.Empty,
-                Notes = n.Notes ?? string.Empty,
-                X = n.X,
-                Y = n.Y,
-                ParamsJson = string.IsNullOrWhiteSpace(n.ParamsJson) ? "{}" : n.ParamsJson,
-            });
-        }
-        _dbContext.WorkflowNodes.AddRange(newNodes);
-
-        var newEdges = new List<WorkflowEdge>(request.Edges.Count);
-        foreach (var e in request.Edges)
-        {
-            if (!clientToGuid.TryGetValue(e.FromClientId, out var fromId)
-                || !clientToGuid.TryGetValue(e.ToClientId, out var toId))
-            {
-                // Edge references a node that wasn't in the request — drop
-                // it rather than leaving an orphan row. Validation should
-                // have caught this earlier; this is a safety net.
-                continue;
+                node = new WorkflowNode { TenantId = workflow.TenantId, WorkflowId = workflow.Id, LogicalKey = key };
+                _dbContext.WorkflowNodes.Add(node);
             }
-            newEdges.Add(new WorkflowEdge
-            {
-                Id = Guid.NewGuid(),
-                WorkflowId = workflow.Id,
-                FromNodeId = fromId,
-                ToNodeId = toId,
-                FromIndex = e.FromIndex,
-                Label = e.Label ?? string.Empty,
-            });
+            else node.LogicalKey ??= node.Id.ToString("D");
+            node.Kind = requested.Kind;
+            node.Label = requested.Label;
+            node.Summary = requested.Summary ?? "";
+            node.Notes = requested.Notes ?? "";
+            node.X = requested.X;
+            node.Y = requested.Y;
+            node.ParamsJson = string.IsNullOrWhiteSpace(requested.ParamsJson) ? "{}" : requested.ParamsJson;
+            clientNodes.Add(requested.ClientId, node);
         }
-        _dbContext.WorkflowEdges.AddRange(newEdges);
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var graph = await GetBySlugAsync(request.Slug, cancellationToken);
-        return graph!;
-
-        // Local helper — keeps SaveAsync readable.
-        static void ValidateGraph(WorkflowSaveRequest req)
+        HashSet<Guid> retained = clientNodes.Values.Select(node => node.Id).ToHashSet();
+        _dbContext.WorkflowNodes.RemoveRange(existingNodes.Where(node => !retained.Contains(node.Id)));
+        var newEdges = new List<WorkflowEdge>();
+        foreach (WorkflowSaveEdge requested in request.Edges)
         {
-            var triggers = req.Nodes.Count(n => string.Equals(n.Kind, "trigger", StringComparison.OrdinalIgnoreCase));
-            if (triggers != 1)
+            Guid from = clientNodes[requested.FromClientId].Id;
+            Guid to = clientNodes[requested.ToClientId].Id;
+            WorkflowEdge? edge = existingEdges.FirstOrDefault(edge => edge.FromNodeId == from && edge.ToNodeId == to
+                && edge.FromIndex == requested.FromIndex && edge.RouteKey == requested.RouteKey);
+            if (edge is null)
             {
-                throw new ArgumentException(
-                    $"Workflow must have exactly one trigger node (found {triggers}).",
-                    nameof(req));
+                edge = new WorkflowEdge { TenantId = workflow.TenantId, WorkflowId = workflow.Id };
+                _dbContext.WorkflowEdges.Add(edge);
             }
+            edge.FromNodeId = from;
+            edge.ToNodeId = to;
+            edge.FromIndex = requested.FromIndex;
+            edge.RouteKey = requested.RouteKey;
+            edge.Label = requested.Label ?? "";
+            newEdges.Add(edge);
+        }
+        HashSet<Guid> retainedEdges = newEdges.Select(edge => edge.Id).ToHashSet();
+        _dbContext.WorkflowEdges.RemoveRange(existingEdges.Where(edge => !retainedEdges.Contains(edge.Id)));
+        AddSnapshot(workflow, clientNodes.Values.ToList(), newEdges, userId, request.VersionMessage);
+        await SaveChangesAsync(cancellationToken);
+    }
 
-            var clientIds = new HashSet<string>(req.Nodes.Select(n => n.ClientId), StringComparer.Ordinal);
-            foreach (var edge in req.Edges)
-            {
-                if (!clientIds.Contains(edge.FromClientId) || !clientIds.Contains(edge.ToClientId))
-                {
-                    throw new ArgumentException(
-                        "Edge references a node id that is not present in the request.",
-                        nameof(req));
-                }
-            }
+    private async Task ValidateExistingKeysAsync(Guid workflowId, WorkflowSaveRequest request, CancellationToken cancellationToken)
+    {
+        List<WorkflowNode> nodes = await _dbContext.WorkflowNodes.AsNoTracking()
+            .Where(node => node.WorkflowId == workflowId).ToListAsync(cancellationToken);
+        var selected = new HashSet<Guid>();
+        foreach (WorkflowSaveNode requested in request.Nodes)
+        {
+            string key = requested.Key ?? requested.ClientId;
+            var matches = nodes.Where(node => (node.LogicalKey ?? node.Id.ToString("D")) == key
+                || IsNodeId(node.Id, requested.ClientId)).ToList();
+            if (matches.Count > 1 || matches.Any(node => !selected.Add(node.Id)
+                || (requested.Key is not null && requested.Key != (node.LogicalKey ?? node.Id.ToString("D")))))
+                throw new ArgumentException("Existing node keys cannot be renamed or aliased by another node.");
         }
     }
 
-    public async Task<bool> DeleteAsync(string slug, CancellationToken cancellationToken = default)
+    private void AddSnapshot(Workflow workflow, List<WorkflowNode> nodes, List<WorkflowEdge> edges, Guid userId, string? message)
     {
-        var workflow = await _dbContext.Workflows
-            .FirstOrDefaultAsync(w => w.Slug == slug, cancellationToken);
-        if (workflow is null) return false;
+        Dictionary<Guid, string> keys = nodes.ToDictionary(node => node.Id, node => node.LogicalKey!);
+        var definition = new WorkflowDefinition(1, workflow.DefinitionKind, workflow.Slug, workflow.Name, workflow.Description,
+            nodes.OrderBy(node => node.LogicalKey, StringComparer.Ordinal).Select(node => new WorkflowDefinitionNode(
+                node.LogicalKey!, node.Kind, node.Label, JsonSerializer.Deserialize<JsonElement>(node.ParamsJson))).ToList(),
+            edges.Select(edge => new WorkflowDefinitionEdge(WorkflowDefinitionCodec.EdgeKey(keys[edge.FromNodeId], keys[edge.ToNodeId], edge.FromIndex, edge.RouteKey),
+                keys[edge.FromNodeId], keys[edge.ToNodeId], edge.FromIndex, edge.RouteKey)).OrderBy(edge => edge.Key, StringComparer.Ordinal).ToList());
+        string json = WorkflowDefinitionCodec.Serialize(definition);
+        _dbContext.WorkflowVersions.Add(new WorkflowVersion
+        {
+            TenantId = workflow.TenantId, WorkflowId = workflow.Id, Tag = workflow.Version,
+            Message = string.IsNullOrWhiteSpace(message) ? "Draft saved." : message,
+            AuthorName = userId.ToString("D"), AuthorColor = workflow.OwnerColor, CreatedBy = userId,
+            DefinitionJson = json, SchemaVersion = definition.SchemaVersion, DefinitionHash = WorkflowDefinitionCodec.Hash(json),
+        });
+    }
 
-        // Soft-delete the workflow + its graph children. Runs and
-        // version history are preserved as historical record.
-        workflow.IsDeleted = true;
-        workflow.DeletedAt = _clock.UtcNow;
+    private static bool IsNodeId(Guid nodeId, string clientId) => Guid.TryParse(clientId, out Guid id) && id == nodeId;
 
-        var nodes = await _dbContext.WorkflowNodes
-            .Where(n => n.WorkflowId == workflow.Id)
-            .ToListAsync(cancellationToken);
-        var edges = await _dbContext.WorkflowEdges
-            .Where(e => e.WorkflowId == workflow.Id)
-            .ToListAsync(cancellationToken);
-        var comments = await _dbContext.WorkflowComments
-            .Where(c => c.WorkflowId == workflow.Id)
-            .ToListAsync(cancellationToken);
+    internal static void CheckVersion(Workflow workflow, string? expectedVersion)
+    {
+        if (expectedVersion is null) throw new ArgumentException("ExpectedVersion is required for updates and deletion.");
+        if (!string.Equals(expectedVersion, Convert.ToBase64String(workflow.RowVersion), StringComparison.Ordinal))
+            throw new WorkflowConflictException("The workflow changed. Reload it before editing.");
+    }
 
-        var now = _clock.UtcNow;
-        foreach (var n in nodes) { n.IsDeleted = true; n.DeletedAt = now; }
-        foreach (var e in edges) { e.IsDeleted = true; e.DeletedAt = now; }
-        foreach (var c in comments) { c.IsDeleted = true; c.DeletedAt = now; }
+    private async Task SaveChangesAsync(CancellationToken cancellationToken)
+    {
+        try { await _dbContext.SaveChangesAsync(cancellationToken); }
+        catch (DbUpdateConcurrencyException) { throw new WorkflowConflictException("The workflow changed. Reload it before editing."); }
+        catch (DbUpdateException ex) when (ex.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 })
+        { throw new WorkflowConflictException("The workflow slug or version already exists."); }
+    }
 
-        await _dbContext.SaveChangesAsync(cancellationToken);
-        return true;
+    private static void ValidateDraft(WorkflowSaveRequest request)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.Slug) || request.Slug.Length > 100
+            || !Regex.IsMatch(request.Slug, "^[a-z0-9][a-z0-9_-]*$", RegexOptions.CultureInvariant))
+            throw new ArgumentException("Provide a URL-safe tenant workflow slug of at most 100 characters.");
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 200 || request.Description?.Length > 2000
+            || request.OwnerColor?.Length > 16 || request.VersionMessage?.Length > 1000)
+            throw new ArgumentException("Workflow metadata exceeds the supported limits.");
+        if (request.DefinitionKind is not ("Workflow" or "DecisionLibrary"))
+            throw new ArgumentException("Unknown workflow definition kind.");
+        if (request.Nodes is null || request.Edges is null || request.Contributors is null
+            || request.Nodes.Count > WorkflowDefinitionValidator.MaxNodes || request.Edges.Count > WorkflowDefinitionValidator.MaxEdges
+            || request.Contributors.Count > 64)
+            throw new ArgumentException("Workflow graph exceeds the supported limits.");
+        if (JsonSerializer.Serialize(request).Length > WorkflowDefinitionValidator.MaxDefinitionCharacters)
+            throw new ArgumentException("Workflow definition exceeds the supported size.");
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (WorkflowSaveNode node in request.Nodes)
+        {
+            if (node is null) throw new ArgumentException("Nodes cannot be null.");
+            string key = node.Key ?? node.ClientId;
+            if (string.IsNullOrEmpty(node.ClientId) || node.ClientId.Length > 128 || !ids.Add(node.ClientId)
+                || string.IsNullOrEmpty(key) || !Regex.IsMatch(key, "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$", RegexOptions.CultureInvariant) || !keys.Add(key)
+                || string.IsNullOrWhiteSpace(node.Kind) || node.Kind.Length > 32 || node.Label is null || node.Label.Length > 200
+                || node.Summary?.Length > 500 || node.Notes?.Length > 2000 || node.ParamsJson?.Length > 64000)
+                throw new ArgumentException("Node keys must be unique; node data must respect the declared limits.");
+            if (node.X is < -100_000 or > 100_000 || node.Y is < -100_000 or > 100_000)
+                throw new ArgumentException("Node positions exceed the supported canvas bounds.");
+            try
+            {
+                using JsonDocument parameters = JsonDocument.Parse(string.IsNullOrWhiteSpace(node.ParamsJson) ? "{}" : node.ParamsJson, new JsonDocumentOptions { MaxDepth = 32 });
+                if (parameters.RootElement.ValueKind != JsonValueKind.Object) throw new JsonException();
+                ValidateObject(parameters.RootElement);
+            }
+            catch (JsonException) { throw new ArgumentException("Node parameters must be a bounded JSON object without duplicate properties."); }
+        }
+        var edges = new HashSet<string>(StringComparer.Ordinal);
+        foreach (WorkflowSaveEdge edge in request.Edges)
+        {
+            if (edge is null) throw new ArgumentException("Edges cannot be null.");
+            if (!ids.Contains(edge.FromClientId) || !ids.Contains(edge.ToClientId) || edge.FromIndex < 0 || edge.Label?.Length > 64
+                || (edge.RouteKey is not null && !WorkflowDefinitionCodec.IsKey(edge.RouteKey))
+                || !edges.Add(WorkflowDefinitionCodec.EdgeKey(edge.FromClientId, edge.ToClientId, edge.FromIndex, edge.RouteKey)))
+                throw new ArgumentException("Edges must have unique valid endpoints and route keys.");
+        }
+
+        static void ValidateObject(JsonElement value)
+        {
+            if (value.ValueKind == JsonValueKind.Object)
+            {
+                var names = new HashSet<string>(StringComparer.Ordinal);
+                foreach (JsonProperty property in value.EnumerateObject())
+                {
+                    if (!names.Add(property.Name)) throw new JsonException();
+                    ValidateObject(property.Value);
+                }
+            }
+            else if (value.ValueKind == JsonValueKind.Array)
+                foreach (JsonElement child in value.EnumerateArray()) ValidateObject(child);
+        }
     }
 
     public async Task<IReadOnlyList<WorkflowVersionResponse>> ListVersionsAsync(
         Guid workflowId,
         CancellationToken cancellationToken = default)
     {
+        await _authorization.RequireAsync("Workflow.Read", cancellationToken);
         var versions = await _dbContext.WorkflowVersions
+            .Where(v => v.TenantId == _tenantProvider.GetCurrentTenantId())
             .AsNoTracking()
             .Where(v => v.WorkflowId == workflowId)
             .ToListAsync(cancellationToken);
@@ -426,28 +563,14 @@ internal sealed class WorkflowService : IWorkflowService
             AuthorName: v.AuthorName,
             AuthorColor: v.AuthorColor,
             CreatedAt: v.CreatedAt,
-            When: FormatRelative(now, v.CreatedAt))).ToList();
+            When: FormatRelative(now, v.CreatedAt),
+            DefinitionHash: v.DefinitionHash,
+            IsExecutable: v.PublishedAt.HasValue && v.DefinitionJson is not null,
+            PublishedAt: v.PublishedAt,
+            SchemaVersion: v.SchemaVersion)).ToList();
     }
 
     // ── Helpers ──────────────────────────────────────────────────
-
-    private async Task SnapshotVersionAsync(
-        Workflow workflow,
-        string tag,
-        string? message,
-        CancellationToken cancellationToken)
-    {
-        var snapshot = new WorkflowVersion
-        {
-            WorkflowId = workflow.Id,
-            Tag = tag,
-            Message = string.IsNullOrWhiteSpace(message) ? "Saved by editor." : message!,
-            AuthorName = "Editor",
-            AuthorColor = workflow.OwnerColor,
-        };
-        _dbContext.WorkflowVersions.Add(snapshot);
-        await Task.CompletedTask;
-    }
 
     /// <summary>
     /// Picks the next "vMAJOR.MINOR" version tag that doesn't yet have

@@ -248,10 +248,6 @@ export function WorkflowEditorPage() {
   // ── Save ──
   const onSave = useCallback(async () => {
     if (!wf || !slug) return;
-    if (validationErrors.length > 0) {
-      setSaveError('Fix validation errors before saving.');
-      return;
-    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -276,7 +272,7 @@ export function WorkflowEditorPage() {
     } finally {
       setSaving(false);
     }
-  }, [wf, slug, validationErrors, refreshWorkflow]);
+  }, [wf, slug, refreshWorkflow]);
 
   // ── Trace control ──
   const startTrace = useCallback(

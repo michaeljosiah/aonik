@@ -37,6 +37,7 @@ export interface WorkflowSummaryDto {
 
 export interface WorkflowGraphNodeDto {
   id: string;
+  key?: string;
   kind: string;
   label: string;
   summary: string;
@@ -49,6 +50,8 @@ export interface WorkflowGraphNodeDto {
 
 export interface WorkflowGraphEdgeDto {
   id: string;
+  routeKey?: string | null;
+  key?: string;
   fromNodeId: string;
   toNodeId: string;
   fromIndex: number;
@@ -65,6 +68,9 @@ export interface WorkflowGraphCommentDto {
 
 export interface WorkflowGraphDto {
   id: string;
+  expectedVersion?: string;
+  definitionKind?: string;
+  publishedVersionId?: string | null;
   slug: string;
   name: string;
   description: string;
@@ -110,6 +116,7 @@ export interface WorkflowVersionDto {
 export interface WorkflowSaveNodeDto {
   /** Either an existing server Guid or a transient editor id (e.g. "n3xa9f"). */
   clientId: string;
+  key?: string;
   kind: string;
   label: string;
   summary: string;
@@ -120,6 +127,7 @@ export interface WorkflowSaveNodeDto {
 }
 
 export interface WorkflowSaveEdgeDto {
+  routeKey?: string | null;
   fromClientId: string;
   toClientId: string;
   fromIndex: number;
@@ -127,6 +135,8 @@ export interface WorkflowSaveEdgeDto {
 }
 
 export interface WorkflowSaveRequestDto {
+  expectedVersion?: string;
+  definitionKind?: string;
   slug: string;
   name: string;
   description: string;
@@ -144,8 +154,8 @@ export interface WorkflowSaveRequestDto {
 // ── Service ─────────────────────────────────────────────────────────────
 
 export const workflowService = {
-  list: async (): Promise<WorkflowSummaryDto[]> => {
-    return api.get<WorkflowSummaryDto[]>('/ai/workflows');
+  list: async (skip = 0, take = 50): Promise<WorkflowSummaryDto[]> => {
+    return api.get<WorkflowSummaryDto[]>(`/ai/workflows?skip=${skip}&take=${take}`);
   },
 
   getBySlug: async (slug: string): Promise<WorkflowGraphDto> => {
@@ -168,7 +178,7 @@ export const workflowService = {
     return api.put<WorkflowGraphDto>(`/ai/workflows/${encodeURIComponent(slug)}`, req);
   },
 
-  delete: async (slug: string): Promise<void> => {
-    await api.delete(`/ai/workflows/${encodeURIComponent(slug)}`);
+  delete: async (slug: string, expectedVersion: string): Promise<void> => {
+    await api.delete(`/ai/workflows/${encodeURIComponent(slug)}?expectedVersion=${encodeURIComponent(expectedVersion)}`);
   },
 };

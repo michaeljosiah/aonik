@@ -89,6 +89,7 @@ export interface WorkflowNodeParams {
 
 export interface WorkflowNode {
   id: string;
+  key?: string;
   kind: EditorNodeKind;
   label: string;
   x: number;
@@ -100,6 +101,7 @@ export interface WorkflowNode {
 
 export interface WorkflowEdge {
   id: string;
+  routeKey?: string | null;
   from: string;
   to: string;
   /** Output port index on the `from` node (decision: 0=yes, 1=no; loop: 0=body, 1=done). */
@@ -117,6 +119,9 @@ export interface WorkflowComment {
 
 export interface WorkflowGraph {
   id: string;
+  expectedVersion?: string;
+  definitionKind?: string;
+  publishedVersionId?: string | null;
   slug: string;
   name: string;
   desc: string;

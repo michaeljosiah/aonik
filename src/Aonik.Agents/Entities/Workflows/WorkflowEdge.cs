@@ -21,6 +21,8 @@ public class WorkflowEdge : AuditableEntity, ITenantScoped
 
     public int FromIndex { get; set; }
 
+    public string? RouteKey { get; set; }
+
     /// <summary>Optional edge label (e.g. "yes" / "no" / "body" / "done").</summary>
     public string Label { get; set; } = string.Empty;
 }

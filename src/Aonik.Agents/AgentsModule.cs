@@ -62,6 +62,7 @@ public sealed class AgentsModule : IModule
 
         // Workflow registry — list / get / runs / versions.
         services.AddScoped<IWorkflowService, Services.Workflows.WorkflowService>();
+        services.AddScoped<Services.Workflows.WorkflowAuthorization>();
 
         // Demo seed contributor — owns the Workflows phase (seven domain
         // agents + seven workflow registry rows with full graphs).

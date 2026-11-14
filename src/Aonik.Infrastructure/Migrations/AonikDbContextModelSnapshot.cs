@@ -1448,6 +1448,13 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("DefinitionKind")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasDefaultValue("Workflow");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
@@ -1474,6 +1481,15 @@ namespace Aonik.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid?>("PublishedVersionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("RetiredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("RetiredByUserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -1615,6 +1631,10 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<string>("RouteKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
@@ -1675,6 +1695,11 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("LogicalKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)")
+                        .UseCollation("Latin1_General_100_BIN2");
+
                     b.Property<string>("Notes")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -1717,6 +1742,10 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("WorkflowId")
                         .HasDatabaseName("IX_WorkflowNodes_WorkflowId");
+
+                    b.HasIndex("TenantId", "WorkflowId", "LogicalKey")
+                        .IsUnique()
+                        .HasFilter("[LogicalKey] IS NOT NULL AND [IsDeleted] = 0");
 
                     b.ToTable("AnkWorkflowNodes", "dbo");
                 });
@@ -1797,6 +1826,9 @@ namespace Aonik.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("AiRunId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("AuthorColor")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -1813,6 +1845,13 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("DefinitionHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("DefinitionJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
 
@@ -1827,11 +1866,20 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<DateTime?>("PublishedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("PublishedByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
+
+                    b.Property<int?>("SchemaVersion")
+                        .HasColumnType("int");
 
                     b.Property<string>("Tag")
                         .IsRequired()
@@ -1855,6 +1903,8 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("WorkflowId", "Tag")
                         .IsUnique()
                         .HasDatabaseName("IX_WorkflowVersions_WorkflowId_Tag");
+
+                    b.HasIndex("TenantId", "WorkflowId", "PublishedAt");
 
                     b.ToTable("AnkWorkflowVersions", "dbo");
                 });

@@ -1,3 +1,5 @@
+using System.Text.Json;
+using Aonik.Agents.Contracts.Models.Workflows;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
@@ -8,6 +10,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace Aonik.Application.Tests.Agents.Workflows;
 
@@ -26,7 +29,8 @@ public class WorkflowServiceTests
 
     private static (IWorkflowService Service, AgentsDbContext Db) BuildService(
         Guid tenantId,
-        DateTime? now = null)
+        DateTime? now = null,
+        bool grantPermissions = true)
     {
         var services = new ServiceCollection();
         var dbName = $"WorkflowServiceTests_{Guid.NewGuid()}";
@@ -40,7 +44,15 @@ public class WorkflowServiceTests
 
         var sp = services.BuildServiceProvider();
         var db = sp.GetRequiredService<AgentsDbContext>();
-        var service = new WorkflowService(db, sp.GetRequiredService<ITenantProvider>(), sp.GetRequiredService<IClock>());
+        Guid userId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var user = new Mock<ICurrentUserProvider>();
+        user.Setup(provider => provider.TryGetCurrentUserId(out userId)).Returns(true);
+        var permissions = new Mock<IPermissionService>();
+        permissions.Setup(service => service.HasPermissionAsync(userId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(grantPermissions);
+        var tenant = sp.GetRequiredService<ITenantProvider>();
+        var service = new WorkflowService(db, tenant, sp.GetRequiredService<IClock>(),
+            new WorkflowAuthorization(tenant, user.Object, permissions.Object));
         return (service, db);
     }
 
@@ -200,4 +212,220 @@ public class WorkflowServiceTests
         runs[0].When.Should().Be("2m ago");
         runs[1].Status.Should().Be(WorkflowRunStatuses.Held);
     }
+
+    [Fact]
+    public async Task CreateAsync_Should_SaveAnImmutableInitialDraftSnapshot_AndRejectDuplicateSlugs()
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA);
+        WorkflowSaveRequest request = Draft();
+
+        // Act
+        WorkflowGraphResponse created = await service.CreateAsync(request);
+        Func<Task> duplicate = async () => await service.CreateAsync(request with { Name = "Overwrite" });
+
+        // Assert
+        created.State.Should().Be(WorkflowStates.Draft);
+        created.Version.Should().Be("v0.1");
+        WorkflowVersion snapshot = await db.WorkflowVersions.SingleAsync();
+        snapshot.DefinitionJson.Should().NotBeNull();
+        snapshot.DefinitionHash.Should().HaveLength(64);
+        snapshot.PublishedAt.Should().BeNull();
+        await duplicate.Should().ThrowAsync<WorkflowConflictException>();
+        (await service.GetBySlugAsync(request.Slug))!.Name.Should().Be(request.Name);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_PreserveNodeKeysAndIds_AndPriorSnapshots()
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA);
+        WorkflowSaveRequest request = Draft();
+        WorkflowGraphResponse initial = await service.CreateAsync(request);
+        string originalSnapshot = (await db.WorkflowVersions.SingleAsync()).DefinitionJson!;
+
+        // Act
+        WorkflowGraphResponse? edited = await service.UpdateAsync(request with
+        {
+            ExpectedVersion = initial.ExpectedVersion,
+            Nodes = request.Nodes.Select(node => node with { Label = node.Label + " edited" }).ToList(),
+        });
+
+        // Assert
+        edited.Should().NotBeNull();
+        edited!.Nodes.Select(node => node.Id).Should().BeEquivalentTo(initial.Nodes.Select(node => node.Id));
+        edited.Nodes.Select(node => node.Key).Should().BeEquivalentTo(initial.Nodes.Select(node => node.Key));
+        edited.Edges.Select(edge => edge.Id).Should().Equal(initial.Edges.Select(edge => edge.Id));
+        (await db.WorkflowVersions.SingleAsync(version => version.Tag == "v0.1")).DefinitionJson.Should().Be(originalSnapshot);
+        (await db.WorkflowVersions.CountAsync()).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_NotCreateUnknownWorkflows_AndRejectAStaleToken()
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA);
+        WorkflowSaveRequest request = Draft();
+        (await service.UpdateAsync(request with { ExpectedVersion = "" })).Should().BeNull();
+        WorkflowGraphResponse created = await service.CreateAsync(request);
+        // InMemory does not generate SQL rowversions; emulate a concurrent database update.
+        (await db.Workflows.SingleAsync()).RowVersion = [1, 2, 3];
+        await db.SaveChangesAsync();
+
+        // Act
+        Func<Task> staleEdit = async () => await service.UpdateAsync(request with { ExpectedVersion = created.ExpectedVersion });
+
+        // Assert
+        await staleEdit.Should().ThrowAsync<WorkflowConflictException>();
+        (await db.WorkflowVersions.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_SaveIncompleteDrafts_WithoutMakingThemExecutable()
+    {
+        // Arrange
+        var (service, _) = BuildService(TenantA);
+        WorkflowSaveRequest request = Draft() with { Nodes = [], Edges = [] };
+
+        // Act
+        await service.CreateAsync(request);
+        WorkflowValidation? validation = await service.ValidateAsync(request.Slug);
+
+        // Assert
+        validation.Should().NotBeNull();
+        validation!.IsValid.Should().BeFalse();
+        validation.Diagnostics.Should().Contain(diagnostic => diagnostic.Code == "GraphSize");
+    }
+
+    [Theory]
+    [InlineData("publication")]
+    [InlineData("run")]
+    [InlineData("trigger")]
+    public async Task DeleteAsync_Should_RefusePublishedOrUsedWorkflows(string reference)
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA);
+        WorkflowGraphResponse graph = await service.CreateAsync(Draft());
+        Workflow workflow = await db.Workflows.SingleAsync();
+        if (reference == "publication") workflow.PublishedVersionId = Guid.NewGuid();
+        if (reference == "trigger") workflow.TriggerCount = 1;
+        if (reference == "run") db.WorkflowRuns.Add(new WorkflowRun { TenantId = TenantA, WorkflowId = workflow.Id });
+        await db.SaveChangesAsync();
+
+        // Act
+        Func<Task> delete = async () => await service.DeleteAsync(graph.Slug, graph.ExpectedVersion);
+
+        // Assert
+        await delete.Should().ThrowAsync<WorkflowConflictException>();
+        workflow.IsDeleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task DeleteAsync_Should_PreserveDraftHistory_AndRequireTheCurrentToken()
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA);
+        WorkflowGraphResponse graph = await service.CreateAsync(Draft());
+        Func<Task> missingToken = async () => await service.DeleteAsync(graph.Slug, null);
+
+        // Act
+        await missingToken.Should().ThrowAsync<ArgumentException>();
+        bool deleted = await service.DeleteAsync(graph.Slug, graph.ExpectedVersion);
+
+        // Assert
+        deleted.Should().BeTrue();
+        (await service.GetBySlugAsync(graph.Slug)).Should().BeNull();
+        (await db.WorkflowVersions.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Authoring_Should_EnforcePermissions_ForDirectServiceCalls()
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA, grantPermissions: false);
+        Func<Task> create = async () => await service.CreateAsync(Draft());
+        Func<Task> read = async () => await service.ListAsync();
+
+        // Act / Assert
+        await create.Should().ThrowAsync<PermissionDeniedException>();
+        await read.Should().ThrowAsync<PermissionDeniedException>();
+        (await db.Workflows.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_Should_RejectRenamingOrAliasingAnExistingLogicalNode()
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA);
+        WorkflowSaveRequest original = Draft();
+        WorkflowGraphResponse graph = await service.CreateAsync(original);
+        WorkflowGraphNode node = graph.Nodes.Single(node => node.Key == "start");
+        WorkflowSaveRequest renamed = original with
+        {
+            ExpectedVersion = graph.ExpectedVersion,
+            Nodes = [original.Nodes[0] with { ClientId = node.Id.ToString("D"), Key = "renamed" }, original.Nodes[1]],
+            Edges = [new(node.Id.ToString("D"), "end", 0, "")],
+        };
+
+        // Act
+        Func<Task> edit = async () => await service.UpdateAsync(renamed);
+
+        // Assert
+        await edit.Should().ThrowAsync<ArgumentException>();
+        (await db.WorkflowVersions.CountAsync()).Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Should_RejectDuplicateJsonProperties_BeforePersistingAnything()
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA);
+        WorkflowSaveRequest original = Draft();
+        WorkflowSaveRequest invalid = original with
+        {
+            Nodes = [original.Nodes[0] with { ParamsJson = "{\"value\":1,\"value\":2}" }, original.Nodes[1]],
+        };
+
+        // Act
+        Func<Task> create = async () => await service.CreateAsync(invalid);
+
+        // Assert
+        await create.Should().ThrowAsync<ArgumentException>();
+        (await db.Workflows.CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Capabilities_Should_ExposeTheActualDecisionSchema_AndRequiredInvoiceFacts()
+    {
+        // Arrange
+        var (service, _) = BuildService(TenantA);
+
+        // Act
+        WorkflowCapabilities capabilities = await service.GetCapabilitiesAsync();
+
+        // Assert
+        capabilities.DecisionParametersSchema.GetProperty("properties").TryGetProperty("fixtures", out _).Should().BeTrue();
+        capabilities.InvoiceFacts.Should().Contain(field => field.Name == "invoice.total" && field.Required && field.Type == "Decimal");
+        capabilities.ComparisonOperators.Should().Contain("gte").And.NotContain("script");
+    }
+
+    [Fact]
+    public async Task LegacyGraphs_Should_BePresentedAsDrafts_UntilTheyHaveAnExplicitPublication()
+    {
+        // Arrange
+        var (service, db) = BuildService(TenantA);
+        db.Workflows.Add(new Workflow { TenantId = TenantA, Slug = "legacy", Name = "Legacy", State = WorkflowStates.Active });
+        await db.SaveChangesAsync();
+
+        // Act
+        WorkflowGraphResponse? graph = await service.GetBySlugAsync("legacy");
+
+        // Assert
+        graph!.State.Should().Be(WorkflowStates.Draft);
+        graph.PublishedVersionId.Should().BeNull();
+    }
+
+    private static WorkflowSaveRequest Draft() => new("invoice-routing", "Invoice routing", "", "Draft", "v0.1", false,
+        "", null, [], [new("start", "Trigger", "Start", "", "", 0, 0, "{}"), new("end", "End", "Done", "", "", 1, 0, "{}")],
+        [new("start", "end", 0, "")], null);
 }
