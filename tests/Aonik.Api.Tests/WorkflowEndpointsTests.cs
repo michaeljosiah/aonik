@@ -152,6 +152,27 @@ public class WorkflowEndpointsTests(CustomWebApplicationFactory factory) : IClas
         (await publisher.GetFromJsonAsync<WorkflowGraphResponse>($"/ai/workflows/{request.Slug}"))!.PublishedVersionId.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task PublicationDecision_Should_ReturnConflict_WhenTheDraftChangedAfterReview()
+    {
+        using HttpClient client = await ClientAsync("Workflow.Read", "Workflow.Write", "Workflow.Publish");
+        WorkflowSaveRequest request = Draft();
+        WorkflowGraphResponse draft = (await (await client.PostAsJsonAsync("/ai/workflows", request))
+            .Content.ReadFromJsonAsync<WorkflowGraphResponse>())!;
+        WorkflowValidation validation = (await (await client.PostAsJsonAsync($"/ai/workflows/{request.Slug}/validate", new { }))
+            .Content.ReadFromJsonAsync<WorkflowValidation>())!;
+        WorkflowGovernanceRequestResult queued = (await (await client.PostAsJsonAsync($"/ai/workflows/{request.Slug}/publication-requests",
+            new WorkflowGovernanceCommand(request.Slug, draft.ExpectedVersion, validation.DefinitionHash, null)))
+            .Content.ReadFromJsonAsync<WorkflowGovernanceRequestResult>())!;
+        (await client.PutAsJsonAsync($"/ai/workflows/{request.Slug}", request with { Name = "Changed", ExpectedVersion = draft.ExpectedVersion }))
+            .StatusCode.Should().Be(HttpStatusCode.OK);
+
+        HttpResponseMessage decision = await client.PostAsJsonAsync($"/ai/tool-approvals/{queued.ApprovalRequestId}/decide", new { decision = "Approve" });
+
+        decision.StatusCode.Should().Be(HttpStatusCode.Conflict);
+        (await client.GetFromJsonAsync<WorkflowGraphResponse>($"/ai/workflows/{request.Slug}"))!.PublishedVersionId.Should().BeNull();
+    }
+
     private async Task<HttpClient> ClientAsync(params string[] permissions)
     {
         Guid tenantId = Guid.NewGuid();
