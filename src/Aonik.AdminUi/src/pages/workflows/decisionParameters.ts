@@ -45,7 +45,7 @@ export function replaceNodeParameters(graph: WorkflowGraph, nodeId: string, para
   const routed = ['decision', 'human', 'child', 'loop', 'parallel'].includes(node?.kind ?? '');
   const beforeRoutes = nodeRoutes(node?.kind, node?.params ?? {});
   const routes = nodeRoutes(node?.kind, parameters);
-  return { ...graph, ...(['wait', 'human', 'child', 'loop', 'parallel'].includes(node?.kind ?? '') || (node?.kind === 'decision' && (parameters.schemaVersion === 2 || parameters.library)) ? { schemaVersion: 2 } : {}), nodes: graph.nodes.map(item => item.id === nodeId ? { ...item, ...patch, params: parameters }
+  return { ...graph, ...(['wait', 'human', 'child', 'loop', 'parallel'].includes(node?.kind ?? '') || parameters.subjectType === 'Document' || (node?.kind === 'decision' && (parameters.schemaVersion === 2 || parameters.library)) ? { schemaVersion: 2 } : {}), nodes: graph.nodes.map(item => item.id === nodeId ? { ...item, ...patch, params: parameters }
     : graph.definitionKind === 'DecisionLibrary' && node?.kind === 'decision' && item.kind === 'trigger' && item.params.libraryContract
       ? { ...item, params: { libraryContract: { ...item.params.libraryContract, routes: decisionRoutes(parameters), outputType: parameters.hitPolicy === 'Collect' ? 'InvoiceList' : 'Route' } } } : item),
     edges: !routed ? graph.edges : graph.edges.flatMap(edge => {

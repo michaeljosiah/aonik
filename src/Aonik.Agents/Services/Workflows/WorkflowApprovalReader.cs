@@ -12,8 +12,36 @@ namespace Aonik.Agents.Services.Workflows;
 
 internal sealed class WorkflowApprovalReader(
     AgentsDbContext database, ITenantProvider tenantProvider, WorkflowInvocationContext context,
-    WorkflowReviewerAuthorization reviewers, IClock clock, IAutomationIdentityAuthorization? automation = null) : IWorkflowApprovalReader
+    WorkflowReviewerAuthorization reviewers, IClock clock, IAutomationIdentityAuthorization? automation = null,
+    WorkflowExecutionAuthorization? execution = null) : IWorkflowApprovalReader
 {
+    public async Task RequireActiveInvocationAsync(WorkflowActionInvocation invocation, string actionKey, int actionVersion,
+        CancellationToken cancellationToken = default)
+    {
+        Guid tenantId = tenantProvider.GetCurrentTenantId();
+        if (execution is null || invocation.OperationId == Guid.Empty || context.Run?.Id != invocation.RunId
+            || context.Step?.Id != invocation.StepRunId || context.LeaseId == Guid.Empty)
+            throw new PermissionDeniedException("Workflow.Run", "The action requires an active persisted workflow invocation.");
+        var step = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == tenantId && step.Id == invocation.StepRunId, cancellationToken);
+        var run = await database.WorkflowRuns.AsNoTracking().SingleAsync(run => run.TenantId == tenantId && run.Id == invocation.RunId, cancellationToken);
+        string argsHash = SharedKernel.Abstractions.Agents.ToolArgumentsHash.Compute(invocation.Arguments.EnumerateObject()
+            .ToDictionary(property => property.Name, property => (object?)property.Value));
+        if (run.LeaseId != context.LeaseId || run.LeaseExpiresAt <= clock.UtcNow || run.Status != Entities.Workflows.WorkflowRunStatuses.Running
+            || run.SubjectId != invocation.SubjectId || run.SubjectType != invocation.SubjectType
+            || WorkflowExecutionAuthorization.Actor(run) != invocation.Actor
+            || step.RunId != run.Id || step.OperationId != invocation.OperationId || step.Status != "Executing"
+            || step.ActionKey != actionKey || step.ActionVersion != actionVersion || step.FactsHash != invocation.FactsHash
+            || step.ExpectedSubjectVersion != invocation.ExpectedSubjectVersion || step.ArgumentsHash != argsHash)
+            throw new PermissionDeniedException("Workflow.Run", "The persisted invocation identity changed.");
+        await execution.RequireRunAsync(run, cancellationToken);
+        await execution.RequireEnabledAsync(cancellationToken);
+        await execution.RequireRecordedActionAsync(invocation.Actor, step.RequiredPermission!, actionKey, actionVersion,
+            invocation.SubjectType, invocation.SubjectId, cancellationToken);
+        WorkflowFactsSnapshot facts = await execution.LoadFactsAsync(invocation.SubjectType, invocation.SubjectId, invocation.Actor, cancellationToken);
+        if (facts.SubjectVersion != invocation.ExpectedSubjectVersion || WorkflowFactsHash.Compute(facts) != invocation.FactsHash)
+            throw new PermissionDeniedException("Workflow.Run", "The document changed after the action was prepared.");
+    }
+
     public async Task<Guid> RequireApprovedActorAsync(WorkflowActionInvocation invocation, string actionKey, int actionVersion,
         CancellationToken cancellationToken = default)
     {

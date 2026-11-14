@@ -10,6 +10,9 @@ public class DocumentExtraction : AuditableEntity, ITenantScoped
 {
     public Guid TenantId { get; set; }
     public Guid DocumentId { get; set; }
+    public Guid? DocumentFileId { get; set; }
+    public string? InputHash { get; set; }
+    public string Status { get; set; } = "Completed";
 
     /// <summary>OcrText or StructuredFields.</summary>
     public string ExtractionType { get; set; } = string.Empty;

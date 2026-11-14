@@ -113,8 +113,8 @@ internal sealed class WorkflowPublicationValidator(
                         throw new ArgumentException("A prior output binding requires both its step and output field.");
                     if (binding.Fact is { } fact)
                     {
-                        DecisionFactField field = DecisionTableEvaluator.FactFields().SingleOrDefault(field => field.Name == fact)
-                            ?? throw new ArgumentException("The action references an unknown invoice fact.");
+                        DecisionFactField field = WorkflowSubjectContract.Facts(definition).SingleOrDefault(field => field.Name == fact)
+                            ?? throw new ArgumentException("The action references a fact outside its declared subject contract.");
                         JsonElement inputSchema = handler.Descriptor.InputSchema.GetProperty("properties").GetProperty(input);
                         string type = field.Type == "Boolean" ? "boolean" : "string";
                         if (inputSchema.TryGetProperty("type", out JsonElement declared)

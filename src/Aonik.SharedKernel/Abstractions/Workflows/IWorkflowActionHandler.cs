@@ -22,12 +22,15 @@ public sealed record WorkflowActionInvocation(
     Guid RunId, Guid StepRunId, Guid OperationId, WorkflowActor Actor,
     string SubjectType, Guid SubjectId, string ExpectedSubjectVersion, string FactsHash,
     JsonElement Arguments, Guid? ApprovalRequestId = null);
-public sealed record WorkflowActionResult(string Outcome, JsonElement Output);
+public sealed record WorkflowActionResult(string Outcome, JsonElement Output, Guid? AiRunId = null);
 public sealed record WorkflowActionReconciliation(WorkflowActionResult? Result, bool CanRetry);
 
 /// <summary>Domain actions verify the persisted approval and immutable step identity before a workflow write.</summary>
 public interface IWorkflowApprovalReader
 {
+    Task RequireActiveInvocationAsync(WorkflowActionInvocation invocation, string actionKey, int actionVersion,
+        CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Active workflow invocation verification is unavailable.");
     Task<Guid> RequireApprovedActorAsync(WorkflowActionInvocation invocation, string actionKey, int actionVersion,
         CancellationToken cancellationToken = default);
 }

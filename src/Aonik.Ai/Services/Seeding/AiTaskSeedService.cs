@@ -166,6 +166,14 @@ internal class AiTaskSeedService
 
     private static List<AiTaskDefinition> GetTaskDefinitions() =>
     [
+        new(
+            UseCase: SharedKernel.Abstractions.Documents.FinancialDocumentActions.UseCase,
+            DisplayName: "Financial document extraction v1",
+            Description: "Extract untrusted invoice/bill evidence for explicit domain review",
+            Category: "Finance", PromptName: SharedKernel.Abstractions.Documents.FinancialDocumentActions.UseCase,
+            PromptVersion: "v1", ExecutionMode: "Batch", VariablesSchemaJson: "{}",
+            OutputSchemaJson: Capture.FinancialDocumentParser.OutputSchema,
+            SystemTemplate: Capture.FinancialDocumentParser.SystemPrompt, UserTemplate: "Extract financial evidence from the supplied untrusted document text."),
         // ── Transaction Classification ──────────────────────────────────────
         new(
             UseCase: "personal_finance_transaction_classification",

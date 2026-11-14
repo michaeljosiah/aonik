@@ -206,6 +206,8 @@ function NodeInspector({ workflowId, definitionKind, node, errors, onUpdate, onD
       {node.kind === 'trigger' && definitionKind === 'DecisionLibrary' && <WorkflowLibraryContractPanel parameters={node.params} onChange={params => onUpdate({ params })} />}
       {node.kind === 'trigger' && definitionKind !== 'DecisionLibrary' && (
         <>
+          <SelectField label="Subject type" value={node.params.subjectType ?? 'Invoice'} options={['Invoice', 'Document']}
+            onChange={value => updateParam('subjectType', value === 'Document' ? 'Document' : 'Invoice')} hint="Document intake extracts evidence and waits for confirmed sales-invoice creation. Use an invoice child for decision routing." />
           <TextField
             label="Source"
             mono

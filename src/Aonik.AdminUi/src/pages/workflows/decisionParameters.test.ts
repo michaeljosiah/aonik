@@ -38,4 +38,14 @@ describe('decision authoring', () => {
     expect(changed.edges).toEqual([]);
     expect(decisionRoutes(table)).toEqual(['manual']);
   });
+
+  it('requires schema two when the trigger explicitly adopts the document subject contract', () => {
+    const source = dto(); source.nodes[0] = { ...source.nodes[0], kind: 'Trigger', paramsJson: '{}' };
+    const graph = adaptGraph(source);
+    const changed = replaceNodeParameters(graph, 'decision', { subjectType: 'Document' });
+    const saved = buildSaveRequest(changed);
+    expect(saved.schemaVersion).toBe(2);
+    expect(JSON.parse(saved.nodes[0].paramsJson)).toEqual({ subjectType: 'Document' });
+    expect(graph.schemaVersion).not.toBe(2);
+  });
 });

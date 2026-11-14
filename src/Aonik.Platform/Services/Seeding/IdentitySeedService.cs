@@ -48,6 +48,8 @@ internal class IdentitySeedService
             new Permission { Key = "Integration.Use", Description = "Use explicitly granted connector actions" },
             new Permission { Key = "Integration.Request", Description = "Request and cancel own connector access dependencies" },
             new Permission { Key = "Integration.Manage", Description = "Manage tenant integration policy, organizational accounts and assigned access requests" },
+            new Permission { Key = "Document.Read", Description = "Review restricted financial source documents and candidates" },
+            new Permission { Key = "Document.Extract", Description = "Extract financial document review candidates" },
             // Invoice permissions
             new Permission { Key = "Invoice.Create", Description = "Create new invoices" },
             new Permission { Key = "Invoice.Read", Description = "View invoices" },

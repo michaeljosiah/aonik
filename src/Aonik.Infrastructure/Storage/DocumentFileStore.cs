@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using FluentStorage;
 using FluentStorage.Blobs;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Hosting;
 
 using Aonik.Application.Abstractions.Storage;
 using IBlobStorageFactory = Aonik.Application.Abstractions.Storage.IBlobStorageFactory;
@@ -16,15 +17,28 @@ public class DocumentFileStore : IDocumentFileStore
     private readonly IBlobStorage _blobStorage;
     private readonly ContentTypeOptions _contentTypeOptions;
     private readonly string _provider;
+    private readonly PrivateFileStore? _privateFiles;
+    private const string PrivatePrefix = "private:";
 
     public DocumentFileStore(
         IBlobStorageFactory blobStorageFactory,
-        IOptions<BlobStorageOptions> options)
+        IOptions<BlobStorageOptions> options,
+        IHostEnvironment? environment = null)
     {
         var storageOptions = options.Value;
         _provider = storageOptions.Provider;
         _contentTypeOptions = storageOptions.Documents;
         _blobStorage = blobStorageFactory.Create(_contentTypeOptions);
+        if (environment is not null) _privateFiles = new(blobStorageFactory, options, storageOptions.PrivateDocuments, environment);
+    }
+
+    public async Task<DocumentFileUploadResult> UploadPrivateDocumentFileAsync(Guid tenantId, Guid documentId, Stream fileStream,
+        string fileName, string contentType, CancellationToken cancellationToken = default)
+    {
+        if (_privateFiles is null) throw new InvalidOperationException("Private document storage is unavailable.");
+        var stored = await _privateFiles.UploadAsync(tenantId, documentId, fileStream, fileName, contentType, cancellationToken);
+        return new(stored.StorageProvider, stored.StorageContainer, PrivatePrefix + stored.StorageKey, stored.ContentType,
+            stored.FileName, stored.FileSizeBytes, stored.Sha256);
     }
 
     public async Task<DocumentFileUploadResult> UploadDocumentFileAsync(
@@ -82,6 +96,9 @@ public class DocumentFileStore : IDocumentFileStore
 
     public async Task<Stream> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrWhiteSpace(storageKey) && storageKey.StartsWith(PrivatePrefix, StringComparison.Ordinal))
+            return await (_privateFiles ?? throw new InvalidOperationException("Private document storage is unavailable."))
+                .OpenReadAsync(storageKey[PrivatePrefix.Length..], cancellationToken) ?? throw new InvalidOperationException("Private document content is unavailable.");
         if (string.IsNullOrWhiteSpace(storageKey))
         {
             throw new ArgumentException("Storage key is required.", nameof(storageKey));
@@ -97,6 +114,8 @@ public class DocumentFileStore : IDocumentFileStore
 
     public Uri GetReadUrl(string storageKey)
     {
+        if (!string.IsNullOrWhiteSpace(storageKey) && storageKey.StartsWith(PrivatePrefix, StringComparison.Ordinal))
+            throw new NotSupportedException("Private document content requires an authorized document endpoint.");
         if (string.IsNullOrWhiteSpace(storageKey))
         {
             throw new ArgumentException("Storage key is required.", nameof(storageKey));
@@ -116,6 +135,12 @@ public class DocumentFileStore : IDocumentFileStore
 
     public async Task DeleteAsync(string storageKey, CancellationToken cancellationToken = default)
     {
+        if (!string.IsNullOrWhiteSpace(storageKey) && storageKey.StartsWith(PrivatePrefix, StringComparison.Ordinal))
+        {
+            await (_privateFiles ?? throw new InvalidOperationException("Private document storage is unavailable."))
+                .DeleteAsync(storageKey[PrivatePrefix.Length..], cancellationToken);
+            return;
+        }
         if (string.IsNullOrWhiteSpace(storageKey))
         {
             throw new ArgumentException("Storage key is required.", nameof(storageKey));

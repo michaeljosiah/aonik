@@ -137,6 +137,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Services.Integrations.ConnectorCatalog>();
         services.AddScoped<Services.Integrations.ConnectorPolicyService>();
         services.AddScoped<Services.Integrations.ConnectorAuthorization>();
+        services.AddScoped<SharedKernel.Abstractions.Documents.IFinancialDocumentSourceAccess, Services.Integrations.FinancialDocumentSourceAccess>();
         services.AddScoped<Services.Integrations.ConnectorCredentialProtector>();
         services.AddScoped<Services.Integrations.ConnectorCredentialService>();
         services.AddScoped<Services.Integrations.ConnectorSubscriptionService>();

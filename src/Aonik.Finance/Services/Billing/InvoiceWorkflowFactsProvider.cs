@@ -14,7 +14,7 @@ namespace Aonik.Finance.Services.Billing;
 
 internal sealed class InvoiceWorkflowFactsProvider(
     FinanceDbContext database, ITenantProvider tenantProvider, IPermissionService permissions, IUserDirectoryReader users,
-    IAutomationIdentityAuthorization? automation = null)
+    IAutomationIdentityAuthorization? automation = null, SharedKernel.Abstractions.Documents.IFinancialDocumentReader? financialDocuments = null)
     : IWorkflowFactsProvider
 {
     public string SubjectType => "Invoice";
@@ -32,6 +32,14 @@ internal sealed class InvoiceWorkflowFactsProvider(
         Invoice? invoice = await database.Invoices.AsNoTracking().SingleOrDefaultAsync(
             invoice => invoice.TenantId == tenantId && invoice.Id == subjectId, cancellationToken);
         if (invoice is null) return null;
+        if (invoice.IntakeBusinessKey is not null)
+        {
+            if (financialDocuments is null) throw new PermissionDeniedException("Document.Read");
+            using JsonDocument provenance = JsonDocument.Parse(invoice.ProvenanceJson);
+            if (!provenance.RootElement.TryGetProperty("extractionId", out JsonElement extraction) || !extraction.TryGetGuid(out Guid id))
+                throw new PermissionDeniedException("Document.Read");
+            _ = await financialDocuments.RequireContinuationAsync(id, actor, cancellationToken);
+        }
         return FromInvoice(invoice);
     }
 

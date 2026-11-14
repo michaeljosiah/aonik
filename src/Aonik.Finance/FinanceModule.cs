@@ -108,6 +108,7 @@ public sealed class FinanceModule : IModule
         services.AddScoped<Services.Billing.InvoiceWorkflowFactsProvider>();
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowFactsProvider>(provider => provider.GetRequiredService<Services.Billing.InvoiceWorkflowFactsProvider>());
         services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler, Services.Billing.InvoiceIssueWorkflowAction>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler, Services.Billing.InvoiceCreateFromDocumentWorkflowAction>();
         services.AddScoped<Contracts.Services.Billing.IBillingService>(sp => sp.GetRequiredService<Services.Billing.BillingService>());
 
         // Spec 042 — SharedKernel write contracts (the write mirror of the ADR-006 read contracts)

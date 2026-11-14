@@ -33,6 +33,7 @@ internal sealed class FinanceToolApprovalManifest : IToolApprovalManifest
 
             // ── Medium — everyday domain writes (no money movement) ──
             ["finance_create_invoice"] = Medium("Create a draft invoice"),
+            [SharedKernel.Abstractions.Documents.FinancialDocumentActions.CreateInvoiceTool] = Medium("Create a draft sales invoice from reviewed document evidence"),
             ["finance_issue_invoice"] = Medium("Issue an invoice"),
             ["finance_cancel_invoice"] = Medium("Cancel an invoice"),
             ["finance_add_invoice_line"] = Medium("Add a line item to an invoice"),

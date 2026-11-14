@@ -236,6 +236,7 @@ internal sealed class WorkflowRunService(
             && version.WorkflowId == workflow.Id && version.Id == request.WorkflowVersionId, cancellationToken);
         WorkflowDefinition definition = ReadDefinition(version);
         if (definition.DefinitionKind != "Workflow") throw new WorkflowConflictException("A pure decision library is consumed by a pinned Decision node; it cannot admit an effectful workflow run.");
+        if (request.SubjectType != WorkflowSubjectContract.Type(definition)) throw new WorkflowConflictException("The requested subject type does not match the published trigger contract.");
         if (definition.Nodes.Any(node => WorkflowControlContracts.IsComposition(node) || WorkflowDecisionLibraries.IsReference(node)))
         {
             if (dependencies is null) throw new WorkflowConflictException("Workflow composition validation is unavailable.");
@@ -250,8 +251,8 @@ internal sealed class WorkflowRunService(
     private static void ValidateRequest(StartWorkflowRunRequest request)
     {
         if (request is null || request.WorkflowVersionId == Guid.Empty || request.SubjectId == Guid.Empty
-            || request.SubjectType != "Invoice" || !WorkflowDefinitionCodec.IsKey(request.IdempotencyKey))
-            throw new ArgumentException("Provide a published version, Invoice subject and stable idempotency key.");
+            || !WorkflowSubjects.IsSupported(request.SubjectType) || !WorkflowDefinitionCodec.IsKey(request.IdempotencyKey))
+            throw new ArgumentException("Provide a published version, supported subject and stable idempotency key.");
     }
 
     public async Task<WorkflowRunDetail?> GetAsync(Guid runId, CancellationToken cancellationToken = default)

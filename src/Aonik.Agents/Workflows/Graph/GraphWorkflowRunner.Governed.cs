@@ -157,6 +157,8 @@ internal sealed partial class GraphWorkflowRunner
             {
                 WorkflowExecutionException execution => execution.Code,
                 WorkflowConflictException => "WorkflowConflict",
+                SharedKernel.Abstractions.Documents.FinancialDocumentException document => document.Code,
+                SharedKernel.Abstractions.Documents.DocumentTextExtractionException document => document.Code,
                 ConnectorAccessException connector => connector.Code,
                 ConnectorProviderException connector => connector.Code,
                 PermissionDeniedException => "ExecutionAuthorityChanged",

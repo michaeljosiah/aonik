@@ -34,7 +34,7 @@ internal sealed class StartWorkflowRunHttpRequestValidator : Validator<StartWork
     {
         RuleFor(request => request.Slug).NotEmpty().MaximumLength(100);
         RuleFor(request => request.WorkflowVersionId).NotEmpty();
-        RuleFor(request => request.SubjectType).Equal("Invoice");
+        RuleFor(request => request.SubjectType).Must(SharedKernel.Abstractions.Workflows.WorkflowSubjects.IsSupported);
         RuleFor(request => request.SubjectId).NotEmpty();
         RuleFor(request => request.IdempotencyKey).NotEmpty().MaximumLength(128).Matches("^[a-zA-Z0-9][a-zA-Z0-9_.-]*$");
         RuleFor(request => request.ExpectedFactsHash).Matches("^[A-F0-9]{64}$").When(request => request.ExpectedFactsHash is not null);

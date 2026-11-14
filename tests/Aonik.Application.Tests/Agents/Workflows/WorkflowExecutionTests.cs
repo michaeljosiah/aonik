@@ -462,7 +462,7 @@ public partial class WorkflowExecutionTests
         public HashSet<(Guid, string)> Denied { get; } = [];
         public List<ScheduleTaskRequest> ScheduledTasks { get; } = [];
 
-        public Host()
+        public Host(Action<IServiceCollection>? configure = null)
         {
             var permissions = new Mock<IPermissionService>();
             permissions.Setup(service => service.HasPermissionAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -548,6 +548,7 @@ public partial class WorkflowExecutionTests
             services.AddScoped<BillingService>();
             services.AddScoped<LedgerPostingService>();
             services.AddSingleton<FinanceMetrics>();
+            configure?.Invoke(services);
             _provider = services.BuildServiceProvider();
         }
 

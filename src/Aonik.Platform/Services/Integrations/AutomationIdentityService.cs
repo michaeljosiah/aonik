@@ -94,15 +94,17 @@ internal sealed class AutomationIdentityService(PlatformDbContext database, Conn
         if (command.ExpiresAt is { } expiry && (expiry.Kind != DateTimeKind.Utc || expiry <= clock.UtcNow)) throw new ArgumentException("Expiry must be a future UTC timestamp.");
         if (command.Grants is null || command.Grants.Count > 20 || command.Grants.Select(grant => grant.WorkflowVersionId).Distinct().Count() != command.Grants.Count)
             throw new ArgumentException("Provide at most twenty distinct workflow version grants.");
-        HashSet<string> result = ["Workflow.Read", "Workflow.Run", "Invoice.Read"];
+        HashSet<string> result = ["Workflow.Read", "Workflow.Run"];
         foreach (AutomationWorkflowGrant grant in command.Grants)
         {
-            if (grant.WorkflowVersionId == Guid.Empty || grant.SubjectType != "Invoice" || grant.SubjectIds is null || grant.SubjectIds.Count > 1000
+            if (grant.WorkflowVersionId == Guid.Empty || !WorkflowSubjects.IsSupported(grant.SubjectType) || grant.SubjectIds is null || grant.SubjectIds.Count > 1000
                 || grant.SubjectIds.Any(id => id == Guid.Empty) || grant.SubjectIds.Distinct().Count() != grant.SubjectIds.Count
                 || (grant.AllSubjects ? grant.SubjectIds.Count != 0 : grant.SubjectIds.Count == 0)
                 || grant.Actions is null || grant.Actions.Count > 100 || grant.Actions.Distinct().Count() != grant.Actions.Count)
                 throw new ArgumentException("Select a published invoice workflow, explicit subject scope and unique action versions.");
             AutomationWorkflowCapability capability = await workflows.RequireAsync(grant.WorkflowVersionId, managerId, cancellationToken);
+            if (capability.SubjectType != grant.SubjectType) throw new ArgumentException("The identity grant must match its published subject contract.");
+            result.Add(grant.SubjectType == "Document" ? "Document.Read" : "Invoice.Read");
             foreach (AutomationActionRef action in grant.Actions)
             {
                 AutomationActionCapability descriptor = capability.Actions.SingleOrDefault(item => item.Key == action.Key && item.Version == action.Version)

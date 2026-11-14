@@ -9,7 +9,7 @@ public sealed record AutomationIdentityDetail(Guid Id, string Name, Guid Account
     DateTime? ExpiresAt, IReadOnlyList<AutomationWorkflowGrant> Grants, string ExpectedVersion, Guid? ConfiguredByUserId);
 public sealed record AutomationActionCapability(string Key, int Version, string RequiredPermission, string Purpose = "Workflow action");
 public sealed record AutomationWorkflowCapability(Guid WorkflowId, Guid WorkflowVersionId, string DefinitionHash,
-    IReadOnlyList<AutomationActionCapability> Actions);
+    IReadOnlyList<AutomationActionCapability> Actions, string SubjectType = "Invoice");
 public sealed record AutomationIdentityUsage(int ActiveRuns, IReadOnlyList<Guid> WorkflowVersionIds, IReadOnlyList<Guid>? ActiveTriggerBindingIds = null);
 
 /// <summary>Platform-owned authority for an internal actor. It never creates an authenticated human context.</summary>

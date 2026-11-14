@@ -37,6 +37,7 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
     private readonly IDocumentVectorIndex _vectorIndex;
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserPartyResolver _userPartyResolver;
+    private readonly IDocumentSafetyScanner? _financialScanner;
 
     public DocumentService(
         DocumentsDbContext dbContext,
@@ -44,7 +45,8 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         IDocumentFileStore documentFileStore,
         IDocumentVectorIndex vectorIndex,
         ICurrentUserContext currentUserContext,
-        IUserPartyResolver userPartyResolver)
+        IUserPartyResolver userPartyResolver,
+        IDocumentSafetyScanner? financialScanner = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -52,6 +54,7 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         _vectorIndex = vectorIndex;
         _currentUserContext = currentUserContext;
         _userPartyResolver = userPartyResolver;
+        _financialScanner = financialScanner;
     }
 
     // ── IDocumentWriter ──────────────────────────────────────────────────
@@ -81,14 +84,17 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         // Classification defaults from DocumentType when omitted (Spec 035 §10). The fallback is
         // Personal (owner-scoped), never a tenant-wide class — so an unclassified customer upload
         // such as a tax return or statement is never indexed tenant-wide.
+        bool financialSource = new string(command.DocumentType.Where(char.IsLetterOrDigit).ToArray()).Equals("FinancialSource", StringComparison.OrdinalIgnoreCase);
         var classification = command.Classification ?? DefaultClassificationForType(command.DocumentType);
+        if (financialSource && classification != DocumentClassification.Restricted)
+            throw new ArgumentException("Financial source documents must be Restricted.");
 
         var document = new Document
         {
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             OwnerPartyId = ownerPartyId,
-            DocumentType = command.DocumentType.Trim(),
+            DocumentType = financialSource ? "FinancialSource" : command.DocumentType.Trim(),
             Status = string.IsNullOrWhiteSpace(command.Status) ? "Draft" : command.Status!.Trim(),
             Title = string.IsNullOrWhiteSpace(command.Title) ? null : command.Title!.Trim(),
             Classification = classification,
@@ -130,8 +136,25 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         if (!scope.TenantWide && document.OwnerPartyId != scope.OwnerPartyId)
             throw new InvalidOperationException($"Document {command.DocumentId} not found.");
 
-        var upload = await _documentFileStore.UploadDocumentFileAsync(
-            tenantId, document.Id, content, command.FileName, command.ContentType, cancellationToken);
+        if (document.DocumentType == "FinancialSource" && await _dbContext.DocumentFiles.AnyAsync(file => file.TenantId == tenantId
+            && file.DocumentId == document.Id, cancellationToken)) throw new InvalidOperationException("A financial source document accepts one immutable source file.");
+
+        DocumentFileUploadResult upload;
+        if (document.DocumentType == "FinancialSource")
+        {
+            using var bounded = new MemoryStream(); byte[] buffer = new byte[8192]; int read;
+            while ((read = await content.ReadAsync(buffer, cancellationToken)) > 0)
+            {
+                if (bounded.Length + read > 10 * 1024 * 1024) throw new ArgumentException("Financial source files are bounded to 10 MiB.");
+                bounded.Write(buffer, 0, read);
+            }
+            if (bounded.Length == 0) throw new ArgumentException("A financial source file is required.");
+            if (_financialScanner is null) throw new FinancialDocumentException("DocumentSafetyUnavailable");
+            await _financialScanner.ScanAsync(bounded.ToArray(), cancellationToken);
+            bounded.Position = 0;
+            upload = await _documentFileStore.UploadPrivateDocumentFileAsync(tenantId, document.Id, bounded, command.FileName, command.ContentType, cancellationToken);
+        }
+        else upload = await _documentFileStore.UploadDocumentFileAsync(tenantId, document.Id, content, command.FileName, command.ContentType, cancellationToken);
 
         var file = new DocumentFile
         {
@@ -185,6 +208,10 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
             .FirstOrDefaultAsync(d => d.Id == documentId && d.TenantId == tenantId, cancellationToken)
             ?? throw new InvalidOperationException($"Document {documentId} not found.");
 
+        var scope = await ResolveCallerScopeAsync(tenantId, cancellationToken);
+        if (!scope.TenantWide && document.OwnerPartyId != scope.OwnerPartyId)
+            throw new InvalidOperationException($"Document {documentId} not found.");
+
         var files = await _dbContext.DocumentFiles
             .Where(f => f.DocumentId == documentId && f.TenantId == tenantId)
             .ToListAsync(cancellationToken);
@@ -200,7 +227,21 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         foreach (var file in files)
         {
             await _documentFileStore.DeleteAsync(file.StorageKey, cancellationToken);
+            file.MetadataJson = "{}";
+            file.SourceEvidenceJson = null;
         }
+
+        var extractions = await _dbContext.DocumentExtractions.Where(extraction => extraction.TenantId == tenantId
+            && extraction.DocumentId == documentId).ToListAsync(cancellationToken);
+        foreach (var extraction in extractions)
+        {
+            extraction.OutputJson = "{}";
+            extraction.Confidence = null;
+            extraction.Status = "Erased";
+        }
+        var ingestions = await _dbContext.DocumentIngestions.Where(ingestion => ingestion.TenantId == tenantId
+            && ingestion.DocumentId == documentId).ToListAsync(cancellationToken);
+        foreach (var ingestion in ingestions) ingestion.LastError = null;
 
         // Remove → soft-delete (the base converts the delete to IsDeleted/DeletedAt).
         _dbContext.DocumentFiles.RemoveRange(files);
@@ -372,12 +413,15 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
                 d => d.Id == f.DocumentId && d.TenantId == tenantId && d.OwnerPartyId == scope.OwnerPartyId));
         }
 
-        var storageKey = await query.Select(f => f.StorageKey).FirstOrDefaultAsync(cancellationToken);
+        var stored = await query.Select(f => new { f.DocumentId, f.StorageKey }).FirstOrDefaultAsync(cancellationToken);
+        string? storageKey = stored?.StorageKey;
         if (string.IsNullOrWhiteSpace(storageKey))
             throw new InvalidOperationException($"Document file '{documentFileId}' was not found.");
 
         // URL convention matches customer profile photos (PublicBaseUrl / dev static middleware).
-        return _documentFileStore.GetReadUrl(storageKey);
+        return storageKey.StartsWith("private:", StringComparison.Ordinal)
+            ? new Uri($"/documents/{stored!.DocumentId:D}/files/{documentFileId:D}/financial-content", UriKind.Relative)
+            : _documentFileStore.GetReadUrl(storageKey);
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
@@ -426,6 +470,7 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
 
         return normalized switch
         {
+            "financialsource" => DocumentClassification.Restricted,
             "nationalid" or "passport" or "driverslicense" or "driverslicence" or "driverlicense"
                 or "idcard" or "idscan" or "identitydocument" or "proofofaddress" or "selfie" or "biometric"
                 => DocumentClassification.Sensitive,

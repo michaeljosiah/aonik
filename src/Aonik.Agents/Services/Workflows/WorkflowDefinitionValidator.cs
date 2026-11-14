@@ -28,8 +28,10 @@ internal static class WorkflowDefinitionValidator
     public static WorkflowCapabilities Capabilities() => new(2, MaxNodes, MaxEdges,
         KnownKinds.Order(StringComparer.Ordinal).Select(kind => new WorkflowCapability(kind,
             true,
-            GovernedKinds.Contains(kind))).ToList(), [DecisionTableEvaluator.InvoiceSchema],
-        DecisionTableEvaluator.FactFields(), DecisionTableEvaluator.ComparisonOperators(), WorkflowDefinitionCodec.DecisionSchema());
+            GovernedKinds.Contains(kind))).ToList(), [DecisionTableEvaluator.InvoiceSchema, SharedKernel.Abstractions.Documents.FinancialDocumentActions.FactSchema],
+        DecisionTableEvaluator.FactFields(), DecisionTableEvaluator.ComparisonOperators(), WorkflowDefinitionCodec.DecisionSchema(),
+        SubjectTypes: ["Invoice", "Document"], SubjectFacts: new Dictionary<string, IReadOnlyList<DecisionFactField>>
+        { ["Invoice"] = WorkflowSubjectContract.Facts("Invoice"), ["Document"] = WorkflowSubjectContract.Facts("Document") });
 
     public static IReadOnlyList<WorkflowDiagnostic> Validate(WorkflowDefinition definition, bool forPublication)
     {
@@ -56,6 +58,15 @@ internal static class WorkflowDefinitionValidator
         Dictionary<string, WorkflowDefinitionNode> nodes = definition.Nodes.ToDictionary(node => node.Key, StringComparer.Ordinal);
         var triggers = definition.Nodes.Where(node => IsKind(node, WorkflowNodeKinds.Trigger)).ToList();
         if (triggers.Count != 1) errors.Add(new("TriggerRequired", "nodes", "Exactly one trigger is required."));
+        if (triggers.Count == 1 && definition.DefinitionKind == "Workflow")
+        {
+            try
+            {
+                if (WorkflowSubjectContract.Type(definition) == "Document" && definition.Nodes.Any(node => IsKind(node, WorkflowNodeKinds.Decision)))
+                    errors.Add(new("DocumentDecision", "nodes", "Extract and confirm the document, then pass its invoice ID to an invoice decision child workflow."));
+            }
+            catch (ArgumentException exception) { errors.Add(new("SubjectContract", triggers[0].Key, exception.Message)); }
+        }
         if (!definition.Nodes.Any(node => IsKind(node, WorkflowNodeKinds.End)))
             errors.Add(new("EndRequired", "nodes", "At least one terminal End is required."));
         if (definition.Edges.Select(edge => edge.Key).Distinct(StringComparer.Ordinal).Count() != definition.Edges.Count)

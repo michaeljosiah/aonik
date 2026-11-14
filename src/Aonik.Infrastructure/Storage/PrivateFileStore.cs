@@ -34,7 +34,7 @@ internal sealed class PrivateFileStore(IBlobStorageFactory factory, IOptions<Blo
         {
             BlobStorageOptions settings = options.Value;
             ContentTypeOptions[] otherStores = [settings.ProfilePhotos, settings.ProductImages, settings.Documents,
-                settings.Attachments, settings.ContentMedia, settings.ContactImages, settings.ConnectorContent];
+                settings.Attachments, settings.ContentMedia, settings.ContactImages, settings.ConnectorContent, settings.PrivateDocuments];
             otherStores = otherStores.Where(other => !ReferenceEquals(other, content)).ToArray();
             if (!string.IsNullOrWhiteSpace(content.PublicBaseUrl)) throw Unavailable();
             if (string.Equals(settings.Provider, "Local", StringComparison.OrdinalIgnoreCase))

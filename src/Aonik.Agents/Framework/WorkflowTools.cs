@@ -26,13 +26,13 @@ internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGoverna
         return new { workflow, versions = includeHistory ? await workflows.ListVersionsAsync(workflow.Id, cancellationToken) : null };
     }
 
-    [Description("Discover supported workflow/library definitions, nodes, actions, invoice facts, typed parameters and bounds. Schema 1 retains FirstMatch; schema 2 supports bounded conditions, Unique/Collect/Score and exact-pinned pure libraries. Collect needs an explicit typed foreach consumer. Unsupported executors cannot publish.")]
+    [Description("Discover supported workflow/library definitions, nodes, actions, explicit Invoice/Document subjects and facts, typed parameters and bounds. Schema 1 retains FirstMatch; schema 2 supports bounded conditions, Unique/Collect/Score and exact-pinned pure libraries. Collect needs an explicit typed foreach consumer. Unsupported executors cannot publish.")]
     public Task<WorkflowCapabilities> GetCapabilities(CancellationToken cancellationToken = default) => workflows.GetCapabilitiesAsync(cancellationToken);
 
     [Description("Validate a saved draft for publication. Returns exact definition hash and diagnostics; does not publish or execute it.")]
     public Task<WorkflowValidation?> ValidateWorkflow(string slug, CancellationToken cancellationToken = default) => workflows.ValidateAsync(slug, cancellationToken);
 
-    [Description("Simulate a saved workflow using fixture invoice facts and action outputs only. This never invokes a live model, domain write, connector or notification.")]
+    [Description("Simulate a saved workflow using fixture subject facts and action outputs only. This never invokes a live model, domain write, connector or notification.")]
     public Task<WorkflowSimulation?> SimulateWorkflow(string slug, WorkflowSimulationRequest fixture, CancellationToken cancellationToken = default)
         => workflows.SimulateAsync(slug, fixture, cancellationToken);
 
@@ -56,7 +56,7 @@ internal sealed class WorkflowTools(IWorkflowService workflows, IWorkflowGoverna
     public Task<WorkflowGovernanceRequestResult> RequestRetirement(WorkflowGovernanceCommand command, CancellationToken cancellationToken = default)
         => governance.RequestAsync(command, retiring: true, cancellationToken);
 
-    [Description("Request a live run of the exact published workflow version for a stored invoice ID and a stable idempotency key. Human confirmation is required to start; every mutating workflow action has its own server approval. Never supply invented invoice facts.")]
+    [Description("Request a live run of the exact published workflow version for a stored Invoice or explicit schema-2 Document subject ID and a stable idempotency key. Human confirmation is required to start; every mutating workflow action has its own server approval. Never supply invented subject facts. Document extraction does not authorize invoice creation; use the separately confirmed creation action and pinned invoice child.")]
     public Task<WorkflowRunDetail> StartWorkflow(string slug, StartWorkflowRunRequest request, CancellationToken cancellationToken = default)
         => (runs ?? throw new InvalidOperationException("Workflow execution is unavailable.")).StartAsync(slug, request, cancellationToken);
 

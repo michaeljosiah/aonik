@@ -7555,6 +7555,9 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("DocumentFileId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("DocumentId")
                         .HasColumnType("uniqueidentifier");
 
@@ -7562,6 +7565,10 @@ namespace Aonik.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("InputHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -7578,6 +7585,13 @@ namespace Aonik.Infrastructure.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("rowversion");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasDefaultValue("Completed");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uniqueidentifier");
 
@@ -7590,6 +7604,10 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DocumentId");
+
+                    b.HasIndex("TenantId", "DocumentId", "ExtractionType", "InputHash")
+                        .IsUnique()
+                        .HasFilter("[InputHash] IS NOT NULL");
 
                     b.ToTable("AnkDocumentExtractions", "dbo");
                 });
@@ -7819,6 +7837,14 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("IntakeBusinessKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("InvoiceNumber")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
@@ -7882,6 +7908,10 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasIndex("TenantId", "IdempotencyKey")
                         .IsUnique()
                         .HasFilter("[IdempotencyKey] IS NOT NULL");
+
+                    b.HasIndex("TenantId", "IntakeBusinessKey")
+                        .IsUnique()
+                        .HasFilter("[IntakeBusinessKey] IS NOT NULL");
 
                     b.HasIndex("TenantId", "IssueOperationId")
                         .IsUnique()
@@ -23360,6 +23390,13 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<string>("SourceEvidenceJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SourceFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("StorageContainer")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -23386,6 +23423,10 @@ namespace Aonik.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("DocumentId");
+
+                    b.HasIndex("TenantId", "SourceFingerprint")
+                        .IsUnique()
+                        .HasFilter("[SourceFingerprint] IS NOT NULL");
 
                     b.ToTable("AnkDocumentFiles", "dbo");
                 });

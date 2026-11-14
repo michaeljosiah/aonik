@@ -64,6 +64,13 @@ public class BlobStorageOptions
         PublicBaseUrl = null
     };
 
+    /// <summary>Financial source evidence, served only through authorized document endpoints.</summary>
+    public ContentTypeOptions PrivateDocuments { get; set; } = new()
+    {
+        Path = "documents-private",
+        ContainerName = "documents-private"
+    };
+
     /// <summary>
     /// Configuration for attachments (transaction receipts, etc.).
     /// </summary>

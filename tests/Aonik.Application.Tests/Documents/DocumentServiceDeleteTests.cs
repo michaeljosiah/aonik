@@ -105,6 +105,27 @@ public sealed class DocumentServiceDeleteTests
             s => s.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Fact]
+    public async Task DeleteDocumentAsync_Should_EraseExtractionPayloads_AndSourceMetadata_WhileRetainingAuditReferences()
+    {
+        await using var context = CreateContext(); Guid documentId = Guid.NewGuid(); Guid aiRunId = Guid.NewGuid();
+        context.Documents.Add(new Document { Id = documentId, TenantId = _tenantId, DocumentType = "FinancialSource", Classification = DocumentClassification.Restricted });
+        DocumentFile file = NewFile(documentId, "private:financial.txt"); file.MetadataJson = "{\"private\":\"source\"}"; file.SourceEvidenceJson = "private-source";
+        context.DocumentFiles.Add(file);
+        context.DocumentExtractions.Add(new Aonik.Documents.Entities.DocumentExtraction { TenantId = _tenantId, DocumentId = documentId,
+            ExtractionType = "FinancialCandidate.v1", OutputJson = "{\"private\":\"extracted fields\"}", InputHash = new string('a', 64), Confidence = .99, AiRunId = aiRunId });
+        context.DocumentIngestions.Add(new Aonik.Documents.Entities.DocumentIngestion { TenantId = _tenantId, DocumentId = documentId, DocumentFileId = file.Id, LastError = "private parser text" });
+        await context.SaveChangesAsync();
+
+        await CreateService(context).DeleteDocumentAsync(documentId);
+
+        var extraction = await context.DocumentExtractions.SingleAsync();
+        extraction.OutputJson.Should().Be("{}"); extraction.Confidence.Should().BeNull(); extraction.Status.Should().Be("Erased");
+        extraction.InputHash.Should().HaveLength(64); extraction.AiRunId.Should().Be(aiRunId);
+        (await context.DocumentIngestions.SingleAsync()).LastError.Should().BeNull();
+        file.SourceEvidenceJson.Should().BeNull(); file.MetadataJson.Should().Be("{}");
+    }
+
     private DocumentFile NewFile(Guid documentId, string storageKey) => new()
     {
         Id = Guid.NewGuid(),

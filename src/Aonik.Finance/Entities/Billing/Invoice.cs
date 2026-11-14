@@ -13,6 +13,8 @@ public class Invoice : AuditableEntity, ITenantScoped
     /// instead of billing the customer twice.
     /// </summary>
     public string? IdempotencyKey { get; set; }
+    public string? InvoiceNumber { get; set; }
+    public string? IntakeBusinessKey { get; set; }
     public Guid CustomerAccountId { get; set; }
     public DateTime IssueDate { get; set; }
     public DateTime DueDate { get; set; }

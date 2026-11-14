@@ -78,6 +78,7 @@ export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial
   outcome?: string;
   // trigger
   source?: string;
+  subjectType?: 'Invoice' | 'Document';
   filter?: string;
   // tool
   tool?: string;

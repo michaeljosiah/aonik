@@ -192,6 +192,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             [
                 "Integration.Read", "Integration.Use", "Integration.Request", "Integration.Manage",
                 "Workflow.Read", "Workflow.Write", "Workflow.Publish", "Workflow.Run",
+                "Document.Read", "Document.Extract",
                 "Users.Read",
                 "Users.Invite",
                 "Users.Manage",
@@ -230,6 +231,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             [
                 "Integration.Read", "Integration.Use", "Integration.Request",
                 "Workflow.Read", "Workflow.Run",
+                "Document.Read", "Document.Extract",
                 "Users.RevokeSessions",
                 "Ledger.Read",
                 "Ledger.Write",
@@ -378,6 +380,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             "UserInfo.Read",
             "UserInfo.Update",
             "Workflow.Read", "Workflow.Write", "Workflow.Publish", "Workflow.Run",
+                "Document.Read", "Document.Extract",
             "Integration.Read", "Integration.Use", "Integration.Request", "Integration.Manage",
             "Settings.Read",
             "Settings.Write",

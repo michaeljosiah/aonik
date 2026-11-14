@@ -41,7 +41,7 @@ internal sealed class WorkflowAutomationDefinitionReader(AgentsDbContext databas
             await execution.RequireModuleAsync(actions.Resolve(synchronization.Key, synchronization.Version).GetType(), cancellationToken);
             capabilities.Add(new(synchronization.Key, synchronization.Version, synchronization.RequiredPermission, "Optional approved mailbox trigger synchronization"));
         }
-        return new(version.WorkflowId, version.Id, version.DefinitionHash!, capabilities.Distinct().ToList());
+        return new(version.WorkflowId, version.Id, version.DefinitionHash!, capabilities.Distinct().ToList(), WorkflowSubjectContract.Type(definition));
     }
 
     public async Task<AutomationIdentityUsage> GetUsageAsync(Guid identityId, CancellationToken cancellationToken = default)

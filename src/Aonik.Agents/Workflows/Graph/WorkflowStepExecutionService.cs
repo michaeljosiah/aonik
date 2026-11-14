@@ -134,7 +134,8 @@ internal sealed partial class WorkflowStepExecutionService(
         WorkflowStepRun step = await database.WorkflowStepRuns.SingleAsync(step => step.RunId == Run.Id && step.Id == wait.StepRunId, cancellationToken);
         await database.Entry(step).ReloadAsync(cancellationToken);
         if (step.Status == "Blocked") return new(Run.Id, Outcome: step.ErrorCode ?? "Blocked", Stopped: true);
-        if (step.Status == "Completed") return new(Run.Id, Outcome: ToolResult(step).Outcome);
+        if (step.Status == "Completed") return new(Run.Id, Outcome: ToolResult(step).Outcome,
+            Stopped: ToolResult(step).Outcome == "NeedsManualReview");
         // A dispatched operation is reconciled before considering expiry or another invocation.
         if (step.Status == "Executing") return new(Run.Id);
         if (step.ProposalId is { } proposalId)
@@ -295,6 +296,8 @@ internal sealed partial class WorkflowStepExecutionService(
         WorkflowStepRun? step = await database.WorkflowStepRuns.AsNoTracking().SingleOrDefaultAsync(step => step.TenantId == Run.TenantId
             && step.RunId == Run.Id && step.Id == lastId && step.Status == "Blocked", cancellationToken);
         if (step is null) return null;
+        if (step.ActionKey == SharedKernel.Abstractions.Documents.FinancialDocumentActions.Extract && step.ResultJson is not null
+            && ToolResult(step).Outcome == "NeedsManualReview") return new(Run.Id, Stopped: true, Outcome: "NeedsManualReview");
         if (step.ResultJson is { } result)
         {
             WorkflowExecutionFrame? frame = JsonSerializer.Deserialize<WorkflowExecutionFrame>(result, WorkflowDefinitionCodec.JsonOptions);
@@ -326,9 +329,11 @@ internal sealed partial class WorkflowStepExecutionService(
     {
         await database.Entry(Run).ReloadAsync(cancellationToken);
         if (Run.LeaseId != invocationContext.LeaseId) throw new WorkflowExecutionException("RunLeaseLost");
-        step.Status = "Completed";
+        step.Status = result.Outcome == "NeedsManualReview" ? "Blocked" : "Completed";
+        if (result.Outcome == "NeedsManualReview") step.ErrorCode = "NeedsManualReview";
         step.CompletedAt = clock.UtcNow;
         step.ResultJson = JsonSerializer.Serialize(result, WorkflowDefinitionCodec.JsonOptions);
+        if (result.AiRunId is { } aiRunId && aiRunId != Guid.Empty) step.AiRunId = aiRunId;
         Run.PendingStepRunId = null;
         if (Run.Status != WorkflowRunStatuses.Cancelled)
         {
@@ -340,6 +345,6 @@ internal sealed partial class WorkflowStepExecutionService(
             Run.FactsHash = WorkflowFactsHash.Compute(current);
         }
         await database.SaveChangesAsync(cancellationToken);
-        return new(Run.Id, Outcome: result.Outcome, Stopped: Run.Status == WorkflowRunStatuses.Cancelled);
+        return new(Run.Id, Outcome: result.Outcome, Stopped: Run.Status == WorkflowRunStatuses.Cancelled || result.Outcome == "NeedsManualReview");
     }
 }
