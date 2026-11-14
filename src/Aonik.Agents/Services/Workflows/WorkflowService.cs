@@ -615,7 +615,18 @@ internal sealed class WorkflowService : IWorkflowService
             DefinitionHash: v.DefinitionHash,
             IsExecutable: v.PublishedAt.HasValue && v.DefinitionJson is not null,
             PublishedAt: v.PublishedAt,
-            SchemaVersion: v.SchemaVersion, LibraryContract: LibraryContract(v))).ToList();
+            SchemaVersion: v.SchemaVersion, LibraryContract: LibraryContract(v), SubjectType: PublishedSubjectType(v))).ToList();
+    }
+
+    private static string? PublishedSubjectType(WorkflowVersion version)
+    {
+        if (version.PublishedAt is null || version.DefinitionJson is null) return null;
+        try
+        {
+            WorkflowDefinition definition = WorkflowRunService.ReadDefinition(version);
+            return definition.DefinitionKind == "Workflow" ? WorkflowSubjectContract.Type(definition) : null;
+        }
+        catch (Exception exception) when (exception is JsonException or ArgumentException or WorkflowConflictException) { return null; }
     }
 
     private static DecisionLibraryContract? LibraryContract(WorkflowVersion version)

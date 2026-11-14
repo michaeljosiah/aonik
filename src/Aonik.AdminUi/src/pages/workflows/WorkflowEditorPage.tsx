@@ -424,6 +424,7 @@ export function WorkflowEditorPage() {
               rollback={rawVersions.find(version => version.id === rollbackId)}
               onClearRollback={() => setRollbackId(undefined)}
               publishedHash={rawVersions.find(version => version.id === wf.publishedVersionId)?.definitionHash}
+              publishedSubjectType={rawVersions.find(version => version.id === wf.publishedVersionId)?.subjectType}
             />
           )}
         </div>

@@ -136,7 +136,10 @@ The automated attachment, candidate, confirmed creation and Order-linked intent 
 
 ## Qualification evidence
 
-Spec 099 sections 13.1–13.17 and GitHub epic #438 carry commit/CI evidence. SQL migration and concurrency qualification runs in CI against an isolated SQL Server container because LocalDB cannot initialize on this development machine. A live consenting Gmail/Pub/Sub rehearsal and the full automatic document/payment/mail journey remain distinct release gates; passing local fixtures does not establish those external prerequisites.
+Spec 099 sections 13.1–13.19 and GitHub epic #438 carry commit/CI evidence. SQL migration and concurrency qualification runs in CI against an isolated SQL Server container because LocalDB cannot initialize on this development machine. A live consenting Gmail/Pub/Sub rehearsal and the full automatic document/payment/mail journey remain distinct release gates; passing local fixtures does not establish those external prerequisites.
+
+Use **New workflow → Financial document intake** for a stored-source draft. Configure the known customer and human reviewer role; add an exact published invoice child for issue/payment routing when needed. The template otherwise ends in manual review. The run links to the existing document page, where authorized reviewers can inspect fields/issues/provenance and download the private source through AONIK. Supplier evidence is not mapped to a sales invoice. Deleting a source immediately invalidates stale creation/issue approval; the document erasure outbox then cancels remaining workflow work and scrubs copied approval previews. Existing invoices, immutable operation hashes and AiRun references remain financial/audit evidence.
+
 ## Retained financial-source access
 
 A document or its invoice child can pause with `WaitingForConnection` when the original mailbox grant, consent or policy becomes unavailable. The run page remains available to a domain-authorized reader, with private evidence hidden if that reader also lacks source access. Use **Request access for the pinned account**: the server derives the original workflow/account/grant and three read actions from source evidence and approved parent lineage, including when the current step is a native financial action.

@@ -208,20 +208,7 @@ function NodeInspector({ workflowId, definitionKind, node, errors, onUpdate, onD
         <>
           <SelectField label="Subject type" value={node.params.subjectType ?? 'Invoice'} options={['Invoice', 'Document']}
             onChange={value => updateParam('subjectType', value === 'Document' ? 'Document' : 'Invoice')} hint="Document intake extracts evidence and waits for confirmed sales-invoice creation. Use an invoice child for decision routing." />
-          <TextField
-            label="Source"
-            mono
-            value={node.params.source}
-            onChange={(v) => updateParam('source', v)}
-          />
-          <TextField
-            label="Filter"
-            mono
-            hint="optional"
-            value={node.params.filter}
-            onChange={(v) => updateParam('filter', v)}
-            placeholder="amount > 0"
-          />
+          <p className="text-xs text-muted-foreground">Configure approved event, mailbox or schedule sources in Manage automatic triggers. Decision nodes define financial routing conditions.</p>
         </>
       )}
       {node.kind === 'tool' && (

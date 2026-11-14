@@ -108,6 +108,7 @@ export interface WorkflowRunDto {
 
 export interface WorkflowVersionDto {
   id: string;
+  subjectType?: 'Invoice' | 'Document' | null;
   libraryContract?: DecisionLibraryContract | null;
   definitionHash?: string | null;
   publishedAt?: string | null;

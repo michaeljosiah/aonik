@@ -31,7 +31,19 @@ export interface ListDocumentsParams {
   relatedEntityId?: string;
 }
 
+export interface FinancialExtractionReceipt { extractionId: string; documentId: string; candidateHash: string; status: string; issues: string[]; aiRunId: string }
+export interface FinancialDocumentCandidate extends FinancialExtractionReceipt {
+  fileId: string; sourceHash: string; modelId: string; promptHash: string;
+  fields: { kind: string; invoiceNumber: string; counterpartyName: string; currency: string; dueUtc: string | null;
+    lines: { description: string; quantity: number; unitPrice: number; total: number }[]; subtotal: number; tax: number; discount: number; total: number; confidence: number; evidence: string[] };
+  extractor: { extractor: string; version: string; pages: number; confidence: number | null } | null;
+  source: { connectionId: string; workflowId: string; workflowVersionId: string; workflowGrantId: string; bindingId: string; bindingRevision: number } | null;
+}
+
 export const documentService = {
+  financialExtractions: (id: string, signal?: AbortSignal) => api.get<FinancialExtractionReceipt[]>(`/documents/${encodeURIComponent(id)}/financial-extractions`, { signal }),
+  financialCandidate: (id: string, signal?: AbortSignal) => api.get<FinancialDocumentCandidate>(`/documents/financial-extractions/${encodeURIComponent(id)}`, { signal }),
+  financialContent: (documentId: string, fileId: string) => api.get<Blob>(`/documents/${encodeURIComponent(documentId)}/files/${encodeURIComponent(fileId)}/financial-content`, { responseType: 'blob' }),
   list: async (params: ListDocumentsParams = {}): Promise<PagedResult<DocumentListItem>> => {
     const queryParams = new URLSearchParams();
     if (params.pageNumber) queryParams.append('pageNumber', params.pageNumber.toString());

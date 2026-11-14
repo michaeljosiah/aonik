@@ -193,7 +193,8 @@ export function buildSaveRequest(
     slug: graph.slug,
     expectedVersion: graph.expectedVersion,
     definitionKind: graph.definitionKind ?? 'Workflow',
-    ...(graph.schemaVersion ? { schemaVersion: graph.schemaVersion } : {}),
+    ...(graph.nodes.some(node => node.kind === 'trigger' && node.params.subjectType === 'Document') ? { schemaVersion: 2 }
+      : graph.schemaVersion ? { schemaVersion: graph.schemaVersion } : {}),
     name: graph.name,
     description: graph.desc,
     state: graph.state,

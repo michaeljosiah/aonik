@@ -10,11 +10,11 @@ import { invoiceDecision } from './decisionParameters';
 import type { WorkflowGraph } from './workflowTypes';
 import { WorkflowTriggerPanel } from './WorkflowTriggerPanel';
 
-export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onChanged, rollback, onClearRollback, publishedHash }: {
-  workflow: WorkflowGraph; hasChanges: boolean; onClose: () => void; onChanged: () => void; rollback?: WorkflowVersionDto; onClearRollback: () => void; publishedHash?: string | null;
+export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onChanged, rollback, onClearRollback, publishedHash, publishedSubjectType }: {
+  workflow: WorkflowGraph; hasChanges: boolean; onClose: () => void; onChanged: () => void; rollback?: WorkflowVersionDto; onClearRollback: () => void; publishedHash?: string | null; publishedSubjectType?: 'Invoice' | 'Document' | null;
 }) {
   const navigate = useNavigate();
-  const subjectType = workflow.nodes.find(node => node.kind === 'trigger')?.params.subjectType ?? 'Invoice';
+  const subjectType = publishedSubjectType;
   const [fixture, setFixture] = useState(JSON.stringify({ facts: invoiceDecision().fixtures[0].facts, actionOutputs: {} }, null, 2));
   const [validation, setValidation] = useState<WorkflowValidation | null>(null);
   const [simulation, setSimulation] = useState<WorkflowSimulation | null>(null);
@@ -56,7 +56,7 @@ export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onCh
         await workflowService.decide(approval.approvalRequestId!, decision); setApproval({ ...approval, status: decision === 'Approve' ? 'approved' : 'rejected' }); onChanged();
       }); }} />}
       {workflow.definitionKind === 'DecisionLibrary' && <p className="text-xs text-muted-foreground">This pure library is evaluated by a consumer pinned to its exact published version. Simulation and publication use the same governed lifecycle.</p>}
-      {workflow.definitionKind !== 'DecisionLibrary' && workflow.publishedVersionId && workflow.state === 'Active' && <div className="space-y-2 rounded-md border p-3"><label className="block space-y-1 text-xs">Stored {subjectType.toLowerCase()} ID for a live run<Input value={invoiceId} onChange={event => setInvoiceId(event.target.value)} /></label>
+      {workflow.definitionKind !== 'DecisionLibrary' && workflow.publishedVersionId && workflow.state === 'Active' && subjectType && <div className="space-y-2 rounded-md border p-3"><label className="block space-y-1 text-xs">Stored {subjectType.toLowerCase()} ID for a live run<Input value={invoiceId} onChange={event => setInvoiceId(event.target.value)} /></label>
         <p className="text-xs text-muted-foreground">This starts version {workflow.publishedVersionId}. Its financial actions still require their own human approval.</p>
         <Button disabled={busy || !/^[0-9a-f-]{36}$/i.test(invoiceId)} onClick={() => void act(async () => { const run = await workflowService.start(workflow.slug, workflow.publishedVersionId!, invoiceId, crypto.randomUUID(), subjectType); navigate(`/ai/workflow-runs/${run.id}`); })}>Start live {subjectType.toLowerCase()} run</Button>
       </div>}

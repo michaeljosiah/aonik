@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkflowGraphDto } from '@/services/workflowService';
+import type { WorkflowGraph } from './workflowTypes';
 import { adaptGraph, buildSaveRequest } from './workflowAdapters';
 
 describe('workflow draft round trip', () => {
+  it('uses schema 2 when an author explicitly changes a draft to a Document subject', () => {
+    const graph: WorkflowGraph = { id: 'workflow', slug: 'intake', name: 'Intake', desc: '', version: 'v2', state: 'Active', ownerColor: '',
+      schemaVersion: 1, publishedVersionId: 'old-invoice-version', nodes: [{ id: 'start', kind: 'trigger', label: 'Document', x: 0, y: 0, params: { subjectType: 'Document' } }], edges: [] };
+    expect(buildSaveRequest(graph).schemaVersion).toBe(2);
+    expect(graph.publishedVersionId).toBe('old-invoice-version');
+  });
   it('preserves the concurrency token, logical keys, pinned version and decision routes', () => {
     const dto: WorkflowGraphDto = {
       id: 'workflow-id', slug: 'invoice-routing', name: 'Invoice routing', description: '',

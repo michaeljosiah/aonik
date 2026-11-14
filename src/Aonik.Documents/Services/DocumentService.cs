@@ -38,6 +38,7 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
     private readonly ICurrentUserContext _currentUserContext;
     private readonly IUserPartyResolver _userPartyResolver;
     private readonly IDocumentSafetyScanner? _financialScanner;
+    private readonly FinancialDocumentAuthorization? _financialAuthorization;
 
     public DocumentService(
         DocumentsDbContext dbContext,
@@ -46,7 +47,8 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         IDocumentVectorIndex vectorIndex,
         ICurrentUserContext currentUserContext,
         IUserPartyResolver userPartyResolver,
-        IDocumentSafetyScanner? financialScanner = null)
+        IDocumentSafetyScanner? financialScanner = null,
+        FinancialDocumentAuthorization? financialAuthorization = null)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
@@ -55,6 +57,7 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         _currentUserContext = currentUserContext;
         _userPartyResolver = userPartyResolver;
         _financialScanner = financialScanner;
+        _financialAuthorization = financialAuthorization;
     }
 
     // ── IDocumentWriter ──────────────────────────────────────────────────
@@ -229,6 +232,17 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
             await _documentFileStore.DeleteAsync(file.StorageKey, cancellationToken);
             file.MetadataJson = "{}";
             file.SourceEvidenceJson = null;
+            if (document.DocumentType == "FinancialSource")
+            {
+                file.FileName = null; file.CapturedBy = null;
+                file.StorageKey = "erased:" + file.Id.ToString("N");
+            }
+        }
+
+        if (document.DocumentType == "FinancialSource")
+        {
+            document.Title = null; document.IssuerName = null; document.ReferenceNumber = null; document.CountryCode = null;
+            document.IssuedOn = null; document.ExpiresOn = null; document.TagsJson = "[]"; document.AttributesJson = "{}";
         }
 
         var extractions = await _dbContext.DocumentExtractions.Where(extraction => extraction.TenantId == tenantId
@@ -273,6 +287,7 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         if (!scope.TenantWide && document.OwnerPartyId != scope.OwnerPartyId)
             return null;
 
+        await RequireFinancialMetadataAsync(document, cancellationToken);
         return MapDocument(document);
     }
 
@@ -390,6 +405,9 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
             .Where(f => f.DocumentId == documentId && f.TenantId == tenantId)
             .OrderBy(f => f.PageIndex)
             .ToListAsync(cancellationToken);
+        Document? document = await _dbContext.Documents.AsNoTracking().SingleOrDefaultAsync(document => document.TenantId == tenantId
+            && document.Id == documentId, cancellationToken);
+        if (document is not null) await RequireFinancialMetadataAsync(document, cancellationToken);
         return files.Select(MapFile).ToList();
     }
 
@@ -418,6 +436,10 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
         if (string.IsNullOrWhiteSpace(storageKey))
             throw new InvalidOperationException($"Document file '{documentFileId}' was not found.");
 
+        Document document = await _dbContext.Documents.AsNoTracking().SingleAsync(document => document.TenantId == tenantId
+            && document.Id == stored!.DocumentId, cancellationToken);
+        await RequireFinancialMetadataAsync(document, cancellationToken);
+
         // URL convention matches customer profile photos (PublicBaseUrl / dev static middleware).
         return storageKey.StartsWith("private:", StringComparison.Ordinal)
             ? new Uri($"/documents/{stored!.DocumentId:D}/files/{documentFileId:D}/financial-content", UriKind.Relative)
@@ -425,6 +447,16 @@ internal sealed class DocumentService : IDocumentReader, IDocumentWriter
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
+
+    private async Task RequireFinancialMetadataAsync(Document document, CancellationToken cancellationToken)
+    {
+        if (document.DocumentType != "FinancialSource") return;
+        if (_financialAuthorization is null || _currentUserContext.UserId is not { } userId)
+            throw new PermissionDeniedException("Document.Read");
+        try { _ = await _financialAuthorization.RequireAsync(document.Id, new("User", userId, userId), cancellationToken); }
+        catch (SharedKernel.Abstractions.Connectors.ConnectorAccessException)
+        { throw new PermissionDeniedException("Document.Read", "Current source access is required to read financial-source metadata."); }
+    }
 
     /// <summary>
     /// The effective document scope for the current caller. Staff/system callers see the whole

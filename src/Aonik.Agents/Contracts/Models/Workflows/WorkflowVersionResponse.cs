@@ -16,4 +16,5 @@ public sealed record WorkflowVersionResponse(
     bool IsExecutable = false,
     DateTime? PublishedAt = null,
     int? SchemaVersion = null,
-    DecisionLibraryContract? LibraryContract = null);
+    DecisionLibraryContract? LibraryContract = null,
+    string? SubjectType = null);

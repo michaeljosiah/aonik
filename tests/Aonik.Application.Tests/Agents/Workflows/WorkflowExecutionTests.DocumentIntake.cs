@@ -140,6 +140,16 @@ public partial class WorkflowExecutionTests
             held.EvidenceRestricted.Should().BeTrue();
             held.Steps.Should().OnlyContain(step => step.Result == null && step.DecisionTrace == null
                 && (step.Approval == null || (step.Approval.Preview == null && !step.Approval.CanDecide)));
+            var documents = recoveryServices.GetRequiredService<DocumentsDbContext>();
+            var sourceFile = await documents.DocumentFiles.SingleAsync(file => file.SourceEvidenceJson != null);
+            var viewer = new Mock<ICurrentUserContext>(); viewer.SetupGet(value => value.UserId).Returns(host.Actor.Author);
+            var metadata = new DocumentService(documents, recoveryServices.GetRequiredService<ITenantProvider>(), recoveryServices.GetRequiredService<IDocumentFileStore>(),
+                Mock.Of<IDocumentVectorIndex>(), viewer.Object, Mock.Of<IUserPartyResolver>(), financialAuthorization: recoveryServices.GetRequiredService<FinancialDocumentAuthorization>());
+            Func<Task> title = () => metadata.GetDocumentAsync(sourceFile.DocumentId);
+            Func<Task> names = () => metadata.GetFilesAsync(sourceFile.DocumentId);
+            Func<Task> contentLink = () => metadata.GetReadUrlAsync(sourceFile.Id, TimeSpan.FromMinutes(5));
+            await title.Should().ThrowAsync<PermissionDeniedException>(); await names.Should().ThrowAsync<PermissionDeniedException>();
+            await contentLink.Should().ThrowAsync<PermissionDeniedException>();
             Func<Task> premature = () => runs.ResumeAsync(runId, new(held.ExpectedVersion));
             await premature.Should().ThrowAsync<ConnectorAccessException>();
             var requests = recoveryServices.GetRequiredService<ConnectorConnectionRequestService>();
