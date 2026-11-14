@@ -20,6 +20,7 @@ export interface ConnectionRequest {
   workflowId: string | null; runId: string | null; connectionId: string | null; grantId: string | null; workflowGrantId: string | null;
   reviewerRoleId: string | null; expiresAt: string; expectedVersion: string; canConnect: boolean; canReview: boolean; canConfirm: boolean; canCancel: boolean;
   reviewPath: string; consentedAccountLabel: string | null; desiredCapability: string | null;
+  automationIdentityId?: string | null; automationGrantId?: string | null;
 }
 export interface NewConnectionRequest {
   connectorKey: string; ownership: 'User' | 'Tenant'; actions: ConnectorActionRef[]; purpose: string; idempotencyKey: string;

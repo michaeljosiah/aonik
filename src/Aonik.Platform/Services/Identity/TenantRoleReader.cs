@@ -15,7 +15,7 @@ internal sealed class TenantRoleReader(PlatformDbContext database, ITenantProvid
 
     public Task<bool> IsMemberAsync(Guid tenantId, Guid userId, Guid roleId, CancellationToken cancellationToken = default)
         => tenantProvider.TryGetCurrentTenantId(out Guid current) && current == tenantId
-            ? database.UserRoles.AsNoTracking().AnyAsync(link => link.UserId == userId && link.RoleId == roleId
+            ? database.UserRoles.AsNoTracking().AnyAsync(link => !link.IsDeleted && link.UserId == userId && link.RoleId == roleId
                 && link.User.TenantId == tenantId && link.User.Status == "Active" && link.Role.TenantId == tenantId, cancellationToken)
             : Task.FromResult(false);
 }

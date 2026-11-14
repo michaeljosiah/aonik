@@ -17,6 +17,7 @@ using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Integrations;
 using Aonik.Platform.Settings;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.Platform.Entities.Integrations;
 using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Settings;
 using Aonik.SharedKernel.Abstractions.Workflows;
@@ -25,6 +26,74 @@ namespace Aonik.Application.Tests.Agents.Workflows;
 
 public class ConnectorWorkflowTests
 {
+    [Theory]
+    [InlineData("none")]
+    [InlineData("permission")]
+    [InlineData("role")]
+    [InlineData("identity")]
+    public async Task AutomationConnectionRecovery_Should_RequireAdministratorReview_ThenOwnerConsent_AndExplicitResume(string revoked)
+    {
+        using var host = new Host();
+        (Guid runId, Guid actorId) = await host.StartAutomationAsync(false);
+        (await host.ContinueAsync(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForConnection);
+        host.Scenario.Allowed.Add((host.Scenario.Current.OwnerId, "Integration.Manage"));
+        host.Scenario.Allowed.Add((host.Scenario.ReviewerId, "Workflow.Write"));
+        using IServiceScope scope = host.Scenario.Scope();
+        var requests = scope.ServiceProvider.GetRequiredService<ConnectorConnectionRequestService>();
+        var consent = scope.ServiceProvider.GetRequiredService<ConnectorConsentService>();
+        ConnectionRequestDetail request = await requests.CreateAsync(new("gmail", "User", [new(GmailActionKeys.Search, 1)], "Restore this unattended workflow", "restore-automatic", RunId: runId));
+        request.AutomationIdentityId.Should().Be(actorId);
+        request.Status.Should().Be("Pending");
+        request.CanConnect.Should().BeFalse();
+        Func<Task> premature = () => consent.BeginAsync(request.Id, new(request.ExpectedVersion));
+        await premature.Should().ThrowAsync<ConnectorAccessException>();
+        host.Scenario.Current.Id = host.Scenario.ReviewerId;
+        request = await requests.DecideAsync(request.Id, new(request.ExpectedVersion, "Approve"));
+        request.Status.Should().Be("AwaitingConsent");
+        host.Scenario.Current.Id = host.Scenario.Current.OwnerId;
+        var challenge = await consent.BeginAsync(request.Id, new(request.ExpectedVersion));
+        await consent.ReceiveCallbackAsync(challenge.Cookie, ConnectorScenario.State(challenge), "code", host.Scenario.Current.OwnerId);
+        var platform = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        if (revoked != "none")
+        {
+            if (revoked == "permission") host.Scenario.Denied.Add((host.Scenario.ReviewerId, "Workflow.Write"));
+            if (revoked == "role") platform.UserRoles.Remove(await platform.UserRoles.SingleAsync(link => link.UserId == host.Scenario.ReviewerId));
+            if (revoked == "identity") (await platform.AutomationIdentities.SingleAsync(identity => identity.Id == actorId)).Status = "Disabled";
+            await platform.SaveChangesAsync();
+            Func<Task> changedAuthority = () => consent.ConfirmAsync(request.Id, new(request.ExpectedVersion));
+            await changedAuthority.Should().ThrowAsync<Aonik.SharedKernel.Abstractions.PermissionDeniedException>();
+            (await platform.ConnectorConnectionGrants.CountAsync(grant => grant.GranteeType == "AutomationIdentity")).Should().Be(0);
+            host.Scenario.Actions.Verify(provider => provider.InvokeAsync(It.IsAny<ConnectorProviderCall>(), It.IsAny<CancellationToken>()), Times.Never);
+            return;
+        }
+        request = await consent.ConfirmAsync(request.Id, new((await requests.GetAsync(request.Id))!.ExpectedVersion));
+        request.Status.Should().Be("Fulfilled");
+        request.AutomationGrantId.Should().NotBeNull();
+        (await platform.ConnectorConnectionGrants.SingleAsync(grant => grant.Id == request.AutomationGrantId)).IssuedByUserId.Should().Be(host.Scenario.ReviewerId);
+        IWorkflowRunService runs = scope.ServiceProvider.GetRequiredService<IWorkflowRunService>();
+        WorkflowRunDetail waiting = (await runs.GetAsync(runId))!;
+        waiting.Status.Should().Be(WorkflowRunStatuses.WaitingForConnection);
+        await runs.ResumeAsync(runId, new(waiting.ExpectedVersion));
+        host.Scenario.Current.Authenticated = false;
+        (await host.ContinueAsync(runId, 1)).Status.Should().Be(WorkflowRunStatuses.Completed);
+        host.Scenario.Actions.Verify(provider => provider.InvokeAsync(It.IsAny<ConnectorProviderCall>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AutomationRead_Should_RequireItsOwnAccountGrant_AndAuditTheMachineActor(bool grantAccount)
+    {
+        using var host = new Host();
+        (Guid runId, Guid actorId) = await host.StartAutomationAsync(grantAccount);
+        host.Scenario.Current.Authenticated = false;
+        GraphWorkflowContinuation result = await host.ContinueAsync(runId);
+        result.Status.Should().Be(grantAccount ? WorkflowRunStatuses.Completed : WorkflowRunStatuses.WaitingForConnection, result.ErrorCode);
+        host.Scenario.Actions.Verify(provider => provider.InvokeAsync(It.IsAny<ConnectorProviderCall>(), It.IsAny<CancellationToken>()), grantAccount ? Times.Once : Times.Never);
+        if (grantAccount) host.Scenario.Audit.Verify(writer => writer.LogActorAsync("Connector.ReadCompleted", "ConnectorConnection", host.ConnectionId,
+            host.Scenario.TenantId, "AutomationIdentity", actorId, runId.ToString("D"), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task RevokedBinding_Should_PauseAtItsCheckpoint_AndRequireExplicitResumeOfTheSameAccount()
     {
@@ -109,7 +178,8 @@ public class ConnectorWorkflowTests
                 services.AddScoped<WorkflowAuthorization>(); services.AddScoped<WorkflowExecutionAuthorization>();
                 services.AddScoped<WorkflowInvocationContext>(); services.AddScoped<WorkflowActionRegistry>();
                 services.AddScoped<WorkflowStepExecutionService>(); services.AddScoped<IGraphWorkflowRunner, GraphWorkflowRunner>();
-                services.AddScoped<IWorkflowRunService, WorkflowRunService>();
+                services.AddScoped<WorkflowRunService>();
+                services.AddScoped<IWorkflowRunService>(provider => provider.GetRequiredService<WorkflowRunService>());
                 services.AddScoped<IWorkflowConnectorContextReader, WorkflowConnectorContextReader>();
                 services.AddScoped<IConnectorService>(provider => provider.GetRequiredService<ConnectorService>());
                 services.AddScoped<IWorkflowActionHandler>(provider => new ConnectorWorkflowAction(
@@ -151,6 +221,25 @@ public class ConnectorWorkflowTests
             agents.WorkflowVersions.Add(version); workflow.State = "Active"; workflow.PublishedVersionId = version.Id; VersionId = version.Id;
             await agents.SaveChangesAsync();
             return (await services.GetRequiredService<IWorkflowRunService>().StartAsync(workflow.Slug, new(version.Id, "Invoice", SubjectId, "mail-run-1"))).Id;
+        }
+        public async Task<(Guid RunId, Guid ActorId)> StartAutomationAsync(bool grantAccount)
+        {
+            await StartAsync();
+            using IServiceScope scope = Scenario.Scope();
+            var services = scope.ServiceProvider;
+            var platform = services.GetRequiredService<PlatformDbContext>();
+            var identity = new AutomationIdentity { TenantId = Scenario.TenantId, Name = "Mailbox automation", ConfiguredByUserId = Scenario.Current.OwnerId,
+                AccountableUserId = Scenario.Current.OwnerId, PermissionsJson = ConnectorJson.Serialize(new[] { "Workflow.Read", "Workflow.Run", "Integration.Use", "Integration.Read", "Invoice.Read" }),
+                GrantsJson = ConnectorJson.Serialize(new[] { new AutomationWorkflowGrant(VersionId, "Invoice", false, [SubjectId], [new(GmailActionKeys.Search, 1)]) }) };
+            platform.AutomationIdentities.Add(identity); await platform.SaveChangesAsync();
+            if (grantAccount)
+            {
+                Scenario.Allowed.Add((Scenario.Current.OwnerId, "Integration.Manage"));
+                await services.GetRequiredService<ConnectorGrantService>().IssueAsync(ConnectionId, new("AutomationIdentity", identity.Id, [new(GmailActionKeys.Search, 1)],
+                    Convert.ToBase64String((await platform.ConnectorConnections.SingleAsync()).RowVersion)));
+            }
+            Guid runId = await services.GetRequiredService<WorkflowRunService>().AdmitAsync(identity.Id, VersionId, "Invoice", SubjectId, "mail-automatic-1");
+            return (runId, identity.Id);
         }
         public async Task<GraphWorkflowContinuation> ContinueAsync(Guid id, int continuation = 0)
         { using var scope = Scenario.Scope(); return await scope.ServiceProvider.GetRequiredService<IGraphWorkflowRunner>().ContinueAsync(id, continuation); }

@@ -231,7 +231,9 @@ internal sealed class ToolApprovalService : IToolApprovalService
 
         // Resubmit path: a server-validated approval for these exact arguments already exists.
         // Consume it (single-use) and let the inner tool run once.
-        var approved = await _requestStore
+        // Workflow approvals belong to one persisted step. The exact-step path above is the only
+        // reusable approval; a second userless run must not consume another run's matching arguments.
+        var approved = _workflowContext?.Step is not null ? null : await _requestStore
             .FindConsumableApprovedAsync(tenantId, requestingUserId, context.ToolName, argsHash, now, cancellationToken, _roomContext?.RoomId?.ToString())
             .ConfigureAwait(false);
         if (approved is not null)

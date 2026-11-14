@@ -34,7 +34,7 @@ internal sealed class ConnectorGrantCommandValidator : Validator<ConnectorGrantC
 {
     public ConnectorGrantCommandValidator()
     {
-        RuleFor(input => input.GranteeType).Must(value => value is "User" or "Role" or "Workflow");
+        RuleFor(input => input.GranteeType).Must(value => value is "User" or "Role" or "Workflow" or "AutomationIdentity");
         RuleFor(input => input.GranteeId).NotEmpty();
         RuleFor(input => input.ExpectedConnectionVersion).NotNull().MaximumLength(128);
         RuleFor(input => input.ExpectedGrantVersion).MaximumLength(128);

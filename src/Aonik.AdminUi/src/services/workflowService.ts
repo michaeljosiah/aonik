@@ -125,6 +125,7 @@ export interface WorkflowSimulation { mode: string; status: string; definitionHa
 export interface WorkflowRunDetail {
   id: string; workflowId: string; workflowVersionId: string; definitionHash: string; status: string; outcome: string | null; errorCode: string | null;
   actorType: string; actorId: string; initiatingUserId: string | null; subjectType: string; subjectId: string; expectedVersion: string; startedAt: string; completedAt: string | null;
+  configuredByUserId?: string | null;
   steps: { id: string; nodeKey: string; invocationPath: string; status: string; actionKey: string | null; actionVersion: number | null; selectedRoute: string | null;
     decisionTrace: unknown; result: unknown; approvalRequestId: string | null; proposalId: string | null; aiRunId: string | null; errorCode: string | null;
     approval: { id: string; riskTier: string; actionKind: string; status: string; expiresAt: string; canDecide: boolean; preview: ToolApprovalPreview | null } | null }[];

@@ -10,7 +10,7 @@ public interface IWorkflowFactsProvider
     Task<WorkflowFactsSnapshot?> LoadAsync(Guid subjectId, WorkflowActor actor, CancellationToken cancellationToken = default);
 }
 
-public sealed record WorkflowActor(string Type, Guid Id, Guid? InitiatingUserId = null);
+public sealed record WorkflowActor(string Type, Guid Id, Guid? InitiatingUserId = null, Guid? WorkflowVersionId = null);
 public sealed record WorkflowFactsSnapshot(
     string Schema, IReadOnlyDictionary<string, JsonElement> Facts, string SubjectVersion,
     string? BlockReason = null, Guid? SubjectCreatedByUserId = null);

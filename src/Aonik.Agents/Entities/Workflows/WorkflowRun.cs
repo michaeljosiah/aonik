@@ -42,6 +42,7 @@ public class WorkflowRun : AuditableEntity, ITenantScoped
     public string? ActorType { get; set; }
     public Guid? ActorId { get; set; }
     public Guid? InitiatingUserId { get; set; }
+    public Guid? ConfiguredByUserId { get; set; }
     public string? SubjectType { get; set; }
     public Guid? SubjectId { get; set; }
     public string? IdempotencyKey { get; set; }

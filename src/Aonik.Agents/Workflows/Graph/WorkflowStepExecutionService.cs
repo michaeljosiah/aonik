@@ -63,6 +63,7 @@ internal sealed class WorkflowStepExecutionService(
             ?? throw new WorkflowExecutionException("InvalidActionContract");
         IWorkflowActionHandler handler = actions.Resolve(parameters.ActionKey, parameters.ContractVersion);
         await authorization.RequireModuleAsync(handler.GetType(), cancellationToken);
+        await authorization.RequireActionAsync(WorkflowExecutionAuthorization.Actor(Run), handler.Descriptor, Run.SubjectType!, Run.SubjectId!.Value, cancellationToken);
         WorkflowFactsSnapshot facts = await UnchangedFactsAsync(cancellationToken);
         if (facts.BlockReason is { } blocked)
         {
@@ -148,6 +149,7 @@ internal sealed class WorkflowStepExecutionService(
         if (step.Status == "Completed") return new(Run.Id, Outcome: ToolResult(step).Outcome);
         IWorkflowActionHandler handler = actions.Resolve(step.ActionKey!, step.ActionVersion!.Value);
         await authorization.RequireModuleAsync(handler.GetType(), cancellationToken);
+        await authorization.RequireActionAsync(WorkflowExecutionAuthorization.Actor(Run), handler.Descriptor, Run.SubjectType!, Run.SubjectId!.Value, cancellationToken);
         WorkflowActionInvocation invocation = Invocation(step);
         if (step.ProposalId is { } proposalId)
         {

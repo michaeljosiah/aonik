@@ -22,6 +22,9 @@ using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Billing;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Observability;
+using Aonik.Platform.Entities.Integrations;
+using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.Integrations;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
@@ -35,6 +38,120 @@ namespace Aonik.Application.Tests.Agents.Workflows;
 
 public class WorkflowExecutionTests
 {
+    [Fact]
+    public async Task AutomationDisabledAfterHumanApproval_Should_StopBeforeTheFinancialWrite()
+    {
+        using var host = new Host();
+        Guid runId = await host.StartAutomation();
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForApproval);
+        using (IServiceScope scope = host.Scope())
+        {
+            var agents = scope.ServiceProvider.GetRequiredService<AgentsDbContext>();
+            WorkflowRun run = await agents.WorkflowRuns.SingleAsync(run => run.Id == runId);
+            ToolApprovalRequest request = await agents.ToolApprovalRequests.SingleAsync(request => request.WorkflowStepRunId == run.PendingStepRunId);
+            host.Actor.Id = host.Reviewer;
+            (await scope.ServiceProvider.GetRequiredService<IToolApprovalService>().DecideAsync(request.Id, new(ToolApprovalDecisionType.Approve)))
+                .Outcome.Should().Be(ToolApprovalDecisionOutcome.Approved);
+            PlatformDbContext platform = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            (await platform.AutomationIdentities.SingleAsync()).Status = "Disabled"; await platform.SaveChangesAsync();
+        }
+        host.Actor.Authenticated = false;
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.NeedsAttention);
+        using IServiceScope final = host.Scope();
+        (await final.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be("Draft");
+    }
+
+    [Fact]
+    public async Task AutomationInvoiceRun_Should_WaitForANamedHuman_AndNeverImpersonateItsConfigurer()
+    {
+        using var host = new Host();
+        Guid runId = await host.StartAutomation();
+        host.Inactive.Add(host.Actor.Author);
+        host.Actor.Authenticated = false;
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForApproval);
+        Guid approvalId;
+        using (IServiceScope scope = host.Scope())
+        {
+            AgentsDbContext agents = scope.ServiceProvider.GetRequiredService<AgentsDbContext>();
+            WorkflowRun run = await agents.WorkflowRuns.SingleAsync(run => run.Id == runId);
+            run.ActorType.Should().Be("AutomationIdentity");
+            run.InitiatingUserId.Should().BeNull();
+            run.ConfiguredByUserId.Should().Be(host.Actor.Author);
+            ToolApprovalRequest approval = await agents.ToolApprovalRequests.SingleAsync(request => request.WorkflowStepRunId == run.PendingStepRunId);
+            approvalId = approval.Id;
+            approval.RequestingUserId.Should().BeNull();
+            (await scope.ServiceProvider.GetRequiredService<IToolApprovalService>().DecideAsync(approvalId, new(ToolApprovalDecisionType.Approve)))
+                .Outcome.Should().Be(ToolApprovalDecisionOutcome.Forbidden);
+            (await scope.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be("Draft");
+        }
+        host.Actor.Id = host.Reviewer; host.Actor.Authenticated = true;
+        using (IServiceScope scope = host.Scope())
+            (await scope.ServiceProvider.GetRequiredService<IToolApprovalService>().DecideAsync(approvalId, new(ToolApprovalDecisionType.Approve)))
+                .Outcome.Should().Be(ToolApprovalDecisionOutcome.Approved);
+        host.Actor.Authenticated = false;
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.Completed);
+        using IServiceScope final = host.Scope();
+        (await final.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).IssueApprovedByUserId.Should().Be(host.Reviewer);
+    }
+
+    [Theory]
+    [InlineData("disabled")]
+    [InlineData("expired")]
+    [InlineData("action-revoked")]
+    [InlineData("scope-revoked")]
+    public async Task QueuedAutomation_Should_RecheckIndependentGrants_BeforeAnEffect(string change)
+    {
+        using var host = new Host();
+        Guid runId = await host.StartAutomation();
+        using (IServiceScope scope = host.Scope())
+        {
+            PlatformDbContext platform = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            AutomationIdentity identity = await platform.AutomationIdentities.SingleAsync();
+            var grants = JsonSerializer.Deserialize<List<AutomationWorkflowGrant>>(identity.GrantsJson, WorkflowDefinitionCodec.JsonOptions)!;
+            if (change == "disabled") identity.Status = "Disabled";
+            if (change == "expired") identity.ExpiresAt = host.Clock.UtcNow;
+            if (change == "action-revoked") identity.GrantsJson = JsonSerializer.Serialize(grants.Select(grant => grant with { Actions = [] }), WorkflowDefinitionCodec.JsonOptions);
+            if (change == "scope-revoked") identity.GrantsJson = JsonSerializer.Serialize(grants.Select(grant => grant with { SubjectIds = [Guid.NewGuid()] }), WorkflowDefinitionCodec.JsonOptions);
+            await platform.SaveChangesAsync();
+        }
+        host.Actor.Authenticated = false;
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.NeedsAttention);
+        using IServiceScope final = host.Scope();
+        (await final.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be("Draft");
+        (await final.ServiceProvider.GetRequiredService<AgentsDbContext>().ToolApprovalRequests.CountAsync(request => request.WorkflowStepRunId != null)).Should().Be(0);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnotherRun_Should_NotConsumeAnApprovedStep_WithMatchingArguments(bool automated)
+    {
+        using var host = new Host();
+        Guid firstId = automated ? await host.StartAutomation() : await host.Start();
+        (await host.Continue(firstId)).Status.Should().Be(WorkflowRunStatuses.WaitingForApproval);
+        Guid approvalId;
+        Guid secondId;
+        using (IServiceScope scope = host.Scope())
+        {
+            AgentsDbContext agents = scope.ServiceProvider.GetRequiredService<AgentsDbContext>();
+            WorkflowRun first = await agents.WorkflowRuns.SingleAsync(run => run.Id == firstId);
+            approvalId = (await agents.ToolApprovalRequests.SingleAsync(request => request.WorkflowStepRunId == first.PendingStepRunId)).Id;
+            host.Actor.Id = host.Reviewer;
+            (await scope.ServiceProvider.GetRequiredService<IToolApprovalService>().DecideAsync(approvalId, new(ToolApprovalDecisionType.Approve)))
+                .Outcome.Should().Be(ToolApprovalDecisionOutcome.Approved);
+            host.Actor.Id = host.Actor.Author;
+            WorkflowRunService admission = scope.ServiceProvider.GetRequiredService<WorkflowRunService>();
+            secondId = automated
+                ? await admission.AdmitAsync(first.ActorId!.Value, first.WorkflowVersionId!.Value, "Invoice", first.SubjectId!.Value, "second-automatic")
+                : (await admission.StartAsync("invoice-route", new(first.WorkflowVersionId!.Value, "Invoice", first.SubjectId!.Value, "second-manual"))).Id;
+        }
+        (await host.Continue(secondId)).Status.Should().Be(WorkflowRunStatuses.WaitingForApproval);
+        using IServiceScope final = host.Scope();
+        ToolApprovalRequest original = await final.ServiceProvider.GetRequiredService<AgentsDbContext>().ToolApprovalRequests.SingleAsync(request => request.Id == approvalId);
+        original.ConsumedAt.Should().BeNull();
+        (await final.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be("Draft");
+    }
+
     [Fact]
     public async Task AonikStartTool_Should_ConfirmThePublishedVersionAndFacts_BeforeAdmittingAnotherRun()
     {
@@ -350,6 +467,8 @@ public class WorkflowExecutionTests
             string database = $"WorkflowExecution_{Guid.NewGuid()}";
             services.AddDbContext<AgentsDbContext>(options => options.UseInMemoryDatabase(database));
             services.AddDbContext<FinanceDbContext>(options => options.UseInMemoryDatabase(database + "_finance"));
+            services.AddDbContext<PlatformDbContext>(options => options.UseInMemoryDatabase(database + "_platform"));
+            services.AddScoped<IAutomationIdentityAuthorization, AutomationIdentityAuthorization>();
             services.AddScoped<IWorkflowService, WorkflowService>();
             services.AddScoped<WorkflowRunService>();
             services.AddScoped<IWorkflowRunService>(provider => provider.GetRequiredService<WorkflowRunService>());
@@ -393,6 +512,19 @@ public class WorkflowExecutionTests
         }
 
         public IServiceScope Scope() => _provider.CreateScope();
+        public async Task<Guid> StartAutomation()
+        {
+            Guid manualId = await Start();
+            using IServiceScope scope = Scope();
+            var services = scope.ServiceProvider;
+            WorkflowRun manual = await services.GetRequiredService<AgentsDbContext>().WorkflowRuns.SingleAsync(run => run.Id == manualId);
+            var identity = new AutomationIdentity { TenantId = manual.TenantId, Name = "Invoice automation", AccountableUserId = Actor.Author, ConfiguredByUserId = Actor.Author,
+                PermissionsJson = JsonSerializer.Serialize(new[] { "Workflow.Read", "Workflow.Run", "Invoice.Read", "Invoice.Issue" }),
+                GrantsJson = JsonSerializer.Serialize(new[] { new AutomationWorkflowGrant(manual.WorkflowVersionId!.Value, "Invoice", false, [_invoiceId], [new("finance.invoices.issue", 1)]) }, WorkflowDefinitionCodec.JsonOptions) };
+            PlatformDbContext platform = services.GetRequiredService<PlatformDbContext>();
+            platform.AutomationIdentities.Add(identity); await platform.SaveChangesAsync();
+            return await services.GetRequiredService<WorkflowRunService>().AdmitAsync(identity.Id, manual.WorkflowVersionId!.Value, "Invoice", _invoiceId, "automatic-invoice-1");
+        }
         public async Task<GraphWorkflowContinuation> Continue(Guid runId, int continuation = 0)
         {
             using IServiceScope scope = Scope();
@@ -452,11 +584,12 @@ public class WorkflowExecutionTests
     }
     private sealed class Actor : ICurrentUserProvider
     {
+        public bool Authenticated { get; set; } = true;
         public Guid Author { get; } = Guid.NewGuid();
         private Guid? _id;
         public Guid Id { get => _id ?? Author; set => _id = value; }
-        public Guid? GetCurrentUserId() => Id;
-        public bool TryGetCurrentUserId(out Guid id) { id = Id; return true; }
+        public Guid? GetCurrentUserId() => Authenticated ? Id : null;
+        public bool TryGetCurrentUserId(out Guid id) { id = Authenticated ? Id : Guid.Empty; return Authenticated; }
     }
     private sealed class Tenant : ITenantProvider
     {

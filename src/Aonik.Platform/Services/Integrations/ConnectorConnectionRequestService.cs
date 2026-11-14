@@ -28,6 +28,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
         Prepared prepared = await PrepareAsync(input, cancellationToken);
         Guid userId = prepared.UserId;
         string inputHash = Hash(new { prepared.Request, prepared.Preview.OwnerUserId });
+        if (prepared.Preview.AutomationIdentityId is { } inputActor) inputHash = Hash(new { inputHash, automationIdentityId = inputActor });
         ConnectorConnectionRequest? replay = await database.ConnectorConnectionRequests.AsNoTracking().SingleOrDefaultAsync(request => request.TenantId == authorization.TenantId
             && request.RequesterUserId == userId && request.IdempotencyKey == prepared.Request.IdempotencyKey, cancellationToken);
         if (replay is not null)
@@ -37,13 +38,14 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
         }
         string equivalentHash = Hash(new { tenantId = authorization.TenantId, userId, prepared.Request.ConnectorKey, prepared.Request.Ownership,
             prepared.Preview.OwnerUserId, prepared.Request.Actions, prepared.Request.ConnectionId, prepared.Request.WorkflowId, prepared.Request.DesiredCapability });
+        if (prepared.Preview.AutomationIdentityId is { } equivalentActor) equivalentHash = Hash(new { equivalentHash, automationIdentityId = equivalentActor });
         ConnectorConnectionRequest? equivalent = await database.ConnectorConnectionRequests.SingleOrDefaultAsync(request => request.TenantId == authorization.TenantId
             && request.ActiveRequestHash == equivalentHash, cancellationToken);
         if (equivalent is not null && equivalent.ExpiresAt > clock.UtcNow) return await DetailAsync(equivalent, userId, cancellationToken);
         rateLimiter?.Require(authorization.TenantId, userId);
         if (equivalent is not null) Expire(equivalent);
         bool selfService = prepared.Known && prepared.Policy.Code == "Ready" && prepared.Policy.AllowSelfService && prepared.Request.Ownership == "User"
-            && Available(prepared.Request.ConnectorKey);
+            && Available(prepared.Request.ConnectorKey) && prepared.Preview.AutomationIdentityId is null;
         var request = new ConnectorConnectionRequest
         {
             TenantId = authorization.TenantId, RequesterUserId = userId, ConnectorKey = prepared.Request.ConnectorKey,
@@ -55,8 +57,9 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             NextAction = selfService ? "Complete account-owner consent." : prepared.Preview.NextAction,
             ReviewerRoleId = prepared.Policy.ReviewerRoleId, ExpiresAt = clock.UtcNow.AddDays(prepared.Policy.RequestExpiryDays),
             ConnectionId = prepared.Request.ConnectionId, WorkflowGrantId = prepared.PinnedWorkflowGrantId,
+            AutomationIdentityId = prepared.Preview.AutomationIdentityId,
         };
-        request.ReviewerUserId = selfService ? null : await ReviewerAsync(request.ReviewerRoleId, cancellationToken);
+        request.ReviewerUserId = selfService ? null : await ReviewerAsync(request.ReviewerRoleId, cancellationToken, request.AutomationIdentityId.HasValue);
         if (!selfService && request.ReviewerUserId is null) request.NextAction = "No eligible integration reviewer is configured. An integration administrator must assign one.";
         await audit.LogAsync("Connector.ConnectionRequestSubmitted", "ConnectorConnectionRequest", request.Id, request.TenantId, userId, null,
             ConnectorJson.Serialize(prepared.Preview), cancellationToken);
@@ -101,7 +104,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
         Guid userId = await authorization.RequireUserAsync("Integration.Read", cancellationToken);
         if (skip is < 0 or > 10000 || take is < 1 or > 100) throw new ArgumentException("Use bounded request pagination.");
         bool manager = await authorization.CanManageAsync(userId, cancellationToken);
-        Guid[] roleIds = manager ? await database.UserRoles.AsNoTracking().Where(link => link.UserId == userId && link.Role.TenantId == authorization.TenantId
+        Guid[] roleIds = manager ? await database.UserRoles.AsNoTracking().Where(link => !link.IsDeleted && link.UserId == userId && link.Role.TenantId == authorization.TenantId
             && link.User.TenantId == authorization.TenantId).Select(link => link.RoleId).ToArrayAsync(cancellationToken) : [];
         List<ConnectorConnectionRequest> requests = await database.ConnectorConnectionRequests.AsNoTracking().Where(request => request.TenantId == authorization.TenantId
             && (request.RequesterUserId == userId || request.OwnerUserId == userId || (manager && (request.ReviewerRoleId == null || roleIds.Contains(request.ReviewerRoleId.Value)))))
@@ -165,8 +168,9 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
                 IReadOnlyList<string> actualScopes = ConnectorJson.Read<List<string>>(connection.GrantedScopesJson);
                 if (ConnectorJson.Read<List<string>>(request.RequiredScopesJson).All(scope => actualScopes.Contains(scope, StringComparer.Ordinal)))
                 {
-                    (Guid actorGrant, Guid? workflowGrant) = await grants.StageConsentGrantsAsync(connection, request, userId, cancellationToken);
+                    (Guid actorGrant, Guid? workflowGrant, Guid? automationGrant) = await grants.StageConsentGrantsAsync(connection, request, userId, cancellationToken);
                     request.GrantId = actorGrant; request.WorkflowGrantId = workflowGrant; request.Status = "Fulfilled"; request.ActiveRequestHash = null;
+                    request.AutomationGrantId = automationGrant;
                     request.FulfilledAt = clock.UtcNow; request.FulfilledByUserId = userId;
                     request.NextAction = "Access is ready. Bind/publish or explicitly resume the unchanged workflow after review.";
                 }
@@ -175,6 +179,8 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             else { request.Status = "AwaitingConsent"; request.NextAction = "The account owner must complete provider consent and confirm the account."; }
         }
         StageWake(request, "Notify", clock.UtcNow, request.RequesterUserId);
+        if (request.Status == "AwaitingConsent" && request.OwnerUserId is { } owner && owner != request.RequesterUserId)
+            StageWake(request, "Notify", clock.UtcNow, owner);
         await SaveAsync(cancellationToken);
         return await DetailAsync(request, userId, cancellationToken);
     }
@@ -190,6 +196,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             || input.Actions is null || input.Actions.Count > 100 || input.Actions.Any(action => action is null)) throw new ArgumentException("Provide a valid connector, ownership, purpose, request key and bounded action list.");
         CreateConnectionRequest normalized = input with { Purpose = input.Purpose.Trim(), Actions = input.Actions.Distinct().OrderBy(action => action.Key, StringComparer.Ordinal).ThenBy(action => action.Version).ToList() };
         Guid? pinnedGrant = null;
+        Guid? automationIdentityId = null;
         if (normalized.RunId is { } runId)
         {
             if (workflows is null) throw ConnectorAuthorization.Access("WorkflowBindingRequired");
@@ -201,6 +208,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
                 && connection.Id == target.ConnectionId && connection.ConnectorKey == normalized.ConnectorKey, cancellationToken) ?? throw new KeyNotFoundException("Pinned connection not found.");
             normalized = normalized with { Ownership = pinned.Ownership };
             pinnedGrant = target.WorkflowGrantId;
+            automationIdentityId = target.AutomationIdentityId;
         }
         else if (normalized.WorkflowId is { } workflowId)
         {
@@ -244,11 +252,13 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             ? "ConnectorUnavailable" : policy.Code != "Ready" ? policy.Code : normalized.ConnectionId.HasValue ? "ConnectionGrantRequired" : "NoAuthorizedConnection";
         return new(normalized, userId, policy, known, pinnedGrant, new(normalized.ConnectorKey, normalized.Ownership, ownerUserId,
             normalized.Actions, scopes.Order(StringComparer.Ordinal).ToList(), normalized.Purpose, normalized.WorkflowId, normalized.RunId, reason,
-            ConnectorService.Readiness(reason).NextAction, policy.ReviewerRoleId, normalized.DesiredCapability));
+            ConnectorService.Readiness(reason).NextAction, policy.ReviewerRoleId, normalized.DesiredCapability, automationIdentityId));
     }
 
     internal async Task<bool> CanReviewAsync(ConnectorConnectionRequest request, Guid userId, CancellationToken cancellationToken)
-        => await authorization.CanManageAsync(userId, cancellationToken) && (request.ReviewerRoleId is null
+        => await authorization.CanManageAsync(userId, cancellationToken)
+            && (request.AutomationIdentityId is null || await permissions.HasPermissionAsync(userId, "Workflow.Write", cancellationToken))
+            && (request.ReviewerRoleId is null
             || await roles.IsMemberAsync(request.TenantId, userId, request.ReviewerRoleId.Value, cancellationToken));
     private async Task<bool> CanReadAsync(ConnectorConnectionRequest request, Guid userId, CancellationToken cancellationToken)
         => request.RequesterUserId == userId || request.OwnerUserId == userId || await CanReviewAsync(request, userId, cancellationToken);
@@ -266,23 +276,26 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             request.OwnerUserId == userId || request.RequesterUserId == userId ? $"/settings/my-connections?requestId={request.Id:D}" : $"/settings/tenant-integrations?requestId={request.Id:D}",
             connect ? request.ConsentedAccountLabel : null, request.DesiredCapability,
             connect && request.OAuthStartedByUserId == userId && request.ProtectedOAuthResult is not null && request.OAuthExpiresAt > clock.UtcNow,
-            active && request.RequesterUserId == userId);
+            active && request.RequesterUserId == userId, request.AutomationIdentityId, request.AutomationGrantId);
     }
     internal async Task RequireConsentPolicyAsync(ConnectorConnectionRequest request, CancellationToken cancellationToken)
     {
         Prepared prepared = await PrepareAsync(Input(request), cancellationToken, request.RequesterUserId);
-        if (prepared.Preview.OwnerUserId != request.OwnerUserId || prepared.Preview.Ownership != request.Ownership)
+        if (prepared.Preview.OwnerUserId != request.OwnerUserId || prepared.Preview.Ownership != request.Ownership
+            || prepared.Preview.AutomationIdentityId != request.AutomationIdentityId)
             throw Conflict("The account ownership changed. Review a new request.");
         if (!prepared.Known || !Available(request.ConnectorKey))
             throw ConnectorAuthorization.Access("ConnectorUnavailable");
         if (prepared.Policy.Code != "Ready") throw ConnectorAuthorization.Access(prepared.Policy.Code);
     }
-    private async Task<Guid?> ReviewerAsync(Guid? roleId, CancellationToken cancellationToken)
+    private async Task<Guid?> ReviewerAsync(Guid? roleId, CancellationToken cancellationToken, bool automationRequest = false)
     {
         if (roleId is null || !await roles.ExistsAsync(authorization.TenantId, roleId.Value, cancellationToken)) return null;
-        List<Guid> candidates = await database.UserRoles.AsNoTracking().Where(link => link.RoleId == roleId && link.Role.TenantId == authorization.TenantId
+        List<Guid> candidates = await database.UserRoles.AsNoTracking().Where(link => !link.IsDeleted && link.RoleId == roleId && link.Role.TenantId == authorization.TenantId
             && link.User.TenantId == authorization.TenantId && link.User.Status == "Active").Select(link => link.UserId).Order().Take(100).ToListAsync(cancellationToken);
-        foreach (Guid candidate in candidates) if (await permissions.HasPermissionAsync(candidate, "Integration.Manage", cancellationToken)) return candidate;
+        foreach (Guid candidate in candidates)
+            if (await permissions.HasPermissionAsync(candidate, "Integration.Manage", cancellationToken)
+                && (!automationRequest || await permissions.HasPermissionAsync(candidate, "Workflow.Write", cancellationToken))) return candidate;
         return null;
     }
     internal Guid StageWake(ConnectorConnectionRequest request, string kind, DateTime due, Guid? recipient = null)

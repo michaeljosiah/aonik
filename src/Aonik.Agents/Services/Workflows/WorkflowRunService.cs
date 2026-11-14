@@ -21,27 +21,50 @@ namespace Aonik.Agents.Services.Workflows;
 internal sealed class WorkflowRunService(
     AgentsDbContext database, ITenantProvider tenantProvider, WorkflowAuthorization authorization,
     WorkflowExecutionAuthorization executionAuthorization, IClock clock, WorkflowActionRegistry? actions = null,
-    WorkflowReviewerAuthorization? reviewers = null, IConnectorService? connectors = null) : IWorkflowRunService
+    WorkflowReviewerAuthorization? reviewers = null, IConnectorService? connectors = null,
+    IAutomationIdentityAuthorization? automation = null) : IWorkflowRunService, IWorkflowAutomationAdmission
 {
     public async Task<WorkflowRunDetail> StartAsync(string slug, StartWorkflowRunRequest request, CancellationToken cancellationToken = default)
     {
         Guid userId = await authorization.RequireAsync("Workflow.Run", cancellationToken);
         var actor = new WorkflowActor("User", userId, userId);
+        return await DetailAsync(await AdmitCoreAsync(slug, request, actor, userId, requireCurrent: true, cancellationToken), cancellationToken);
+    }
+
+    public async Task<Guid> AdmitAsync(Guid identityId, Guid workflowVersionId, string subjectType, Guid subjectId,
+        string idempotencyKey, CancellationToken cancellationToken = default)
+    {
+        if (automation is null) throw new PermissionDeniedException("Workflow.Run");
+        var actor = new WorkflowActor("AutomationIdentity", identityId, WorkflowVersionId: workflowVersionId);
+        Guid configuringUserId = await automation.RequireAsync(actor, "Workflow.Run", subjectType, subjectId, cancellationToken: cancellationToken);
+        Guid tenantId = tenantProvider.GetCurrentTenantId();
+        WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleOrDefaultAsync(version => version.TenantId == tenantId && version.Id == workflowVersionId, cancellationToken)
+            ?? throw new KeyNotFoundException("Published workflow version not found.");
+        string slug = await database.Workflows.Where(workflow => workflow.TenantId == tenantId && workflow.Id == version.WorkflowId)
+            .Select(workflow => workflow.Slug).SingleAsync(cancellationToken);
+        WorkflowRun run = await AdmitCoreAsync(slug, new(workflowVersionId, subjectType, subjectId, idempotencyKey), actor,
+            configuringUserId, requireCurrent: false, cancellationToken);
+        return run.Id;
+    }
+
+    private async Task<WorkflowRun> AdmitCoreAsync(string slug, StartWorkflowRunRequest request, WorkflowActor actor,
+        Guid configuringUserId, bool requireCurrent, CancellationToken cancellationToken)
+    {
         await executionAuthorization.RequireActorAsync(actor, cancellationToken);
         await executionAuthorization.RequireEnabledAsync(cancellationToken);
         ValidateRequest(request);
         Guid tenantId = tenantProvider.GetCurrentTenantId();
         string inputHash = InputHash(slug, request);
-        WorkflowRun? existing = await FindReplayAsync(tenantId, userId, request.IdempotencyKey, cancellationToken);
+        WorkflowRun? existing = await FindReplayAsync(tenantId, actor, request.IdempotencyKey, cancellationToken);
         if (existing is not null) return await ReplayAsync(existing, inputHash, actor, cancellationToken);
-        (Workflow workflow, WorkflowVersion version, WorkflowFactsSnapshot facts) = await PrepareAdmissionAsync(slug, request, actor, cancellationToken);
+        (Workflow workflow, WorkflowVersion version, WorkflowFactsSnapshot facts) = await PrepareAdmissionAsync(slug, request, actor, cancellationToken, requireCurrent);
         var run = new WorkflowRun
         {
             TenantId = tenantId, WorkflowId = workflow.Id, WorkflowVersionId = version.Id, DefinitionHash = version.DefinitionHash,
-            Mode = "Live", ActorType = actor.Type, ActorId = actor.Id, InitiatingUserId = userId,
+            Mode = "Live", ActorType = actor.Type, ActorId = actor.Id, InitiatingUserId = actor.InitiatingUserId, ConfiguredByUserId = configuringUserId,
             SubjectType = request.SubjectType, SubjectId = request.SubjectId, IdempotencyKey = request.IdempotencyKey,
             InputHash = inputHash, FactsJson = JsonSerializer.Serialize(facts, WorkflowDefinitionCodec.JsonOptions), FactsHash = WorkflowFactsHash.Compute(facts),
-            Status = WorkflowRunStatuses.Queued, StartedAt = clock.UtcNow, StartedBy = $"manual:{userId:D}",
+            Status = WorkflowRunStatuses.Queued, StartedAt = clock.UtcNow, StartedBy = $"{(actor.Type == "User" ? "manual" : "automation")}:{actor.Id:D}",
         };
         database.WorkflowRuns.Add(run);
         // Updating this tracked root also detects a concurrent retirement/publication during admission.
@@ -54,12 +77,12 @@ internal sealed class WorkflowRunService(
             foreach (var entry in database.ChangeTracker.Entries<OutboxMessage>().Where(entry => entry.Entity.EventId == eventId))
                 entry.State = EntityState.Detached;
             await database.Entry(workflow).ReloadAsync(cancellationToken);
-            existing = await FindReplayAsync(tenantId, userId, request.IdempotencyKey, cancellationToken);
+            existing = await FindReplayAsync(tenantId, actor, request.IdempotencyKey, cancellationToken);
             if (existing is null) throw;
             return await ReplayAsync(existing, inputHash, actor, cancellationToken);
         }
         catch (DbUpdateConcurrencyException) { throw new WorkflowConflictException("The workflow changed during admission. Retry the same admission key."); }
-        return await DetailAsync(run, cancellationToken);
+        return run;
     }
 
     internal async Task<(StartWorkflowRunRequest Request, ToolApprovalPreview Preview)> PrepareStartAsync(
@@ -80,12 +103,12 @@ internal sealed class WorkflowRunService(
     }
 
     private async Task<(Workflow, WorkflowVersion, WorkflowFactsSnapshot)> PrepareAdmissionAsync(
-        string slug, StartWorkflowRunRequest request, WorkflowActor actor, CancellationToken cancellationToken)
+        string slug, StartWorkflowRunRequest request, WorkflowActor actor, CancellationToken cancellationToken, bool requireCurrent = true)
     {
         Guid tenantId = tenantProvider.GetCurrentTenantId();
         Workflow workflow = await database.Workflows.SingleOrDefaultAsync(workflow => workflow.TenantId == tenantId && workflow.Slug == slug, cancellationToken)
             ?? throw new KeyNotFoundException("Workflow not found.");
-        if (workflow.PublishedVersionId != request.WorkflowVersionId || workflow.RetiredAt.HasValue || workflow.State != WorkflowStates.Active)
+        if ((requireCurrent && workflow.PublishedVersionId != request.WorkflowVersionId) || workflow.RetiredAt.HasValue || workflow.State != WorkflowStates.Active)
             throw new WorkflowConflictException("Only the current published, non-retired workflow version can admit a new run.");
         WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == tenantId
             && version.WorkflowId == workflow.Id && version.Id == request.WorkflowVersionId, cancellationToken);
@@ -205,14 +228,14 @@ internal sealed class WorkflowRunService(
     private Task<WorkflowRun?> FindAsync(Guid runId, CancellationToken cancellationToken) => database.WorkflowRuns
         .SingleOrDefaultAsync(run => run.TenantId == tenantProvider.GetCurrentTenantId() && run.Id == runId && run.Mode == "Live", cancellationToken);
 
-    private Task<WorkflowRun?> FindReplayAsync(Guid tenantId, Guid actorId, string key, CancellationToken cancellationToken) => database.WorkflowRuns.AsNoTracking()
-        .SingleOrDefaultAsync(run => run.TenantId == tenantId && run.ActorType == "User" && run.ActorId == actorId && run.IdempotencyKey == key, cancellationToken);
+    private Task<WorkflowRun?> FindReplayAsync(Guid tenantId, WorkflowActor actor, string key, CancellationToken cancellationToken) => database.WorkflowRuns.AsNoTracking()
+        .SingleOrDefaultAsync(run => run.TenantId == tenantId && run.ActorType == actor.Type && run.ActorId == actor.Id && run.IdempotencyKey == key, cancellationToken);
 
-    private async Task<WorkflowRunDetail> ReplayAsync(WorkflowRun run, string inputHash, WorkflowActor actor, CancellationToken cancellationToken)
+    private async Task<WorkflowRun> ReplayAsync(WorkflowRun run, string inputHash, WorkflowActor actor, CancellationToken cancellationToken)
     {
         if (run.InputHash != inputHash) throw new WorkflowConflictException("The admission key is already bound to different input.");
         await executionAuthorization.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, actor, cancellationToken);
-        return await DetailAsync(run, cancellationToken);
+        return run;
     }
 
     internal async Task<WorkflowRunDetail> DetailAsync(WorkflowRun run, CancellationToken cancellationToken)
@@ -246,7 +269,7 @@ internal sealed class WorkflowRunService(
         }
         return new(run.Id, run.WorkflowId, run.WorkflowVersionId, run.DefinitionHash, run.Status, run.Outcome, run.ErrorCode,
             run.ActorType, run.ActorId, run.InitiatingUserId, run.SubjectType, run.SubjectId, Convert.ToBase64String(run.RowVersion),
-            run.StartedAt, run.CompletedAt, details);
+            run.StartedAt, run.CompletedAt, details, run.ConfiguredByUserId);
     }
 
     private static JsonElement? ReadJson(string? value) => value is null ? null : JsonSerializer.Deserialize<JsonElement>(value);

@@ -5,12 +5,13 @@ using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Platform;
+using Aonik.SharedKernel.Abstractions.Workflows;
 
 namespace Aonik.Platform.Services.Integrations;
 
 internal sealed class ConnectorGrantService(PlatformDbContext database, ConnectorAuthorization authorization, ConnectorCatalog catalog,
     ConnectorPolicyService policies, ITenantRoleReader roles, IAuditLogWriter audit, IClock clock,
-    IWorkflowConnectorContextReader? workflows = null)
+    IWorkflowConnectorContextReader? workflows = null, IAutomationIdentityAuthorization? automation = null)
 {
     public async Task<WorkflowConnectorBinding?> GetWorkflowBindingAsync(Guid connectionId, Guid workflowId, ConnectorActionRef action, CancellationToken cancellationToken = default)
     {
@@ -82,7 +83,7 @@ internal sealed class ConnectorGrantService(PlatformDbContext database, Connecto
         await SaveAsync(cancellationToken);
     }
 
-    internal async Task<(Guid UserGrantId, Guid? WorkflowGrantId)> StageConsentGrantsAsync(ConnectorConnection connection,
+    internal async Task<(Guid UserGrantId, Guid? WorkflowGrantId, Guid? AutomationGrantId)> StageConsentGrantsAsync(ConnectorConnection connection,
         ConnectorConnectionRequest request, Guid consentingUserId, CancellationToken cancellationToken)
     {
         await RequireManagerAsync(connection, consentingUserId, cancellationToken);
@@ -91,10 +92,20 @@ internal sealed class ConnectorGrantService(PlatformDbContext database, Connecto
         await ValidateActionsAsync(connection, actions, cancellationToken);
         if (request.WorkflowId.HasValue && !(await policies.GetAsync(connection.ConnectorKey, cancellationToken)).AllowWorkflowConnections)
             throw ConnectorAuthorization.Access("ForbiddenByPolicy");
+        if (request.AutomationIdentityId is { } automationId)
+        {
+            if (automation is null || !await automation.IsActiveAsync(automationId, cancellationToken)
+                || request.ReviewedByUserId is not { } manager || request.ReviewedAt is null
+                || !await authorization.CanManageAsync(manager, cancellationToken)
+                || (request.ReviewerRoleId is { } reviewerRole && !await roles.IsMemberAsync(request.TenantId, manager, reviewerRole, cancellationToken)))
+                throw new PermissionDeniedException("Integration.Manage", "Unattended account access needs current tenant administrator approval and account-owner consent.");
+            await authorization.RequireActorAsync(new("User", manager, manager), "Workflow.Write", cancellationToken);
+        }
         database.Entry(connection).Property(account => account.UpdatedAt).IsModified = true;
         ConnectorConnectionGrant userGrant = await StageAsync("User", request.RequesterUserId, null);
         ConnectorConnectionGrant? workflowGrant = request.WorkflowId is { } workflowId ? await StageAsync("Workflow", workflowId, request.WorkflowGrantId) : null;
-        return (userGrant.Id, workflowGrant?.Id);
+        ConnectorConnectionGrant? automationGrant = request.AutomationIdentityId is { } identityId ? await StageAsync("AutomationIdentity", identityId, null) : null;
+        return (userGrant.Id, workflowGrant?.Id, automationGrant?.Id);
 
         async Task<ConnectorConnectionGrant> StageAsync(string type, Guid granteeId, Guid? pinnedId)
         {
@@ -111,7 +122,8 @@ internal sealed class ConnectorGrantService(PlatformDbContext database, Connecto
             }
             IReadOnlyList<ConnectorActionRef> previous = grant.RevokedAt is null ? ConnectorJson.Read<List<ConnectorActionRef>>(grant.AllowedActionsJson) : [];
             grant.AllowedActionsJson = ConnectorJson.Serialize(previous.Union(actions).OrderBy(action => action.Key, StringComparer.Ordinal).ThenBy(action => action.Version).ToList());
-            grant.IssuedByUserId = consentingUserId; grant.ExpiresAt = null; grant.RevokedAt = null; grant.RevokedByUserId = null;
+            grant.IssuedByUserId = type == "AutomationIdentity" ? request.ReviewedByUserId!.Value : consentingUserId;
+            grant.ExpiresAt = null; grant.RevokedAt = null; grant.RevokedByUserId = null;
             return grant;
         }
     }
@@ -128,7 +140,14 @@ internal sealed class ConnectorGrantService(PlatformDbContext database, Connecto
         if (type == "User" && await authorization.IsActiveAsync(id, cancellationToken)) return;
         if (type == "Role" && await roles.ExistsAsync(authorization.TenantId, id, cancellationToken)) return;
         if (type == "Workflow" && workflows is not null) { await workflows.RequireGrantTargetAsync(id, issuer, cancellationToken); return; }
-        throw new ArgumentException("An active tenant user, tenant role or authorized workflow is required.");
+        if (type == "AutomationIdentity" && automation is not null && await automation.IsActiveAsync(id, cancellationToken))
+        {
+            // Managing an unattended actor is an additional tenant authority, including on personal accounts.
+            await authorization.RequireActorAsync(new("User", issuer, issuer), "Integration.Manage", cancellationToken);
+            await authorization.RequireActorAsync(new("User", issuer, issuer), "Workflow.Write", cancellationToken);
+            return;
+        }
+        throw new ArgumentException("An active tenant user, tenant role, authorized workflow or automation identity is required.");
     }
     private async Task ValidateActionsAsync(ConnectorConnection connection, IReadOnlyList<ConnectorActionRef> actions, CancellationToken cancellationToken)
     {

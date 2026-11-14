@@ -15,6 +15,8 @@ public sealed class ConnectorConnectionRequest : AuditableEntity, ITenantScoped
     public string Purpose { get; set; } = string.Empty;
     public Guid? WorkflowId { get; set; }
     public Guid? RunId { get; set; }
+    public Guid? AutomationIdentityId { get; set; }
+    public Guid? AutomationGrantId { get; set; }
     public Guid? AiRunId { get; set; }
     public string RequestHash { get; set; } = string.Empty;
     public string? ActiveRequestHash { get; set; }

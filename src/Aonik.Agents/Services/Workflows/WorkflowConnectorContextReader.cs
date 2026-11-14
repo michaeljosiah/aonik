@@ -9,11 +9,13 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
+using Aonik.SharedKernel.Abstractions.Workflows;
 
 namespace Aonik.Agents.Services.Workflows;
 
 internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, ITenantProvider tenantProvider,
-    WorkflowInvocationContext context, WorkflowExecutionAuthorization authority, IPermissionService permissions, IClock clock)
+    WorkflowInvocationContext context, WorkflowExecutionAuthorization authority, IPermissionService permissions, IClock clock,
+    IAutomationIdentityAuthorization? automation = null)
     : IWorkflowConnectorContextReader
 {
     public async Task<ConnectorUseContext> RequireAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
@@ -28,6 +30,12 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
             || step.RunId != run.Id || step.Status != "Executing" || step.ActionKey != action.Key || step.ActionVersion != action.Version
             || step.ArgumentsHash != hash || run.PendingStepRunId != step.Id) throw Denied();
         await authority.RequireActorAsync(WorkflowExecutionAuthorization.Actor(run), cancellationToken);
+        if (run.ActorType == "AutomationIdentity")
+        {
+            if (automation is null) throw Denied();
+            await automation.RequireAsync(WorkflowExecutionAuthorization.Actor(run), "Integration.Use", run.SubjectType, run.SubjectId,
+                new(action.Key, action.Version), cancellationToken);
+        }
         await authority.RequireEnabledAsync(cancellationToken);
         WorkflowConnectorBinding binding = await BindingAsync(run, step.NodeKey, action, cancellationToken);
         if (binding.ConnectionId != connectionId) throw Denied();
@@ -48,11 +56,16 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
         await authority.RequireActorAsync(new("User", userId, userId), cancellationToken);
         WorkflowRun run = await database.WorkflowRuns.AsNoTracking().SingleOrDefaultAsync(run => run.TenantId == tenantProvider.GetCurrentTenantId()
             && run.Id == runId && run.Mode == "Live", cancellationToken) ?? throw Denied();
-        if (run.Status != WorkflowRunStatuses.WaitingForConnection || run.InitiatingUserId != userId || run.PendingStepRunId is not { } stepId) throw Denied();
+        bool automationManager = run.ActorType == "AutomationIdentity"
+            && await permissions.HasPermissionAsync(userId, "Integration.Manage", cancellationToken)
+            && await permissions.HasPermissionAsync(userId, "Workflow.Write", cancellationToken);
+        if (run.Status != WorkflowRunStatuses.WaitingForConnection || (!automationManager && run.InitiatingUserId != userId)
+            || run.PendingStepRunId is not { } stepId) throw Denied();
         await authority.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, new("User", userId, userId), cancellationToken);
         WorkflowStepRun step = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == run.TenantId && step.RunId == run.Id && step.Id == stepId, cancellationToken);
         WorkflowConnectorBinding binding = await BindingAsync(run, step.NodeKey, new(step.ActionKey!, step.ActionVersion!.Value), cancellationToken);
-        return new(run.WorkflowId, binding.ConnectionId, binding.WorkflowGrantId, binding.AllowedActions);
+        return new(run.WorkflowId, binding.ConnectionId, binding.WorkflowGrantId, binding.AllowedActions,
+            run.ActorType == "AutomationIdentity" ? run.ActorId : null);
     }
 
     private async Task<WorkflowConnectorBinding> BindingAsync(WorkflowRun run, string nodeKey, ConnectorActionRef action, CancellationToken cancellationToken)

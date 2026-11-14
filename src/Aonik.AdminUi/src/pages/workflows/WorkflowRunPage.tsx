@@ -40,6 +40,7 @@ export function WorkflowRunPage() {
       <Button disabled={busy} variant="outline" onClick={() => void act(refresh)}>Refresh</Button></div>
     {error && <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</p>}
     <Card><CardContent className="space-y-2 pt-5 text-sm"><p>Subject: {run.subjectType} · {run.subjectId}</p><p>Actor: {run.actorType} · {run.actorId}</p><p className="break-all">Published version: {run.workflowVersionId}</p><p className="break-all text-xs text-muted-foreground">Definition hash: {run.definitionHash}</p>
+      {run.configuredByUserId && <p>Configured by: {run.configuredByUserId}</p>}{run.initiatingUserId && <p>Initiating user: {run.initiatingUserId}</p>}
       {run.outcome && <p>Outcome: {run.outcome}</p>}{run.errorCode && <p>Held reason: {run.errorCode}</p>}
       <div className="flex flex-wrap gap-2 pt-2">
         {(run.status === 'WaitingForConnection' || run.status === 'NeedsAttention') && <Button disabled={busy} onClick={() => void act(() => workflowService.resume(run))}>Revalidate and resume this run</Button>}

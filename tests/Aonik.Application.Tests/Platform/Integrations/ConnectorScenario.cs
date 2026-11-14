@@ -56,6 +56,8 @@ internal sealed class ConnectorScenario : IDisposable
             .ReturnsAsync(ConnectorJson.Element(new GmailSearchResult([], null)));
         Audit.Setup(writer => writer.LogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid?>(),
             It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        Audit.Setup(writer => writer.LogActorAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<Guid>(),
+            It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         Tasks.Setup(service => service.ScheduleAsync(It.IsAny<ScheduleTaskRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync((TaskResponse)null!);
         var permissions = new Mock<IPermissionService>();
         permissions.Setup(service => service.HasPermissionAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -79,6 +81,7 @@ internal sealed class ConnectorScenario : IDisposable
         services.AddSingleton<IConnectorDescriptor, GmailConnectorDescriptor>();
         services.AddScoped<ConnectorCatalog>(); services.AddScoped<ConnectorPolicyService>(); services.AddScoped<ConnectorAuthorization>();
         services.AddScoped<ConnectorCredentialProtector>(); services.AddScoped<ConnectorCredentialService>(); services.AddScoped<ConnectorGrantService>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Workflows.IAutomationIdentityAuthorization, AutomationIdentityAuthorization>();
         services.AddScoped<ConnectorConnectionRequestService>();
         services.AddScoped<IConnectorConnectionRequests>(provider => provider.GetRequiredService<ConnectorConnectionRequestService>());
         services.AddScoped<ConnectorConsentService>(); services.AddScoped<ConnectorService>();
@@ -108,11 +111,12 @@ internal sealed class ConnectorScenario : IDisposable
     public void Dispose() => _provider.Dispose();
     internal sealed class Actor : ICurrentUserProvider
     {
+        public bool Authenticated { get; set; } = true;
         public Guid OwnerId { get; } = Guid.NewGuid();
         private Guid? _id;
         public Guid Id { get => _id ?? OwnerId; set => _id = value; }
-        public Guid? GetCurrentUserId() => Id;
-        public bool TryGetCurrentUserId(out Guid id) { id = Id; return true; }
+        public Guid? GetCurrentUserId() => Authenticated ? Id : null;
+        public bool TryGetCurrentUserId(out Guid id) { id = Authenticated ? Id : Guid.Empty; return Authenticated; }
     }
     internal sealed class TestClock : IClock { public DateTime UtcNow { get; set; } = new(2026, 11, 14, 12, 0, 0, DateTimeKind.Utc); }
 }

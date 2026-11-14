@@ -75,6 +75,8 @@ public sealed class AgentsModule : IModule
         services.AddScoped<WorkflowStepExecutionService>();
         services.AddScoped<Services.Workflows.WorkflowRunService>();
         services.AddScoped<IWorkflowRunService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowRunService>());
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowAutomationAdmission>(provider => provider.GetRequiredService<Services.Workflows.WorkflowRunService>());
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowAutomationDefinitionReader, Services.Workflows.WorkflowAutomationDefinitionReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Workflows.IWorkflowApprovalReader, Services.Workflows.WorkflowApprovalReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Connectors.IWorkflowConnectorContextReader, Services.Workflows.WorkflowConnectorContextReader>();
         foreach (string action in new[] { SharedKernel.Abstractions.Connectors.GmailActionKeys.Search,

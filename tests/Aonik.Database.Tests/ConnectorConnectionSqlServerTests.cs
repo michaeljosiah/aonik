@@ -14,6 +14,7 @@ using Aonik.Platform.Settings;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Settings;
+using Aonik.SharedKernel.Abstractions.Workflows;
 using Aonik.SharedKernel.Events.Outbox;
 using Aonik.TestSupport.Identity;
 using Aonik.TestSupport.Multitenancy;
@@ -22,6 +23,37 @@ namespace Aonik.Database.Tests;
 
 public class ConnectorConnectionSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
 {
+    [SkippableFact]
+    public async Task IdentityEdit_Should_NotOverwriteAConcurrentDisable()
+    {
+        Skip.IfNot(database.IsAvailable, database.SkipReason);
+        Guid tenantId = Guid.NewGuid(); Guid userId = Guid.NewGuid();
+        await SeedAsync(tenantId, userId);
+        Guid identityId;
+        await using (PlatformDbContext seed = Context(tenantId))
+        {
+            var identity = new AutomationIdentity { TenantId = tenantId, Name = "Invoice worker", AccountableUserId = userId, ConfiguredByUserId = userId };
+            seed.AutomationIdentities.Add(identity); await seed.SaveChangesAsync(); identityId = identity.Id;
+        }
+        await using PlatformDbContext stale = Context(tenantId);
+        AutomationIdentity previous = await stale.AutomationIdentities.SingleAsync(identity => identity.Id == identityId);
+        string version = Convert.ToBase64String(previous.RowVersion);
+        await using (PlatformDbContext concurrent = Context(tenantId))
+        {
+            AutomationIdentity identity = await concurrent.AutomationIdentities.SingleAsync(identity => identity.Id == identityId);
+            identity.Status = "Disabled"; identity.DisabledAt = DateTime.UtcNow; identity.DisabledByUserId = userId;
+            await concurrent.SaveChangesAsync();
+        }
+        Func<Task> overwrite = () => Services(stale, tenantId, userId).Identities.SaveAsync(identityId, new("Obsolete edit", userId, null, [], version));
+
+        await overwrite.Should().ThrowAsync<ConnectorAccessException>().Where(error => error.Code == "Conflict");
+
+        await using PlatformDbContext verify = Context(tenantId);
+        AutomationIdentity stored = await verify.AutomationIdentities.SingleAsync(identity => identity.Id == identityId);
+        stored.Status.Should().Be("Disabled");
+        stored.Name.Should().Be("Invoice worker");
+    }
+
     [SkippableFact]
     public async Task Requests_Should_DeduplicateConcurrentSubmissions_AndCommitOnlyTheWinningOutbox()
     {
@@ -80,7 +112,7 @@ public class ConnectorConnectionSqlServerTests(SqlLocalDbFixture database) : ICl
         await db.SaveChangesAsync();
     }
     private PlatformDbContext Context(Guid tenantId) => new(database.CreateOptions<PlatformDbContext>(), new TestTenantProvider(tenantId));
-    private static (ConnectorConnectionRequestService Requests, ConnectorGrantService Grants) Services(PlatformDbContext db, Guid tenantId, Guid userId)
+    private static (ConnectorConnectionRequestService Requests, ConnectorGrantService Grants, AutomationIdentityService Identities) Services(PlatformDbContext db, Guid tenantId, Guid userId)
     {
         var tenant = new TestTenantProvider(tenantId); var permissions = new AllowAllPermissionService(); var clock = new Clock();
         var catalog = new ConnectorCatalog([new GmailConnectorDescriptor()]);
@@ -92,7 +124,10 @@ public class ConnectorConnectionSqlServerTests(SqlLocalDbFixture database) : ICl
         var grants = new ConnectorGrantService(db, auth, catalog, policies, roles, audit.Object, clock);
         var oauth = new Mock<IConnectorOAuthProvider>(); oauth.SetupGet(provider => provider.ConnectorKey).Returns("gmail"); oauth.SetupGet(provider => provider.IsConfigured).Returns(true);
         var action = new Mock<IConnectorActionProvider>(); action.SetupGet(provider => provider.ConnectorKey).Returns("gmail");
-        return (new(db, auth, catalog, policies, grants, [oauth.Object], [action.Object], roles, permissions, audit.Object, clock), grants);
+        var reader = new Mock<IWorkflowAutomationDefinitionReader>();
+        reader.Setup(reader => reader.GetUsageAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(new AutomationIdentityUsage(0, []));
+        return (new(db, auth, catalog, policies, grants, [oauth.Object], [action.Object], roles, permissions, audit.Object, clock), grants,
+            new(db, auth, reader.Object, permissions, audit.Object, clock));
     }
     private sealed class Clock : IClock { public DateTime UtcNow => DateTime.UtcNow; }
 }

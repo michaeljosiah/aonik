@@ -34,6 +34,25 @@ namespace Aonik.Application.Tests.Agents.Approval;
 /// </summary>
 public class ToolApprovalServiceTests
 {
+    [Fact]
+    public async Task HighActionWithoutAHumanSession_Should_OnlyCreateAProposal_AndCannotApproveItself()
+    {
+        var fixture = new Fixture();
+        fixture.User.UserId = null;
+        ToolApprovalService service = fixture.Build();
+
+        ToolGateOutcome queued = await service.GateAsync(High());
+
+        queued.Decision.Should().Be(ToolGateDecision.Queued);
+        fixture.ProposalStore.Created.Should().ContainSingle(proposal => proposal.ProposalType == "Finance.CapturePayment");
+        ToolApprovalRequest request = fixture.RequestStore.Requests.Single();
+        request.Status.Should().Be(ToolApprovalRequestStatus.Pending);
+        request.RequestingUserId.Should().BeNull();
+        (await service.DecideAsync(request.Id, new(ToolApprovalDecisionType.Approve))).Outcome.Should().Be(ToolApprovalDecisionOutcome.Forbidden);
+        request.DecidedByUserId.Should().BeNull();
+        request.ConsumedAt.Should().BeNull();
+    }
+
     // ----- Test doubles -----------------------------------------------------------------------
 
     /// <summary>In-memory <see cref="IToolApprovalRequestStore"/> mirroring the real consumable query.</summary>

@@ -4,12 +4,12 @@ public sealed record CreateConnectionRequest(string ConnectorKey, string Ownersh
     string Purpose, string IdempotencyKey, Guid? ConnectionId = null, Guid? WorkflowId = null, Guid? RunId = null, string? DesiredCapability = null);
 public sealed record ConnectionRequestPreview(string ConnectorKey, string Ownership, Guid? OwnerUserId, IReadOnlyList<ConnectorActionRef> Actions,
     IReadOnlyList<string> RequiredScopes, string Purpose, Guid? WorkflowId, Guid? RunId, string ReasonCode, string NextAction, Guid? ReviewerRoleId,
-    string? DesiredCapability = null);
+    string? DesiredCapability = null, Guid? AutomationIdentityId = null);
 public sealed record ConnectionRequestDetail(Guid Id, string ConnectorKey, Guid RequesterUserId, string Ownership, Guid? OwnerUserId,
     IReadOnlyList<ConnectorActionRef> Actions, IReadOnlyList<string> RequiredScopes, string Purpose, string Status, string ReasonCode, string NextAction,
     Guid? WorkflowId, Guid? RunId, Guid? ConnectionId, Guid? GrantId, Guid? WorkflowGrantId, Guid? ReviewerRoleId, DateTime ExpiresAt,
     string ExpectedVersion, bool CanConnect, bool CanReview, string ReviewPath, string? ConsentedAccountLabel = null, string? DesiredCapability = null,
-    bool CanConfirm = false, bool CanCancel = false);
+    bool CanConfirm = false, bool CanCancel = false, Guid? AutomationIdentityId = null, Guid? AutomationGrantId = null);
 public sealed record ConnectionRequestCommand(string ExpectedVersion);
 public sealed record DecideConnectionRequest(string ExpectedVersion, string Decision, Guid? ConnectionId = null);
 public sealed record ConnectorGrantCommand(string GranteeType, Guid GranteeId, IReadOnlyList<ConnectorActionRef> Actions,

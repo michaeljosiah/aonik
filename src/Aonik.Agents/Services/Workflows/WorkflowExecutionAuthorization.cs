@@ -15,16 +15,30 @@ namespace Aonik.Agents.Services.Workflows;
 internal sealed class WorkflowExecutionAuthorization(
     ITenantProvider tenantProvider, IPermissionService permissions, IUserDirectoryReader users,
     ITenantSettingStore settings, IConfiguration configuration, IEnumerable<IWorkflowFactsProvider> factsProviders,
-    IModuleEnablementReader? modules = null)
+    IModuleEnablementReader? modules = null, IAutomationIdentityAuthorization? automation = null)
 {
     public async Task RequireActorAsync(WorkflowActor actor, CancellationToken cancellationToken = default)
     {
         Guid tenantId = tenantProvider.GetCurrentTenantId();
+        if (actor.Type == "AutomationIdentity" && automation is not null)
+        {
+            await automation.RequireAsync(actor, "Workflow.Read", cancellationToken: cancellationToken);
+            await automation.RequireAsync(actor, "Workflow.Run", cancellationToken: cancellationToken);
+            return;
+        }
         if (actor.Type != "User" || actor.Id == Guid.Empty
             || !(await users.GetByIdsAsync(tenantId, [actor.Id], cancellationToken)).Any(user => user.UserId == actor.Id && user.Status == "Active")
             || !await permissions.HasPermissionAsync(actor.Id, "Workflow.Read", cancellationToken)
             || !await permissions.HasPermissionAsync(actor.Id, "Workflow.Run", cancellationToken))
             throw new PermissionDeniedException("Workflow.Run");
+    }
+
+    public async Task RequireActionAsync(WorkflowActor actor, WorkflowActionDescriptor action, string subjectType, Guid subjectId,
+        CancellationToken cancellationToken = default)
+    {
+        if (actor.Type != "AutomationIdentity") return;
+        if (automation is null) throw new PermissionDeniedException(action.RequiredPermission);
+        await automation.RequireAsync(actor, action.RequiredPermission, subjectType, subjectId, new(action.Key, action.Version), cancellationToken);
     }
 
     public async Task RequireEnabledAsync(CancellationToken cancellationToken = default)
@@ -55,5 +69,5 @@ internal sealed class WorkflowExecutionAuthorization(
     }
 
     internal static WorkflowActor Actor(WorkflowRun run) => run.ActorType is { } type && run.ActorId is { } id
-        ? new(type, id, run.InitiatingUserId) : throw new WorkflowExecutionException("ExecutionIdentityMissing");
+        ? new(type, id, run.InitiatingUserId, run.WorkflowVersionId) : throw new WorkflowExecutionException("ExecutionIdentityMissing");
 }

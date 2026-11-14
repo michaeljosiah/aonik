@@ -15,7 +15,7 @@ export function WorkflowToolPanel({ workflowId, parameters, onChange }: { workfl
   const [error, setError] = useState<string | null>(null);
   const [requestPath, setRequestPath] = useState<string | null>(null);
   const latest = useRef({ parameters, onChange });
-  latest.current = { parameters, onChange };
+  useEffect(() => { latest.current = { parameters, onChange }; }, [parameters, onChange]);
   useEffect(() => { void workflowService.capabilities().then(result => setActions(result.actions ?? [])).catch(reason => setError(connectorError(reason))); }, []);
   const selected = actions.find(action => action.key === parameters.actionKey && action.contractVersion === parameters.contractVersion);
   const connector = selected?.key.startsWith('gmail.') ? 'gmail' : null;

@@ -106,6 +106,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
     public virtual DbSet<SignupSubscription> SignupSubscriptions { get; set; } = null!;
     public virtual DbSet<ContactEnquiry> ContactEnquiries { get; set; } = null!;
     public virtual DbSet<ConnectorConnection> ConnectorConnections { get; set; } = null!;
+    public virtual DbSet<AutomationIdentity> AutomationIdentities { get; set; } = null!;
     public virtual DbSet<ConnectorConnectionGrant> ConnectorConnectionGrants { get; set; } = null!;
     public virtual DbSet<ConnectorConnectionRequest> ConnectorConnectionRequests { get; set; } = null!;
     public virtual DbSet<ContactEnquiryAttachment> ContactEnquiryAttachments { get; set; } = null!;
@@ -786,6 +787,7 @@ public class AonikDbContext : AonikDbContextBase, IAonikDbContext, IDataProtecti
         MapAgentsTable<WorkflowStepRun>(modelBuilder, "WorkflowStepRuns");
         MapAgentsTable<WorkflowCheckpoint>(modelBuilder, "WorkflowCheckpoints");
         MapPlatformTable<ConnectorConnection>(modelBuilder, "ConnectorConnections");
+        MapPlatformTable<AutomationIdentity>(modelBuilder, "AutomationIdentities");
         MapPlatformTable<ConnectorConnectionGrant>(modelBuilder, "ConnectorConnectionGrants");
         MapPlatformTable<ConnectorConnectionRequest>(modelBuilder, "ConnectorConnectionRequests");
     }

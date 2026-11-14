@@ -12,7 +12,7 @@ namespace Aonik.Agents.Services.Workflows;
 
 internal sealed class WorkflowApprovalReader(
     AgentsDbContext database, ITenantProvider tenantProvider, WorkflowInvocationContext context,
-    WorkflowReviewerAuthorization reviewers, IClock clock) : IWorkflowApprovalReader
+    WorkflowReviewerAuthorization reviewers, IClock clock, IAutomationIdentityAuthorization? automation = null) : IWorkflowApprovalReader
 {
     public async Task<Guid> RequireApprovedActorAsync(WorkflowActionInvocation invocation, string actionKey, int actionVersion,
         CancellationToken cancellationToken = default)
@@ -38,6 +38,12 @@ internal sealed class WorkflowApprovalReader(
             || request.ExpiresAt <= clock.UtcNow || request.DecidedByUserId is not { } reviewer)
             throw new PermissionDeniedException("Workflow.Run", "The exact workflow action has no valid consumed human approval.");
         await reviewers.RequireAsync(request, reviewer, cancellationToken);
+        if (run.ActorType == "AutomationIdentity")
+        {
+            if (automation is null || step.RequiredPermission is null) throw new PermissionDeniedException("Workflow.Run");
+            await automation.RequireAsync(WorkflowExecutionAuthorization.Actor(run), step.RequiredPermission,
+                run.SubjectType!, run.SubjectId!.Value, new(actionKey, actionVersion), cancellationToken);
+        }
         return reviewer;
     }
 }

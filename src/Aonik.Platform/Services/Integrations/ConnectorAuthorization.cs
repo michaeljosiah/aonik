@@ -11,7 +11,8 @@ using Aonik.SharedKernel.Abstractions.Workflows;
 namespace Aonik.Platform.Services.Integrations;
 
 internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenantProvider tenantProvider, ICurrentUserProvider currentUser,
-    IPermissionService permissions, IUserDirectoryReader users, ITenantRoleReader roles, ConnectorPolicyService policies, IClock clock)
+    IPermissionService permissions, IUserDirectoryReader users, ITenantRoleReader roles, ConnectorPolicyService policies, IClock clock,
+    IAutomationIdentityAuthorization? automation = null)
 {
     public Guid TenantId => tenantProvider.TryGetCurrentTenantId(out Guid id) && id != Guid.Empty
         ? id : throw new PermissionDeniedException("Integration.Read", "A tenant context is required.");
@@ -25,6 +26,11 @@ internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenant
 
     public async Task RequireActorAsync(WorkflowActor actor, string permission, CancellationToken cancellationToken = default)
     {
+        if (actor.Type == "AutomationIdentity" && automation is not null)
+        {
+            await automation.RequireAsync(actor, permission, cancellationToken: cancellationToken);
+            return;
+        }
         if (actor.Type != "User" || actor.Id == Guid.Empty || !await IsActiveAsync(actor.Id, cancellationToken)
             || !await permissions.HasPermissionAsync(actor.Id, permission, cancellationToken)) throw new PermissionDeniedException(permission);
     }
@@ -36,6 +42,12 @@ internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenant
         CancellationToken cancellationToken = default)
     {
         await RequireActorAsync(context.Actor, "Integration.Use", cancellationToken);
+        if (context.Actor.Type == "AutomationIdentity")
+        {
+            if (automation is null || context.WorkflowId is null || context.WorkflowVersionId != context.Actor.WorkflowVersionId)
+                throw Access("WorkflowBindingRequired");
+            await automation.RequireAsync(context.Actor, "Integration.Use", action: new(action.Key, action.Version), cancellationToken: cancellationToken);
+        }
         ConnectorConnection connection = await database.ConnectorConnections.AsNoTracking().SingleOrDefaultAsync(connection => connection.TenantId == TenantId
             && connection.Id == connectionId && connection.ConnectorKey == action.ConnectorKey, cancellationToken)
             ?? throw Access("NoAuthorizedConnection");
@@ -75,6 +87,7 @@ internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenant
         {
             if (grant.GranteeType == "User" && actor.Type == "User" && grant.GranteeId == actor.Id) return true;
             if (grant.GranteeType == "Role" && actor.Type == "User" && await roles.IsMemberAsync(TenantId, actor.Id, grant.GranteeId, cancellationToken)) return true;
+            if (grant.GranteeType == "AutomationIdentity" && actor.Type == "AutomationIdentity" && grant.GranteeId == actor.Id) return true;
         }
         return false;
     }

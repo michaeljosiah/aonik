@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Unattended workflow identities (#438):** Add tenant-owned automation actors with exact published-version, action and invoice scopes, independent expiry/disable, administrator lifecycle UI and actor-aware audit. Userless MAF runs reuse existing admission/checkpoints and wait for named human financial approval. Connection recovery requires current administrator review, owner consent and explicit resume. Prevent cross-run approval consumption and ignore soft-deleted membership/permission grants; explicit role reassignment restores the original membership with a new audit entry. Canonical migration is EF-generated; SQL CI qualification remains pending.
+
 - **Decision workflow operator interface (#438):** Add server-backed decision tables/fixtures, action and pinned-account editors, exact publication/rollback previews, durable run traces and human approval/resume controls. Add My Connections and Tenant Integrations with account review, exact grants and trusted request cards in chat/playground. Shared personal accounts retain their actual consent owner. Unused-draft deletion checks connection dependencies. Automated application, HTTP and UI checks pass; live provider/Worker qualification remains open.
 
 ### Fixed

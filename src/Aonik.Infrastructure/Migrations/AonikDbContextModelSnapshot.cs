@@ -1873,6 +1873,9 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("ConfiguredByUserId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("Continuation")
                         .HasColumnType("int");
 
@@ -24808,6 +24811,82 @@ namespace Aonik.Infrastructure.Migrations
                     b.ToTable("AnkVerificationChallenges", "dbo");
                 });
 
+            modelBuilder.Entity("Aonik.Platform.Entities.Integrations.AutomationIdentity", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AccountableUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ConfiguredByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DisabledAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("DisabledByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("GrantsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("nvarchar(160)");
+
+                    b.Property<string>("PermissionsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("nvarchar(24)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Status", "ExpiresAt");
+
+                    b.ToTable("AnkAutomationIdentities", "dbo");
+                });
+
             modelBuilder.Entity("Aonik.Platform.Entities.Integrations.ConnectorConnection", b =>
                 {
                     b.Property<Guid>("Id")
@@ -25008,6 +25087,12 @@ namespace Aonik.Infrastructure.Migrations
                         .HasColumnType("nvarchar(64)");
 
                     b.Property<Guid?>("AiRunId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AutomationGrantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("AutomationIdentityId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ConnectionId")

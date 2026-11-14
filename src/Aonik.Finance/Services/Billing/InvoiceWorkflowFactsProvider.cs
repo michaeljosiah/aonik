@@ -13,7 +13,8 @@ using Aonik.SharedKernel.Abstractions.Workflows;
 namespace Aonik.Finance.Services.Billing;
 
 internal sealed class InvoiceWorkflowFactsProvider(
-    FinanceDbContext database, ITenantProvider tenantProvider, IPermissionService permissions, IUserDirectoryReader users)
+    FinanceDbContext database, ITenantProvider tenantProvider, IPermissionService permissions, IUserDirectoryReader users,
+    IAutomationIdentityAuthorization? automation = null)
     : IWorkflowFactsProvider
 {
     public string SubjectType => "Invoice";
@@ -22,7 +23,9 @@ internal sealed class InvoiceWorkflowFactsProvider(
     public async Task<WorkflowFactsSnapshot?> LoadAsync(Guid subjectId, WorkflowActor actor, CancellationToken cancellationToken = default)
     {
         Guid tenantId = tenantProvider.GetCurrentTenantId();
-        if (actor.Type != "User" || !(await users.GetByIdsAsync(tenantId, [actor.Id], cancellationToken))
+        if (actor.Type == "AutomationIdentity" && automation is not null)
+            await automation.RequireAsync(actor, "Invoice.Read", SubjectType, subjectId, cancellationToken: cancellationToken);
+        else if (actor.Type != "User" || !(await users.GetByIdsAsync(tenantId, [actor.Id], cancellationToken))
             .Any(user => user.UserId == actor.Id && user.Status == "Active")
             || !await permissions.HasPermissionAsync(actor.Id, "Invoice.Read", cancellationToken))
             throw new PermissionDeniedException("Invoice.Read");

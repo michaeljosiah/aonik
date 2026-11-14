@@ -27,7 +27,7 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
     {
         Guid userId = await authorization.RequireUserAsync("Integration.Read", cancellationToken);
         Guid tenantId = authorization.TenantId;
-        Guid[] roles = await database.UserRoles.AsNoTracking().Where(link => link.UserId == userId && link.User.TenantId == tenantId && link.Role.TenantId == tenantId)
+        Guid[] roles = await database.UserRoles.AsNoTracking().Where(link => !link.IsDeleted && link.UserId == userId && link.User.TenantId == tenantId && link.Role.TenantId == tenantId)
             .Select(link => link.RoleId).ToArrayAsync(cancellationToken);
         Guid[] granted = await database.ConnectorConnectionGrants.AsNoTracking().Where(grant => grant.TenantId == tenantId && grant.RevokedAt == null
             && (grant.ExpiresAt == null || grant.ExpiresAt > clock.UtcNow) && ((grant.GranteeType == "User" && grant.GranteeId == userId)
@@ -97,7 +97,7 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
             throw ConnectorAuthorization.Access("WorkflowBindingRequired");
         foreach (ConnectorActionRef allowed in binding.AllowedActions.Distinct())
             await authorization.RequireUseAsync(binding.ConnectionId, catalog.Resolve(allowed),
-                new(actor, workflowId, PinnedGrantId: binding.WorkflowGrantId, AllowedActions: binding.AllowedActions), cancellationToken);
+                new(actor, workflowId, actor.WorkflowVersionId, PinnedGrantId: binding.WorkflowGrantId, AllowedActions: binding.AllowedActions), cancellationToken);
     }
 
     public async Task<JsonElement> InvokeWorkflowReadAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
@@ -176,12 +176,17 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
     }
 
     private Task RecordAsync(string name, Guid connectionId, ConnectorUseContext context, ConnectorActionRef action, Guid operationId,
-        string hash, int attempt, string? error, CancellationToken cancellationToken) => audit.LogAsync(name, "ConnectorConnection", connectionId,
-            authorization.TenantId, context.Actor.Id, context.RunId?.ToString("D"), ConnectorJson.Serialize(new
+        string hash, int attempt, string? error, CancellationToken cancellationToken)
+    {
+        string details = ConnectorJson.Serialize(new
             {
                 action.Key, action.Version, operationId, context.Actor.Type, actorId = context.Actor.Id, context.WorkflowId,
                 context.WorkflowVersionId, context.RunId, context.StepRunId, argumentsHash = hash, attempt, error,
-            }), cancellationToken);
+            });
+        return context.Actor.Type == "User"
+            ? audit.LogAsync(name, "ConnectorConnection", connectionId, authorization.TenantId, context.Actor.Id, context.RunId?.ToString("D"), details, cancellationToken)
+            : audit.LogActorAsync(name, "ConnectorConnection", connectionId, authorization.TenantId, context.Actor.Type, context.Actor.Id, context.RunId?.ToString("D"), details, cancellationToken);
+    }
 
     internal static ConnectorConnectionSummary Summary(ConnectorConnection connection) => new(connection.Id, connection.ConnectorKey, connection.Ownership,
         connection.DisplayName, connection.Status, ConnectorJson.Read<List<string>>(connection.GrantedScopesJson), Convert.ToBase64String(connection.RowVersion), connection.OwnerUserId);

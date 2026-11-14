@@ -51,20 +51,37 @@ internal class AuditLogWriter : IAuditLogWriter
             resolvedCorrelationId = resolvedCorrelationId[..correlationIdMaxLength];
         }
 
+        await WriteAsync(action, resourceType, resourceId, resolvedTenantId, resolvedActorId == Guid.Empty ? "System" : "User",
+            resolvedActorId, resolvedCorrelationId, detailsJson, cancellationToken);
+    }
+
+    public Task LogActorAsync(string action, string resourceType, Guid resourceId, Guid tenantId, string actorType, Guid actorId,
+        string? correlationId, string? detailsJson = null, CancellationToken cancellationToken = default)
+    {
+        if (actorType is not ("User" or "AutomationIdentity" or "System") || (actorType != "System" && actorId == Guid.Empty))
+            throw new ArgumentException("Provide an explicit supported audit actor.");
+        string resolvedCorrelationId = correlationId ?? _correlationContext.CorrelationId ?? string.Empty;
+        return WriteAsync(action, resourceType, resourceId, tenantId, actorType, actorId,
+            resolvedCorrelationId.Length > 200 ? resolvedCorrelationId[..200] : resolvedCorrelationId, detailsJson, cancellationToken);
+    }
+
+    private async Task WriteAsync(string action, string resourceType, Guid resourceId, Guid tenantId, string actorType, Guid actorId,
+        string correlationId, string? detailsJson, CancellationToken cancellationToken)
+    {
         var auditLog = new AuditLog
         {
             Id = Guid.NewGuid(),
-            TenantId = resolvedTenantId,
+            TenantId = tenantId,
             Timestamp = _clock.UtcNow,
-            ActorType = "User",
-            ActorId = resolvedActorId,
+            ActorType = actorType,
+            ActorId = actorId,
             Action = action,
             ResourceType = resourceType,
             ResourceId = resourceId,
             DetailsJson = detailsJson ?? string.Empty,
-            CorrelationId = resolvedCorrelationId,
+            CorrelationId = correlationId,
             CreatedAt = _clock.UtcNow,
-            CreatedBy = resolvedActorId
+            CreatedBy = actorId == Guid.Empty ? null : actorId
         };
 
         _dbContext.AuditLogs.Add(auditLog);

@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
 import { connectorService, connectorError, consentUrl, type ConnectionRequest, type ConnectorActionRef, type ConnectorConnection, type ConnectorDescriptor, type ConnectorGrant } from '@/services/connectorService';
+import { AutomationIdentitiesPanel } from './AutomationIdentitiesPanel';
 
 export function MyConnectionsPage() { return <ConnectionsPage />; }
 export function TenantIntegrationsPage() { return <ConnectionsPage tenant />; }
@@ -43,6 +44,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
       <Button variant="outline" disabled={busy} onClick={() => void run(refresh)}>Refresh</Button></div>
     {error && <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</p>}
     {tenant && <IntegrationPolicyPanel disabled={busy} onSave={run} />}
+    {tenant && <AutomationIdentitiesPanel />}
     <Card><CardHeader><CardTitle>Request Gmail access</CardTitle></CardHeader><CardContent className="space-y-4">
       <p className="text-sm text-muted-foreground">{tenant ? 'An integration reviewer chooses an organizational account or completes its consent.' : 'Your account stays private unless you explicitly grant a user, role or workflow access.'} Select the actions and review Google consent before access is applied.</p>
       <ActionChoices actions={gmail?.actions ?? []} selected={actions} onChange={setActions} />
@@ -72,6 +74,7 @@ function ConnectionRequestCard({ request, accounts, disabled, onAction, highligh
   return <Card className={highlighted ? 'border-primary' : undefined}><CardHeader><CardTitle className="flex flex-wrap items-center gap-2 text-base">{request.connectorKey} · {request.ownership === 'User' ? 'Personal account' : 'Organization account'}<Badge variant="outline">{request.status}</Badge></CardTitle></CardHeader>
     <CardContent className="space-y-3 text-sm"><p>{request.purpose}</p><p className="text-muted-foreground">{request.nextAction}</p>
       {request.desiredCapability && <p>{request.desiredCapability}</p>}
+      {request.automationIdentityId && <p className="break-all rounded-md border p-3">Unattended access for automation identity {request.automationIdentityId}. A tenant workflow administrator reviews this use before the account owner consents.</p>}
       <div className="flex flex-wrap gap-2">{request.actions.map(action => <Badge key={`${action.key}:${action.version}`} variant="secondary">{action.key} · v{action.version}</Badge>)}</div>
       <details><summary className="cursor-pointer text-muted-foreground">Requested scopes and references</summary><div className="mt-2 space-y-1 break-all text-xs">
         {request.requiredScopes.map(scope => <p key={scope}>{scope}</p>)}<p>Request: {request.id}</p><p>Expires: {new Date(request.expiresAt).toLocaleString()}</p>
@@ -119,7 +122,7 @@ function ConnectionGrantPanel({ account, descriptor, disabled, onAction }: { acc
   return <div className="space-y-3 border-t pt-3"><h3 className="font-medium">Explicit use grants</h3>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {grants.map(grant => <div key={grant.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-xs"><div><p>{grant.granteeType} · {grant.granteeId}</p><p className="text-muted-foreground">{grant.actions.map(action => `${action.key}@${action.version}`).join(', ')}{grant.revokedAt && ' · Revoked'}</p></div>
       <div className="flex gap-2"><Button variant="outline" size="sm" disabled={disabled} onClick={() => { setEdited(grant); setType(grant.granteeType); setId(grant.granteeId); setActions(grant.actions); }}>{grant.revokedAt ? 'Restore' : 'Edit'}</Button>{!grant.revokedAt && <Button variant="outline" size="sm" disabled={disabled} onClick={() => void onAction(async () => { await connectorService.revokeGrant(grant); setGrants(await connectorService.grants(account.id)); })}>Revoke</Button>}</div></div>)}
-    <label className="block space-y-1 text-sm">Grantee type<NativeSelect disabled={Boolean(edited)} value={type} onChange={event => setType(event.target.value)}><option>User</option><option>Role</option><option>Workflow</option></NativeSelect></label>
+    <label className="block space-y-1 text-sm">Grantee type<NativeSelect disabled={Boolean(edited)} value={type} onChange={event => setType(event.target.value)}><option>User</option><option>Role</option><option>Workflow</option><option>AutomationIdentity</option></NativeSelect></label>
     <label className="block space-y-1 text-sm">Tenant {type.toLowerCase()} ID<Input disabled={Boolean(edited)} value={id} onChange={event => setId(event.target.value)} /></label>
     <ActionChoices actions={descriptor?.actions ?? []} selected={actions} onChange={setActions} />
     <div className="flex gap-2"><Button disabled={disabled || !/^[0-9a-f-]{36}$/i.test(id) || !actions.length || account.status !== 'Active'} onClick={() => void onAction(() => connectorService.issueGrant(account, type, id, actions, undefined, edited))}>{edited ? 'Apply these actions to this grant' : 'Grant these actions'}</Button>{edited && <Button variant="outline" onClick={() => { setEdited(undefined); setActions([]); setId(''); }}>Cancel edit</Button>}</div>

@@ -15,6 +15,11 @@ using Aonik.Finance.Services.Billing;
 using Aonik.Finance.Services.Ledger;
 using Aonik.Finance.Services.Observability;
 using Aonik.IntegrationTests.Support;
+using Aonik.Platform.Entities.Identity;
+using Aonik.Platform.Entities.Integrations;
+using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.Integrations;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.Settings;
@@ -27,8 +32,10 @@ namespace Aonik.Database.Tests;
 
 public class WorkflowRunSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
 {
-    [SkippableFact]
-    public async Task Admission_Should_DeduplicateConcurrentStarts_AndCommitOnlyOneWakeup()
+    [SkippableTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Admission_Should_DeduplicateConcurrentStarts_AndCommitOnlyOneWakeup(bool automated)
     {
         Skip.IfNot(database.IsAvailable, database.SkipReason);
         Guid tenantId = Guid.NewGuid();
@@ -51,15 +58,34 @@ public class WorkflowRunSqlServerTests(SqlLocalDbFixture database) : IClassFixtu
             await seed.SaveChangesAsync();
             versionId = version.Id;
         }
+        Guid automationId = Guid.NewGuid();
+        if (automated)
+        {
+            await using var platform = new PlatformDbContext(database.CreateOptions<PlatformDbContext>(), new TestTenantProvider(tenantId));
+            platform.Tenants.Add(new Tenant { Id = tenantId, Name = $"Automation SQL {tenantId:N}", Status = "Active" });
+            platform.Users.Add(new User { Id = actorId, TenantId = tenantId, Status = "Active", ExternalSubject = actorId.ToString() });
+            platform.AutomationIdentities.Add(new AutomationIdentity { Id = automationId, TenantId = tenantId, Name = "Invoice worker", AccountableUserId = actorId, ConfiguredByUserId = actorId,
+                PermissionsJson = ConnectorJson.Serialize(new[] { "Workflow.Read", "Workflow.Run", "Invoice.Read" }),
+                GrantsJson = ConnectorJson.Serialize(new[] { new AutomationWorkflowGrant(versionId, "Invoice", true, [], []) }) });
+            await platform.SaveChangesAsync();
+        }
         var request = new StartWorkflowRunRequest(versionId, "Invoice", subjectId, "same-admission");
+        async Task<Guid> Start(AgentsDbContext context, Guid targetSubject)
+        {
+            await using var platform = new PlatformDbContext(database.CreateOptions<PlatformDbContext>(), new TestTenantProvider(tenantId));
+            WorkflowRunService service = Service(context, tenantId, actorId, subjectId, automated
+                ? new AutomationIdentityAuthorization(platform, new TestTenantProvider(tenantId), new Clock()) : null);
+            return automated ? await service.AdmitAsync(automationId, versionId, "Invoice", targetSubject, request.IdempotencyKey)
+                : (await service.StartAsync("sql-invoice-route", request with { SubjectId = targetSubject })).Id;
+        }
         Task<Guid>[] starts = Enumerable.Range(0, 8).Select(async _ =>
         {
             await using AgentsDbContext context = Context(tenantId);
-            try { return (await Service(context, tenantId, actorId, subjectId).StartAsync("sql-invoice-route", request)).Id; }
+            try { return await Start(context, subjectId); }
             catch (WorkflowConflictException)
             {
                 await using AgentsDbContext retry = Context(tenantId);
-                return (await Service(retry, tenantId, actorId, subjectId).StartAsync("sql-invoice-route", request)).Id;
+                return await Start(retry, subjectId);
             }
         }).ToArray();
 
@@ -70,8 +96,11 @@ public class WorkflowRunSqlServerTests(SqlLocalDbFixture database) : IClassFixtu
         (await verify.WorkflowRuns.CountAsync()).Should().Be(1);
         (await verify.Set<OutboxMessage>().CountAsync(message => message.TenantId == tenantId)).Should().Be(1);
         (await verify.Workflows.SingleAsync()).TriggerCount.Should().Be(1);
-        Func<Task> changed = async () => { await Service(verify, tenantId, actorId, subjectId)
-            .StartAsync("sql-invoice-route", request with { SubjectId = Guid.NewGuid() }); };
+        WorkflowRun stored = await verify.WorkflowRuns.SingleAsync();
+        stored.ActorType.Should().Be(automated ? "AutomationIdentity" : "User");
+        stored.InitiatingUserId.Should().Be(automated ? null : actorId);
+        stored.ConfiguredByUserId.Should().Be(actorId);
+        Func<Task> changed = async () => { await Start(verify, Guid.NewGuid()); };
         await changed.Should().ThrowAsync<WorkflowConflictException>();
     }
 
@@ -148,7 +177,7 @@ public class WorkflowRunSqlServerTests(SqlLocalDbFixture database) : IClassFixtu
     }
 
     private AgentsDbContext Context(Guid tenantId) => new(database.CreateOptions<AgentsDbContext>(), new TestTenantProvider(tenantId));
-    private static WorkflowRunService Service(AgentsDbContext db, Guid tenantId, Guid userId, Guid subjectId)
+    private static WorkflowRunService Service(AgentsDbContext db, Guid tenantId, Guid userId, Guid subjectId, IAutomationIdentityAuthorization? automation = null)
     {
         var tenant = new TestTenantProvider(tenantId);
         var users = new Mock<IUserDirectoryReader>();
@@ -156,8 +185,8 @@ public class WorkflowRunSqlServerTests(SqlLocalDbFixture database) : IClassFixtu
         var settings = new Mock<ITenantSettingStore>();
         settings.Setup(store => store.GetTenantValueAsync(WorkflowSettingNames.ExecutionEnabled, tenantId, It.IsAny<CancellationToken>())).ReturnsAsync("true");
         var permissions = new AllowAllPermissionService();
-        return new(db, tenant, new(tenant, new TestCurrentUserProvider(userId), permissions),
-            new(tenant, permissions, users.Object, settings.Object, new ConfigurationBuilder().Build(), [new Facts(subjectId)]), new Clock());
+        return new(db, tenant, new(tenant, automation is null ? new TestCurrentUserProvider(userId) : Mock.Of<ICurrentUserProvider>(), permissions),
+            new(tenant, permissions, users.Object, settings.Object, new ConfigurationBuilder().Build(), [new Facts(subjectId)], automation: automation), new Clock(), automation: automation);
     }
     private sealed class Facts(Guid subjectId) : IWorkflowFactsProvider
     {

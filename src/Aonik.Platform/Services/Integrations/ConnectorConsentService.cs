@@ -167,8 +167,9 @@ internal sealed class ConnectorConsentService(PlatformDbContext database, Connec
         connection.TokenExpiresAt = tokens.ExpiresAt; connection.GrantedScopesJson = ConnectorJson.Serialize(tokens.GrantedScopes);
         connection.Status = "Active"; connection.LastHealthyAt = clock.UtcNow; connection.LastErrorCode = null;
         connection.RefreshLeaseId = null; connection.RefreshLeaseExpiresAt = null;
-        (Guid userGrant, Guid? workflowGrant) = await grants.StageConsentGrantsAsync(connection, request, userId, cancellationToken);
+        (Guid userGrant, Guid? workflowGrant, Guid? automationGrant) = await grants.StageConsentGrantsAsync(connection, request, userId, cancellationToken);
         request.GrantId = userGrant; request.WorkflowGrantId = workflowGrant; request.Status = "Fulfilled"; request.ActiveRequestHash = null;
+        request.AutomationGrantId = automationGrant;
         request.FulfilledAt = clock.UtcNow; request.FulfilledByUserId = userId;
         request.ReasonCode = "Ready"; request.NextAction = "Access is ready. Bind/publish or explicitly resume the unchanged workflow after review.";
         ConnectorConnectionRequestService.ClearConsent(request);
