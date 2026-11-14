@@ -73,7 +73,7 @@ public class ConnectorConnectionSqlServerTests(SqlLocalDbFixture database) : ICl
     private async Task SeedAsync(Guid tenantId, Guid userId)
     {
         await using PlatformDbContext db = Context(tenantId);
-        db.Tenants.Add(new Tenant { Id = tenantId, Name = "Connector SQL tests", Status = "Active" });
+        db.Tenants.Add(new Tenant { Id = tenantId, Name = $"Connector SQL tests {tenantId:N}", Status = "Active" });
         db.Users.Add(new User { Id = userId, TenantId = tenantId, Status = "Active", ExternalSubject = userId.ToString() });
         db.Settings.AddRange(new Setting { Key = IntegrationSettingNames.GmailEnabled, Scope = SettingScope.Tenant, TenantId = tenantId, Value = "true" },
             new Setting { Key = IntegrationSettingNames.GmailAllowSelfService, Scope = SettingScope.Tenant, TenantId = tenantId, Value = "true" });
