@@ -17,11 +17,14 @@ internal static partial class GraphWorkflowBuilder
         var ends = new List<GovernedEndExecutor>();
         foreach (WorkflowDefinitionNode node in definition.Nodes)
         {
-            if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Tool))
+            if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Tool) || WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Wait)
+                || WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Human))
             {
-                var prepare = new GovernedToolPrepareExecutor(node, execution);
+                bool timer = WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Wait);
+                bool human = WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Human);
+                Executor prepare = timer ? new GovernedWaitPrepareExecutor(node, execution) : human ? new GovernedHumanPrepareExecutor(node, execution) : new GovernedToolPrepareExecutor(node, execution);
                 RequestPort port = RequestPort.Create<WorkflowStepWait, WorkflowExecutionFrame>($"{node.Key}:wait");
-                var execute = new GovernedToolExecuteExecutor(node, execution);
+                Executor execute = timer ? new GovernedWaitResumeExecutor(node, execution) : human ? new GovernedHumanResumeExecutor(node, execution) : new GovernedToolExecuteExecutor(node, execution);
                 entries.Add(node.Key, prepare);
                 exits.Add(node.Key, execute);
                 ports.Add((prepare, port, execute));
@@ -43,7 +46,8 @@ internal static partial class GraphWorkflowBuilder
         foreach (var (prepare, port, execute) in ports) builder.AddEdge(prepare, port).AddEdge(port, execute);
         foreach (WorkflowDefinitionEdge edge in definition.Edges)
         {
-            bool decision = WorkflowDefinitionValidator.IsKind(definition.Nodes.Single(node => node.Key == edge.From), WorkflowNodeKinds.Decision);
+            WorkflowDefinitionNode source = definition.Nodes.Single(node => node.Key == edge.From);
+            bool decision = WorkflowDefinitionValidator.IsKind(source, WorkflowNodeKinds.Decision) || WorkflowDefinitionValidator.IsKind(source, WorkflowNodeKinds.Human);
             builder.AddEdge<WorkflowExecutionFrame>(exits[edge.From], entries[edge.To],
                 frame => frame is not null && !frame.Stopped && (!decision || frame.Route == edge.RouteKey));
         }

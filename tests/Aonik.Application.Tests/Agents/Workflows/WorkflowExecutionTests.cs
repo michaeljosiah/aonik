@@ -551,7 +551,7 @@ public partial class WorkflowExecutionTests
             using IServiceScope scope = Scope();
             return await scope.ServiceProvider.GetRequiredService<IGraphWorkflowRunner>().ContinueAsync(runId, continuation);
         }
-        public async Task<Guid> Start()
+        public async Task<Guid> Start(Func<WorkflowSaveRequest, WorkflowSaveRequest>? configure = null)
         {
             using IServiceScope scope = Scope();
             IServiceProvider services = scope.ServiceProvider;
@@ -560,7 +560,9 @@ public partial class WorkflowExecutionTests
                 CustomerAccountId = Guid.NewGuid(), Currency = "GBP", Total = 1250.25m, Status = "Draft", CreatedBy = Actor.Author, ProvenanceJson = "{}" });
             await finance.SaveChangesAsync();
             IWorkflowService workflows = services.GetRequiredService<IWorkflowService>();
-            WorkflowGraphResponse draft = await workflows.CreateAsync(Draft());
+            WorkflowSaveRequest request = Draft();
+            if (configure is not null) request = configure(request);
+            WorkflowGraphResponse draft = await workflows.CreateAsync(request);
             WorkflowValidation validation = (await workflows.ValidateAsync(draft.Slug))!;
             validation.Diagnostics.Where(item => item.Severity == "Error").Should().BeEmpty();
             WorkflowGovernanceRequestResult publication = await services.GetRequiredService<WorkflowGovernanceService>()

@@ -28,7 +28,7 @@ import {
   outPortPos,
   outputCount,
 } from './editorGeometry';
-import { decisionRoutes } from './decisionParameters';
+import { nodeRoutes } from './decisionParameters';
 import type { WorkflowNode } from './workflowTypes';
 
 const ICON_BY_NAME: Record<string, LucideIcon> = {
@@ -287,8 +287,8 @@ export function NodeShape({
                 fill="var(--muted-foreground)"
                 pointerEvents="none"
               >
-                {node.kind === 'decision'
-                  ? decisionRoutes(node.params)[idx]
+                {node.kind === 'decision' || node.kind === 'human'
+                  ? nodeRoutes(node.kind, node.params)[idx]
                   : idx === 0
                     ? 'body'
                     : 'done'}

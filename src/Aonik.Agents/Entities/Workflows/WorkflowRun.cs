@@ -19,6 +19,7 @@ public class WorkflowRun : AuditableEntity, ITenantScoped
     public DateTime StartedAt { get; set; }
 
     public DateTime? CompletedAt { get; set; }
+    public DateTime? DeadlineUtc { get; set; }
 
     /// <summary>One of <see cref="WorkflowRunStatuses"/>.</summary>
     public string Status { get; set; } = WorkflowRunStatuses.Running;

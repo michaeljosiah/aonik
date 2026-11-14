@@ -30,7 +30,7 @@ import { EditorPalette } from './EditorPalette';
 import { EditorInspector } from './EditorInspector';
 import { HistoryPanel, TraceBar } from './EditorPanels';
 import { WorkflowQualificationPanel } from './WorkflowQualificationPanel';
-import { decisionRoutes, invoiceDecision, replaceNodeParameters } from './decisionParameters';
+import { nodeRoutes, humanTaskParameters, invoiceDecision, replaceNodeParameters } from './decisionParameters';
 
 // Validation — derive errors from the graph state.
 // Mirrors computeValidation() in workflow-editor-screen.jsx.
@@ -179,12 +179,12 @@ export function WorkflowEditorPage() {
         const newId = 'e' + Math.random().toString(36).slice(2, 7);
         const fromNode = w.nodes.find((n) => n.id === from);
         let label: string | undefined;
-        if (fromNode?.kind === 'decision') {
-          label = decisionRoutes(fromNode.params)[fromIdx];
+        if (fromNode?.kind === 'decision' || fromNode?.kind === 'human') {
+          label = nodeRoutes(fromNode.kind, fromNode.params)[fromIdx];
         } else if (fromNode?.kind === 'loop') {
           label = fromIdx === 0 ? 'body' : 'done';
         }
-        const next: WorkflowEdge = { id: newId, from, to, fromIdx, label, routeKey: fromNode?.kind === 'decision' ? label : undefined };
+        const next: WorkflowEdge = { id: newId, from, to, fromIdx, label, routeKey: fromNode?.kind === 'decision' || fromNode?.kind === 'human' ? label : undefined };
         return { ...w, edges: [...w.edges, next] };
       });
       dirty();
@@ -210,6 +210,7 @@ export function WorkflowEditorPage() {
         w
           ? {
               ...w,
+              ...(kind === 'wait' || kind === 'human' ? { schemaVersion: 2 } : {}),
               nodes: [
                 ...w.nodes,
                 {
@@ -219,7 +220,7 @@ export function WorkflowEditorPage() {
                   y,
                   label: k.label,
                   summary: '',
-                  params: kind === 'decision' ? invoiceDecision() : { ...(k.defaults as WorkflowNodeParams) },
+                  params: kind === 'decision' ? invoiceDecision() : kind === 'human' ? humanTaskParameters() : { ...(k.defaults as WorkflowNodeParams) },
                 },
               ],
             }

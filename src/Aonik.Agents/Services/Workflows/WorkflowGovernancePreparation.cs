@@ -56,7 +56,7 @@ internal sealed class WorkflowGovernancePreparation(
             target = await database.WorkflowVersions.AsNoTracking().SingleOrDefaultAsync(
                 version => version.TenantId == workflow.TenantId && version.WorkflowId == workflow.Id && version.Id == targetId, cancellationToken)
                 ?? throw new KeyNotFoundException("Workflow version not found.");
-            if (target.PublishedAt is null || target.DefinitionJson is null || target.SchemaVersion != 1)
+            if (target.PublishedAt is null || target.DefinitionJson is null || target.SchemaVersion is not (1 or 2))
                 throw new WorkflowConflictException("Rollback requires a previously published executable snapshot.");
             definition = JsonSerializer.Deserialize<WorkflowDefinition>(target.DefinitionJson, WorkflowDefinitionCodec.JsonOptions)
                 ?? throw new WorkflowConflictException("Workflow snapshot is invalid.");

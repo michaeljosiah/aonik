@@ -14,7 +14,7 @@ namespace Aonik.Agents.Workflows.Graph;
 
 /// <summary>Stores MAF's serialized state; graph control flow remains in MAF.</summary>
 internal sealed class WorkflowCheckpointStore(AgentsDbContext database, WorkflowRun run, Guid leaseId, IClock clock,
-    CancellationToken cancellationToken = default)
+    CancellationToken cancellationToken = default, int runtimeSchemaVersion = 1)
     : ICheckpointStore<JsonElement>
 {
     internal const int FormatVersion = 1;
@@ -38,7 +38,7 @@ internal sealed class WorkflowCheckpointStore(AgentsDbContext database, Workflow
             TenantId = run.TenantId, RunId = run.Id, WorkflowVersionId = run.WorkflowVersionId!.Value,
             FrameworkSessionId = sessionId, CheckpointId = Guid.NewGuid().ToString("N"),
             ParentCheckpointId = parent?.CheckpointId, Sequence = ordinal,
-            FormatVersion = FormatVersion, FrameworkVersion = FrameworkVersion, StateJson = json,
+            FormatVersion = FormatVersion, RuntimeSchemaVersion = runtimeSchemaVersion, FrameworkVersion = FrameworkVersion, StateJson = json,
         };
         database.WorkflowCheckpoints.Add(saved);
         run.FrameworkSessionId = sessionId;
@@ -55,7 +55,8 @@ internal sealed class WorkflowCheckpointStore(AgentsDbContext database, Workflow
             checkpoint => checkpoint.TenantId == run.TenantId && checkpoint.RunId == run.Id
                 && checkpoint.FrameworkSessionId == sessionId && checkpoint.CheckpointId == key.CheckpointId, cancellationToken)
             ?? throw new WorkflowExecutionException("CheckpointMissing");
-        if (saved.WorkflowVersionId != run.WorkflowVersionId || saved.FormatVersion != FormatVersion || saved.FrameworkVersion != FrameworkVersion)
+        if (saved.WorkflowVersionId != run.WorkflowVersionId || saved.FormatVersion != FormatVersion || saved.FrameworkVersion != FrameworkVersion
+            || saved.RuntimeSchemaVersion != runtimeSchemaVersion)
             throw new WorkflowExecutionException("CheckpointIncompatible");
         return JsonSerializer.Deserialize<JsonElement>(saved.StateJson);
     }

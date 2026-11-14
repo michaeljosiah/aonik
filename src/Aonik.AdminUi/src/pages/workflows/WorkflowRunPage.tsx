@@ -43,8 +43,9 @@ export function WorkflowRunPage() {
       {run.configuredByUserId && <p>Configured by: {run.configuredByUserId}</p>}{run.initiatingUserId && <p>Initiating user: {run.initiatingUserId}</p>}
       {run.source && <div className="space-y-1 break-all text-xs"><p>Automatic trigger: {run.source.bindingId} · revision {run.source.revision}</p><p>Source event: {run.source.eventId} · {new Date(run.source.occurredAtUtc).toLocaleString()}</p>{run.source.causationRunId && <p>Caused by <Link className="text-primary underline" to={`/ai/workflow-runs/${run.source.causationRunId}`}>{run.source.causationRunId}</Link></p>}</div>}
       {run.outcome && <p>Outcome: {run.outcome}</p>}{run.errorCode && <p>Held reason: {run.errorCode}</p>}
+      {run.waitUntilUtc && <p>Recorded wait ends: {new Date(run.waitUntilUtc).toLocaleString()}</p>}{run.deadlineUtc && <p>Overall run deadline: {new Date(run.deadlineUtc).toLocaleString()}</p>}
       <div className="flex flex-wrap gap-2 pt-2">
-        {(run.status === 'WaitingForConnection' || run.status === 'NeedsAttention') && <Button disabled={busy} onClick={() => void act(() => workflowService.resume(run))}>Revalidate and resume this run</Button>}
+        {(run.status === 'WaitingForConnection' || run.status === 'NeedsAttention' || (run.status === 'WaitingForTimer' && run.waitUntilUtc && Date.parse(run.waitUntilUtc) <= Date.now())) && <Button disabled={busy} onClick={() => void act(() => workflowService.resume(run))}>Revalidate and resume this run</Button>}
         {!['Completed', 'Cancelled', 'Failed'].includes(run.status) && <Button disabled={busy} variant="outline" onClick={() => void act(() => workflowService.cancelRun(run))}>Cancel remaining work</Button>}
         {run.status === 'WaitingForConnection' && pending && <Button disabled={busy} variant="outline" onClick={() => void act(async () => {
           const request = await connectorService.createRequest({ connectorKey: 'gmail', ownership: 'User', actions: [{ key: pending.actionKey!, version: pending.actionVersion! }],
@@ -57,7 +58,11 @@ export function WorkflowRunPage() {
     <section className="space-y-3" aria-label="Ordered workflow trace"><h2 className="text-lg font-semibold">Recorded steps</h2>
       {run.steps.map((step, index) => <Card key={step.id}><CardHeader><CardTitle className="flex flex-wrap items-center gap-2 text-base">{index + 1}. {step.nodeKey}<Badge variant="outline">{step.status}</Badge></CardTitle></CardHeader><CardContent className="space-y-3 text-sm">
         {step.actionKey && <p>{step.actionKey} · v{step.actionVersion}</p>}{step.selectedRoute && <p>Selected route: {step.selectedRoute}</p>}{step.errorCode && <p>{step.errorCode}</p>}
-        {step.approval && <ServerApprovalCard approval={{ id: step.approval.id, kind: step.approval.riskTier === 'High' ? 'high' : 'medium', approvalRequestId: step.approval.id,
+        {step.approval?.humanTask && <div className="space-y-2 rounded-md border p-3" aria-label="Human task response"><p className="font-medium">{step.approval.humanTask.purpose}</p><p className="text-xs text-muted-foreground">{step.approval.status} · response deadline {new Date(step.approval.expiresAt).toLocaleString()}. A response selects the next route; later financial actions require their own approval.</p>
+          {step.approval.humanTask.response && <p>Recorded choice: {step.approval.humanTask.response.choice} · reviewer {step.approval.humanTask.decidedByUserId}</p>}
+          {step.approval.status === 'Pending' && <div className="flex flex-wrap gap-2">{step.approval.humanTask.choices.map(choice => <Button key={choice.key} disabled={busy || !step.approval!.canDecide} onClick={() => void act(() => workflowService.decide(step.approval!.id, 'Approve', { choice: choice.key }))}>{choice.label}</Button>)}<Button variant="outline" disabled={busy || !step.approval.canDecide} onClick={() => void act(() => workflowService.decide(step.approval!.id, 'Reject'))}>Reject task</Button></div>}
+        </div>}
+        {step.approval && !step.approval.humanTask && <ServerApprovalCard approval={{ id: step.approval.id, kind: step.approval.riskTier === 'High' ? 'high' : 'medium', approvalRequestId: step.approval.id,
           proposalId: step.proposalId ?? undefined, tool: step.actionKey ?? '', tier: step.approval.riskTier, actionKind: step.approval.actionKind,
           preview: step.approval.preview ?? undefined, message: `Status: ${step.approval.status}. Review expires ${new Date(step.approval.expiresAt).toLocaleString()}.`,
           status: busy ? 'deciding' : step.approval.status === 'Approved' ? 'approved' : step.approval.status === 'Rejected' ? 'rejected' : step.approval.status === 'Pending' ? 'pending' : 'error' } satisfies ServerApprovalState}

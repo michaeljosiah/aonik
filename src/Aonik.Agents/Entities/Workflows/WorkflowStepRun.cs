@@ -28,5 +28,6 @@ public class WorkflowStepRun : AuditableEntity, ITenantScoped
     public int Attempts { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? CompletedAt { get; set; }
+    public DateTime? DeadlineUtc { get; set; }
     public string? ErrorCode { get; set; }
 }

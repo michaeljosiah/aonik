@@ -32,7 +32,9 @@ public sealed record WorkflowCapabilities(
     IReadOnlyList<string> ComparisonOperators,
     JsonElement DecisionParametersSchema,
     IReadOnlyList<WorkflowActionCapability>? Actions = null,
-    JsonElement? ToolParametersSchema = null);
+    JsonElement? ToolParametersSchema = null,
+    JsonElement? WaitParametersSchema = null,
+    JsonElement? HumanParametersSchema = null);
 
 public sealed record WorkflowActionCapability(string Key, int ContractVersion, string RequiredPermission, string RiskTier,
     JsonElement InputSchema, JsonElement OutputSchema);

@@ -70,4 +70,6 @@ Use the existing workflow retirement/rollback proposal for a bad published graph
 
 ## Qualification evidence
 
+Workflow schema v2 adds durable waits and typed human tasks. Choose one wait duration or an explicit UTC deadline; a run retains its original deadline across restarts and has a seven-day lifetime. An operator can revalidate a due timer but cannot shorten it. For a human task, select a current tenant user or role, purpose, bounded choices and timeout, then wire every response/rejection/timeout route. The recorded expiry is a WorkItem; named-user tasks carry that assignment without turning the worker into that user. Review and respond from the run page. Responses are hash-bound audit evidence, and subsequent financial actions still require their own approval. Cancelling the run invalidates its pending response and timer. Schema v1 publications and checkpoints retain their original interpretation.
+
 Spec 099 sections 13.1–13.8 and GitHub epic #438 carry commit/CI evidence. SQL migration and concurrency qualification runs in CI against an isolated SQL Server container because LocalDB cannot initialize on this development machine. A live consenting Gmail/Pub/Sub rehearsal and the full automatic document/payment/mail journey remain distinct release gates; passing local fixtures does not establish those external prerequisites.

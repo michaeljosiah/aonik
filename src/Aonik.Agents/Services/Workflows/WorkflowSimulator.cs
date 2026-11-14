@@ -38,6 +38,23 @@ internal static class WorkflowSimulator
                 steps.Add(new(current.Key, current.Kind, "Simulated"));
                 return new("Fixture", "Completed", hash, steps, diagnostics);
             }
+            else if (WorkflowDefinitionValidator.IsKind(current, WorkflowNodeKinds.Wait))
+                fixture = current.Parameters.Clone();
+            else if (WorkflowDefinitionValidator.IsKind(current, WorkflowNodeKinds.Human))
+            {
+                if (request.ActionOutputs is null || !request.ActionOutputs.TryGetValue(current.Key, out JsonElement response))
+                {
+                    steps.Add(new(current.Key, current.Kind, "NeedsFixture"));
+                    return new("Fixture", "NeedsFixture", hash, steps, diagnostics);
+                }
+                WorkflowHumanParameters parameters = WorkflowHumanTaskContract.Parameters(current);
+                string? key = response.ValueKind == JsonValueKind.Object && response.TryGetProperty("choice", out JsonElement value)
+                    && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+                route = key switch { "$reject" => parameters.RejectRoute, "$timeout" => parameters.TimeoutRoute,
+                    _ => parameters.Choices.SingleOrDefault(choice => choice.Key == key)?.Route };
+                if (route is null) return new("Fixture", "Invalid", hash, steps, [new("HumanFixture", current.Key, "Select a published response, $reject or $timeout.")]);
+                fixture = response.Clone();
+            }
             else if (!WorkflowDefinitionValidator.IsKind(current, WorkflowNodeKinds.Trigger))
             {
                 if (request.ActionOutputs is null || !request.ActionOutputs.TryGetValue(current.Key, out JsonElement output))

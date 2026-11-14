@@ -14,7 +14,7 @@ namespace Aonik.Agents.Services.Workflows;
 internal sealed class WorkflowPublicationValidator(
     WorkflowActionRegistry actions, ITenantRoleReader roles, ITenantProvider tenantProvider,
     WorkflowExecutionAuthorization authorization, IEnumerable<IConnectorDescriptor>? connectors = null,
-    IConnectorService? connectorService = null, ICurrentUserProvider? currentUser = null)
+    IConnectorService? connectorService = null, ICurrentUserProvider? currentUser = null, IUserDirectoryReader? users = null, IClock? clock = null)
 {
     public async Task<IReadOnlyList<WorkflowActionCapability>> CapabilitiesAsync(CancellationToken cancellationToken = default)
     {
@@ -32,11 +32,25 @@ internal sealed class WorkflowPublicationValidator(
     public async Task<IReadOnlyList<WorkflowDiagnostic>> ValidateAsync(WorkflowDefinition definition, CancellationToken cancellationToken = default, Guid? workflowId = null)
     {
         var diagnostics = WorkflowDefinitionValidator.Validate(definition, forPublication: true).ToList();
-        if (definition.Nodes.Count > 30) diagnostics.Add(new("ExecutableNodeLimit", "nodes", "Executable workflows support at most 30 nodes."));
+        int maximumNodes = definition.SchemaVersion == 1 ? 30 : WorkflowControlLimits.MaximumGraphNodes;
+        if (definition.Nodes.Count > maximumNodes) diagnostics.Add(new("ExecutableNodeLimit", "nodes", $"This workflow schema supports at most {maximumNodes} nodes."));
         if (diagnostics.Any(diagnostic => diagnostic.Severity == "Error")) return diagnostics;
         Dictionary<string, HashSet<string>> dominators = Dominators(definition);
         foreach (WorkflowDefinitionNode node in definition.Nodes)
         {
+            if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Wait)
+                && node.Parameters.Deserialize<WorkflowWaitParameters>(WorkflowDefinitionCodec.JsonOptions)?.UntilUtc is { } until
+                && until > (clock?.UtcNow ?? DateTime.UtcNow).AddSeconds(WorkflowControlLimits.MaximumLifetimeSeconds))
+                diagnostics.Add(new("WaitDeadline", node.Key, "A wait deadline must be within seven days at publication."));
+            if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Human))
+            {
+                WorkflowHumanReviewer reviewer = WorkflowHumanTaskContract.Parameters(node).Reviewer;
+                Guid tenantId = tenantProvider.GetCurrentTenantId();
+                if ((reviewer.RoleId is { } roleId && !await roles.ExistsAsync(tenantId, roleId, cancellationToken))
+                    || (reviewer.UserId is { } userId && (users is null || !(await users.GetByIdsAsync(tenantId, [userId], cancellationToken))
+                        .Any(user => user.UserId == userId && user.Status == "Active"))))
+                    diagnostics.Add(new("HumanReviewer", node.Key, "Select a current tenant user or reviewer role."));
+            }
             if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Decision))
             {
                 DecisionTable table = node.Parameters.Deserialize<DecisionTable>(WorkflowDefinitionCodec.JsonOptions)!;

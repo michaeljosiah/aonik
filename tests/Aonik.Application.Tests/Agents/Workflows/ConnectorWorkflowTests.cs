@@ -177,6 +177,7 @@ public class ConnectorWorkflowTests
                 services.AddSingleton(Mock.Of<IToolApprovalService>());
                 services.AddScoped<WorkflowAuthorization>(); services.AddScoped<WorkflowExecutionAuthorization>();
                 services.AddScoped<WorkflowInvocationContext>(); services.AddScoped<WorkflowActionRegistry>();
+                services.AddScoped<WorkflowReviewerAuthorization>();
                 services.AddScoped<WorkflowStepExecutionService>(); services.AddScoped<IGraphWorkflowRunner, GraphWorkflowRunner>();
                 services.AddScoped<WorkflowRunService>();
                 services.AddScoped<IWorkflowRunService>(provider => provider.GetRequiredService<WorkflowRunService>());

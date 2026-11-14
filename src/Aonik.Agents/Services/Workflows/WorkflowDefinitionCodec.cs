@@ -22,7 +22,7 @@ internal static class WorkflowDefinitionCodec
     public static WorkflowDefinition FromGraph(WorkflowGraphResponse graph)
     {
         Dictionary<Guid, string> keys = graph.Nodes.ToDictionary(node => node.Id, NodeKey);
-        return new(1, graph.DefinitionKind, graph.Slug, graph.Name, graph.Description,
+        return new(graph.SchemaVersion, graph.DefinitionKind, graph.Slug, graph.Name, graph.Description,
             graph.Nodes.OrderBy(NodeKey, StringComparer.Ordinal)
                 .Select(node => new WorkflowDefinitionNode(NodeKey(node), node.Kind, node.Label,
                     JsonSerializer.Deserialize<JsonElement>(node.ParamsJson, JsonOptions))).ToList(),
@@ -52,6 +52,10 @@ internal static class WorkflowDefinitionCodec
 
     public static JsonElement ToolSchema() => JsonSerializer.SerializeToElement(
         JsonOptions.GetJsonSchemaAsNode(typeof(WorkflowToolParameters)));
+    public static JsonElement WaitSchema() => JsonSerializer.SerializeToElement(
+        JsonOptions.GetJsonSchemaAsNode(typeof(WorkflowWaitParameters)));
+    public static JsonElement HumanSchema() => JsonSerializer.SerializeToElement(
+        JsonOptions.GetJsonSchemaAsNode(typeof(WorkflowHumanParameters)));
 
     private static void WriteCanonical(Utf8JsonWriter writer, JsonElement element)
     {

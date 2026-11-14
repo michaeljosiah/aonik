@@ -215,7 +215,8 @@ internal sealed class WorkflowService : IWorkflowService
                 c.Id, c.X, c.Y, c.Author, c.Body)).ToList(),
             ExpectedVersion: Convert.ToBase64String(workflow.RowVersion),
             DefinitionKind: workflow.DefinitionKind,
-            PublishedVersionId: workflow.PublishedVersionId);
+            PublishedVersionId: workflow.PublishedVersionId,
+            SchemaVersion: workflow.DefinitionSchemaVersion);
     }
 
     public async Task<IReadOnlyList<WorkflowRunResponse>> ListRunsAsync(
@@ -363,6 +364,8 @@ internal sealed class WorkflowService : IWorkflowService
         {
             Actions = _publication is null ? [] : await _publication.CapabilitiesAsync(cancellationToken),
             ToolParametersSchema = WorkflowDefinitionCodec.ToolSchema(),
+            WaitParametersSchema = WorkflowDefinitionCodec.WaitSchema(),
+            HumanParametersSchema = WorkflowDefinitionCodec.HumanSchema(),
         };
     }
 
@@ -372,6 +375,7 @@ internal sealed class WorkflowService : IWorkflowService
         workflow.Name = request.Name;
         workflow.Description = request.Description ?? "";
         workflow.DefinitionKind = request.DefinitionKind;
+        workflow.DefinitionSchemaVersion = request.SchemaVersion;
         workflow.AutoRetry = request.AutoRetry;
         workflow.OwnerColor = request.OwnerColor ?? "";
         workflow.OwnerAgentId = request.OwnerAgentId;
@@ -454,7 +458,7 @@ internal sealed class WorkflowService : IWorkflowService
     private void AddSnapshot(Workflow workflow, List<WorkflowNode> nodes, List<WorkflowEdge> edges, Guid userId, string? message)
     {
         Dictionary<Guid, string> keys = nodes.ToDictionary(node => node.Id, node => node.LogicalKey!);
-        var definition = new WorkflowDefinition(1, workflow.DefinitionKind, workflow.Slug, workflow.Name, workflow.Description,
+        var definition = new WorkflowDefinition(workflow.DefinitionSchemaVersion, workflow.DefinitionKind, workflow.Slug, workflow.Name, workflow.Description,
             nodes.OrderBy(node => node.LogicalKey, StringComparer.Ordinal).Select(node => new WorkflowDefinitionNode(
                 node.LogicalKey!, node.Kind, node.Label, JsonSerializer.Deserialize<JsonElement>(node.ParamsJson))).ToList(),
             edges.Select(edge => new WorkflowDefinitionEdge(WorkflowDefinitionCodec.EdgeKey(keys[edge.FromNodeId], keys[edge.ToNodeId], edge.FromIndex, edge.RouteKey),
@@ -496,6 +500,7 @@ internal sealed class WorkflowService : IWorkflowService
             throw new ArgumentException("Workflow metadata exceeds the supported limits.");
         if (request.DefinitionKind is not ("Workflow" or "DecisionLibrary"))
             throw new ArgumentException("Unknown workflow definition kind.");
+        if (request.SchemaVersion is not (1 or 2)) throw new ArgumentException("Use a supported workflow definition schema version.");
         if (request.Nodes is null || request.Edges is null || request.Contributors is null
             || request.Nodes.Count > WorkflowDefinitionValidator.MaxNodes || request.Edges.Count > WorkflowDefinitionValidator.MaxEdges
             || request.Contributors.Count > 64)

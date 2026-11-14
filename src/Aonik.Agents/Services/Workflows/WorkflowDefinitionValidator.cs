@@ -21,19 +21,20 @@ internal static class WorkflowDefinitionValidator
     internal static readonly IReadOnlySet<string> GovernedKinds = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
         WorkflowNodeKinds.Trigger, WorkflowNodeKinds.Decision, WorkflowNodeKinds.Tool, WorkflowNodeKinds.End,
+        WorkflowNodeKinds.Wait, WorkflowNodeKinds.Human,
     };
 
-    public static WorkflowCapabilities Capabilities() => new(1, MaxNodes, MaxEdges,
+    public static WorkflowCapabilities Capabilities() => new(2, MaxNodes, MaxEdges,
         KnownKinds.Order(StringComparer.Ordinal).Select(kind => new WorkflowCapability(kind,
-            kind is not (WorkflowNodeKinds.Loop or WorkflowNodeKinds.Wait or WorkflowNodeKinds.Human),
+            kind != WorkflowNodeKinds.Loop,
             GovernedKinds.Contains(kind))).ToList(), [DecisionTableEvaluator.InvoiceSchema],
         DecisionTableEvaluator.FactFields(), DecisionTableEvaluator.ComparisonOperators(), WorkflowDefinitionCodec.DecisionSchema());
 
     public static IReadOnlyList<WorkflowDiagnostic> Validate(WorkflowDefinition definition, bool forPublication)
     {
         var errors = new List<WorkflowDiagnostic>();
-        if (definition.SchemaVersion != 1 || definition.DefinitionKind != "Workflow")
-            errors.Add(new("DefinitionSchema", "definition", "Use workflow definition schema 1."));
+        if (definition.SchemaVersion is not (1 or 2) || definition.DefinitionKind != "Workflow")
+            errors.Add(new("DefinitionSchema", "definition", "Use a supported workflow definition schema."));
         if (definition.Nodes.Count == 0 || definition.Nodes.Count > MaxNodes || definition.Edges.Count > MaxEdges)
         {
             errors.Add(new("GraphSize", "nodes", $"Provide 1–{MaxNodes} nodes and at most {MaxEdges} edges."));
@@ -60,14 +61,34 @@ internal static class WorkflowDefinitionValidator
         foreach (WorkflowDefinitionNode node in definition.Nodes)
         {
             if (!KnownKinds.Contains(node.Kind)) errors.Add(new("UnknownKind", node.Key, "Unknown node kind."));
-            if (forPublication && !GovernedKinds.Contains(node.Kind))
+            bool versionTwoControl = IsKind(node, WorkflowNodeKinds.Wait) || IsKind(node, WorkflowNodeKinds.Human);
+            if (forPublication && (!GovernedKinds.Contains(node.Kind) || (definition.SchemaVersion == 1 && versionTwoControl)))
                 errors.Add(new("CapabilityUnavailable", node.Key, "This governed executor is not yet available."));
-            if (!forPublication && (IsKind(node, WorkflowNodeKinds.Loop) || IsKind(node, WorkflowNodeKinds.Wait) || IsKind(node, WorkflowNodeKinds.Human)))
+            if (!forPublication && (IsKind(node, WorkflowNodeKinds.Loop) || (definition.SchemaVersion == 1 && versionTwoControl)))
                 errors.Add(new("CapabilityUnavailable", node.Key, "Simulation for this control-flow node is not yet available."));
+            if (IsKind(node, WorkflowNodeKinds.Wait))
+            {
+                try { ValidateWait(node.Parameters.Deserialize<WorkflowWaitParameters>(WorkflowDefinitionCodec.JsonOptions)); }
+                catch (Exception exception) when (exception is JsonException or ArgumentException)
+                { errors.Add(new("WaitParameters", node.Key, "Provide exactly one UTC deadline or a delay of 1–604800 seconds, using wait schema 1 in workflow schema 2.")); }
+            }
             List<WorkflowDefinitionEdge> outgoing = definition.Edges.Where(edge => edge.From == node.Key).ToList();
             if (IsKind(node, WorkflowNodeKinds.End))
             {
                 if (outgoing.Count != 0) errors.Add(new("TerminalEdge", node.Key, "End cannot have outgoing edges."));
+            }
+            else if (IsKind(node, WorkflowNodeKinds.Human))
+            {
+                try
+                {
+                    WorkflowHumanParameters human = WorkflowHumanTaskContract.Parameters(node);
+                    HashSet<string> routes = human.Choices.Select(choice => choice.Route).Append(human.RejectRoute).Append(human.TimeoutRoute).ToHashSet(StringComparer.Ordinal);
+                    if (outgoing.Count != routes.Count || outgoing.Any(edge => edge.RouteKey is null || !routes.Contains(edge.RouteKey))
+                        || outgoing.Select(edge => edge.RouteKey).Distinct(StringComparer.Ordinal).Count() != routes.Count)
+                        errors.Add(new("HumanRoutes", node.Key, "Map every response, rejection and timeout route to exactly one outgoing edge."));
+                }
+                catch (Exception exception) when (exception is JsonException or ArgumentException)
+                { errors.Add(new("HumanParameters", node.Key, exception.Message)); }
             }
             else if (IsKind(node, WorkflowNodeKinds.Decision))
             {
@@ -152,4 +173,11 @@ internal static class WorkflowDefinitionValidator
     }
 
     internal static bool IsKind(WorkflowDefinitionNode node, string kind) => string.Equals(node.Kind, kind, StringComparison.OrdinalIgnoreCase);
+
+    internal static void ValidateWait(WorkflowWaitParameters? wait)
+    {
+        if (wait is null || wait.SchemaVersion != 1 || wait.DelaySeconds.HasValue == wait.UntilUtc.HasValue
+            || wait.DelaySeconds is < 1 or > WorkflowControlLimits.MaximumLifetimeSeconds || wait.UntilUtc is { Kind: not DateTimeKind.Utc })
+            throw new ArgumentException("Invalid bounded wait contract.");
+    }
 }

@@ -19,7 +19,8 @@ public sealed record WorkflowSaveRequest(
     IReadOnlyList<WorkflowSaveEdge> Edges,
     string? VersionMessage,
     string? ExpectedVersion = null,
-    string DefinitionKind = "Workflow");
+    string DefinitionKind = "Workflow",
+    int SchemaVersion = 1);
 
 public sealed record WorkflowSaveNode(
     /// <summary>Identifier the client uses to reference this node in

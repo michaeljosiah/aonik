@@ -61,10 +61,10 @@ internal sealed partial class GraphWorkflowRunner
             context.OriginatingAiRunId = version.AiRunId;
             var definition = WorkflowRunService.ReadDefinition(version);
             context.Definition = definition;
-            if (definition.Nodes.Count > 30) throw new WorkflowExecutionException("GraphLimitExceeded");
+            if (definition.Nodes.Count > (definition.SchemaVersion == 1 ? 30 : Contracts.Models.Workflows.WorkflowControlLimits.MaximumGraphNodes)) throw new WorkflowExecutionException("GraphLimitExceeded");
             WorkflowStepExecutionService execution = scope.ServiceProvider.GetRequiredService<WorkflowStepExecutionService>();
             var workflow = GraphWorkflowBuilder.BuildGoverned(definition, execution);
-            var checkpoints = CheckpointManager.CreateJson(new WorkflowCheckpointStore(database, run, lease, clock, budget.Token));
+            var checkpoints = CheckpointManager.CreateJson(new WorkflowCheckpointStore(database, run, lease, clock, budget.Token, definition.SchemaVersion));
             await using StreamingRun streaming = run.CheckpointId is { } checkpoint
                 ? await InProcessExecution.ResumeStreamingAsync(workflow,
                     new CheckpointInfo(run.FrameworkSessionId ?? throw new WorkflowExecutionException("CheckpointScopeMismatch"), checkpoint), checkpoints, budget.Token)
@@ -101,13 +101,14 @@ internal sealed partial class GraphWorkflowRunner
                 run.PendingStepRunId = step.Id;
                 await database.SaveChangesAsync(budget.Token);
                 WorkflowExecutionFrame? response = await execution.ReadyResponseAsync(wait, budget.Token);
+                string waitingStatus = wait.Kind == "Timer" ? WorkflowRunStatuses.WaitingForTimer : WorkflowRunStatuses.WaitingForApproval;
                 if (response is null)
                 {
-                    run.Status = WorkflowRunStatuses.WaitingForApproval;
+                    run.Status = waitingStatus;
                     await database.SaveChangesAsync(budget.Token);
                     // Covers a decision that committed between the first read and the saved wait.
                     response = await execution.ReadyResponseAsync(wait, budget.Token);
-                    if (response is null) { status = WorkflowRunStatuses.WaitingForApproval; break; }
+                    if (response is null) { status = waitingStatus; break; }
                 }
                 run.Status = WorkflowRunStatuses.Running;
                 await database.SaveChangesAsync(budget.Token);
@@ -128,7 +129,7 @@ internal sealed partial class GraphWorkflowRunner
                 OperationCanceledException => "ActiveTimeLimit",
                 _ => "ExecutionFailed",
             };
-            status = error is "WorkflowRetired" or "RunCancelled" or "TriggerDisabled" ? WorkflowRunStatuses.Cancelled : WorkflowRunStatuses.NeedsAttention;
+            status = error is "WorkflowRetired" or "RunCancelled" or "TriggerDisabled" or "RunDeadlineExceeded" ? WorkflowRunStatuses.Cancelled : WorkflowRunStatuses.NeedsAttention;
             if (cause is ConnectorAccessException || (cause is ConnectorProviderException && error is "ReauthorizationRequired" or "InsufficientScopes"))
                 status = WorkflowRunStatuses.WaitingForConnection;
             outcome = error == "SubjectChanged" ? "NeedsManualReview" : null;

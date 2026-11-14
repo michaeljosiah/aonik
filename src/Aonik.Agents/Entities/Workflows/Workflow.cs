@@ -47,6 +47,7 @@ public class Workflow : AuditableEntity, ITenantScoped
     public int TriggerCount { get; set; }
 
     public string DefinitionKind { get; set; } = "Workflow";
+    public int DefinitionSchemaVersion { get; set; } = 1;
     public Guid? PublishedVersionId { get; set; }
     public DateTime? RetiredAt { get; set; }
     public Guid? RetiredByUserId { get; set; }

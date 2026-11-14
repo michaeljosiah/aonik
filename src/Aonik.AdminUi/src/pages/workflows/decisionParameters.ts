@@ -13,12 +13,24 @@ export function decisionRoutes(params: WorkflowNodeParams): string[] {
   return [...new Set([...(params.rows ?? []).map(row => row.route), params.defaultRoute ?? 'manual'])];
 }
 
+export const humanTaskParameters = (): WorkflowNodeParams => ({ schemaVersion: 1, purpose: 'Review this invoice', reviewer: { roleId: '', forbidSelfApproval: true }, timeoutSeconds: 3600,
+  choices: [{ key: 'continue', label: 'Continue review', route: 'responded' }], rejectRoute: 'rejected', timeoutRoute: 'timeout' });
+
+export function humanRoutes(params: WorkflowNodeParams): string[] {
+  return [...new Set([...(params.choices ?? []).map(choice => choice.route), params.rejectRoute ?? 'rejected', params.timeoutRoute ?? 'timeout'])];
+}
+
+export function nodeRoutes(kind: string | undefined, params: WorkflowNodeParams): string[] {
+  return kind === 'human' ? humanRoutes(params) : kind === 'decision' ? decisionRoutes(params) : [];
+}
+
 export function replaceNodeParameters(graph: WorkflowGraph, nodeId: string, parameters: WorkflowNodeParams, patch: Partial<WorkflowNode> = {}): WorkflowGraph {
   const node = graph.nodes.find(item => item.id === nodeId);
-  const beforeRoutes = node?.kind === 'decision' ? decisionRoutes(node.params) : [];
-  const routes = node?.kind === 'decision' ? decisionRoutes(parameters) : [];
-  return { ...graph, nodes: graph.nodes.map(item => item.id === nodeId ? { ...item, ...patch, params: parameters } : item),
-    edges: node?.kind !== 'decision' ? graph.edges : graph.edges.flatMap(edge => {
+  const routed = node?.kind === 'decision' || node?.kind === 'human';
+  const beforeRoutes = nodeRoutes(node?.kind, node?.params ?? {});
+  const routes = nodeRoutes(node?.kind, parameters);
+  return { ...graph, ...(node?.kind === 'wait' || node?.kind === 'human' ? { schemaVersion: 2 } : {}), nodes: graph.nodes.map(item => item.id === nodeId ? { ...item, ...patch, params: parameters } : item),
+    edges: !routed ? graph.edges : graph.edges.flatMap(edge => {
       if (edge.from !== nodeId) return [edge];
       const route = edge.routeKey ?? beforeRoutes[edge.fromIdx ?? 0];
       const position = routes.indexOf(route);

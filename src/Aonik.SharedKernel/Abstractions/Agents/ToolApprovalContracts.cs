@@ -252,7 +252,8 @@ public enum ToolApprovalDecisionType
 /// </summary>
 public sealed record ToolApprovalDecisionInput(
     ToolApprovalDecisionType Decision,
-    string? Reason = null);
+    string? Reason = null,
+    JsonElement? Response = null);
 
 /// <summary>How <see cref="IToolApprovalService.DecideAsync"/> resolved a decision attempt.</summary>
 public enum ToolApprovalDecisionOutcome

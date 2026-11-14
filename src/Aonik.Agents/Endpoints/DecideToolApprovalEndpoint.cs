@@ -92,7 +92,7 @@ internal sealed class DecideToolApprovalEndpoint
         {
             var result = await _service.DecideAsync(
                 req.Id,
-                new ToolApprovalDecisionInput(decisionType, req.Reason),
+                new ToolApprovalDecisionInput(decisionType, req.Reason, req.Response),
                 ct);
 
             switch (result.Outcome)
@@ -166,6 +166,7 @@ public sealed record DecideToolApprovalRequest
     public string Decision { get; init; } = string.Empty;
 
     public string? Reason { get; init; }
+    public System.Text.Json.JsonElement? Response { get; init; }
 }
 
 /// <summary>Result of a tool-approval decision, surfaced to the deciding client.</summary>

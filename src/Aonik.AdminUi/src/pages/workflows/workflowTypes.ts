@@ -63,7 +63,8 @@ export interface DecisionRow { id: string; priority: number; all: DecisionCompar
 export interface DecisionFixture { name: string; kind: 'Normal' | 'Boundary' | 'MissingData'; facts: Record<string, unknown>; expectedStatus: string; expectedRoutes: string[] }
 export interface DecisionParameters { schemaVersion: number; factSchema: string; hitPolicy: string; rows: DecisionRow[]; defaultRoute: string; fixtures: DecisionFixture[] }
 export interface WorkflowInputBinding { literal?: unknown; fact?: string; step?: string; output?: string }
-export interface WorkflowToolParameters { actionKey: string; contractVersion: number; inputs: Record<string, WorkflowInputBinding>; reviewer?: { roleId: string; forbidSelfApproval: boolean }; connection?: { connectionId: string; workflowGrantId: string; allowedActions: { key: string; version: number }[] } }
+export interface WorkflowToolParameters { actionKey: string; contractVersion: number; inputs: Record<string, WorkflowInputBinding>; reviewer?: { roleId?: string; userId?: string; forbidSelfApproval: boolean }; connection?: { connectionId: string; workflowGrantId: string; allowedActions: { key: string; version: number }[] } }
+export interface WorkflowHumanChoice { key: string; label: string; route: string }
 export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial<WorkflowToolParameters> {
   outcome?: string;
   // trigger
@@ -82,8 +83,15 @@ export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial
   // human
   group?: string;
   sla?: string;
+  purpose?: string;
+  timeoutSeconds?: number;
+  choices?: WorkflowHumanChoice[];
+  rejectRoute?: string;
+  timeoutRoute?: string;
   // wait
   duration?: string;
+  delaySeconds?: number | null;
+  untilUtc?: string | null;
   // notify
   channel?: string;
   template?: string;
@@ -128,6 +136,7 @@ export interface WorkflowGraph {
   id: string;
   expectedVersion?: string;
   definitionKind?: string;
+  schemaVersion?: number;
   publishedVersionId?: string | null;
   slug: string;
   name: string;

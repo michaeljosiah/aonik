@@ -86,6 +86,7 @@ internal sealed class WorkflowRunService(
             SubjectType = request.SubjectType, SubjectId = request.SubjectId, IdempotencyKey = request.IdempotencyKey,
             InputHash = inputHash, FactsJson = JsonSerializer.Serialize(facts, WorkflowDefinitionCodec.JsonOptions), FactsHash = WorkflowFactsHash.Compute(facts),
             Status = WorkflowRunStatuses.Queued, StartedAt = clock.UtcNow, StartedBy = $"{(actor.Type == "User" ? "manual" : "automation")}:{actor.Id:D}",
+            DeadlineUtc = version.SchemaVersion >= 2 ? clock.UtcNow.AddSeconds(WorkflowControlLimits.MaximumLifetimeSeconds) : null,
         };
         if (source is not null && trigger is { } admitted)
         {
@@ -229,8 +230,11 @@ internal sealed class WorkflowRunService(
         WorkflowRun run = await FindAsync(runId, cancellationToken) ?? throw new KeyNotFoundException("Workflow run not found.");
         CheckVersion(run, command.ExpectedVersion);
         await executionAuthorization.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, new("User", userId, userId), cancellationToken);
-        if (run.Status is not (WorkflowRunStatuses.WaitingForConnection or WorkflowRunStatuses.NeedsAttention))
-            throw new WorkflowConflictException("Only a run held for connection access or operator attention can be explicitly resumed.");
+        if (run.Status is not (WorkflowRunStatuses.WaitingForConnection or WorkflowRunStatuses.NeedsAttention or WorkflowRunStatuses.WaitingForTimer))
+            throw new WorkflowConflictException("Only a held run or a due timer can be explicitly resumed.");
+        if (run.Status == WorkflowRunStatuses.WaitingForTimer && !await database.WorkflowStepRuns.AsNoTracking().AnyAsync(step => step.TenantId == run.TenantId
+                && step.RunId == run.Id && step.Id == run.PendingStepRunId && step.Status == "WaitingForTimer" && step.DeadlineUtc <= clock.UtcNow, cancellationToken))
+            throw new WorkflowConflictException("The recorded workflow timer is not due. Resuming cannot shorten its wait.");
         await executionAuthorization.RequireRunAsync(run, cancellationToken);
         WorkflowFactsSnapshot current = await executionAuthorization.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value,
             WorkflowExecutionAuthorization.Actor(run), cancellationToken);
@@ -300,7 +304,7 @@ internal sealed class WorkflowRunService(
 
     internal static WorkflowDefinition ReadDefinition(WorkflowVersion version)
     {
-        if (version.PublishedAt is null || version.SchemaVersion != 1 || version.DefinitionJson is not { } json
+        if (version.PublishedAt is null || version.SchemaVersion is not (1 or 2) || version.DefinitionJson is not { } json
             || WorkflowDefinitionCodec.Hash(json) != version.DefinitionHash)
             throw new WorkflowConflictException("This version is not an intact executable snapshot.");
         WorkflowDefinition definition = JsonSerializer.Deserialize<WorkflowDefinition>(json, WorkflowDefinitionCodec.JsonOptions)
@@ -346,18 +350,27 @@ internal sealed class WorkflowRunService(
                     try { await reviewers.RequireAsync(request, userId, cancellationToken); canDecide = true; }
                     catch (Exception exception) when (exception is PermissionDeniedException or WorkflowConflictException) { }
                 }
-                approval = new(request.Id, request.RiskTier, request.ActionKind, request.Status.ToString(), request.ExpiresAt, canDecide,
-                    request.PreviewJson is { } preview ? JsonSerializer.Deserialize<ToolApprovalPreview>(preview, WorkflowDefinitionCodec.JsonOptions) : null);
+                WorkflowHumanTaskView? human = null;
+                if (request.ToolName == WorkflowHumanTaskContract.ToolName && step.ArgumentsJson is { } args)
+                {
+                    WorkflowHumanParameters parameters = JsonSerializer.Deserialize<JsonElement>(args).GetProperty("parameters")
+                        .Deserialize<WorkflowHumanParameters>(WorkflowDefinitionCodec.JsonOptions)!;
+                    human = new(parameters.Purpose, parameters.Choices, request.DecidedByUserId, ReadJson(request.ResponseJson), request.ResponseHash);
+                }
+                approval = new(request.Id, request.RiskTier, request.ActionKind, request.Status.ToString(), Utc(request.ExpiresAt)!.Value, canDecide,
+                    request.PreviewJson is { } preview ? JsonSerializer.Deserialize<ToolApprovalPreview>(preview, WorkflowDefinitionCodec.JsonOptions) : null, human);
             }
             details.Add(new(step.Id, step.NodeKey, step.InvocationPath, step.Status, step.ActionKey, step.ActionVersion,
-                step.SelectedRoute, ReadJson(step.DecisionTraceJson), ReadJson(step.ResultJson), step.ApprovalRequestId, step.ProposalId, step.AiRunId, step.ErrorCode, approval));
+                step.SelectedRoute, ReadJson(step.DecisionTraceJson), ReadJson(step.ResultJson), step.ApprovalRequestId, step.ProposalId, step.AiRunId, step.ErrorCode, approval, Utc(step.DeadlineUtc)));
         }
         return new(run.Id, run.WorkflowId, run.WorkflowVersionId, run.DefinitionHash, run.Status, run.Outcome, run.ErrorCode,
             run.ActorType, run.ActorId, run.InitiatingUserId, run.SubjectType, run.SubjectId, Convert.ToBase64String(run.RowVersion),
             run.StartedAt, run.CompletedAt, details, run.ConfiguredByUserId, run.TriggerBindingId is { } bindingId
-                ? new(bindingId, run.TriggerBindingRevision!.Value, run.SourceEventId!.Value, DateTime.SpecifyKind(run.SourceOccurredAtUtc!.Value, DateTimeKind.Utc), run.CausationRunId, run.RootRunId) : null);
+                ? new(bindingId, run.TriggerBindingRevision!.Value, run.SourceEventId!.Value, DateTime.SpecifyKind(run.SourceOccurredAtUtc!.Value, DateTimeKind.Utc), run.CausationRunId, run.RootRunId) : null,
+            Utc(run.DeadlineUtc), Utc(steps.SingleOrDefault(step => step.Id == run.PendingStepRunId)?.DeadlineUtc));
     }
 
+    private static DateTime? Utc(DateTime? value) => value is { } time ? DateTime.SpecifyKind(time, DateTimeKind.Utc) : null;
     private static JsonElement? ReadJson(string? value) => value is null ? null : JsonSerializer.Deserialize<JsonElement>(value);
     private static string InputHash(string slug, StartWorkflowRunRequest request, WorkflowTriggerSource? source = null)
     {

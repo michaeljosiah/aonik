@@ -14,9 +14,9 @@ using Aonik.SharedKernel.Abstractions.Workflows;
 namespace Aonik.Agents.Workflows.Graph;
 
 /// <summary>Durable action evidence and authorization around MAF executors; MAF owns graph routing.</summary>
-internal sealed class WorkflowStepExecutionService(
+internal sealed partial class WorkflowStepExecutionService(
     AgentsDbContext database, WorkflowInvocationContext invocationContext, WorkflowExecutionAuthorization authorization,
-    WorkflowActionRegistry actions, IToolApprovalService approvals, IClock clock)
+    WorkflowActionRegistry actions, IToolApprovalService approvals, IClock clock, WorkflowReviewerAuthorization reviewers)
 {
     private WorkflowRun Run => invocationContext.Run ?? throw new WorkflowExecutionException("ExecutionIdentityMissing");
 
@@ -113,6 +113,9 @@ internal sealed class WorkflowStepExecutionService(
     /// <returns>A server-derived response, or null while a durable approval is pending.</returns>
     public async Task<WorkflowExecutionFrame?> ReadyResponseAsync(WorkflowStepWait wait, CancellationToken cancellationToken)
     {
+        if (wait.Kind == "Timer") return await ReadyTimerResponseAsync(wait, cancellationToken);
+        if (wait.Kind == "Human") return await ReadyHumanResponseAsync(wait, cancellationToken);
+        if (wait.Kind != "Action") throw new WorkflowExecutionException("UnsupportedWaitContract");
         await RequireActiveAsync(wait.RunId, cancellationToken, allowWaiting: true);
         WorkflowStepRun step = await database.WorkflowStepRuns.SingleAsync(step => step.RunId == Run.Id && step.Id == wait.StepRunId, cancellationToken);
         await database.Entry(step).ReloadAsync(cancellationToken);
@@ -190,7 +193,7 @@ internal sealed class WorkflowStepExecutionService(
         await database.Entry(Run).ReloadAsync(cancellationToken);
         if (Run.LeaseId != invocationContext.LeaseId || Run.LeaseExpiresAt <= clock.UtcNow) throw new WorkflowExecutionException("RunLeaseLost");
         if (Run.Status == WorkflowRunStatuses.Cancelled) throw new WorkflowExecutionException("RunCancelled");
-        if (Run.Status != WorkflowRunStatuses.Running && !(allowWaiting && Run.Status == WorkflowRunStatuses.WaitingForApproval))
+        if (Run.Status != WorkflowRunStatuses.Running && !(allowWaiting && Run.Status is WorkflowRunStatuses.WaitingForApproval or WorkflowRunStatuses.WaitingForTimer))
             throw new WorkflowExecutionException("RunNotRunning");
         bool retired = await database.Workflows.AsNoTracking().AnyAsync(workflow => workflow.Id == Run.WorkflowId && workflow.RetiredAt != null, cancellationToken);
         if (retired) throw new WorkflowExecutionException("WorkflowRetired");
@@ -236,6 +239,8 @@ internal sealed class WorkflowStepExecutionService(
         WorkflowStepRun? step = await database.WorkflowStepRuns.SingleOrDefaultAsync(step => step.RunId == Run.Id && step.NodeKey == nodeKey
             && step.InvocationPath == "root", cancellationToken);
         if (step is not null) return step;
+        if (invocationContext.Definition?.SchemaVersion >= 2 && await database.WorkflowStepRuns.CountAsync(step => step.RunId == Run.Id, cancellationToken) >= WorkflowControlLimits.MaximumRootInvocations)
+            throw new WorkflowExecutionException("InvocationLimitExceeded");
         step = new() { TenantId = Run.TenantId, RunId = Run.Id, NodeKey = nodeKey, StartedAt = clock.UtcNow,
             FactsJson = Run.FactsJson, FactsHash = Run.FactsHash, AiRunId = invocationContext.OriginatingAiRunId };
         step.OperationId = step.Id;
@@ -255,7 +260,7 @@ internal sealed class WorkflowStepExecutionService(
     }
 
     private async Task<IReadOnlyDictionary<string, WorkflowActionResult>> OutputsAsync(CancellationToken cancellationToken)
-        => (await database.WorkflowStepRuns.AsNoTracking().Where(step => step.RunId == Run.Id && step.ActionKey != null
+        => (await database.WorkflowStepRuns.AsNoTracking().Where(step => step.RunId == Run.Id && step.ActionKey != null && step.ActionKey != WorkflowHumanTaskContract.Key
                 && step.Status == "Completed" && step.ResultJson != null).ToListAsync(cancellationToken))
             .ToDictionary(step => step.NodeKey, ToolResult, StringComparer.Ordinal);
 

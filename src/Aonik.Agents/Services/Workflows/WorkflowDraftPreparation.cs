@@ -95,7 +95,7 @@ internal sealed class WorkflowDraftPreparation(AgentsDbContext database, Workflo
             edges.Select(edge => new WorkflowSaveEdge(keys[edge.FromNodeId], keys[edge.ToNodeId], edge.FromIndex, edge.Label, edge.RouteKey))
                 .OrderBy(edge => edge.FromClientId, StringComparer.Ordinal).ThenBy(edge => edge.ToClientId, StringComparer.Ordinal)
                 .ThenBy(edge => edge.FromIndex).ThenBy(edge => edge.RouteKey, StringComparer.Ordinal).ToList(),
-            null, Convert.ToBase64String(workflow.RowVersion), workflow.DefinitionKind);
+            null, Convert.ToBase64String(workflow.RowVersion), workflow.DefinitionKind, workflow.DefinitionSchemaVersion);
     }
 
     private static string Key(WorkflowNode node) => node.LogicalKey ?? node.Id.ToString("D");

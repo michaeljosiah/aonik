@@ -16,6 +16,7 @@ internal sealed class WorkflowCheckpointConfiguration : IEntityTypeConfiguration
         builder.Property(checkpoint => checkpoint.ParentCheckpointId).HasMaxLength(128);
         builder.Property(checkpoint => checkpoint.FrameworkVersion).HasMaxLength(40);
         builder.Property(checkpoint => checkpoint.StateJson).HasColumnType("nvarchar(max)");
+        builder.Property(checkpoint => checkpoint.RuntimeSchemaVersion).HasDefaultValue(1);
         builder.HasIndex(checkpoint => new { checkpoint.TenantId, checkpoint.RunId, checkpoint.CheckpointId }).IsUnique();
         builder.HasIndex(checkpoint => new { checkpoint.TenantId, checkpoint.RunId, checkpoint.Sequence }).IsUnique();
     }

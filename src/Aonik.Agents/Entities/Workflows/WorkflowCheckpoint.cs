@@ -12,6 +12,7 @@ public class WorkflowCheckpoint : AuditableEntity, ITenantScoped
     public string? ParentCheckpointId { get; set; }
     public long Sequence { get; set; }
     public int FormatVersion { get; set; }
+    public int RuntimeSchemaVersion { get; set; } = 1;
     public string FrameworkVersion { get; set; } = string.Empty;
     public string StateJson { get; set; } = string.Empty;
 }

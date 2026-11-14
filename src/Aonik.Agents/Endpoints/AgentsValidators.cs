@@ -172,6 +172,8 @@ public sealed class DecideToolApprovalRequestValidator : Validator<DecideToolApp
         RuleFor(x => x.Id).RequiredId();
         RuleFor(x => x.Decision).RequiredText(32);
         RuleFor(x => x.Reason).MaximumLength(2048);
+        RuleFor(x => x.Response).Must(response => response is null || response.Value.GetRawText().Length <= 1000)
+            .WithMessage("The typed task response may not exceed 1,000 characters.");
     }
 }
 

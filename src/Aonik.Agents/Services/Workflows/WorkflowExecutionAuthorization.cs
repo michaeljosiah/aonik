@@ -19,7 +19,7 @@ namespace Aonik.Agents.Services.Workflows;
 internal sealed class WorkflowExecutionAuthorization(
     ITenantProvider tenantProvider, IPermissionService permissions, IUserDirectoryReader users,
     ITenantSettingStore settings, IConfiguration configuration, IEnumerable<IWorkflowFactsProvider> factsProviders,
-    IModuleEnablementReader? modules = null, IAutomationIdentityAuthorization? automation = null, AgentsDbContext? database = null)
+    IModuleEnablementReader? modules = null, IAutomationIdentityAuthorization? automation = null, AgentsDbContext? database = null, IClock? clock = null)
 {
     public async Task RequireActorAsync(WorkflowActor actor, CancellationToken cancellationToken = default)
     {
@@ -64,6 +64,7 @@ internal sealed class WorkflowExecutionAuthorization(
 
     public async Task RequireRunAsync(WorkflowRun run, CancellationToken cancellationToken = default)
     {
+        if (run.DeadlineUtc is { } deadline && deadline <= (clock?.UtcNow ?? DateTime.UtcNow)) throw new WorkflowExecutionException("RunDeadlineExceeded");
         await RequireActorAsync(Actor(run), cancellationToken);
         if (run.TriggerBindingId is not { } bindingId) return;
         await RequireAutomaticEnabledAsync(cancellationToken);

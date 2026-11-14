@@ -152,7 +152,10 @@ internal sealed class ToolApprovalService : IToolApprovalService
             || !_tenantProvider.TryGetCurrentTenantId(out Guid tenantId) || tenantId != run.TenantId
             || step.TenantId != tenantId || step.RunId != run.Id || step.ArgumentsHash != argsHash)
             return new(ToolGateDecision.Refused, Reason: "The workflow invocation identity is invalid.");
-        var descriptor = _workflowActions.Resolve(step.ActionKey!, step.ActionVersion!.Value).Descriptor;
+        var humanNode = _workflowContext.Definition?.Nodes.SingleOrDefault(node => node.Key == step.NodeKey
+            && Workflows.WorkflowDefinitionValidator.IsKind(node, Entities.Workflows.WorkflowNodeKinds.Human));
+        var descriptor = humanNode is not null && step.ActionKey == WorkflowHumanTaskContract.Key && step.ActionVersion == 1
+            ? WorkflowHumanTaskContract.Descriptor : _workflowActions.Resolve(step.ActionKey!, step.ActionVersion!.Value).Descriptor;
         if (descriptor.ToolName != context.ToolName || descriptor.RequiredPermission != step.RequiredPermission || descriptor.Approval is not { } required
             || context.Options.Tier != required.Tier || context.Options.ProposalType != required.ProposalType
             || !await _workflowDatabase.WorkflowRuns.AsNoTracking().AnyAsync(current => current.TenantId == tenantId && current.Id == run.Id
@@ -252,7 +255,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
         // card carrying this id; the user decides via DecideAsync; the agent re-invokes (above).
         var request = NewRequest(context, options, actionKind, argumentsJson, argsHash, tenantId, requestingUserId, now);
         request.Status = ToolApprovalRequestStatus.Pending;
-        request.ExpiresAt = now.Add(PendingApprovalWindow);
+        request.ExpiresAt = context.ToolName == WorkflowHumanTaskContract.ToolName && _workflowContext?.Step?.DeadlineUtc is { } deadline
+            ? DateTime.SpecifyKind(deadline, DateTimeKind.Utc) : now.Add(PendingApprovalWindow);
         StageWorkflowExpiry(request);
         await _requestStore.CreateAsync(request, cancellationToken).ConfigureAwait(false);
 
@@ -325,6 +329,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(decision);
+        if (!Enum.IsDefined(decision.Decision))
+            return new(approvalRequestId, ToolApprovalDecisionOutcome.Forbidden, null, "Use a supported decision.");
 
         // A decision with no authenticated user has no authority — never decide anonymously.
         if (!_currentUserProvider.TryGetCurrentUserId(out var decidingUserId))
@@ -349,7 +355,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
             return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, "Workflow continuation is unavailable.");
 
         // Expiry takes precedence: a request past its window can no longer be decided.
-        if (request.Status == ToolApprovalRequestStatus.Pending && now > request.ExpiresAt)
+        if (request.Status == ToolApprovalRequestStatus.Pending && now >= request.ExpiresAt)
         {
             request.Status = ToolApprovalRequestStatus.Expired;
             if (request.WorkflowStepRunId.HasValue) await _workflowContinuations!.AfterDecisionAsync(request, cancellationToken);
@@ -385,6 +391,22 @@ internal sealed class ToolApprovalService : IToolApprovalService
             return new ToolApprovalDecisionResult(
                 request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
                 Message: "Only the user who requested the action may approve it.");
+        }
+
+        try
+        {
+            string? response = _workflowReviewers is not null && request.WorkflowStepRunId.HasValue
+                ? await _workflowReviewers.ValidateResponseAsync(request, decision, cancellationToken) : null;
+            if (response is null && decision.Response.HasValue) throw new ArgumentException("This approval does not accept a task response.");
+            if (!string.IsNullOrEmpty(response))
+            {
+                request.ResponseJson = response;
+                request.ResponseHash = ToolArgumentsHash.Compute(JsonSerializer.Deserialize<Dictionary<string, object?>>(response)!);
+            }
+        }
+        catch (ArgumentException exception)
+        {
+            return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, exception.Message);
         }
 
         if (decision.Decision == ToolApprovalDecisionType.Reject)
@@ -504,6 +526,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
         if (request.WorkflowStepRunId is null) return;
         if (_workflowContinuations is null || _workflowContext?.Run is not { } run)
             throw new InvalidOperationException("Workflow continuation is unavailable.");
-        _workflowContinuations.AtExpiry(request, run);
+        var humanNode = _workflowContext.Definition?.Nodes.SingleOrDefault(node => node.Key == _workflowContext.Step?.NodeKey
+            && WorkflowDefinitionValidator.IsKind(node, Entities.Workflows.WorkflowNodeKinds.Human));
+        _workflowContinuations.AtExpiry(request, run, humanNode is null ? null : WorkflowHumanTaskContract.Parameters(humanNode));
     }
 }

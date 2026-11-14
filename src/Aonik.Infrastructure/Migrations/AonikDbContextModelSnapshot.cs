@@ -1387,6 +1387,14 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("RequestingUserId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ResponseHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ResponseJson")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
                     b.Property<string>("RiskTier")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -1474,6 +1482,11 @@ namespace Aonik.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)")
                         .HasDefaultValue("Workflow");
+
+                    b.Property<int>("DefinitionSchemaVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasColumnType("datetime2");
@@ -1608,6 +1621,11 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<Guid>("RunId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("RuntimeSchemaVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
 
                     b.Property<long>("Sequence")
                         .HasColumnType("bigint");
@@ -1888,6 +1906,9 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("DeadlineUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("DefinitionHash")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
@@ -2079,6 +2100,9 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.Property<Guid?>("CreatedBy")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("DeadlineUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("DecisionTraceJson")
                         .HasColumnType("nvarchar(max)");

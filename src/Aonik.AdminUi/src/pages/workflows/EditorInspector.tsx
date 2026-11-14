@@ -25,6 +25,8 @@ import type {
 import type { Selection, ValidationError } from './WorkflowCanvas';
 import { DecisionTablePanel } from './DecisionTablePanel';
 import { WorkflowToolPanel } from './WorkflowToolPanel';
+import { WorkflowWaitPanel } from './WorkflowWaitPanel';
+import { WorkflowHumanPanel } from './WorkflowHumanPanel';
 
 // ─── Field primitives ───────────────────────────────────────────────
 
@@ -248,31 +250,8 @@ function NodeInspector({ workflowId, node, errors, onUpdate, onDelete }: NodeIns
         <DecisionTablePanel parameters={node.params} onChange={params => onUpdate({ params })} />
       )}
       {node.kind === 'end' && <SelectField label="Outcome" value={node.params.outcome ?? 'Completed'} onChange={value => updateParam('outcome', value)} options={['Completed', 'NeedsManualReview', 'Blocked']} />}
-      {node.kind === 'human' && (
-        <>
-          <SelectField
-            label="Approval group"
-            value={node.params.group}
-            onChange={(v) => updateParam('group', v)}
-            options={['Treasury', 'Finance', 'Compliance', 'Anyone']}
-          />
-          <TextField
-            label="SLA"
-            hint="time before escalation"
-            value={node.params.sla}
-            onChange={(v) => updateParam('sla', v)}
-          />
-        </>
-      )}
-      {node.kind === 'wait' && (
-        <TextField
-          label="Duration"
-          mono
-          hint="e.g. 7d, 4h, 30m"
-          value={node.params.duration}
-          onChange={(v) => updateParam('duration', v)}
-        />
-      )}
+      {node.kind === 'human' && <WorkflowHumanPanel parameters={node.params} onChange={params => onUpdate({ params })} />}
+      {node.kind === 'wait' && <WorkflowWaitPanel parameters={node.params} onChange={params => onUpdate({ params })} />}
       {node.kind === 'notify' && (
         <>
           <SelectField

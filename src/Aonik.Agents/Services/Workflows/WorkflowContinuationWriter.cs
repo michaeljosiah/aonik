@@ -40,12 +40,12 @@ internal sealed class WorkflowContinuationWriter(AgentsDbContext database, ICloc
         await AfterDecisionAsync(request, cancellationToken);
     }
 
-    public void AtExpiry(ToolApprovalRequest request, Entities.Workflows.WorkflowRun run)
+    public void AtExpiry(ToolApprovalRequest request, Entities.Workflows.WorkflowRun run, Contracts.Models.Workflows.WorkflowHumanParameters? human = null)
     {
         if (request.WorkflowStepRunId is null) return;
         if (run.TenantId != request.TenantId || run.PendingStepRunId != request.WorkflowStepRunId)
             throw new InvalidOperationException("Approval expiry does not match the waiting workflow step.");
         database.EnqueueIntegrationEvent(new WorkflowContinuationRequestedEvent(request.Id, clock.UtcNow, request.TenantId,
-            run.Id, run.Continuation, DateTime.SpecifyKind(request.ExpiresAt, DateTimeKind.Utc)));
+            run.Id, run.Continuation, DateTime.SpecifyKind(request.ExpiresAt, DateTimeKind.Utc), human?.Reviewer.UserId, human?.Reviewer.RoleId, human?.Purpose));
     }
 }

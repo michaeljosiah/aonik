@@ -71,6 +71,7 @@ export interface WorkflowGraphDto {
   id: string;
   expectedVersion?: string;
   definitionKind?: string;
+  schemaVersion?: number;
   publishedVersionId?: string | null;
   slug: string;
   name: string;
@@ -126,10 +127,13 @@ export interface WorkflowRunDetail {
   id: string; workflowId: string; workflowVersionId: string; definitionHash: string; status: string; outcome: string | null; errorCode: string | null;
   actorType: string; actorId: string; initiatingUserId: string | null; subjectType: string; subjectId: string; expectedVersion: string; startedAt: string; completedAt: string | null;
   configuredByUserId?: string | null;
+  deadlineUtc?: string | null;
+  waitUntilUtc?: string | null;
   source?: { bindingId: string; revision: number; eventId: string; occurredAtUtc: string; causationRunId: string | null; rootRunId: string | null } | null;
   steps: { id: string; nodeKey: string; invocationPath: string; status: string; actionKey: string | null; actionVersion: number | null; selectedRoute: string | null;
     decisionTrace: unknown; result: unknown; approvalRequestId: string | null; proposalId: string | null; aiRunId: string | null; errorCode: string | null;
-    approval: { id: string; riskTier: string; actionKind: string; status: string; expiresAt: string; canDecide: boolean; preview: ToolApprovalPreview | null } | null }[];
+    approval: { id: string; riskTier: string; actionKind: string; status: string; expiresAt: string; canDecide: boolean; preview: ToolApprovalPreview | null;
+      humanTask?: { purpose: string; choices: { key: string; label: string; route: string }[]; decidedByUserId: string | null; response: { choice: string } | null; responseHash: string | null } | null } | null; deadlineUtc?: string | null }[];
 }
 
 // ── Save payload (mirror of WorkflowSaveRequest.cs) ────────────────────
@@ -158,6 +162,7 @@ export interface WorkflowSaveEdgeDto {
 export interface WorkflowSaveRequestDto {
   expectedVersion?: string;
   definitionKind?: string;
+  schemaVersion?: number;
   slug: string;
   name: string;
   description: string;
@@ -184,7 +189,7 @@ export const workflowService = {
   run: (id: string) => api.get<WorkflowRunDetail>(`/ai/workflow-runs/${encodeURIComponent(id)}`),
   resume: (run: WorkflowRunDetail) => api.post<WorkflowRunDetail>(`/ai/workflow-runs/${run.id}/resume`, { expectedVersion: run.expectedVersion }),
   cancelRun: (run: WorkflowRunDetail) => api.post<WorkflowRunDetail>(`/ai/workflow-runs/${run.id}/cancel`, { expectedVersion: run.expectedVersion }),
-  decide: (id: string, decision: 'Approve' | 'Reject') => api.post(`/ai/tool-approvals/${encodeURIComponent(id)}/decide`, { decision }),
+  decide: (id: string, decision: 'Approve' | 'Reject', response?: { choice: string }) => api.post(`/ai/tool-approvals/${encodeURIComponent(id)}/decide`, { decision, ...(response ? { response } : {}) }),
   list: async (skip = 0, take = 50): Promise<WorkflowSummaryDto[]> => {
     return api.get<WorkflowSummaryDto[]>(`/ai/workflows?skip=${skip}&take=${take}`);
   },

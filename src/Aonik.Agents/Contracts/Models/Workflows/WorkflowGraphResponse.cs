@@ -22,7 +22,8 @@ public sealed record WorkflowGraphResponse(
     IReadOnlyList<WorkflowGraphComment> Comments,
     string ExpectedVersion = "",
     string DefinitionKind = "Workflow",
-    Guid? PublishedVersionId = null);
+    Guid? PublishedVersionId = null,
+    int SchemaVersion = 1);
 
 public sealed record WorkflowGraphNode(
     Guid Id,
