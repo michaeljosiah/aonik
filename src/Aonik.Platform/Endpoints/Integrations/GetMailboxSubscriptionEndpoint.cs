@@ -1,4 +1,5 @@
 using FastEndpoints;
+using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 
 using Aonik.Platform.Persistence;
@@ -7,6 +8,10 @@ using Aonik.Platform.Services.Integrations;
 namespace Aonik.Platform.Endpoints.Integrations;
 
 internal sealed record MailboxSubscriptionHttpRequest(Guid ConnectionId);
+internal sealed class MailboxSubscriptionHttpRequestValidator : Validator<MailboxSubscriptionHttpRequest>
+{
+    public MailboxSubscriptionHttpRequestValidator() => RuleFor(request => request.ConnectionId).NotEmpty();
+}
 internal sealed class GetMailboxSubscriptionEndpoint(PlatformDbContext database, ConnectorAuthorization authorization, ConnectorGrantService grants)
     : Endpoint<MailboxSubscriptionHttpRequest>
 {
