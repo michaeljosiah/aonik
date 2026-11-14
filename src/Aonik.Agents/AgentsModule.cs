@@ -91,8 +91,17 @@ public sealed class AgentsModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Connectors.IWorkflowMailboxBindingReader, Services.Workflows.WorkflowMailboxBindingReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Workflows.IWorkflowApprovalReader, Services.Workflows.WorkflowApprovalReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Connectors.IWorkflowConnectorContextReader, Services.Workflows.WorkflowConnectorContextReader>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorMutationAuthority, Services.Connectors.ConnectorMutationAuthority>();
+        foreach (var action in SharedKernel.Abstractions.Connectors.GmailActionPolicies.ToolNames.Keys
+            .Where(key => SharedKernel.Abstractions.Connectors.GmailActionPolicies.Approval(key)?.Tier == ToolApprovalTier.High))
+        {
+            string type = SharedKernel.Abstractions.Connectors.GmailActionPolicies.Approval(action)!.ProposalType!;
+            services.AddKeyedScoped<IProposalHandler>(type, (provider, key) => new Services.Connectors.ConnectorMutationProposalHandler((string)key!,
+                provider.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorMutationService>()));
+        }
         foreach (string action in new[] { SharedKernel.Abstractions.Connectors.GmailActionKeys.Search,
-            SharedKernel.Abstractions.Connectors.GmailActionKeys.GetMessage, SharedKernel.Abstractions.Connectors.GmailActionKeys.GetAttachment })
+            SharedKernel.Abstractions.Connectors.GmailActionKeys.GetMessage, SharedKernel.Abstractions.Connectors.GmailActionKeys.GetAttachment }
+            .Concat(SharedKernel.Abstractions.Connectors.GmailActionPolicies.ToolNames.Keys))
             services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler>(sp =>
             {
                 var descriptor = sp.GetServices<SharedKernel.Abstractions.Connectors.IConnectorDescriptor>()
@@ -100,7 +109,8 @@ public sealed class AgentsModule : IModule
                 return new Services.Workflows.ConnectorWorkflowAction(descriptor,
                     sp.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorService>(),
                     sp.GetServices<SharedKernel.Abstractions.Connectors.IConnectorActionProvider>(),
-                    sp.GetRequiredService<Services.Workflows.WorkflowInvocationContext>());
+                    sp.GetRequiredService<Services.Workflows.WorkflowInvocationContext>(),
+                    sp.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorMutationService>());
             });
         services.AddScoped<Services.Workflows.WorkflowGovernanceService>();
         services.AddScoped<IWorkflowGovernanceService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>());

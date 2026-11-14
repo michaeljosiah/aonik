@@ -7,7 +7,7 @@ namespace Aonik.Infrastructure.Integrations.Gmail;
 
 internal static class GmailHttp
 {
-    internal static async Task<JsonElement> JsonAsync(HttpClient client, HttpRequestMessage request, int maxBytes, CancellationToken cancellationToken)
+    internal static async Task<JsonElement> JsonAsync(HttpClient client, HttpRequestMessage request, int maxBytes, CancellationToken cancellationToken, bool allowEmpty = false)
     {
         try
         {
@@ -23,6 +23,7 @@ internal static class GmailHttp
                 if (output.Length + read > maxBytes) throw new ConnectorProviderException("ProviderResponseTooLarge");
                 await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
             }
+            if (allowEmpty && output.Length == 0) return ConnectorJson.Element(new { });
             using JsonDocument json = JsonDocument.Parse(output.ToArray(), new() { MaxDepth = 40 });
             return json.RootElement.Clone();
         }

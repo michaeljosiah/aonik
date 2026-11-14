@@ -1,5 +1,7 @@
 using System.Text.Json;
 
+using Aonik.SharedKernel.Abstractions.Agents;
+
 namespace Aonik.SharedKernel.Abstractions.Connectors;
 
 public interface IConnectorActionProvider
@@ -7,14 +9,19 @@ public interface IConnectorActionProvider
     string ConnectorKey { get; }
     void ValidateArguments(ConnectorActionRef action, JsonElement arguments);
     Task<JsonElement> InvokeAsync(ConnectorProviderCall call, CancellationToken cancellationToken = default);
+    Task<ToolApprovalPreview?> PreviewAsync(ConnectorProviderCall call, CancellationToken cancellationToken = default)
+        => Task.FromResult<ToolApprovalPreview?>(null);
+    Task<ConnectorMutationReconciliation> ReconcileAsync(ConnectorProviderCall call, CancellationToken cancellationToken = default)
+        => Task.FromResult(new ConnectorMutationReconciliation(null));
 }
 
 /// <summary>Credentials cross only the reviewed in-process provider boundary and must never be serialized into tools or audit.</summary>
 public sealed record ConnectorProviderCall(Guid ConnectionId, string ProviderAccountId, string AccessToken,
-    ConnectorActionRef Action, JsonElement Arguments, Guid OperationId)
+    ConnectorActionRef Action, JsonElement Arguments, Guid OperationId, string? ProviderAccountLabel = null)
 {
     public override string ToString() => $"ConnectorProviderCall({ConnectionId:D}, {Action.Key}@{Action.Version})";
 }
+public sealed record ConnectorMutationReconciliation(JsonElement? Result);
 
 public interface IConnectorOAuthProvider
 {

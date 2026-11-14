@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using FluentAssertions;
 
@@ -41,10 +43,14 @@ public class ConnectorEndpointsTests(CustomWebApplicationFactory factory) : ICla
     public async Task CatalogAndReadiness_Should_ExposeContracts_WithoutCredentialsOrImplicitProvisioning()
     {
         using HttpClient client = await ClientAsync(Guid.NewGuid(), "Integration.Read", "Integration.Use");
-        var catalog = await client.GetFromJsonAsync<List<ConnectorDescriptor>>("/v1/integrations/connectors");
+        var jsonOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web); jsonOptions.Converters.Add(new JsonStringEnumConverter());
+        var catalog = await client.GetFromJsonAsync<List<ConnectorDescriptor>>("/v1/integrations/connectors", jsonOptions);
         ConnectorDescriptor gmail = catalog!.Single(item => item.Key == "gmail");
-        gmail.Actions.Should().HaveCount(3);
-        gmail.Actions.Should().OnlyContain(action => action.Approval == null && action.RequiredScopes.Contains(GmailActionKeys.ReadScope));
+        gmail.Actions.Should().HaveCount(19).And.OnlyContain(action => action.Version == 1);
+        gmail.Actions.Select(action => action.Key).Should().OnlyHaveUniqueItems();
+        gmail.Actions.Where(action => GmailActionKeys.ReadActions.Contains(action.Key)).Should().OnlyContain(action => action.Approval == null && action.RequiredScopes.Contains(GmailActionKeys.ReadScope));
+        foreach (ConnectorActionDescriptor action in gmail.Actions.Where(action => GmailActionPolicies.ToolNames.ContainsKey(action.Key)))
+            action.Approval.Should().Be(GmailActionPolicies.Approval(action.Key), "the published catalog must match its enforcing tool/proposal classification");
         var ready = await client.GetFromJsonAsync<ConnectorReadiness>("/v1/integrations/connectors/gmail/readiness?actionKey=gmail.messages.search&version=1");
         ready!.Code.Should().Be("TenantNotEnabled");
         var accounts = await client.GetFromJsonAsync<List<ConnectorConnectionSummary>>("/v1/integrations/connectors/gmail/connections");
@@ -66,6 +72,9 @@ public class ConnectorEndpointsTests(CustomWebApplicationFactory factory) : ICla
     {
         using HttpClient anonymous = factory.CreateClient();
         (await anonymous.GetAsync("/v1/integrations/connectors")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anonymous.GetAsync($"/v1/integrations/mutations/{Guid.NewGuid()}")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anonymous.GetAsync($"/v1/integrations/mutations/{Guid.NewGuid()}/review")).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+        (await anonymous.PostAsync($"/v1/integrations/mutations/{Guid.NewGuid()}/reconcile", null)).StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         using HttpClient denied = await ClientAsync(Guid.NewGuid());
         (await denied.GetAsync("/v1/integrations/connectors")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
         (await denied.GetAsync($"/v1/integrations/connections/{Guid.NewGuid()}/workflow-binding?workflowId={Guid.NewGuid()}&actionKey=gmail.messages.search&version=1")).StatusCode.Should().Be(HttpStatusCode.Forbidden);

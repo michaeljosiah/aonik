@@ -1,4 +1,5 @@
-import { approvalChanges, type ToolApprovalPreview } from '@/lib/toolApprovalPreview';
+import type { ToolApprovalPreview } from '@/lib/toolApprovalPreview';
+import { ApprovalPreview } from './ApprovalPreview';
 /* eslint-disable react-refresh/only-export-components */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -22,7 +23,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { textToSpeechSettingsService } from '@/services/textToSpeechSettingsService';
 import type { PlaygroundFrontendToolRegistration } from '@/lib/playground-client';
 import {
@@ -670,23 +670,7 @@ export function ServerApprovalCard({
             ? 'This action is queued as a durable proposal and runs only after an authorized person approves it.'
             : 'This action needs your explicit approval before it runs.'}
         </div>
-        {approval.preview && (
-          <details className="mt-3 text-xs">
-            <summary className="cursor-pointer font-medium text-foreground">Review exact changes</summary>
-            <div className="mt-2 max-h-96 overflow-auto rounded border border-border">
-              <Table>
-                <TableHeader><TableRow><TableHead>Field</TableHead><TableHead>Before</TableHead><TableHead>After</TableHead></TableRow></TableHeader>
-                <TableBody>{approvalChanges(approval.preview.before, approval.preview.after).map(change => (
-                  <TableRow key={change.path} className="align-top">
-                    <TableCell className="font-mono">{change.path}</TableCell>
-                    <TableCell><pre className="whitespace-pre-wrap break-words">{change.before}</pre></TableCell>
-                    <TableCell><pre className="whitespace-pre-wrap break-words">{change.after}</pre></TableCell>
-                  </TableRow>
-                ))}</TableBody>
-              </Table>
-            </div>
-          </details>
-        )}
+        {approval.preview && <ApprovalPreview preview={approval.preview} />}
         {approval.status === 'error' && approval.message && (
           <div className="mt-2 text-xs text-destructive">{approval.message}</div>
         )}

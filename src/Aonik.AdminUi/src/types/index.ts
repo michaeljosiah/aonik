@@ -190,6 +190,7 @@ export interface ProposalDetailResponse {
   approvedByUserId: string | null;
   approvedAt: string | null;
   payloadJson: string;
+  preview?: import('@/lib/toolApprovalPreview').ToolApprovalPreview | null;
   createdAt: string;
 }
 

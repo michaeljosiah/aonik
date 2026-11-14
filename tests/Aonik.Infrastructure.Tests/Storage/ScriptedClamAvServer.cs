@@ -18,17 +18,23 @@ internal sealed class ScriptedClamAvServer : IAsyncDisposable
     public TaskCompletionSource<byte[]> Received { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public ClamAvScanner Scanner { get; }
 
-    public ScriptedClamAvServer(string response = "stream: OK\0", bool holdResponse = false, int timeoutSeconds = 10)
+    public ScriptedClamAvServer(string response = "stream: OK\0", bool holdResponse = false, int timeoutSeconds = 10, int expectedConnections = 1)
     {
         _listener.Start();
         Scanner = new ClamAvScanner(Options.Create(new ClamAvOptions
         {
             Enabled = true, Host = "127.0.0.1", Port = ((IPEndPoint)_listener.LocalEndpoint).Port, TimeoutSeconds = timeoutSeconds
         }));
-        _connection = ServeAsync(response, holdResponse);
+        _connection = ServeAsync(response, holdResponse, expectedConnections);
     }
 
-    private async Task ServeAsync(string response, bool holdResponse)
+    private async Task ServeAsync(string response, bool holdResponse, int expectedConnections)
+    {
+        for (int attempt = 0; attempt < expectedConnections && !_stopping.IsCancellationRequested; attempt++)
+            await ServeConnectionAsync(response, holdResponse);
+    }
+
+    private async Task ServeConnectionAsync(string response, bool holdResponse)
     {
         try
         {

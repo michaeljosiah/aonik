@@ -20,6 +20,41 @@ namespace Aonik.Application.Tests.Platform.Integrations;
 
 public class ConnectorAuthorizationTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task PermanentDeletion_Should_RequireBothPlatformAndTenantEnablementEvenWithFullConsentAndGrant(bool platformEnabled, bool tenantEnabled)
+    {
+        using var host = new Host();
+        ConnectorConnection connection = await host.Connection();
+        var action = new ConnectorActionRef(GmailActionKeys.PermanentDelete, 1);
+        ConnectorActionRef[] allowed = [.. host.AllActions, action];
+        connection.GrantedScopesJson = ConnectorJson.Serialize(new[] { GmailActionKeys.FullScope });
+        (await host.Database.ConnectorConnectionGrants.SingleAsync()).AllowedActionsJson = ConnectorJson.Serialize(allowed);
+        host.Setting(IntegrationSettingNames.GmailAllowedActions, ConnectorJson.Serialize(allowed), SettingScope.Global);
+        host.Setting(IntegrationSettingNames.GmailAllowedActions, ConnectorJson.Serialize(allowed), SettingScope.Tenant);
+        host.Setting(IntegrationSettingNames.GmailAllowPermanentDelete, platformEnabled.ToString(), SettingScope.Global);
+        host.Setting(IntegrationSettingNames.GmailAllowPermanentDelete, tenantEnabled.ToString(), SettingScope.Tenant);
+        host.Setting(IntegrationSettingNames.GmailAllowPermanentDelete, "true", SettingScope.User);
+        await host.Database.SaveChangesAsync();
+
+        Func<Task> use = async () => { await host.Authorization.RequireUseAsync(connection.Id, host.Catalog.Resolve(action), new(new("User", host.UserId, host.UserId))); };
+
+        if (platformEnabled && tenantEnabled) await use.Should().NotThrowAsync();
+        else (await use.Should().ThrowAsync<ConnectorAccessException>()).Which.Code.Should().Be("ForbiddenByPolicy");
+    }
+
+    [Fact]
+    public async Task ExistingReadGrant_Should_AcceptModifyConsent_WithoutAllowingSendOnlyConsentToRead()
+    {
+        using var host = new Host(); ConnectorConnection connection = await host.Connection();
+        connection.GrantedScopesJson = ConnectorJson.Serialize(new[] { GmailActionKeys.ModifyScope }); await host.Database.SaveChangesAsync();
+        await host.Use(connection.Id);
+        connection.GrantedScopesJson = ConnectorJson.Serialize(new[] { GmailActionKeys.SendScope }); await host.Database.SaveChangesAsync();
+        (await ((Func<Task>)(async () => await host.Use(connection.Id))).Should().ThrowAsync<ConnectorAccessException>()).Which.Code.Should().Be("InsufficientScopes");
+    }
     [Fact]
     public async Task TenantPolicy_Should_IgnoreUserOverrides_AndRequireExplicitTenantEnablement()
     {

@@ -3,7 +3,7 @@ import { api } from '@/lib/api';
 export interface ConnectorActionRef { key: string; version: number }
 export interface ConnectorAction extends ConnectorActionRef {
   connectorKey: string; toolName: string; requiredScopes: string[]; approval: { tier: number | string } | null;
-  inputSchema: Record<string, unknown>; outputSchema: Record<string, unknown>;
+  inputSchema: Record<string, unknown>; outputSchema: Record<string, unknown>; scopeAlternatives?: string[][] | null;
 }
 export interface ConnectorDescriptor { key: string; displayName: string; actions: ConnectorAction[] }
 export interface ConnectorConnection {
@@ -27,9 +27,13 @@ export interface NewConnectionRequest {
   connectorKey: string; ownership: 'User' | 'Tenant'; actions: ConnectorActionRef[]; purpose: string; idempotencyKey: string;
   connectionId?: string; workflowId?: string; runId?: string; desiredCapability?: string;
 }
+export interface ConnectorMutationStatus { approvalRequestId: string; proposalId: string | null; connectionId: string; action: ConnectorActionRef; status: string; result: unknown; errorCode: string | null }
 const root = '/v1/integrations';
 export const connectorService = {
   catalog: () => api.get<ConnectorDescriptor[]>(`${root}/connectors`),
+  mutationStatus: (id: string) => api.get<ConnectorMutationStatus>(`${root}/mutations/${encodeURIComponent(id)}`),
+  mutationReview: (id: string) => api.get<import('@/lib/toolApprovalPreview').ToolApprovalPreview>(`${root}/mutations/${encodeURIComponent(id)}/review`),
+  reconcileMutation: (id: string) => api.post<ConnectorMutationStatus>(`${root}/mutations/${encodeURIComponent(id)}/reconcile`),
   connections: (key: string) => api.get<ConnectorConnection[]>(`${root}/connectors/${encodeURIComponent(key)}/connections`),
   managed: () => api.get<ConnectorConnection[]>(`${root}/managed-connections`),
   readiness: (key: string, action: ConnectorActionRef, connectionId?: string) => api.get<{ code: string; nextAction: string; connectionId: string | null }>(

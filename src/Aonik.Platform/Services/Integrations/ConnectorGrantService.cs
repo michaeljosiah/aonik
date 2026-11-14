@@ -160,8 +160,8 @@ internal sealed class ConnectorGrantService(PlatformDbContext database, Connecto
         foreach (ConnectorActionRef action in actions)
         {
             ConnectorActionDescriptor descriptor = catalog.Resolve(connection.ConnectorKey, action);
-            if (!policy.AllowedActions.Contains(action)) throw ConnectorAuthorization.Access("ForbiddenByPolicy");
-            if (descriptor.RequiredScopes.Any(scope => !scopes.Contains(scope, StringComparer.Ordinal))) throw ConnectorAuthorization.Access("InsufficientScopes");
+            if (!policy.AllowedActions.Contains(action) || action.Key == GmailActionKeys.PermanentDelete && !policy.AllowPermanentDelete) throw ConnectorAuthorization.Access("ForbiddenByPolicy");
+            if (!ConnectorScopeRequirements.Satisfied(descriptor, scopes.ToArray())) throw ConnectorAuthorization.Access("InsufficientScopes");
         }
     }
     private async Task<ConnectorConnection> FindConnectionAsync(Guid id, CancellationToken cancellationToken)

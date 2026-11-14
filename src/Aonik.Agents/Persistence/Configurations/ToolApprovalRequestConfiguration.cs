@@ -33,6 +33,9 @@ internal class ToolApprovalRequestConfiguration : IEntityTypeConfiguration<ToolA
         builder.Property(x => x.PreviewJson).HasColumnType("nvarchar(max)");
         builder.Property(x => x.ResponseJson).HasMaxLength(1000);
         builder.Property(x => x.ResponseHash).HasMaxLength(64);
+        builder.Property(x => x.InvocationKey).HasMaxLength(64);
+        builder.Property(x => x.ExecutionJson).HasColumnType("nvarchar(max)");
+        builder.HasIndex(request => new { request.TenantId, request.InvocationKey }).IsUnique().HasFilter("[InvocationKey] IS NOT NULL");
         builder.HasIndex(request => new { request.TenantId, request.WorkflowStepRunId }).IsUnique()
             .HasFilter("[WorkflowStepRunId] IS NOT NULL");
 

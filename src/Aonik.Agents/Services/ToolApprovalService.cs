@@ -8,6 +8,7 @@ using Aonik.Agents.Persistence;
 using Aonik.Agents.Services.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 namespace Aonik.Agents.Services;
@@ -43,7 +44,7 @@ namespace Aonik.Agents.Services;
 /// <see cref="ToolGateDecision.Refused"/> rather than letting the mutation run ungated.
 /// </para>
 /// </summary>
-internal sealed class ToolApprovalService : IToolApprovalService
+internal sealed partial class ToolApprovalService : IToolApprovalService
 {
     /// <summary>
     /// How long a Pending request stays decidable / consumable. Bounds the replay window: a stale
@@ -69,6 +70,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
     private readonly WorkflowReviewerAuthorization? _workflowReviewers;
     private readonly WorkflowActionRegistry? _workflowActions;
     private readonly WorkflowContinuationWriter? _workflowContinuations;
+    private readonly IConnectorMutationService? _connectorMutations;
 
     public ToolApprovalService(
         IToolApprovalRequestStore requestStore,
@@ -85,7 +87,8 @@ internal sealed class ToolApprovalService : IToolApprovalService
         AgentsDbContext? workflowDatabase = null,
         WorkflowReviewerAuthorization? workflowReviewers = null,
         WorkflowActionRegistry? workflowActions = null,
-        WorkflowContinuationWriter? workflowContinuations = null)
+        WorkflowContinuationWriter? workflowContinuations = null,
+        IConnectorMutationService? connectorMutations = null)
     {
         _requestStore = requestStore ?? throw new ArgumentNullException(nameof(requestStore));
         _proposalStore = proposalStore ?? throw new ArgumentNullException(nameof(proposalStore));
@@ -102,6 +105,7 @@ internal sealed class ToolApprovalService : IToolApprovalService
         _workflowReviewers = workflowReviewers;
         _workflowActions = workflowActions;
         _workflowContinuations = workflowContinuations;
+        _connectorMutations = connectorMutations;
     }
 
     public async Task<ToolGateOutcome> GateAsync(
@@ -127,6 +131,15 @@ internal sealed class ToolApprovalService : IToolApprovalService
             ToolGateOutcome? existing = await GateExistingWorkflowActionAsync(context, argsHash, cancellationToken);
             if (existing is not null) return existing;
             requestingUserId = _workflowContext.Run!.InitiatingUserId;
+        }
+
+        if (context.InvocationKey is not null)
+        {
+            if (!hasTenant || requestingUserId is null || _workflowDatabase is null || _workflowContext?.Step is not null
+                || context.InvocationKey.Length != 64 || !context.InvocationKey.All(Uri.IsHexDigit) || options.Tier == ToolApprovalTier.Low)
+                return new(ToolGateDecision.Refused, Reason: "A durable invocation requires a verified user, tenant and owning approval store.");
+            ToolGateOutcome? existing = await GateExistingInvocationAsync(context, tenantId, requestingUserId.Value, argsHash, now, cancellationToken);
+            if (existing is not null) return existing;
         }
 
         return options.Tier switch
@@ -258,7 +271,12 @@ internal sealed class ToolApprovalService : IToolApprovalService
         request.ExpiresAt = context.ToolName == WorkflowHumanTaskContract.ToolName && _workflowContext?.Step?.DeadlineUtc is { } deadline
             ? DateTime.SpecifyKind(deadline, DateTimeKind.Utc) : now.Add(PendingApprovalWindow);
         StageWorkflowExpiry(request);
-        await _requestStore.CreateAsync(request, cancellationToken).ConfigureAwait(false);
+        try { await _requestStore.CreateAsync(request, cancellationToken).ConfigureAwait(false); }
+        catch (DbUpdateException exception) when (request.InvocationKey is not null && exception.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 })
+        {
+            _workflowDatabase!.Entry(request).State = EntityState.Detached;
+            throw new WorkflowConflictException("This invocation was prepared concurrently. Retry the same operation key to load the existing approval.");
+        }
 
         return new ToolGateOutcome(ToolGateDecision.PendingApproval, ApprovalRequestId: request.Id, Summary: actionKind);
     }
@@ -306,12 +324,19 @@ internal sealed class ToolApprovalService : IToolApprovalService
         request.ProposalId = proposalId;
         if (_workflowContext?.Step is { } step) step.ProposalId = proposalId;
         StageWorkflowExpiry(request);
-        if (_workflowContext?.Step is not null)
+        if (_workflowContext?.Step is not null || context.InvocationKey is not null)
         {
             // One owning-context save commits the proposal, request, step links and deadline together.
-            _workflowDatabase!.Proposals.Add(AgentProposalStore.CreateEntity(proposalRequest));
+            Proposal proposal = AgentProposalStore.CreateEntity(proposalRequest);
+            _workflowDatabase!.Proposals.Add(proposal);
             _workflowDatabase.ToolApprovalRequests.Add(request);
-            await _workflowDatabase.SaveChangesAsync(cancellationToken);
+            try { await _workflowDatabase.SaveChangesAsync(cancellationToken); }
+            catch (DbUpdateException exception) when (request.InvocationKey is not null && exception.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 })
+            {
+                _workflowDatabase.Entry(request).State = EntityState.Detached;
+                _workflowDatabase.Entry(proposal).State = EntityState.Detached;
+                throw new WorkflowConflictException("This invocation was prepared concurrently. Retry the same operation key to load the existing proposal.");
+            }
         }
         else
         {
@@ -391,6 +416,14 @@ internal sealed class ToolApprovalService : IToolApprovalService
             return new ToolApprovalDecisionResult(
                 request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
                 Message: "Only the user who requested the action may approve it.");
+        }
+
+        if (GmailActionPolicies.IsMutation(GmailActionPolicies.ActionForTool(request.ToolName) ?? ""))
+        {
+            if (_connectorMutations is null) return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, "Connector approval authority is unavailable.");
+            try { await _connectorMutations.RequireReviewAsync(request.Id, cancellationToken); }
+            catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException or WorkflowConflictException)
+            { return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, "Current mailbox, workflow or reviewer authority does not permit this decision."); }
         }
 
         try
@@ -504,9 +537,10 @@ internal sealed class ToolApprovalService : IToolApprovalService
             AiRunId = _workflowContext?.Step?.AiRunId ?? _roomContext?.AiRunId,
             ThreadId = _roomContext?.RoomId?.ToString(),
             ToolName = context.ToolName,
-            ArgumentsRedactedJson = argumentsJson,
+            ArgumentsRedactedJson = options.Tier == ToolApprovalTier.Low ? context.AuditArgumentsJson ?? argumentsJson : argumentsJson,
             PreviewJson = context.Preview is null ? null : JsonSerializer.Serialize(context.Preview),
             ArgsHash = argsHash,
+            InvocationKey = context.InvocationKey,
             RiskTier = options.Tier.ToString(),
             ActionKind = actionKind,
             RequestedAt = now,

@@ -7,11 +7,12 @@ using System.Text.RegularExpressions;
 using Aonik.Infrastructure.Storage;
 using Aonik.Platform.Contracts.Models.ContactEnquiries;
 using Aonik.SharedKernel.Abstractions.Connectors;
+using Aonik.SharedKernel.Abstractions;
 
 namespace Aonik.Infrastructure.Integrations.Gmail;
 
-internal sealed class GmailActionProvider(System.Net.Http.IHttpClientFactory clients, IConnectorContentStore contentStore,
-    ClamAvScanner scanner) : IConnectorActionProvider
+internal sealed partial class GmailActionProvider(System.Net.Http.IHttpClientFactory clients, IConnectorContentStore contentStore,
+    ClamAvScanner scanner, IClock? clock = null) : IConnectorActionProvider
 {
     internal const int MaximumAttachmentBytes = 10 * 1024 * 1024;
     private const int MaximumTextBytes = 65_536;
@@ -20,6 +21,7 @@ internal sealed class GmailActionProvider(System.Net.Http.IHttpClientFactory cli
     public void ValidateArguments(ConnectorActionRef action, JsonElement arguments)
     {
         if (action.Version != 1) throw new ArgumentException("Unsupported Gmail action version.");
+        if (GmailActionPolicies.ToolNames.ContainsKey(action.Key)) { GmailActionContracts.Validate(action, arguments); return; }
         switch (action.Key)
         {
             case GmailActionKeys.Search:
@@ -46,6 +48,9 @@ internal sealed class GmailActionProvider(System.Net.Http.IHttpClientFactory cli
             GmailActionKeys.Search => ConnectorJson.Element(await SearchAsync(call, cancellationToken)),
             GmailActionKeys.GetMessage => ConnectorJson.Element(await MessageAsync(call, ConnectorJson.Read<GmailGetMessageRequest>(call.Arguments).MessageId, cancellationToken)),
             GmailActionKeys.GetAttachment => ConnectorJson.Element(await AttachmentAsync(call, cancellationToken)),
+            GmailActionKeys.GetDraft => ConnectorJson.Element(await DraftAsync(call, ConnectorJson.Read<GmailGetDraftRequest>(call.Arguments).DraftId, cancellationToken)),
+            GmailActionKeys.PrepareMessage => ConnectorJson.Element(await PrepareMessageAsync(call, cancellationToken)),
+            _ when GmailActionPolicies.IsMutation(call.Action.Key) => ConnectorJson.Element(await MutateAsync(call, cancellationToken)),
             _ => throw new ArgumentException("Unsupported Gmail action."),
         };
     }

@@ -57,7 +57,8 @@ internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenant
             throw Access("NoAuthorizedConnection");
         ConnectorPolicy policy = await policies.GetAsync(action.ConnectorKey, cancellationToken);
         if (policy.Code != "Ready") throw Access(policy.Code);
-        if (!policy.AllowedActions.Contains(new(action.Key, action.Version)) || (connection.Ownership == "User" && !policy.AllowUserConnections))
+        if (!policy.AllowedActions.Contains(new(action.Key, action.Version)) || (connection.Ownership == "User" && !policy.AllowUserConnections)
+            || (action.Key == GmailActionKeys.PermanentDelete && !policy.AllowPermanentDelete))
             throw Access("ForbiddenByPolicy");
         if (context.WorkflowId is { } workflowId)
         {
@@ -73,7 +74,7 @@ internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenant
         if (connection.Status == "ReauthorizationRequired") throw Access("ReauthorizationRequired");
         if (connection.Status != "Active") throw Access("NoAuthorizedConnection");
         IReadOnlyList<string> granted = ConnectorJson.Read<List<string>>(connection.GrantedScopesJson);
-        if (action.RequiredScopes.Any(scope => !granted.Contains(scope, StringComparer.Ordinal))) throw Access("InsufficientScopes");
+        if (!ConnectorScopeRequirements.Satisfied(action, granted.ToArray())) throw Access("InsufficientScopes");
         return connection;
     }
 

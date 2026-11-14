@@ -9,6 +9,8 @@ public interface IWorkflowActionHandler
 {
     WorkflowActionDescriptor Descriptor { get; }
     void ValidateArguments(JsonElement arguments);
+    Task<ToolApprovalPreview?> GetPreviewAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken = default)
+        => Task.FromResult<ToolApprovalPreview?>(null);
     Task<WorkflowActionResult> ExecuteAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken = default);
     Task<WorkflowActionReconciliation> ReconcileAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken = default);
 }

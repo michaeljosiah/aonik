@@ -7,9 +7,10 @@ public static class IntegrationSettingNames
     public const string GmailAllowUserConnections = "Integrations.Gmail.AllowUserConnections";
     public const string GmailAllowSelfService = "Integrations.Gmail.AllowSelfService";
     public const string GmailAllowWorkflowConnections = "Integrations.Gmail.AllowWorkflowConnections";
+    public const string GmailAllowPermanentDelete = "Integrations.Gmail.AllowPermanentDelete";
     public const string GmailDefaultConnectionId = "Integrations.Gmail.DefaultConnectionId";
     public const string RequestReviewerRoleId = "Integrations.RequestReviewerRoleId";
     public const string RequestExpiryDays = "Integrations.RequestExpiryDays";
     public static readonly IReadOnlyList<string> All = [GmailEnabled, GmailAllowedActions, GmailAllowUserConnections,
-        GmailAllowSelfService, GmailAllowWorkflowConnections, GmailDefaultConnectionId, RequestReviewerRoleId, RequestExpiryDays];
+        GmailAllowSelfService, GmailAllowWorkflowConnections, GmailDefaultConnectionId, RequestReviewerRoleId, RequestExpiryDays, GmailAllowPermanentDelete];
 }

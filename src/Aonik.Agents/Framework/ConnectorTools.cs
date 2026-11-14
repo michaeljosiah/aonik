@@ -9,7 +9,7 @@ using Aonik.SharedKernel.Abstractions.Connectors;
 
 namespace Aonik.Agents.Framework;
 
-internal sealed class ConnectorTools(IConnectorService connectors, IConnectorConnectionRequests requests)
+internal sealed partial class ConnectorTools(IConnectorService connectors, IConnectorConnectionRequests requests, IConnectorMutationService? mutations = null)
 {
     [Description("List the reviewed connector action catalog and exact contracts. Catalog presence does not grant access or provision a connector.")]
     public Task<IReadOnlyList<ConnectorDescriptor>> ListConnectors(CancellationToken cancellationToken = default) => connectors.ListConnectorsAsync(cancellationToken);
@@ -45,8 +45,8 @@ internal sealed class ConnectorTools(IConnectorService connectors, IConnectorCon
         IConnectorService? connectors = services.GetService<IConnectorService>();
         IConnectorConnectionRequests? requests = services.GetService<IConnectorConnectionRequests>();
         if (connectors is null || requests is null) return [];
-        var tools = new ConnectorTools(connectors, requests);
-        return services.GetRequiredService<IToolApprovalGate>().GateAll([
+        var tools = new ConnectorTools(connectors, requests, services.GetService<IConnectorMutationService>());
+        List<AITool> functions = [
             AIFunctionFactory.Create(tools.ListConnectors, name: "aonik_list_connectors"),
             AIFunctionFactory.Create(tools.ListConnections, name: "aonik_list_connections"),
             AIFunctionFactory.Create(tools.GetReadiness, name: "aonik_get_connection_readiness"),
@@ -57,6 +57,9 @@ internal sealed class ConnectorTools(IConnectorService connectors, IConnectorCon
             AIFunctionFactory.Create(tools.SearchGmail, name: "gmail_search_messages"),
             AIFunctionFactory.Create(tools.GetGmailMessage, name: "gmail_get_message"),
             AIFunctionFactory.Create(tools.GetGmailAttachment, name: "gmail_get_attachment"),
-        ], services);
+            AIFunctionFactory.Create(tools.GetGmailDraft, name: "gmail_get_draft"),
+        ];
+        if (tools.HasMutations) functions.AddRange(tools.MutationTools());
+        return services.GetRequiredService<IToolApprovalGate>().GateAll(functions, services);
     }
 }

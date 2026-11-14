@@ -3,11 +3,26 @@ using Aonik.SharedKernel.Abstractions.Connectors;
 
 namespace Aonik.Agents.Services.Workflows;
 
-internal sealed class ConnectorMutationGuard(IConnectorConnectionRequests requests) : IAgentMutationGuard
+internal sealed class ConnectorMutationGuard(IConnectorConnectionRequests requests, IConnectorMutationService? mutations = null) : IAgentMutationGuard
 {
     public Task ValidateAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public async Task<ToolGateContext> PrepareAsync(ToolGateContext context, CancellationToken cancellationToken = default)
     {
+        if (GmailActionPolicies.ActionForTool(context.ToolName) is { } actionKey)
+        {
+            if (mutations is null) throw new InvalidOperationException("The enforcing connector mutation service is unavailable.");
+            Require(context, "connectionId", "request");
+            Guid connectionId = Read<Guid>(context, "connectionId");
+            context.Arguments["connectionId"] = connectionId;
+            var action = new ConnectorActionRef(actionKey, 1);
+            System.Text.Json.JsonElement arguments = GmailActionContracts.Normalize(action, ConnectorJson.Element(context.Arguments["request"]));
+            context.Arguments["request"] = arguments;
+            if (actionKey == GmailActionKeys.PrepareMessage)
+                return context with { AuditArgumentsJson = ConnectorJson.Serialize(new { connectionId, actionKey,
+                    requestHash = ToolArgumentsHash.Compute(context.Arguments) }) };
+            ConnectorMutationPreview preview = await mutations.PreviewAsync(connectionId, action, arguments, cancellationToken);
+            return context with { Preview = preview.Preview, InvocationKey = preview.InvocationKey };
+        }
         if (context.ToolName == "aonik_create_connection_request")
         {
             Require(context, "request");

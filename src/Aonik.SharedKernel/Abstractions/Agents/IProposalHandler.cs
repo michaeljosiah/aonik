@@ -58,7 +58,8 @@ public sealed record ProposalHandlerResult(
     bool Applied,
     string? AppliedResourceType = null,
     Guid? AppliedResourceId = null,
-    string? Message = null);
+    string? Message = null,
+    System.Text.Json.JsonElement? Output = null);
 
 /// <summary>
 /// Resolves the <see cref="IProposalHandler"/> registered for a given

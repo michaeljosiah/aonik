@@ -26,8 +26,22 @@ internal static class WorkflowRunCancellation
         }
         List<WorkflowStepRun> waiting = await database.WorkflowStepRuns.Where(step => step.TenantId == run.TenantId && step.RunId == run.Id
             && step.Status != "Completed" && step.Status != "Executing" && step.Status != "NeedsAttention").ToListAsync(cancellationToken);
+        Guid[] waitingIds = waiting.Select(step => step.Id).ToArray();
+        HashSet<Guid> dispatched = (await database.Proposals.AsNoTracking().Where(proposal => proposal.TenantId == run.TenantId
+            && proposal.WorkflowStepRunId.HasValue && waitingIds.Contains(proposal.WorkflowStepRunId.Value) && proposal.RiskTier == "High"
+            && (proposal.Status == ProposalStatus.Approved || proposal.Status == ProposalStatus.Applied || proposal.Status == ProposalStatus.Failed))
+            .Select(proposal => proposal.WorkflowStepRunId!.Value).ToListAsync(cancellationToken)).ToHashSet();
+        dispatched.UnionWith(await database.ToolApprovalRequests.AsNoTracking().Where(request => request.TenantId == run.TenantId
+            && request.WorkflowStepRunId.HasValue && waitingIds.Contains(request.WorkflowStepRunId.Value) && request.ExecutionJson != null)
+            .Select(request => request.WorkflowStepRunId!.Value).ToListAsync(cancellationToken));
         foreach (WorkflowStepRun step in waiting)
         {
+            if (dispatched.Contains(step.Id))
+            {
+                // A dispatcher can already be calling the provider while MAF still waits for its proposal.
+                step.Status = "NeedsAttention"; step.ErrorCode = "CancellationRequiresReconciliation";
+                continue;
+            }
             step.Status = "Cancelled";
             step.ErrorCode = reason;
             step.CompletedAt = now;

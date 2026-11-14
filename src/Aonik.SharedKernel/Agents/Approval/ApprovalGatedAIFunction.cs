@@ -105,6 +105,9 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
                     .GateAsync(gateContext, cancellationToken)
                     .ConfigureAwait(false);
 
+                if (outcome.Decision is ToolGateDecision.Completed or ToolGateDecision.NeedsAttention)
+                    return ExecutionResult(outcome);
+
                 if (outcome.Decision == ToolGateDecision.ApprovedInline)
                 {
                     // A human approved this exact call (bound by args-hash) and the gate consumed the
@@ -146,6 +149,9 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
                     .GateAsync(gateContext, cancellationToken)
                     .ConfigureAwait(false);
 
+                if (outcome.Decision is ToolGateDecision.Completed or ToolGateDecision.NeedsAttention)
+                    return ExecutionResult(outcome);
+
                 if (outcome.Decision == ToolGateDecision.Queued
                     && outcome.ProposalId is { } proposalId
                     && outcome.ApprovalRequestId is { } approvalRequestId)
@@ -185,6 +191,14 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
     /// </summary>
     private IToolApprovalService? ResolveApprovalService() =>
         _serviceProvider?.GetService(typeof(IToolApprovalService)) as IToolApprovalService;
+
+    private ToolApprovalExecutionResult ExecutionResult(ToolGateOutcome outcome)
+    {
+        bool completed = outcome.Decision == ToolGateDecision.Completed;
+        _auditSink.Record(new(Name, _options.Tier, Executed: false, Outcome: completed ? "recorded-execution" : "held-for-reconciliation"));
+        return new(Name, completed ? "Completed" : "NeedsAttention", completed, outcome.ApprovalRequestId, outcome.ProposalId,
+            outcome.Result, outcome.Reason);
+    }
 
     /// <summary>
     /// Resolves the request-scoped <see cref="IToolApprovalStreamNotifier"/> from the captured

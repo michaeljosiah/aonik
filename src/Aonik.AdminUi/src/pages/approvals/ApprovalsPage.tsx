@@ -34,6 +34,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { agentProposalsService } from '@/services/agentProposalsService';
+import { ApprovalPreview } from '@/components/ai/ApprovalPreview';
 import type {
   ProposalDetailResponse,
   ProposalListItem,
@@ -628,6 +629,7 @@ function DetailColumn({
           )}
         </Section>
 
+        {detail?.preview && <Section title="Reviewed effect"><ApprovalPreview preview={detail.preview} /></Section>}
         {detail?.payloadJson && (
           <Section title="Raw payload">
             <pre className="max-h-[260px] overflow-auto rounded-md bg-muted p-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-foreground">

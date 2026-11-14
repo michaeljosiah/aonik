@@ -151,6 +151,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Services.Integrations.ConnectorConnectionManagementService>();
         services.AddScoped<Services.Integrations.ConnectorService>();
         services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorService>(sp => sp.GetRequiredService<Services.Integrations.ConnectorService>());
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorMutationService, Services.Integrations.ConnectorMutationService>();
         services.AddScoped<Services.Integrations.ConnectorConnectionRequestService>();
         services.AddSingleton<Services.Integrations.ConnectorRequestRateLimiter>();
         services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorConnectionRequests>(sp => sp.GetRequiredService<Services.Integrations.ConnectorConnectionRequestService>());

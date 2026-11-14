@@ -5,6 +5,7 @@ using Aonik.Agents.Entities;
 using Aonik.Agents.Framework;
 using Aonik.Agents.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.Settings;
@@ -85,7 +86,7 @@ internal sealed class WorkflowApprovalAuthority(
     private async Task<bool> CanReviewAsync(ToolApprovalRequest request, Guid userId, CancellationToken cancellationToken)
     {
         try { await reviewers!.RequireAsync(request, userId, cancellationToken); return true; }
-        catch (PermissionDeniedException) { return false; }
+        catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException) { return false; }
     }
 
     private async Task<bool> IsActiveAsync(Guid tenantId, Guid userId, CancellationToken cancellationToken)

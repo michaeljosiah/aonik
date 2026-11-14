@@ -38,7 +38,7 @@ public class ConnectorToolTests
         await scenario.InitializeAsync();
         using var scope = scenario.Scope();
         AIFunction[] tools = ConnectorTools.CreateAll(scope.ServiceProvider).OfType<AIFunction>().ToArray();
-        tools.Should().HaveCount(10);
+        tools.Should().HaveCount(11);
         AIFunction create = tools.Single(tool => tool.Name == "aonik_create_connection_request");
         object? pending = await create.InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { ["request"] = scenario.Request() }));
 

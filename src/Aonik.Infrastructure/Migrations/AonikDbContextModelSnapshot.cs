@@ -1369,8 +1369,15 @@ namespace Aonik.Infrastructure.Migrations
                     b.Property<Guid?>("DeletedBy")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("ExecutionJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("ExpiresAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("InvocationKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -1443,6 +1450,10 @@ namespace Aonik.Infrastructure.Migrations
 
                     b.HasIndex("ThreadId")
                         .HasDatabaseName("IX_ToolApprovalRequest_ThreadId");
+
+                    b.HasIndex("TenantId", "InvocationKey")
+                        .IsUnique()
+                        .HasFilter("[InvocationKey] IS NOT NULL");
 
                     b.HasIndex("TenantId", "Status")
                         .HasDatabaseName("IX_ToolApprovalRequest_Tenant_Status");

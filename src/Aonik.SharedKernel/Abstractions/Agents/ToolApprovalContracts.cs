@@ -206,6 +206,12 @@ public enum ToolGateDecision
 
     /// <summary>The action was refused (rejected / expired / failed to gate). The inner tool must not run.</summary>
     Refused,
+
+    /// <summary>The same durable invocation already has verified execution evidence. Do not invoke it again.</summary>
+    Completed,
+
+    /// <summary>The invocation is in progress or uncertain. Only reconciliation may proceed.</summary>
+    NeedsAttention,
 }
 
 /// <summary>
@@ -217,7 +223,9 @@ public sealed record ToolGateContext(
     string ToolName,
     ToolApprovalOptions Options,
     IDictionary<string, object?> Arguments,
-    ToolApprovalPreview? Preview = null);
+    ToolApprovalPreview? Preview = null,
+    string? InvocationKey = null,
+    string? AuditArgumentsJson = null);
 
 public sealed record ToolApprovalPreview(string Title, JsonElement? Before, JsonElement? After);
 
@@ -234,7 +242,11 @@ public sealed record ToolGateOutcome(
     Guid? ApprovalRequestId = null,
     Guid? ProposalId = null,
     string? Summary = null,
-    string? Reason = null);
+    string? Reason = null,
+    JsonElement? Result = null);
+
+public sealed record ToolApprovalExecutionResult(string Tool, string Status, bool Executed, Guid? ApprovalRequestId,
+    Guid? ProposalId, JsonElement? Result, string? Message);
 
 /// <summary>Whether a <see cref="IToolApprovalService.DecideAsync"/> caller is approving or rejecting.</summary>
 public enum ToolApprovalDecisionType

@@ -6,6 +6,14 @@ vi.mock('@/services/textToSpeechSettingsService', () => ({ textToSpeechSettingsS
 vi.mock('@/pages/ai/playground/frontendTools', () => ({ createPlaygroundFrontendTools: () => [] }));
 
 describe('workflow approval card', () => {
+  it('shows exact Gmail recipients, content and attachment hashes as escaped evidence', () => {
+    const html = renderToStaticMarkup(<ServerApprovalCard approval={{ id: 'gmail-approval', approvalRequestId: '1', kind: 'high', tier: 'High',
+      actionKind: 'Send message', tool: 'gmail_send_message', status: 'pending', preview: { title: 'Review Gmail send', before: null,
+        after: { account: 'sender@example.test', message: { to: ['to@example.test'], cc: ['cc@example.test'], bcc: ['bcc@example.test'],
+          subject: 'Invoice', body: '<img src=x onerror=attack()>', attachments: [{ fileName: 'invoice.pdf', sha256: 'exact-reviewed-hash' }] } } } }} onDecide={() => {}} />);
+    for (const expected of ['sender@example.test', 'to@example.test', 'cc@example.test', 'bcc@example.test', 'exact-reviewed-hash', 'invoice.pdf']) expect(html).toContain(expected);
+    expect(html).not.toContain('<img'); expect(html).toContain('&lt;img');
+  });
   it('renders the server change preview as escaped text with explicit decision controls', () => {
     const html = renderToStaticMarkup(<ServerApprovalCard approval={{
       id: 'approval-1', approvalRequestId: '1', kind: 'high', tier: 'High', actionKind: 'Publish workflow',

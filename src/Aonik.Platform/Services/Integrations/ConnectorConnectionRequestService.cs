@@ -166,7 +166,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
                 && await database.ConnectorConnections.SingleOrDefaultAsync(connection => connection.TenantId == request.TenantId && connection.Id == id, cancellationToken) is { Status: "Active" } connection)
             {
                 IReadOnlyList<string> actualScopes = ConnectorJson.Read<List<string>>(connection.GrantedScopesJson);
-                if (ConnectorJson.Read<List<string>>(request.RequiredScopesJson).All(scope => actualScopes.Contains(scope, StringComparer.Ordinal)))
+                if (ConnectorJson.Read<List<ConnectorActionRef>>(request.ActionsJson).All(action => ConnectorScopeRequirements.Satisfied(catalog.Resolve(request.ConnectorKey, action), actualScopes.ToArray())))
                 {
                     (Guid actorGrant, Guid? workflowGrant, Guid? automationGrant) = await grants.StageConsentGrantsAsync(connection, request, userId, cancellationToken);
                     request.GrantId = actorGrant; request.WorkflowGrantId = workflowGrant; request.Status = "Fulfilled"; request.ActiveRequestHash = null;
@@ -227,9 +227,10 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             foreach (ConnectorActionRef action in normalized.Actions)
             {
                 ConnectorActionDescriptor descriptor = catalog.Resolve(normalized.ConnectorKey, action);
-                if (!policy.AllowedActions.Contains(action)) throw ConnectorAuthorization.Access("ForbiddenByPolicy");
+                if (!policy.AllowedActions.Contains(action) || (action.Key == GmailActionKeys.PermanentDelete && !policy.AllowPermanentDelete)) throw ConnectorAuthorization.Access("ForbiddenByPolicy");
                 scopes.UnionWith(descriptor.RequiredScopes);
             }
+            scopes.Clear(); scopes.UnionWith(ConnectorScopeRequirements.Minimal(normalized.Actions.Select(action => catalog.Resolve(normalized.ConnectorKey, action)).ToList()));
             scopes.UnionWith(["openid", "email"]);
         }
         else if (normalized.Actions.Count != 0 || string.IsNullOrWhiteSpace(normalized.DesiredCapability) || normalized.DesiredCapability.Length > 500)

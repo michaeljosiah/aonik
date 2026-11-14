@@ -20,7 +20,8 @@ internal sealed record ConnectorConsentProof(Guid TenantId, Guid RequestId, Guid
 /// <summary>Provider consent is staged privately; only the authenticated consenting owner may apply the account and grants.</summary>
 internal sealed class ConnectorConsentService(PlatformDbContext database, ConnectorAuthorization authorization,
     ConnectorConnectionRequestService requests, ConnectorGrantService grants, ConnectorCredentialProtector credentials,
-    IEnumerable<IConnectorOAuthProvider> providers, IDataProtectionProvider protection, IAuditLogWriter audit, IClock clock)
+    IEnumerable<IConnectorOAuthProvider> providers, IDataProtectionProvider protection, IAuditLogWriter audit, IClock clock,
+    ConnectorCatalog? catalog = null)
 {
     private IDataProtector CookieProtector => protection.CreateProtector("Aonik.ConnectorConsentCookie.v1");
 
@@ -144,7 +145,10 @@ internal sealed class ConnectorConsentService(PlatformDbContext database, Connec
         ConsentResult result = ConnectorJson.Read<ConsentResult>(ReadSecret(request, userId, "Result", request.ProtectedOAuthResult));
         ConnectorOAuthTokens tokens = result.Tokens;
         IReadOnlyList<string> required = ConnectorJson.Read<List<string>>(request.RequiredScopesJson);
-        if (tokens.GrantedScopes is null || required.Any(scope => !tokens.GrantedScopes.Contains(scope, StringComparer.Ordinal)))
+        bool permitted = tokens.GrantedScopes is not null && (catalog is null ? required.All(scope => tokens.GrantedScopes.Contains(scope, StringComparer.Ordinal))
+            : ConnectorJson.Read<List<ConnectorActionRef>>(request.ActionsJson).All(action => ConnectorScopeRequirements.Satisfied(catalog.Resolve(request.ConnectorKey, action), tokens.GrantedScopes.ToArray()))
+                && required.Where(scope => scope is "openid" or "email").All(scope => tokens.GrantedScopes.Contains(scope, StringComparer.Ordinal)));
+        if (!permitted)
             throw ConnectorAuthorization.Access("InsufficientScopes");
         if (tokens.ExpiresAt <= clock.UtcNow.AddSeconds(15)) throw ConnectorAuthorization.Access("ReauthorizationRequired");
         ConnectorConnection connection = await database.ConnectorConnections.SingleAsync(connection => connection.TenantId == request.TenantId

@@ -7,7 +7,8 @@ namespace Aonik.SharedKernel.Abstractions.Connectors;
 
 public sealed record ConnectorActionRef(string Key, int Version);
 public sealed record ConnectorActionDescriptor(string ConnectorKey, string Key, int Version, string ToolName,
-    IReadOnlyList<string> RequiredScopes, ToolApprovalOptions? Approval, JsonElement InputSchema, JsonElement OutputSchema);
+    IReadOnlyList<string> RequiredScopes, ToolApprovalOptions? Approval, JsonElement InputSchema, JsonElement OutputSchema,
+    IReadOnlyList<IReadOnlyList<string>>? ScopeAlternatives = null);
 public sealed record ConnectorDescriptor(string Key, string DisplayName, IReadOnlyList<ConnectorActionDescriptor> Actions);
 public interface IConnectorDescriptor { ConnectorDescriptor Descriptor { get; } }
 
@@ -30,6 +31,8 @@ public interface IConnectorService
         CancellationToken cancellationToken = default);
     Task ValidateWorkflowBindingAsync(Guid workflowId, WorkflowConnectorBinding binding, ConnectorActionRef action, WorkflowActor actor,
         CancellationToken cancellationToken = default);
+    Task ValidateReviewAccessAsync(Guid connectionId, ConnectorActionRef action, Guid userId, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Connector review authorization is unavailable.");
 }
 
 /// <summary>Verifies the actual leased step and its published connection binding in the Agents module.</summary>
@@ -37,6 +40,8 @@ public interface IWorkflowConnectorContextReader
 {
     Task<ConnectorUseContext> RequireAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
         JsonElement arguments, CancellationToken cancellationToken = default);
+    Task<ConnectorUseContext> RequirePreparationAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
+        JsonElement arguments, CancellationToken cancellationToken = default) => throw new NotSupportedException("Connector preparation verification is unavailable.");
     Task RequireGrantTargetAsync(Guid workflowId, Guid userId, CancellationToken cancellationToken = default);
     Task<WorkflowConnectorRequestTarget> GetRequestTargetAsync(Guid runId, Guid userId, CancellationToken cancellationToken = default);
 }

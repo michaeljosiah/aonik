@@ -9,6 +9,7 @@ using Aonik.Agents.Persistence;
 using Aonik.Agents.Workflows.Graph;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Abstractions.Workflows;
@@ -17,7 +18,8 @@ namespace Aonik.Agents.Services.Workflows;
 
 internal sealed class WorkflowReviewerAuthorization(
     AgentsDbContext database, ITenantProvider tenantProvider, IUserDirectoryReader users,
-    ITenantRoleReader roles, IPermissionService permissions, WorkflowExecutionAuthorization execution, IClock clock)
+    ITenantRoleReader roles, IPermissionService permissions, WorkflowExecutionAuthorization execution, IClock clock,
+    IConnectorService? connectors = null)
 {
     public async Task RequireAsync(ToolApprovalRequest request, Guid userId, CancellationToken cancellationToken = default)
     {
@@ -47,6 +49,11 @@ internal sealed class WorkflowReviewerAuthorization(
         WorkflowToolParameters parameters = node.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)
             ?? throw new WorkflowConflictException("The published action contract is invalid.");
         WorkflowReviewerRequirement requirement = parameters.Reviewer ?? throw new WorkflowConflictException("The published action has no reviewer requirement.");
+        if (GmailActionPolicies.IsMutation(parameters.ActionKey))
+        {
+            if (connectors is null || parameters.Connection is null) throw new PermissionDeniedException("Integration.Use");
+            await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, new(parameters.ActionKey, parameters.ContractVersion), userId, cancellationToken);
+        }
         WorkflowFactsSnapshot recorded = JsonSerializer.Deserialize<WorkflowFactsSnapshot>(step.FactsJson!, WorkflowDefinitionCodec.JsonOptions)!;
         if (parameters.ActionKey != step.ActionKey || parameters.ContractVersion != step.ActionVersion
             || string.IsNullOrEmpty(step.RequiredPermission) || request.TenantId != tenantId

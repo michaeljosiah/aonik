@@ -10,7 +10,8 @@ using Aonik.SharedKernel.Abstractions.Settings;
 namespace Aonik.Platform.Services.Integrations;
 
 internal sealed record ConnectorPolicy(string Code, IReadOnlyList<ConnectorActionRef> AllowedActions,
-    bool AllowUserConnections, bool AllowSelfService, bool AllowWorkflowConnections, Guid? ReviewerRoleId, int RequestExpiryDays);
+    bool AllowUserConnections, bool AllowSelfService, bool AllowWorkflowConnections, Guid? ReviewerRoleId, int RequestExpiryDays,
+    bool AllowPermanentDelete = false);
 
 /// <summary>Intersects explicit platform and tenant restrictions. User preferences never enter an authorization decision.</summary>
 internal sealed class ConnectorPolicyService(PlatformDbContext database, ITenantProvider tenantProvider, IConfiguration configuration)
@@ -43,7 +44,9 @@ internal sealed class ConnectorPolicyService(PlatformDbContext database, ITenant
             return new(code, tenantActions.Intersect(platformActions).Distinct().ToList(),
                 Flag(IntegrationSettingNames.GmailAllowUserConnections, true), Flag(IntegrationSettingNames.GmailAllowSelfService, false),
                 Flag(IntegrationSettingNames.GmailAllowWorkflowConnections, false), Guid.TryParse(role, out Guid roleId) ? roleId : null,
-                days is null ? 7 : int.Parse(days, System.Globalization.CultureInfo.InvariantCulture));
+                days is null ? 7 : int.Parse(days, System.Globalization.CultureInfo.InvariantCulture),
+                Parse(Stored(IntegrationSettingNames.GmailAllowPermanentDelete, SettingScope.Global) ?? Host(IntegrationSettingNames.GmailAllowPermanentDelete), false)
+                    && Parse(Stored(IntegrationSettingNames.GmailAllowPermanentDelete, SettingScope.Tenant), false));
         }
         catch (Exception exception) when (exception is System.Text.Json.JsonException or ArgumentException)
         {

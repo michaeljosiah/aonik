@@ -55,6 +55,7 @@
     <PackageReference Include="FluentStorage.Azure.Blobs" Version="6.0.2" />
     <PackageReference Include="Google.Apis.Auth" Version="1.69.0" />
     <PackageReference Include="Magick.NET-Q8-AnyCPU" Version="14.17.2" />
+    <PackageReference Include="MimeKit.Core" Version="5.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authorization" Version="10.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="10.0.1" />

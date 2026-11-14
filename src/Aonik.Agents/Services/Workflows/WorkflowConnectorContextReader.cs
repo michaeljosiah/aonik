@@ -18,8 +18,14 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
     IAutomationIdentityAuthorization? automation = null)
     : IWorkflowConnectorContextReader
 {
-    public async Task<ConnectorUseContext> RequireAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
-        JsonElement arguments, CancellationToken cancellationToken = default)
+    public Task<ConnectorUseContext> RequireAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
+        JsonElement arguments, CancellationToken cancellationToken = default) => RequireCoreAsync(runId, stepRunId, connectionId, action, arguments, false, cancellationToken);
+
+    public Task<ConnectorUseContext> RequirePreparationAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
+        JsonElement arguments, CancellationToken cancellationToken = default) => RequireCoreAsync(runId, stepRunId, connectionId, action, arguments, true, cancellationToken);
+
+    private async Task<ConnectorUseContext> RequireCoreAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
+        JsonElement arguments, bool preparation, CancellationToken cancellationToken)
     {
         if (context.Run?.Id != runId || context.Step?.Id != stepRunId || context.LeaseId == Guid.Empty) throw Denied();
         Guid tenantId = tenantProvider.GetCurrentTenantId();
@@ -27,7 +33,7 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
         WorkflowStepRun step = await database.WorkflowStepRuns.AsNoTracking().SingleOrDefaultAsync(step => step.TenantId == tenantId && step.Id == stepRunId, cancellationToken) ?? throw Denied();
         string hash = ToolArgumentsHash.Compute(arguments.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value));
         if (run.Status != WorkflowRunStatuses.Running || run.LeaseId != context.LeaseId || run.LeaseExpiresAt <= clock.UtcNow
-            || step.RunId != run.Id || step.Status != "Executing" || step.ActionKey != action.Key || step.ActionVersion != action.Version
+            || step.RunId != run.Id || step.Status != (preparation ? "Prepared" : "Executing") || step.ActionKey != action.Key || step.ActionVersion != action.Version
             || step.ArgumentsHash != hash || run.PendingStepRunId != step.Id) throw Denied();
         await authority.RequireRunAsync(run, cancellationToken);
         if (run.ActorType == "AutomationIdentity")

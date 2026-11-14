@@ -392,11 +392,23 @@ internal sealed class WorkflowRunService(
             WorkflowStepApproval? approval = null;
             if (requests.TryGetValue(step.Id, out ToolApprovalRequest? request))
             {
+                bool canViewPreview = true;
+                if (step.ActionKey is { } connectorKey && GmailActionPolicies.IsMutation(connectorKey))
+                {
+                    canViewPreview = false;
+                    WorkflowVersion pinned = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == run.TenantId && version.Id == run.WorkflowVersionId, cancellationToken);
+                    WorkflowToolParameters parameters = ReadDefinition(pinned).Nodes.Single(node => node.Key == step.NodeKey).Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
+                    if (connectors is not null && parameters.Connection is not null)
+                    {
+                        try { await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, new(connectorKey, step.ActionVersion!.Value), userId, cancellationToken); canViewPreview = true; }
+                        catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException) { }
+                    }
+                }
                 bool canDecide = false;
                 if (reviewers is not null && request.Status == ToolApprovalRequestStatus.Pending)
                 {
                     try { await reviewers.RequireAsync(request, userId, cancellationToken); canDecide = true; }
-                    catch (Exception exception) when (exception is PermissionDeniedException or WorkflowConflictException) { }
+                    catch (Exception exception) when (exception is PermissionDeniedException or WorkflowConflictException or ConnectorAccessException) { }
                 }
                 WorkflowHumanTaskView? human = null;
                 if (request.ToolName == WorkflowHumanTaskContract.ToolName && step.ArgumentsJson is { } args)
@@ -406,7 +418,7 @@ internal sealed class WorkflowRunService(
                     human = new(parameters.Purpose, parameters.Choices, request.DecidedByUserId, ReadJson(request.ResponseJson), request.ResponseHash);
                 }
                 approval = new(request.Id, request.RiskTier, request.ActionKind, request.Status.ToString(), Utc(request.ExpiresAt)!.Value, canDecide,
-                    request.PreviewJson is { } preview ? JsonSerializer.Deserialize<ToolApprovalPreview>(preview, WorkflowDefinitionCodec.JsonOptions) : null, human);
+                    canViewPreview && request.PreviewJson is { } preview ? JsonSerializer.Deserialize<ToolApprovalPreview>(preview, WorkflowDefinitionCodec.JsonOptions) : null, human);
             }
             details.Add(new(step.Id, step.NodeKey, step.InvocationPath, step.Status, step.ActionKey, step.ActionVersion,
                 step.SelectedRoute, ReadJson(step.DecisionTraceJson), ReadJson(step.ResultJson), step.ApprovalRequestId, step.ProposalId, step.AiRunId, step.ErrorCode, approval, Utc(step.DeadlineUtc)));

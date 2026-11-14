@@ -100,6 +100,9 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
                 new(actor, workflowId, actor.WorkflowVersionId, PinnedGrantId: binding.WorkflowGrantId, AllowedActions: binding.AllowedActions), cancellationToken);
     }
 
+    public async Task ValidateReviewAccessAsync(Guid connectionId, ConnectorActionRef action, Guid userId, CancellationToken cancellationToken = default)
+        => _ = await authorization.RequireUseAsync(connectionId, catalog.Resolve(action), new(new("User", userId, userId)), cancellationToken);
+
     public async Task<JsonElement> InvokeWorkflowReadAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
         JsonElement arguments, CancellationToken cancellationToken = default)
     {

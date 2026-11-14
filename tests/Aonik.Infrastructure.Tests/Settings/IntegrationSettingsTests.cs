@@ -29,6 +29,7 @@ public class IntegrationSettingsTests
     [InlineData("Integrations.Gmail.Enabled")]
     [InlineData("integrations.gmail.allowselfservice")]
     [InlineData("Integrations.Gmail.AllowedActions")]
+    [InlineData("Integrations.Gmail.AllowPermanentDelete")]
     [InlineData("Workflows.ExecutionEnabled")]
     public async Task UserSettings_Should_NotOverrideIntegrationOrWorkflowPolicy(string key)
     {

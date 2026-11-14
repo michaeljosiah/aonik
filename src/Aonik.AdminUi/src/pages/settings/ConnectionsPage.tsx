@@ -12,6 +12,7 @@ import { connectorService, connectorError, consentUrl, type ConnectionRequest, t
 import { AutomationIdentitiesPanel } from './AutomationIdentitiesPanel';
 import { WorkflowExecutionPolicyPanel } from './WorkflowExecutionPolicyPanel';
 import { MailboxSubscriptionHealth } from './MailboxSubscriptionHealth';
+import { ConnectorMutationStatusPanel } from './ConnectorMutationStatusPanel';
 
 export function MyConnectionsPage() { return <ConnectionsPage />; }
 export function TenantIntegrationsPage() { return <ConnectionsPage tenant />; }
@@ -45,7 +46,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{tenant ? 'Review organizational access, account consent and exact use grants. Managing an account does not grant access to its email.' : 'Choose the accounts Aonik can use, review connection requests and manage your grants.'}</p></div>
       <Button variant="outline" disabled={busy} onClick={() => void run(refresh)}>Refresh</Button></div>
     {error && <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</p>}
-    {tenant && <IntegrationPolicyPanel disabled={busy} onSave={run} />}
+    {tenant && <IntegrationPolicyPanel disabled={busy} onSave={run} availableActions={gmail?.actions ?? []} />}
     {tenant && <AutomationIdentitiesPanel />}
     {tenant && <WorkflowExecutionPolicyPanel />}
     <Card><CardHeader><CardTitle>Request Gmail access</CardTitle></CardHeader><CardContent className="space-y-4">
@@ -66,6 +67,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
       {visibleAccounts.map(account => <ConnectionAccountCard key={`${account.id}:${account.expectedVersion}`} account={account} canManage={managedIds.includes(account.id)}
         catalog={catalog} tenantDefault={tenant} disabled={busy} onAction={run} />)}
     </section>
+    <ConnectorMutationStatusPanel />
   </div>;
 }
 
@@ -137,21 +139,26 @@ export function ActionChoices({ actions, selected, onChange }: { actions: Connec
   return <div className="space-y-2">{actions.map(action => { const checked = selected.some(item => item.key === action.key && item.version === action.version); return <label key={`${action.key}:${action.version}`} className="flex items-center gap-2 text-sm"><Checkbox checked={checked} onCheckedChange={value => onChange(value ? [...selected, { key: action.key, version: action.version }] : selected.filter(item => item.key !== action.key || item.version !== action.version))} />{action.key} · v{action.version}</label>; })}</div>;
 }
 
-function IntegrationPolicyPanel({ disabled, onSave }: { disabled: boolean; onSave: RunAction }) {
+function IntegrationPolicyPanel({ disabled, onSave, availableActions }: { disabled: boolean; onSave: RunAction; availableActions: ConnectorActionRef[] }) {
   const [enabled, setEnabled] = useState(false); const [personal, setPersonal] = useState(true); const [selfService, setSelfService] = useState(false); const [workflows, setWorkflows] = useState(false); const [role, setRole] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [permanentDelete, setPermanentDelete] = useState(false); const [allowed, setAllowed] = useState<ConnectorActionRef[]>([]);
   useEffect(() => {
-    const entries = ['Enabled', 'AllowUserConnections', 'AllowSelfService', 'AllowWorkflowConnections'].map(key => `Integrations.Gmail.${key}`).concat('Integrations.RequestReviewerRoleId');
+    const entries = ['Enabled', 'AllowUserConnections', 'AllowSelfService', 'AllowWorkflowConnections'].map(key => `Integrations.Gmail.${key}`).concat('Integrations.RequestReviewerRoleId', 'Integrations.Gmail.AllowPermanentDelete', 'Integrations.Gmail.AllowedActions');
     void Promise.all(entries.map(key => api.get<{ value: string | null }>(`/tenant/settings/values/${key}`))).then(values => {
       setEnabled(values[0].value === 'true'); setPersonal(values[1].value !== 'false'); setSelfService(values[2].value === 'true'); setWorkflows(values[3].value === 'true'); setRole(values[4].value ?? ''); setLoaded(true);
+      setPermanentDelete(values[5].value === 'true'); setAllowed(values[6].value ? JSON.parse(values[6].value) as ConnectorActionRef[] : ['gmail.messages.search', 'gmail.messages.get', 'gmail.attachments.get'].map(key => ({ key, version: 1 })));
     }).catch(() => setLoaded(false));
   }, []);
   return <Card><CardHeader><CardTitle>Tenant policy</CardTitle></CardHeader><CardContent className="space-y-3 text-sm"><p className="text-muted-foreground">Tenant enablement is explicit. Platform restrictions continue to apply. OAuth client credentials are configured by the platform operator.</p>
     {!loaded && <p className="text-muted-foreground">Policy values could not be loaded yet. Settings read/write permission is required.</p>}
     {[['Enable Gmail', enabled, setEnabled], ['Allow personal accounts', personal, setPersonal], ['Allow personal self-service consent', selfService, setSelfService], ['Allow explicit workflow grants', workflows, setWorkflows]].map(([label, checked, update]) => <label key={String(label)} className="flex items-center gap-2"><Checkbox disabled={disabled || !loaded} checked={Boolean(checked)} onCheckedChange={value => (update as (value: boolean) => void)(value === true)} />{String(label)}</label>)}
     <label className="block space-y-1">Integration reviewer role ID<Input disabled={!loaded} value={role} onChange={event => setRole(event.target.value)} /></label>
+    <label className="flex items-center gap-2"><Checkbox disabled={disabled || !loaded} checked={permanentDelete} onCheckedChange={value => setPermanentDelete(value === true)} />Allow permanent deletion when also enabled by the platform</label>
+    <details><summary className="cursor-pointer">Allowed Gmail actions</summary><p className="my-2 text-muted-foreground">Platform restrictions, account consent, use grants and each action’s human approval still apply. Enabling an action here does not grant mailbox access.</p><ActionChoices actions={availableActions} selected={allowed} onChange={setAllowed} /></details>
     <Button disabled={disabled || !loaded} onClick={() => void onSave(async () => {
-      const values = { 'Integrations.Gmail.Enabled': String(enabled), 'Integrations.Gmail.AllowUserConnections': String(personal), 'Integrations.Gmail.AllowSelfService': String(selfService), 'Integrations.Gmail.AllowWorkflowConnections': String(workflows), 'Integrations.RequestReviewerRoleId': role || null };
+      const values = { 'Integrations.Gmail.Enabled': String(enabled), 'Integrations.Gmail.AllowUserConnections': String(personal), 'Integrations.Gmail.AllowSelfService': String(selfService), 'Integrations.Gmail.AllowWorkflowConnections': String(workflows), 'Integrations.RequestReviewerRoleId': role || null,
+        'Integrations.Gmail.AllowPermanentDelete': String(permanentDelete), 'Integrations.Gmail.AllowedActions': JSON.stringify(allowed) };
       for (const [key, value] of Object.entries(values)) await api.put(`/tenant/settings/values/${key}`, { value });
     })}>Save tenant policy</Button>
   </CardContent></Card>;

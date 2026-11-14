@@ -80,6 +80,8 @@ public class ToolApprovalRequest : AuditableEntity, ITenantScoped
     public string? PreviewJson { get; set; }
     public string? ResponseJson { get; set; }
     public string? ResponseHash { get; set; }
+    public string? InvocationKey { get; set; }
+    public string? ExecutionJson { get; set; }
 
     /// <summary>
     /// Stable hash of the canonical arguments. A decision is bound to this hash: the gate only

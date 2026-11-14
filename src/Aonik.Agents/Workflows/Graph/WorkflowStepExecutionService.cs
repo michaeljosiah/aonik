@@ -106,7 +106,7 @@ internal sealed partial class WorkflowStepExecutionService(
             try
             {
                 ToolGateOutcome gated = await approvals.GateAsync(new(handler.Descriptor.ToolName, policy, Arguments(arguments),
-                    new(policy.ActionKind ?? handler.Descriptor.Key,
+                    await handler.GetPreviewAsync(Invocation(step), cancellationToken) ?? new(policy.ActionKind ?? handler.Descriptor.Key,
                         JsonSerializer.SerializeToElement(new { subjectId = Run.SubjectId, facts = facts.Facts, definitionHash = Run.DefinitionHash }), arguments)), cancellationToken);
                 step.Status = gated.Decision switch
                 {
@@ -142,6 +142,17 @@ internal sealed partial class WorkflowStepExecutionService(
             Proposal proposal = await database.Proposals.AsNoTracking().SingleAsync(proposal => proposal.Id == proposalId, cancellationToken);
             if (proposal.Status is ProposalStatus.Proposed or ProposalStatus.Approved) return null;
             if (proposal.Status == ProposalStatus.Applied) return new(Run.Id);
+            if (proposal.Status == ProposalStatus.Failed && SharedKernel.Abstractions.Connectors.GmailActionPolicies.IsMutation(step.ActionKey ?? ""))
+            {
+                invocationContext.Step = step;
+                try
+                {
+                    WorkflowActionReconciliation recovered = await actions.Resolve(step.ActionKey!, step.ActionVersion!.Value).ReconcileAsync(Invocation(step), cancellationToken);
+                    if (recovered.Result is { } receipt) return await CompleteToolAsync(step, receipt, cancellationToken);
+                    throw new WorkflowExecutionException("ActionOutcomeUnknown");
+                }
+                finally { invocationContext.Step = null; }
+            }
             step.Status = "Blocked";
             step.ErrorCode = proposal.Status == ProposalStatus.Failed ? "ProposalFailed" : "ApprovalRejected";
         }
@@ -174,11 +185,14 @@ internal sealed partial class WorkflowStepExecutionService(
             if (proposal.Status != ProposalStatus.Applied || proposal.ExecutionResultJson is null) throw new WorkflowExecutionException("ProposalNotApplied");
             // High effects ran only through their typed proposal handler, never through this worker.
             var receipt = JsonSerializer.Deserialize<ProposalHandlerResult>(proposal.ExecutionResultJson, WorkflowDefinitionCodec.JsonOptions)!;
-            return await CompleteToolAsync(step, new("Applied", JsonSerializer.SerializeToElement(receipt, WorkflowDefinitionCodec.JsonOptions)), cancellationToken);
+            return await CompleteToolAsync(step, new("Applied", receipt.Output ?? JsonSerializer.SerializeToElement(receipt, WorkflowDefinitionCodec.JsonOptions)), cancellationToken);
         }
         if (step.Status == "Executing")
         {
-            WorkflowActionReconciliation recovered = await handler.ReconcileAsync(invocation, cancellationToken);
+            WorkflowActionReconciliation recovered;
+            invocationContext.Step = step;
+            try { recovered = await handler.ReconcileAsync(invocation, cancellationToken); }
+            finally { invocationContext.Step = null; }
             if (recovered.Result is { } receipt) return await CompleteToolAsync(step, receipt, cancellationToken);
             if (!recovered.CanRetry) throw new WorkflowExecutionException("ActionOutcomeUnknown");
         }
