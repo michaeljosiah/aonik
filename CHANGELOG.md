@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Worker-scoped tenant tool classification (#438, T14 prerequisite):** Forward the tool-build service scope through the existing approval manifest/gate. Background MCP/HTTP tool classification no longer depends on HttpContext or inherits another ambient tenant's store; existing name-only callers remain compatible.
+
 - **Financial intake review and erasure (#438, T13):** Reuse the document page for authorized candidate/source review, add a small intake draft template and launch the immutable published subject. Protect financial-source metadata with current mailbox grants; scrub erased source metadata and copied approval previews through the existing outbox while cancelling remaining work and retaining financial/audit references.
 
 - **Financial source access recovery (#438, T13):** Reuse connection requests and owner consent for held document/invoice steps, deriving the original account, grant, actor and read capabilities from retained source evidence and approved parent lineage. Recheck access while approvals wait, hide private run evidence from readers without source access and require explicit resume of unchanged facts; reject substituted accounts/actions and disabled triggers.

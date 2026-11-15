@@ -34,7 +34,7 @@ public sealed class ToolApprovalGate : IToolApprovalGate
     {
         ArgumentNullException.ThrowIfNull(tool);
 
-        var classification = Classify(tool.Name);
+        var classification = Classify(tool.Name, serviceProvider);
 
         if (classification is null)
         {
@@ -66,10 +66,13 @@ public sealed class ToolApprovalGate : IToolApprovalGate
     }
 
     public ToolClassification? Classify(string toolName)
+        => Classify(toolName, null);
+
+    public ToolClassification? Classify(string toolName, IServiceProvider? serviceProvider)
     {
         foreach (var manifest in _manifests)
         {
-            var classification = manifest.Classify(toolName);
+            var classification = manifest.Classify(toolName, serviceProvider);
             if (classification is not null)
             {
                 return classification;

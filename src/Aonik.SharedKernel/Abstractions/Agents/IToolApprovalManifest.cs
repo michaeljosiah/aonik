@@ -17,4 +17,7 @@ public interface IToolApprovalManifest
     /// own the tool.
     /// </summary>
     ToolClassification? Classify(string toolName);
+
+    /// <summary>Resolve tenant classification from the actual tool-build scope, including background workers.</summary>
+    ToolClassification? Classify(string toolName, IServiceProvider? serviceProvider) => Classify(toolName);
 }
