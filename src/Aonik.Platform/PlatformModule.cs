@@ -196,6 +196,7 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserPartyResolver, Services.Party.UserPartyResolver>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.ITenantActivityReader, Services.Identity.TenantActivityReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.ITenantRoleReader, Services.Identity.TenantRoleReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IChatParticipantDirectory, Services.Identity.ChatParticipantDirectory>();
 

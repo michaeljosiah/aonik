@@ -21,6 +21,8 @@ internal static class ConnectorInfrastructureRegistration
         services.AddScoped<GmailMailboxSyncProvider>();
         services.AddScoped<IConnectorMailboxSyncProvider>(provider => provider.GetRequiredService<GmailMailboxSyncProvider>());
         services.AddScoped<IConnectorMailboxPushVerifier, GmailMailboxPushVerifier>();
-        services.AddScoped<IConnectorContentStore, ConnectorContentStore>();
+        services.AddScoped<ConnectorContentStore>();
+        services.AddScoped<IConnectorContentStore>(provider => provider.GetRequiredService<ConnectorContentStore>());
+        services.AddScoped<IConnectorContentRetention>(provider => provider.GetRequiredService<ConnectorContentStore>());
     }
 }

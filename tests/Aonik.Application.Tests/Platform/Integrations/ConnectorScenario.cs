@@ -77,6 +77,7 @@ internal sealed class ConnectorScenario : IDisposable, IAsyncDisposable
         services.AddDbContext<PlatformDbContext>(options => { if (sqlOptions is null) options.UseInMemoryDatabase(name); }, optionsLifetime: ServiceLifetime.Scoped);
         if (sqlOptions is not null) services.AddScoped(_ => sqlOptions);
         services.AddScoped<IUserDirectoryReader, UserDirectoryReader>();
+        services.AddScoped<ITenantActivityReader, TenantActivityReader>();
         services.AddScoped<ITenantRoleReader, TenantRoleReader>();
         services.AddSingleton<IConnectorDescriptor, GmailConnectorDescriptor>();
         services.AddScoped<ConnectorCatalog>(); services.AddScoped<ConnectorPolicyService>(); services.AddScoped<ConnectorAuthorization>();
@@ -96,6 +97,7 @@ internal sealed class ConnectorScenario : IDisposable, IAsyncDisposable
     {
         using IServiceScope scope = Scope();
         PlatformDbContext db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        db.Tenants.Add(new Tenant { Id = TenantId, Name = "Connector fixture" });
         db.Users.AddRange(new User { Id = Current.OwnerId, TenantId = TenantId, Status = "Active", ExternalSubject = Current.OwnerId.ToString() },
             new User { Id = ReviewerId, TenantId = TenantId, Status = "Active", ExternalSubject = ReviewerId.ToString() },
             new User { Id = OutsiderId, TenantId = TenantId, Status = "Active", ExternalSubject = OutsiderId.ToString() });

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Aonik.Platform.Entities.Integrations;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Workflows;
@@ -208,7 +209,8 @@ internal sealed partial class ConnectorService(PlatformDbContext database, Conne
         string details = ConnectorJson.Serialize(new
             {
                 action.Key, action.Version, operationId, context.Actor.Type, actorId = context.Actor.Id, context.WorkflowId,
-                context.WorkflowVersionId, context.RunId, context.StepRunId, argumentsHash = hash, attempt, error,
+                context.WorkflowVersionId, context.RunId, context.StepRunId, aiRunId = AiToolCallProvenance.CurrentRunId,
+                argumentsHash = hash, attempt, error,
             });
         return context.Actor.Type == "User"
             ? audit.LogAsync(name, "ConnectorConnection", connectionId, authorization.TenantId, context.Actor.Id, context.RunId?.ToString("D"), details, cancellationToken)

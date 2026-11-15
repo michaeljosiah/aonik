@@ -1,4 +1,5 @@
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Ai;
 
 using Microsoft.Extensions.AI;
 
@@ -56,7 +57,9 @@ internal sealed class ApprovalGatedAIFunction : DelegatingAIFunction
         AIFunctionArguments arguments,
         CancellationToken cancellationToken)
     {
-        var gateContext = new ToolGateContext(Name, _options, arguments);
+        Guid? aiRunId = ReferenceEquals(FunctionInvokingChatClient.CurrentContext?.Arguments, arguments)
+            ? AiToolCallProvenance.CurrentRunId : null;
+        var gateContext = new ToolGateContext(Name, _options, arguments, AiRunId: aiRunId);
         if (_serviceProvider?.GetService(typeof(IEnumerable<IAgentMutationGuard>)) is IEnumerable<IAgentMutationGuard> guards)
         {
             foreach (var guard in guards)

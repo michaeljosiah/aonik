@@ -24,6 +24,7 @@ using Aonik.Agents.Services.Workflows;
 using Aonik.Agents.Workflows.Graph;
 using Aonik.Application.Tests.Platform.Integrations;
 using Aonik.Platform.Entities.Settings;
+using Aonik.Platform.Entities.Identity;
 using Aonik.Platform.Entities.Integrations;
 using Aonik.Platform.Persistence;
 using Aonik.Platform.Services.Integrations;
@@ -88,9 +89,10 @@ public sealed class ConnectorPackageExecutionTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task Worker_Should_UseTheOldReviewedReleaseWithoutAnHttpActor_AndRespectSecurityDisablement(bool disable)
+    [InlineData("upgrade-only", WorkflowRunStatuses.Completed)]
+    [InlineData("installation-disabled", WorkflowRunStatuses.WaitingForConnection)]
+    [InlineData("tenant-deactivated", WorkflowRunStatuses.NeedsAttention)]
+    public async Task Worker_Should_UseTheOldReviewedRelease_AndRespectSecurityDisablement(string change, string expectedStatus)
     {
         await using var host = new Host(mcp: true);
         await host.InitializeAsync();
@@ -106,13 +108,22 @@ public sealed class ConnectorPackageExecutionTests
         preview.Target!.PackageVersion.Should().Be("1.1.0");
         preview.CurrentActions.Single(action => action.Action == Host.Read).ContractHash.Should().Be(binding.Artifact!.ActionContractHash);
 
-        if (disable) await host.DisableAsync(oldAccount.Id);
+        if (change == "installation-disabled") await host.DisableAsync(oldAccount.Id);
+        if (change == "tenant-deactivated")
+        {
+            using IServiceScope admin = host.Scenario.Scope();
+            var db = admin.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var tenant = await db.Tenants.SingleAsync(tenant => tenant.Id == host.Scenario.TenantId);
+            tenant.Status = TenantStatus.Deactivated;
+            await db.SaveChangesAsync();
+        }
         host.Scenario.Current.Authenticated = false;
         using IServiceScope worker = host.Scenario.Scope();
         var result = await worker.ServiceProvider.GetRequiredService<IGraphWorkflowRunner>().ContinueAsync(runId, 0);
 
-        result.Status.Should().Be(disable ? WorkflowRunStatuses.WaitingForConnection : WorkflowRunStatuses.Completed, result.ErrorCode);
-        host.Remote.Effects.Should().Equal(disable ? Array.Empty<string>() : new[] { "read" });
+        result.Status.Should().Be(expectedStatus, result.ErrorCode);
+        if (change == "tenant-deactivated") result.ErrorCode.Should().Be("ExecutionAuthorityChanged");
+        host.Remote.Effects.Should().Equal(change == "upgrade-only" ? new[] { "read" } : Array.Empty<string>());
     }
 
     [Theory]

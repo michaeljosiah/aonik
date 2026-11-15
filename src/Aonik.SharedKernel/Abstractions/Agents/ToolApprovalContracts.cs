@@ -225,7 +225,8 @@ public sealed record ToolGateContext(
     IDictionary<string, object?> Arguments,
     ToolApprovalPreview? Preview = null,
     string? InvocationKey = null,
-    string? AuditArgumentsJson = null);
+    string? AuditArgumentsJson = null,
+    Guid? AiRunId = null);
 
 public sealed record ToolApprovalPreview(string Title, JsonElement? Before, JsonElement? After);
 

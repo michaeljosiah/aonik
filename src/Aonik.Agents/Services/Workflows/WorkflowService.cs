@@ -549,9 +549,8 @@ internal sealed class WorkflowService : IWorkflowService
                 throw new ArgumentException("Node positions exceed the supported canvas bounds.");
             try
             {
-                using JsonDocument parameters = JsonDocument.Parse(string.IsNullOrWhiteSpace(node.ParamsJson) ? "{}" : node.ParamsJson, new JsonDocumentOptions { MaxDepth = 32 });
+                using JsonDocument parameters = JsonDocument.Parse(string.IsNullOrWhiteSpace(node.ParamsJson) ? "{}" : node.ParamsJson, new JsonDocumentOptions { MaxDepth = 32, AllowDuplicateProperties = false });
                 if (parameters.RootElement.ValueKind != JsonValueKind.Object) throw new JsonException();
-                ValidateObject(parameters.RootElement);
             }
             catch (JsonException) { throw new ArgumentException("Node parameters must be a bounded JSON object without duplicate properties."); }
         }
@@ -563,21 +562,6 @@ internal sealed class WorkflowService : IWorkflowService
                 || (edge.RouteKey is not null && !WorkflowDefinitionCodec.IsKey(edge.RouteKey))
                 || !edges.Add(WorkflowDefinitionCodec.EdgeKey(edge.FromClientId, edge.ToClientId, edge.FromIndex, edge.RouteKey)))
                 throw new ArgumentException("Edges must have unique valid endpoints and route keys.");
-        }
-
-        static void ValidateObject(JsonElement value)
-        {
-            if (value.ValueKind == JsonValueKind.Object)
-            {
-                var names = new HashSet<string>(StringComparer.Ordinal);
-                foreach (JsonProperty property in value.EnumerateObject())
-                {
-                    if (!names.Add(property.Name)) throw new JsonException();
-                    ValidateObject(property.Value);
-                }
-            }
-            else if (value.ValueKind == JsonValueKind.Array)
-                foreach (JsonElement child in value.EnumerateArray()) ValidateObject(child);
         }
     }
 

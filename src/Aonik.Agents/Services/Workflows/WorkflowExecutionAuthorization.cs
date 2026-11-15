@@ -20,11 +20,14 @@ namespace Aonik.Agents.Services.Workflows;
 internal sealed class WorkflowExecutionAuthorization(
     ITenantProvider tenantProvider, IPermissionService permissions, IUserDirectoryReader users,
     ITenantSettingStore settings, IConfiguration configuration, IEnumerable<IWorkflowFactsProvider> factsProviders,
-    IModuleEnablementReader? modules = null, IAutomationIdentityAuthorization? automation = null, AgentsDbContext? database = null, IClock? clock = null)
+    IModuleEnablementReader? modules = null, IAutomationIdentityAuthorization? automation = null, AgentsDbContext? database = null, IClock? clock = null,
+    ITenantActivityReader? tenants = null)
 {
     public async Task RequireActorAsync(WorkflowActor actor, CancellationToken cancellationToken = default)
     {
         Guid tenantId = tenantProvider.GetCurrentTenantId();
+        if (tenants is not null && !await tenants.IsActiveAsync(tenantId, cancellationToken))
+            throw new PermissionDeniedException("Workflow.Run", "The tenant is inactive.");
         if (actor.Type == "AutomationIdentity" && automation is not null)
         {
             await automation.RequireAsync(actor, "Workflow.Read", cancellationToken: cancellationToken);

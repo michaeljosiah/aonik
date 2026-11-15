@@ -97,6 +97,55 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
     }
 
     [SkippableFact]
+    public async Task NativeLoop_Should_CompleteOneHundredItems_AcrossFreshScopesAndASqlRestart()
+    {
+        Skip.IfNot(database.IsAvailable, database.SkipReason);
+        var scenario = new Scenario();
+        Guid parentId;
+        using (ServiceProvider initial = Provider(scenario))
+        using (IServiceScope scope = initial.CreateScope())
+        {
+            IServiceProvider services = scope.ServiceProvider;
+            WorkflowVersion version = await SeedAsync(services.GetRequiredService<AgentsDbContext>(), scenario, "LoopLimit");
+            parentId = (await services.GetRequiredService<WorkflowRunService>().StartAsync("sql-parent",
+                new(version.Id, "Invoice", scenario.InvoiceId, "sql-loop-limit"))).Id;
+        }
+
+        const int count = WorkflowControlLimits.MaximumLoopIterations;
+        await RunItemsAsync(0, count / 2);
+        await RunItemsAsync(count / 2, count);
+
+        using ServiceProvider final = Provider(scenario);
+        using IServiceScope finalScope = final.CreateScope();
+        IServiceProvider saved = finalScope.ServiceProvider;
+        var runner = saved.GetRequiredService<IGraphWorkflowRunner>();
+        var completed = await runner.ContinueAsync(parentId, 0);
+        completed.Status.Should().Be(WorkflowRunStatuses.Completed, completed.ErrorCode);
+        (await runner.ContinueAsync(parentId, 0)).Status.Should().Be(WorkflowRunStatuses.Completed);
+        var context = saved.GetRequiredService<AgentsDbContext>();
+        (await context.WorkflowRuns.CountAsync(run => run.ParentRunId == parentId && run.Status == WorkflowRunStatuses.Completed)).Should().Be(count);
+        (await context.WorkflowStepRuns.Where(step => step.RunId == parentId && step.NodeKey == "child" && step.InvocationPath != "root")
+            .Select(step => step.InvocationPath).OrderBy(path => path).ToListAsync())
+            .Should().Equal(Enumerable.Range(1, count).Select(index => $"root/item-{index:D3}"));
+
+        async Task RunItemsAsync(int start, int end)
+        {
+            using ServiceProvider worker = Provider(scenario);
+            for (int index = start; index < end; index++)
+            {
+                using IServiceScope step = worker.CreateScope();
+                IServiceProvider services = step.ServiceProvider;
+                var graphs = services.GetRequiredService<IGraphWorkflowRunner>();
+                var waiting = await graphs.ContinueAsync(parentId, 0);
+                waiting.Status.Should().Be(WorkflowRunStatuses.WaitingForChildren, waiting.ErrorCode);
+                WorkflowRun child = await services.GetRequiredService<AgentsDbContext>().WorkflowRuns.AsNoTracking()
+                    .SingleAsync(run => run.ParentRunId == parentId && run.Status == WorkflowRunStatuses.Queued);
+                (await graphs.ContinueAsync(child.Id, 0)).Status.Should().Be(WorkflowRunStatuses.Completed);
+            }
+        }
+    }
+
+    [SkippableFact]
     public async Task ChildAdmission_Should_DeduplicateConcurrentReplays_WithOneChildAndAtomicInitialAndDeadlineWakes()
     {
         Skip.IfNot(database.IsAvailable, database.SkipReason);
@@ -172,18 +221,29 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
             : new(2, "Workflow", child.Slug, child.Name, "", [new("start", "Trigger", "Start", Empty()), new("human", "Human", "Review", JsonSerializer.SerializeToElement(new WorkflowHumanParameters(1, "Review evidence", new(UserId: fixture.ReviewerId), 60,
                     [new("accept", "Accept evidence", "accepted")], "rejected", "timeout"), WorkflowDefinitionCodec.JsonOptions)), new("done", "End", "Done", Empty()), new("manual", "End", "Manual", JsonSerializer.SerializeToElement(new { outcome = "NeedsManualReview" }))],
                 [new("first", "start", "human", 0, null), new("yes", "human", "done", 0, "accepted"), new("no", "human", "manual", 1, "rejected"), new("late", "human", "manual", 2, "timeout")]);
+        bool loopLimit = mode == "LoopLimit";
+        if (loopLimit)
+            childDefinition = new(2, "Workflow", child.Slug, child.Name, "", [new("start", "Trigger", "Start", Empty()), new("done", "End", "Done", Empty())],
+                [new("first", "start", "done", 0, null)]);
         WorkflowVersion childVersion = Version(child, childDefinition);
         var parent = new Workflow { TenantId = fixture.TenantId, Slug = "sql-parent", Name = "SQL parent", State = WorkflowStates.Active, DefinitionSchemaVersion = 2 };
         var parentDefinition = new WorkflowDefinition(2, "Workflow", parent.Slug, parent.Name, "", [new("start", "Trigger", "Start", Empty()),
             new("child", "Child", "Child", JsonSerializer.SerializeToElement(new WorkflowChildParameters(1, new(childVersion.Id, childVersion.DefinitionHash!), new(Fact: "invoice.id")), WorkflowDefinitionCodec.JsonOptions)),
             new("done", "End", "Done", Empty()), new("manual", "End", "Manual", JsonSerializer.SerializeToElement(new { outcome = "NeedsManualReview" }))],
             [new("first", "start", "child", 0, null), new("yes", "child", "done", 0, "completed"), new("no", "child", "manual", 1, "error")]);
-        if (mode is "Loop" or "Collect") parentDefinition = parentDefinition with
+        if (mode is "Loop" or "Collect" || loopLimit)
         {
-            Nodes = parentDefinition.Nodes.Select(node => node.Key == "child" ? node with { Kind = "Loop", Parameters = JsonSerializer.SerializeToElement(
-                new WorkflowLoopParameters(1, new(childVersion.Id, childVersion.DefinitionHash!), [new("first", fixture.InvoiceId), new("second", fixture.InvoiceId)], 1, 3600), WorkflowDefinitionCodec.JsonOptions) } : node).ToList(),
-            Edges = [.. parentDefinition.Edges, new("exhausted", "child", "manual", 2, "exhausted")],
-        };
+            WorkflowLoopItem[] items = loopLimit
+                ? Enumerable.Range(1, WorkflowControlLimits.MaximumLoopIterations).Select(index => new WorkflowLoopItem($"item-{index:D3}", fixture.InvoiceId)).ToArray()
+                : [new("first", fixture.InvoiceId), new("second", fixture.InvoiceId)];
+            var loop = new WorkflowLoopParameters(1, new(childVersion.Id, childVersion.DefinitionHash!), items, loopLimit ? items.Length : 1, 3600);
+            parentDefinition = parentDefinition with
+            {
+                Nodes = parentDefinition.Nodes.Select(node => node.Key == "child"
+                    ? node with { Kind = "Loop", Parameters = JsonSerializer.SerializeToElement(loop, WorkflowDefinitionCodec.JsonOptions) } : node).ToList(),
+                Edges = [.. parentDefinition.Edges, new("exhausted", "child", "manual", 2, "exhausted")],
+            };
+        }
         if (mode is "Library" or "Collect")
         {
             var table = new DecisionTable(2, "invoice-approval.v1", mode == "Collect" ? "Collect" : "FirstMatch",

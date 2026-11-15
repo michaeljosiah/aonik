@@ -100,6 +100,12 @@ var apiAppName = '${namePrefix}-api'
 var adminUiAppName = '${namePrefix}-adminui'
 @description('Whether real ACS and verification secrets are provided (enables Key Vault references instead of empty inline values).')
 param enableOptionalSecrets bool = false
+
+@description('Google Auth Platform Web application client ID for the governed Gmail connector. Leave both Gmail parameters empty to omit host configuration.')
+param gmailOAuthClientId string = ''
+
+@description('Key Vault secret URI containing the Gmail OAuth client secret. API and Worker use their existing Key Vault identities.')
+param gmailOAuthClientSecretUri string = ''
 var alertsWebhookServiceUri = 'https://${apiApp.properties.configuration.ingress.fqdn}/integrations/azure/alerts?code=${uriComponent(alertsSharedSecret)}'
 
 // =============================================================================
@@ -115,7 +121,59 @@ var alertsWebhookServiceUri = 'https://${apiApp.properties.configuration.ingress
 // =============================================================================
 var codeActSessionPoolName = '${namePrefix}-sessions'
 var codeActPoolManagementEndpoint = 'https://${location}.dynamicsessions.io/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/sessionPools/${codeActSessionPoolName}'
-var codeActCallbackBaseUrl = 'https://${apiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
+var apiBaseUrl = 'https://${apiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
+var gmailOAuthConfigured = !empty(gmailOAuthClientId) && !empty(gmailOAuthClientSecretUri)
+var gmailOAuthSecrets = gmailOAuthConfigured ? [
+  {
+    name: 'gmail-oauth-client-secret'
+    keyVaultUrl: gmailOAuthClientSecretUri
+    identity: 'system'
+  }
+] : []
+var gmailOAuthEnv = gmailOAuthConfigured ? [
+  {
+    name: 'Integrations__Gmail__OAuth__ClientId'
+    value: gmailOAuthClientId
+  }
+  {
+    name: 'Integrations__Gmail__OAuth__ClientSecret'
+    secretRef: 'gmail-oauth-client-secret'
+  }
+  {
+    name: 'Integrations__Gmail__OAuth__RedirectUri'
+    value: '${apiBaseUrl}/integrations/gmail/oauth/callback'
+  }
+  {
+    name: 'Integrations__Gmail__OAuth__ReviewReturnUri'
+    value: 'https://${adminUiAppName}.${containerAppsEnvironment.properties.defaultDomain}/settings/my-connections'
+  }
+] : []
+var blobStorageSecrets = [
+  {
+    name: 'blob-storage-account-name'
+    keyVaultUrl: data.outputs.blobStorageAccountNameSecretUri
+    identity: 'system'
+  }
+  {
+    name: 'blob-storage-account-key'
+    keyVaultUrl: data.outputs.blobStorageAccountKeySecretUri
+    identity: 'system'
+  }
+]
+var sharedBlobStorageEnv = [
+  {
+    name: 'BlobStorage__Provider'
+    value: 'Azure'
+  }
+  {
+    name: 'BlobStorage__Azure__AccountName'
+    secretRef: 'blob-storage-account-name'
+  }
+  {
+    name: 'BlobStorage__Azure__AccountKey'
+    secretRef: 'blob-storage-account-key'
+  }
+]
 var apiAdditionalEnvVars = [for setting in items(union(apiAppSettings, publishingAppSettings)): {
   name: setting.key
   value: string(setting.value)
@@ -367,18 +425,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'qdrant-api-key'
           value: qdrantApiKey
         }
-      ], [
-        {
-          name: 'blob-storage-account-name'
-          keyVaultUrl: data.outputs.blobStorageAccountNameSecretUri
-          identity: 'system'
-        }
-        {
-          name: 'blob-storage-account-key'
-          keyVaultUrl: data.outputs.blobStorageAccountKeySecretUri
-          identity: 'system'
-        }
-      ])
+      ], blobStorageSecrets, gmailOAuthSecrets)
     }
     template: {
       containers: [
@@ -480,18 +527,6 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
           ], [
             {
-              name: 'BlobStorage__Provider'
-              value: 'Azure'
-            }
-            {
-              name: 'BlobStorage__Azure__AccountName'
-              secretRef: 'blob-storage-account-name'
-            }
-            {
-              name: 'BlobStorage__Azure__AccountKey'
-              secretRef: 'blob-storage-account-key'
-            }
-            {
               name: 'BlobStorage__ProfilePhotos__PublicBaseUrl'
               value: '${data.outputs.blobStoragePublicEndpoint}profiles'
             }
@@ -509,7 +544,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
             {
               name: 'AI__CODEACT__ACASESSIONS__CALLBACKBASEURL'
-              value: codeActCallbackBaseUrl
+              value: apiBaseUrl
             }
             {
               // Pin AcaSessionsClient to the user-assigned identity. Matches
@@ -527,7 +562,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'AI__CODEACT__NONCESIGNINGKEY'
               secretRef: 'code-act-nonce-signing-key'
             }
-          ], apiAdditionalEnvVars)
+          ], sharedBlobStorageEnv, gmailOAuthEnv, apiAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -584,7 +619,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: workerPullIdentity.id
         }
       ]
-      secrets: [
+      secrets: concat([
         {
           name: 'sql-connection'
           keyVaultUrl: data.outputs.sqlConnectionSecretUri
@@ -598,7 +633,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'qdrant-api-key'
           value: qdrantApiKey
         }
-      ]
+      ], blobStorageSecrets, gmailOAuthSecrets)
     }
     template: {
       containers: [
@@ -631,7 +666,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Qdrant__CollectionPrefix'
               value: 'aonik-${environmentName}'
             }
-          ], workerAdditionalEnvVars)
+          ], sharedBlobStorageEnv, gmailOAuthEnv, workerAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'

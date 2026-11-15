@@ -26,6 +26,29 @@ public class WorkflowDefinitionTests
         WorkflowDefinitionCodec.Hash(firstJson).Should().Be(WorkflowDefinitionCodec.Hash(secondJson));
     }
 
+    [Fact]
+    public void WorkflowToolParameters_Should_RejectCaseAliasesOfTheSameContractProperty()
+    {
+        const string json = """{"actionKey":"gmail.search","ActionKey":"gmail.send-message","contractVersion":1,"inputs":{}}""";
+
+        Action parse = () => JsonSerializer.Deserialize<WorkflowToolParameters>(json, WorkflowDefinitionCodec.JsonOptions);
+
+        parse.Should().Throw<JsonException>();
+    }
+
+    [Fact]
+    public void WorkflowToolParameters_Should_PreserveLiteralJsonKeysAndLegacyCasing()
+    {
+        const string json = """{"ActionKey":"test.read","contractVersion":1,"inputs":{"query":{"literal":{"ID":1,"id":2}}}}""";
+
+        var parsed = JsonSerializer.Deserialize<WorkflowToolParameters>(json, WorkflowDefinitionCodec.JsonOptions)!;
+
+        parsed.ActionKey.Should().Be("test.read");
+        JsonElement literal = parsed.Inputs["query"].Literal!.Value;
+        literal.GetProperty("ID").GetInt32().Should().Be(1);
+        literal.GetProperty("id").GetInt32().Should().Be(2);
+    }
+
     [Theory]
     [InlineData("4999.99", "standard")]
     [InlineData("5000.00", "elevated")]

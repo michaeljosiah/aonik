@@ -309,7 +309,7 @@ internal sealed partial class ToolApprovalService : IToolApprovalService
             TenantId: tenantId,
             ProposalType: options.ProposalType!,
             ProposedByAgentId: Guid.Empty,
-            AiRunId: _workflowContext?.Step?.AiRunId ?? _roomContext?.AiRunId,
+            AiRunId: _workflowContext?.Step?.AiRunId ?? _roomContext?.AiRunId ?? context.AiRunId,
             ImpactSummary: context.Preview?.Title ?? actionKind,
             RiskTier: HighRiskTier,
             PayloadJson: argumentsJson,
@@ -534,7 +534,7 @@ internal sealed partial class ToolApprovalService : IToolApprovalService
         {
             TenantId = tenantId,
             RequestingUserId = requestingUserId,
-            AiRunId = _workflowContext?.Step?.AiRunId ?? _roomContext?.AiRunId,
+            AiRunId = _workflowContext?.Step?.AiRunId ?? _roomContext?.AiRunId ?? context.AiRunId,
             ThreadId = _roomContext?.RoomId?.ToString(),
             ToolName = context.ToolName,
             ArgumentsRedactedJson = options.Tier == ToolApprovalTier.Low ? context.AuditArgumentsJson ?? argumentsJson : argumentsJson,

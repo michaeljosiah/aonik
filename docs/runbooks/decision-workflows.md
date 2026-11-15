@@ -1,10 +1,10 @@
 # Governed decision workflows
 
-This runbook covers the invoice workflow foundation, tenant automation identities and automatic sources in Spec 099. The expanded epic also requires document intake, richer control flow, Gmail mutations and the connector marketplace. Their qualification remains separate from this milestone.
+Use this runbook to enable, verify and roll back the Spec 099 workflow features for one tenant. The live pilot uses an approved automation identity, the exact workflow versions and a consenting Gmail account.
 
 ## Enable a pilot tenant
 
-1. Deploy the same API and Worker version. Apply migrations through the canonical `AonikDbContext` stream. Keep API and Worker Data Protection keys persistent and shared; connection credentials and source task proofs depend on those keys.
+1. Deploy the same API and Worker version. Apply migrations through the canonical `AonikDbContext` stream. Use the shared SQL-backed Data Protection key ring and the same private blob storage on API and Worker. Confirm at least one Worker replica is running before exercising automatic admission, expiration and recovery.
 2. Leave `Workflows.ExecutionEnabled` and `Workflows.AutomaticTriggersEnabled` disabled until the tenant is ready. A deployment-level `Workflows:ExecutionEnabled=false` or `Workflows:AutomaticTriggersEnabled=false` overrides tenant enablement. User preferences cannot enable either setting.
 3. In the workflow editor, save an invoice workflow, validate it, and simulate normal, boundary and missing-data fixtures. Pin action versions, connection grants and a real tenant reviewer role. Publish through the exact governance proposal.
 4. In Tenant Integrations, create an automation identity. Select the immutable workflow version, explicit invoice scope and required action versions. Select the optional mailbox synchronization capability only when the trigger needs it. Capability discovery does not issue a grant.
@@ -22,11 +22,11 @@ Schedules use existing recurring WorkItems and the Quartz recurrence calculator.
 
 Admission limits are 1–1000 starts per rolling hour, 1–10 concurrent runs and causation depth 1–8. One binding/subject can have only one active run. Capacity waits retain the same durable source occurrence, with a future retry deadline; they do not consume failure attempts. Repeated bindings in a causation path are stopped. Self-generated events are ignored by default.
 
-The current mailbox route selects one explicitly stored invoice. Automated document-to-domain intake is the T13 extension; an email never supplies financial authority or silently becomes a sales invoice.
+Gmail triggers can use a fixed invoice reference or admit supported attachments as private financial documents. The intake workflow extracts a grounded candidate, then waits for explicit confirmation before creating a sales invoice. Keep the creation, issue, payment intent and mail approvals independently reviewed.
 
 ## Gmail deployment configuration
 
-Configure the existing OAuth client on the server under `Integrations:Gmail:OAuth`: `ClientId`, `ClientSecret`, `RedirectUri` and `ReviewReturnUri`. Register the exact callback `/integrations/gmail/oauth/callback` with Google. Keep secrets out of browser configuration, workflow JSON and chat. Read-only connections use the Gmail read scope plus verified account identity scopes. Attachments additionally require the existing private content store and malware scanner.
+Configure the existing OAuth client on the server under `Integrations:Gmail:OAuth`: `ClientId`, `ClientSecret`, `RedirectUri` and `ReviewReturnUri`. Register the exact callback `/integrations/gmail/oauth/callback` with Google. Keep secrets out of browser configuration, workflow JSON and chat. Read-only connections use the Gmail read scope plus verified account identity scopes. Attachments additionally require the existing private content store and malware scanner. Confirm OCR and scanner readiness on the Worker before enabling attachment admission.
 
 For a new development client, use the [exact Gmail OAuth setup and rehearsal checklist](decision-workflows-google-oauth.md). Setup and owner consent remain distinct from financial action approval.
 
@@ -59,7 +59,7 @@ One connection has one local subscription and can serve several independently ap
 - **History cursor expired:** Gmail's [history/sync contract](https://developers.google.com/workspace/gmail/api/guides/sync) requires full synchronization after a cursor 404. Recovery uses bounded resumable pages and suppresses historical automation unless the exact binding approved backfill. A backfill request is limited to the preceding seven days.
 - **Page interrupted:** Cursor/page progress and normalized discovered events commit together in Platform. A failed uncommitted page is retried; durable source/run identity prevents repeated effects. Synchronization has a lease, a 60-second pass limit, at most two pages per pass, bounded provider responses and a 200-page full-recovery cap.
 - **NeedsAttention:** Permanent provider errors or recovery bounds hold the subscription. Review the account/configuration and explicitly reactivate the exact binding after correction. Do not reset cursors or rewrite receipts with SQL. Reactivation can authorize the next bounded recovery batch.
-- **Access revoked:** Current actor, owner, account, action, workflow grant, scopes and tenant policy are checked again before provider I/O and before committing a page. Lost access suspends synchronization; queued financial effects independently recheck their own authority. Reconnect or grant changes do not constitute a financial action approval.
+- **Access revoked:** Current tenant status, actor, owner, account, action, workflow grant, scopes and tenant policy are checked before deferred work can use the account. Lost access suspends synchronization; queued financial effects independently recheck their own authority. Reconnect or grant changes do not constitute a financial action approval.
 - **Worker restart:** Keep the same database and key ring. The existing outbox and WorkItem dispatcher reclaim leases and resume the recorded source/occurrence. Do not issue a new admission key merely to retry delivery.
 - **Polling schedule ending:** Maintenance WorkItems have a one-year bound, visible in mailbox health. Review/reactivate the binding before the series ends. An approved reactivation can create a fresh maintenance series while retaining cursor/deduplication evidence. Cancelling an old task never resurrects it.
 - **Application/account change:** Disable the old binding memberships and release/expire its provider watch first. Obtain the correct owner consent, review the new configuration, and activate through a new high-risk proposal. Existing credentials never fall back to another account.
@@ -68,7 +68,22 @@ One connection has one local subscription and can serve several independently ap
 
 Disable automatic tenant admission first. Request disabling the exact trigger revision. This immediately blocks authority for that revision and all earlier runs, including when a later revision is activated before cancellation delivery. Worker processing cancels pending approvals and remaining work while preserving reconciliation of already dispatched effects. Revoking the actor/account grant independently blocks the next effect.
 
-Use the existing workflow retirement/rollback proposal for a bad published graph. Preserve immutable versions, source IDs, approvals, operation receipts and checkpoints. Resolve uncertain financial/provider outcomes from recorded evidence before deliberately reprocessing. A new publication does not silently repoint an existing trigger or run.
+Use the existing workflow retirement/rollback proposal for a bad published graph. Preserve immutable versions, source IDs, approvals, operation receipts and checkpoints. Resolve uncertain financial/provider outcomes from recorded evidence before deliberately reprocessing. Rebind triggers explicitly after a rollback or upgrade. Deactivating the tenant stops the next workflow action and connector call even when existing grants and execution settings still allow them.
+
+## Pilot evidence
+
+| Exercise | Record |
+| --- | --- |
+| Deploy | The API and Worker revisions, tag, canonical migration result, private storage selection, running replica, and OCR/scanner health. |
+| Connect | The consent request and confirmed account reference, actions/scopes, tenant policy, and exact workflow and actor grants. |
+| Intake | One synthetic attachment, admitted document/run IDs, published definition hashes, extraction candidate ID and grounded evidence. Replay the same event and confirm the original run and document are reused. |
+| Route and confirm | The rule's matched inputs and selected route. Record the distinct actor and human approval IDs for creation and issue. If the high-risk payment intent is in scope, verify its Pending Order-linked receipt without executing payment. |
+| Notify | Use a separate exact approval for the selected test-recipient Gmail effect. Record the journal outcome, then qualify access revocation and uncertain-outcome reconciliation with disposable fixtures. |
+| Recover | Restart the Worker while the run is waiting. Verify the same step, operation, actor, definition and pending approval survive. |
+| Roll back | Disable admission, revoke the test grant, switch through the reviewed rollback proposal and check preexisting runs retain their recorded version and receipts. |
+| Retention | Check the hourly Connector Content Retention job. Temporary connector references expire after seven days. The Worker deletes matching uploads older than seven days and ten minutes, up to 500 per pass, from the dedicated private store. Private financial documents follow their own erasure policy. |
+
+Collect IDs, hashes, safe error codes and outcome timestamps. Visit the same operator review surface from browser and the review link from voice. For the 100-item capacity run, record child count and distinct checkpoints before and after the Worker restart, total wall time and maximum observed continuation time. The local in-memory scenario completed 100 children in 31 seconds. Use SQL and actual Worker timing for pilot evidence.
 
 ## Child workflows, foreach and parallel branches
 

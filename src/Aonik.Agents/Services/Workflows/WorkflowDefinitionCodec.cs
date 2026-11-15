@@ -16,6 +16,7 @@ internal static class WorkflowDefinitionCodec
     internal static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        AllowDuplicateProperties = false,
         MaxDepth = 32,
         TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
     };

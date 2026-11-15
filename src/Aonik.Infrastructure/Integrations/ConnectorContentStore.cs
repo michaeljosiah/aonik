@@ -15,9 +15,20 @@ using Aonik.SharedKernel.Abstractions.Storage;
 namespace Aonik.Infrastructure.Integrations;
 
 internal sealed class ConnectorContentStore(IBlobStorageFactory factory, IOptions<BlobStorageOptions> options,
-    IHostEnvironment environment, IDataProtectionProvider protection, ITenantProvider tenantProvider, IClock clock) : IConnectorContentStore
+    IHostEnvironment environment, IDataProtectionProvider protection, ITenantProvider tenantProvider, IClock clock) : IConnectorContentStore, IConnectorContentRetention
 {
     private readonly PrivateFileStore _files = new(factory, options, options.Value.ConnectorContent, environment);
+    private static readonly TimeSpan Retention = TimeSpan.FromDays(7);
+
+    public async Task<int> PurgeExpiredAsync(CancellationToken cancellationToken = default)
+    {
+        using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        budget.CancelAfter(TimeSpan.FromMinutes(2));
+        // Allow the protected reference to expire even when host and storage timestamps differ slightly.
+        DateTime cutoff = clock.UtcNow - Retention - TimeSpan.FromMinutes(10);
+        return await _files.RemoveExpiredConnectorUploadsAsync(cutoff, 500, budget.Token);
+    }
+
     public async Task<ConnectorStoredContent> SaveAsync(Guid connectionId, string messageId, string? attachmentId, byte[] content,
         string fileName, string contentType, CancellationToken cancellationToken = default)
     {
@@ -27,7 +38,7 @@ internal sealed class ConnectorContentStore(IBlobStorageFactory factory, IOption
         FileUploadResult stored;
         try { stored = await _files.UploadAsync(tenantId, connectionId, stream, fileName, contentType, cancellationToken); }
         catch (InvalidOperationException) { throw new ConnectorProviderException("PrivateStorageUnavailable"); }
-        DateTime expiresAt = clock.UtcNow.AddDays(7);
+        DateTime expiresAt = clock.UtcNow + Retention;
         var metadata = new ConnectorStoredContent("", connectionId, messageId, attachmentId, stored.FileName, stored.ContentType,
             stored.FileSizeBytes, stored.Sha256, expiresAt);
         string reference = Protector(tenantId).Protect(ConnectorJson.Serialize(new Envelope(metadata, stored.StorageKey)));

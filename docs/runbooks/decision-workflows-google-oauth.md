@@ -4,7 +4,7 @@ This is the prerequisite for the consenting-account qualification in epic #438. 
 
 ## Google client
 
-In the intended Google Cloud project, enable Gmail API and configure the Google Auth Platform application for testing. Add the designated mailbox as an explicit test user. Create a **Web application** client named **AONIK Gmail Automation — Development**, separate from AONIK sign-in clients. Review Google's current AI-agent client option against the deployed authorization flow before creation; this client is for the governed connector rather than sign-in. See [Google's credential setup](https://developers.google.com/workspace/guides/create-credentials) and [OAuth consent setup](https://developers.google.com/workspace/guides/configure-oauth-consent).
+In the intended Google Cloud project, enable Gmail API and configure the Google Auth Platform application for testing. Add the designated mailbox as an explicit test user. Create a **Web application** client named **AONIK Gmail Automation — Development**, separate from AONIK sign-in clients. Use the AI-powered agent option for the dedicated automation client. AONIK uses the Gmail REST API. Google requires the option for its Gmail MCP endpoint and offers it for agentic Web application clients. See [Google's credential setup](https://developers.google.com/workspace/guides/create-credentials), [OAuth consent setup](https://developers.google.com/workspace/guides/configure-oauth-consent) and [Gmail release notes](https://developers.google.com/workspace/gmail/release-notes).
 
 Register the exact API callback:
 
@@ -25,6 +25,8 @@ Configure these values for API **and Worker**, preserving their shared persisten
 | `Integrations__Gmail__OAuth__RedirectUri` | Exact API callback above |
 | `Integrations__Gmail__OAuth__ReviewReturnUri` | `https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/settings/my-connections` |
 
+For Container Apps deployments, set the `gmailOAuthClientId` and `gmailOAuthClientSecretUri` parameters of the ACA stack. Use the development Key Vault secret URI. The stack supplies the API callback and Admin return URI to both hosts and uses their existing managed identities to read the secret. The same stack configures shared Blob Storage for the hosts. Confirm all four Gmail variable names exist on both active revisions and the Worker runs before the rehearsal.
+
 The callback uses its protected owner/tenant state and HttpOnly cookie. An anonymous callback or tenant header cannot choose the account's tenant. After callback, the owner signs in to review the returned request and explicitly confirms the provider identity. A callback alone does not grant use.
 
 ## Scopes and rehearsal
@@ -33,4 +35,4 @@ Start with `openid`, `email` and `https://www.googleapis.com/auth/gmail.readonly
 
 Use synthetic subjects with a unique exact prefix, synthetic invoices, and only the designated mailbox/recipients. Pin the actual connection and explicit workflow/automation grants. Review activation and each Medium/High action separately through AONIK. Keep sends, draft versions, recipients and attachments fixed to their reviewed evidence; never infer permission from an email's contents. Preserve uncertain operations and reconcile them through the recorded read-only recovery path.
 
-Confirm the feature branch, generated migrations, OCR/scanner/private-storage prerequisites and tenant switches are deployed before qualification. Record sanitized IDs, hashes, action outcomes, consent scope names and run/approval references. Do not record codes, tokens, secrets, raw message bodies or the mailbox address. This document prepares setup; it is not evidence that a client was created, a mailbox consented, or live actions passed.
+Confirm the feature branch, generated migrations, OCR/scanner/private-storage prerequisites and tenant switches are deployed before qualification. Record sanitized IDs, hashes, action outcomes, consent scope names and run/approval references. Do not record codes, tokens, secrets, raw message bodies or the mailbox address. Record the client setup, consent and live action qualification separately after each succeeds.

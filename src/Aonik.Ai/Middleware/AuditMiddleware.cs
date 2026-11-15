@@ -107,6 +107,8 @@ internal sealed class AuditMiddleware : DelegatingChatClient
             }
         }
 
+        foreach (FunctionCallContent call in response.Messages.SelectMany(message => message.Contents).OfType<FunctionCallContent>())
+            AiToolCallProvenance.Record(call, aiRunId);
         return response;
     }
 
@@ -225,6 +227,10 @@ internal sealed class AuditMiddleware : DelegatingChatClient
                     if (content is UsageContent { Details.TotalTokenCount: { } tokenCount })
                     {
                         totalTokens = tokenCount;
+                    }
+                    else if (content is FunctionCallContent call)
+                    {
+                        AiToolCallProvenance.Record(call, aiRunId);
                     }
                 }
 

@@ -16,6 +16,8 @@ internal sealed class PrivateFileStore(IBlobStorageFactory factory, IOptions<Blo
     ContentTypeOptions content, IHostEnvironment environment) : IFileStore
 {
     private FileStore? _store;
+    private string? _privatePath;
+    private BlobContainerClient? _privateContainer;
     public async Task<FileUploadResult> UploadAsync(Guid tenantId, Guid ownerEntityId, Stream fileStream, string fileName, string contentType, CancellationToken cancellationToken = default)
         => await (await GetStoreAsync(cancellationToken)).UploadAsync(tenantId, ownerEntityId, fileStream, fileName, contentType, cancellationToken);
     public async Task<Stream?> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default)
@@ -27,6 +29,51 @@ internal sealed class PrivateFileStore(IBlobStorageFactory factory, IOptions<Blo
         => await (await GetStoreAsync(cancellationToken)).StageAsync(tenantId, stream, cancellationToken);
     public async Task<PromoteResult> PromoteAsync(StagedBlob staged, string key, CancellationToken cancellationToken = default)
         => await (await GetStoreAsync(cancellationToken)).PromoteAsync(staged, key, cancellationToken);
+
+    internal async Task<int> RemoveExpiredConnectorUploadsAsync(DateTime cutoffUtc, int limit, CancellationToken cancellationToken)
+    {
+        if (!ReferenceEquals(content, options.Value.ConnectorContent)) throw Unavailable();
+        var removed = 0;
+        await GetStoreAsync(cancellationToken);
+        if (_privateContainer is { } container)
+        {
+            await foreach (BlobItem blob in container.GetBlobsAsync(prefix: "tenants/", cancellationToken: cancellationToken))
+            {
+                if (!IsConnectorUpload(blob.Name) || blob.Properties.LastModified is not { } modified || modified.UtcDateTime > cutoffUtc
+                    || blob.Properties.ETag is not { } etag) continue;
+                try
+                {
+                    if ((await container.DeleteBlobIfExistsAsync(blob.Name, DeleteSnapshotsOption.IncludeSnapshots,
+                        new BlobRequestConditions { IfMatch = etag }, cancellationToken)).Value && ++removed == limit) break;
+                }
+                catch (Azure.RequestFailedException exception) when (exception.Status == 412) { }
+            }
+            return removed;
+        }
+
+        string root = _privatePath ?? throw Unavailable();
+        string uploads = Path.Combine(root, "tenants");
+        if (!Directory.Exists(uploads) || File.GetAttributes(uploads).HasFlag(FileAttributes.ReparsePoint)) return 0;
+        var enumeration = new EnumerationOptions { RecurseSubdirectories = true, MaxRecursionDepth = 2,
+            AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = false };
+        foreach (string file in Directory.EnumerateFiles(uploads, "*", enumeration))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            string name = Path.GetRelativePath(root, file).Replace(Path.DirectorySeparatorChar, '/');
+            if (!IsConnectorUpload(name) || File.GetLastWriteTimeUtc(file) > cutoffUtc) continue;
+            File.Delete(file);
+            if (++removed == limit) break;
+        }
+        return removed;
+    }
+
+    private static bool IsConnectorUpload(string name)
+    {
+        string[] segments = name.Split('/');
+        return segments.Length == 4 && segments[0] == "tenants"
+            && Guid.TryParseExact(segments[1], "N", out _) && Guid.TryParseExact(segments[2], "N", out _)
+            && Guid.TryParseExact(Path.GetFileNameWithoutExtension(segments[3]), "N", out _);
+    }
 
     private async Task<FileStore> GetStoreAsync(CancellationToken cancellationToken)
     {
@@ -51,6 +98,7 @@ internal sealed class PrivateFileStore(IBlobStorageFactory factory, IOptions<Blo
                 foreach (string path in exposedPaths.Append(privatePath))
                     for (DirectoryInfo? directory = new(path); directory is not null; directory = directory.Parent)
                         if (directory.Exists && directory.Attributes.HasFlag(FileAttributes.ReparsePoint)) throw Unavailable();
+                _privatePath = privatePath;
             }
             else if (string.Equals(settings.Provider, "Azure", StringComparison.OrdinalIgnoreCase))
             {
@@ -64,6 +112,7 @@ internal sealed class PrivateFileStore(IBlobStorageFactory factory, IOptions<Blo
                     new StorageSharedKeyCredential(settings.Azure.AccountName, settings.Azure.AccountKey), clientOptions);
                 await container.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
                 if ((await container.GetAccessPolicyAsync(cancellationToken: cancellationToken)).Value.BlobPublicAccess != PublicAccessType.None) throw Unavailable();
+                _privateContainer = container;
             }
             else throw Unavailable();
             return _store ??= new FileStore(factory, options, content);

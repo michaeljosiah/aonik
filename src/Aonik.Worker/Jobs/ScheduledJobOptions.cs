@@ -30,6 +30,8 @@ public sealed class ScheduledJobOptions
     // Spec 096 §13 — content-safety retention.
     public SafetyRetentionJobOptions SafetyRetention { get; set; } = new();
 
+    public ConnectorContentRetentionJobOptions ConnectorContentRetention { get; set; } = new();
+
     // Spec 089 §5.1 — workspace blob reclamation.
     public WorkspaceBlobSweepJobOptions WorkspaceBlobSweep { get; set; } = new();
 

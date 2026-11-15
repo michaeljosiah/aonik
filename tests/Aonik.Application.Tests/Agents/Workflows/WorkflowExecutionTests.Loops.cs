@@ -43,6 +43,43 @@ public partial class WorkflowExecutionTests
     }
 
     [Fact]
+    public async Task ForEach_Should_CompleteOneHundredItemsAtTheSupportedLimit_WithStableCheckpoints()
+    {
+        using var host = new Host();
+        WorkflowVersionPin pin = await host.PublishChild(PureChild);
+        const int count = WorkflowControlLimits.MaximumLoopIterations;
+        WorkflowLoopItem[] items = Enumerable.Range(1, count).Select(index => new WorkflowLoopItem($"item-{index:D3}", host.InvoiceId)).ToArray();
+        Guid parentId = await host.Start(draft => WithLoop(draft, new(1, pin, items, count, 3600)));
+        var completedChildren = new HashSet<Guid>();
+
+        foreach (WorkflowLoopItem item in items)
+        {
+            var pending = await host.Continue(parentId);
+            pending.Status.Should().Be(WorkflowRunStatuses.WaitingForChildren, pending.ErrorCode);
+            Guid childId;
+            using (IServiceScope scope = host.Scope())
+            {
+                var database = scope.ServiceProvider.GetRequiredService<AgentsDbContext>();
+                WorkflowRun child = await database.WorkflowRuns.SingleAsync(run => run.ParentRunId == parentId && run.Status == WorkflowRunStatuses.Queued);
+                child.InvocationPath.Should().EndWith($"/each:root/{item.Key}");
+                childId = child.Id;
+            }
+            completedChildren.Add(childId).Should().BeTrue();
+            (await host.Continue(childId)).Status.Should().Be(WorkflowRunStatuses.Completed);
+        }
+
+        var result = await host.Continue(parentId);
+        result.Status.Should().Be(WorkflowRunStatuses.Completed, result.ErrorCode);
+        (await host.Continue(parentId)).Status.Should().Be(WorkflowRunStatuses.Completed);
+        using IServiceScope final = host.Scope();
+        var persisted = final.ServiceProvider.GetRequiredService<AgentsDbContext>();
+        (await persisted.WorkflowRuns.Where(run => run.ParentRunId == parentId).Select(run => run.Id).ToListAsync())
+            .Should().BeEquivalentTo(completedChildren);
+        (await persisted.WorkflowStepRuns.Where(step => step.RunId == parentId && step.NodeKey == "each" && step.InvocationPath != "root")
+            .Select(step => step.InvocationPath).OrderBy(path => path).ToListAsync()).Should().Equal(items.Select(item => $"root/{item.Key}"));
+    }
+
+    [Fact]
     public async Task ForEachDeadline_Should_CancelAPendingChildAndItsTimer_AndNeverAdmitTheNextItem()
     {
         using var host = new Host(); WorkflowVersionPin pin = await host.PublishChild(draft => WithWait(PureChild(draft), new(1, DelaySeconds: 120)) with

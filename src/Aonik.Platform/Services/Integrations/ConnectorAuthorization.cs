@@ -13,7 +13,7 @@ namespace Aonik.Platform.Services.Integrations;
 internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenantProvider tenantProvider, ICurrentUserProvider currentUser,
     IPermissionService permissions, IUserDirectoryReader users, ITenantRoleReader roles, ConnectorPolicyService policies, IClock clock,
     IAutomationIdentityAuthorization? automation = null, IEnumerable<IConnectorActionProvider>? providers = null,
-    INativeConnectorReleaseCatalog? nativeReleases = null)
+    INativeConnectorReleaseCatalog? nativeReleases = null, ITenantActivityReader? tenants = null)
 {
     public Guid TenantId => tenantProvider.TryGetCurrentTenantId(out Guid id) && id != Guid.Empty
         ? id : throw new PermissionDeniedException("Integration.Read", "A tenant context is required.");
@@ -27,6 +27,8 @@ internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenant
 
     public async Task RequireActorAsync(WorkflowActor actor, string permission, CancellationToken cancellationToken = default)
     {
+        if (tenants is not null && !await tenants.IsActiveAsync(TenantId, cancellationToken))
+            throw new PermissionDeniedException(permission, "The tenant is inactive.");
         if (actor.Type == "AutomationIdentity" && automation is not null)
         {
             await automation.RequireAsync(actor, permission, cancellationToken: cancellationToken);
