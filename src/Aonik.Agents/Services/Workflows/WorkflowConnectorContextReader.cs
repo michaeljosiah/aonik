@@ -43,7 +43,7 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
                 new(action.Key, action.Version), cancellationToken);
         }
         await authority.RequireEnabledAsync(cancellationToken);
-        WorkflowConnectorBinding binding = await BindingAsync(run, step.NodeKey, action, cancellationToken);
+        WorkflowConnectorBinding binding = await BindingAsync(run, step.NodeKey, action, cancellationToken) ?? throw Denied();
         if (binding.ConnectionId != connectionId) throw Denied();
         return new(WorkflowExecutionAuthorization.Actor(run), run.WorkflowId, run.WorkflowVersionId, run.Id, step.Id,
             binding.WorkflowGrantId, binding.AllowedActions, binding.Artifact);
@@ -66,25 +66,45 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
             && await permissions.HasPermissionAsync(userId, "Integration.Manage", cancellationToken)
             && await permissions.HasPermissionAsync(userId, "Workflow.Write", cancellationToken);
         if (run.Status != WorkflowRunStatuses.WaitingForConnection || (!automationManager && run.InitiatingUserId != userId)) throw Denied();
+        var viewer = new WorkflowActor("User", userId, userId);
         WorkflowConnectionDependency? source = await authority.GetConnectionDependencyAsync(run.SubjectType!, run.SubjectId!.Value,
-            new("User", userId, userId), cancellationToken);
-        if (source is not null)
+            viewer, cancellationToken);
+        if (source is null)
+            await authority.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, viewer, cancellationToken);
+        else
+            await authority.RequireRunAsync(run, cancellationToken);
+
+        if (run.PendingStepRunId is { } stepId && (source is null || await SourceAvailableAsync(run, cancellationToken)))
         {
-            await RequireSourceLineageAsync(run, source, cancellationToken);
-            return new(source.WorkflowId, source.Connection.ConnectionId, source.Connection.WorkflowGrantId, source.Connection.AllowedActions,
-                source.AutomationIdentityId, source.ProviderAccountId);
+            WorkflowStepRun step = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == run.TenantId
+                && step.RunId == run.Id && step.Id == stepId, cancellationToken);
+            if (step.ActionKey is { } key && step.ActionVersion is { } version)
+            {
+                var action = new ConnectorActionRef(key, version);
+                if (await BindingAsync(run, step.NodeKey, action, cancellationToken) is { } binding)
+                    return new(run.WorkflowId, binding.ConnectionId, binding.WorkflowGrantId, [action],
+                        run.ActorType == "AutomationIdentity" ? run.ActorId : null);
+            }
         }
-        await authority.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, new("User", userId, userId), cancellationToken);
-        if (run.PendingStepRunId is not { } stepId) throw Denied();
-        WorkflowStepRun step = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == run.TenantId && step.RunId == run.Id && step.Id == stepId, cancellationToken);
-        WorkflowConnectorBinding binding = await BindingAsync(run, step.NodeKey, new(step.ActionKey!, step.ActionVersion!.Value), cancellationToken);
-        return new(run.WorkflowId, binding.ConnectionId, binding.WorkflowGrantId, [new(step.ActionKey!, step.ActionVersion!.Value)],
-            run.ActorType == "AutomationIdentity" ? run.ActorId : null);
+
+        if (source is null) throw Denied();
+        await RequireSourceLineageAsync(run, source, cancellationToken);
+        return new(source.WorkflowId, source.Connection.ConnectionId, source.Connection.WorkflowGrantId, source.Connection.AllowedActions,
+            source.AutomationIdentityId, source.ProviderAccountId);
+    }
+
+    private async Task<bool> SourceAvailableAsync(WorkflowRun run, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await authority.LoadFactsAsync(run.SubjectType!, run.SubjectId!.Value, WorkflowExecutionAuthorization.Actor(run), cancellationToken);
+            return true;
+        }
+        catch (ConnectorAccessException) { return false; }
     }
 
     private async Task RequireSourceLineageAsync(WorkflowRun run, WorkflowConnectionDependency source, CancellationToken cancellationToken)
     {
-        await authority.RequireRunAsync(run, cancellationToken);
         WorkflowRun origin = run;
         while (origin.WorkflowId != source.WorkflowId || origin.WorkflowVersionId != source.WorkflowVersionId
             || origin.SubjectType != source.SubjectType || origin.SubjectId != source.SubjectId)
@@ -108,7 +128,7 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
             || !source.Connection.AllowedActions.SequenceEqual(GmailActionKeys.ReadActions.Select(key => new ConnectorActionRef(key, 1)))) throw Denied();
     }
 
-    private async Task<WorkflowConnectorBinding> BindingAsync(WorkflowRun run, string nodeKey, ConnectorActionRef action, CancellationToken cancellationToken)
+    private async Task<WorkflowConnectorBinding?> BindingAsync(WorkflowRun run, string nodeKey, ConnectorActionRef action, CancellationToken cancellationToken)
     {
         if (await database.Workflows.AsNoTracking().AnyAsync(workflow => workflow.Id == run.WorkflowId && workflow.TenantId == run.TenantId
             && workflow.RetiredAt != null, cancellationToken)) throw Denied();
@@ -117,9 +137,9 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
         if (version.DefinitionHash != run.DefinitionHash) throw Denied();
         WorkflowDefinitionNode? node = WorkflowRunService.ReadDefinition(version).Nodes.SingleOrDefault(node => node.Key == nodeKey);
         WorkflowToolParameters parameters = node?.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions) ?? throw Denied();
-        if (parameters.ActionKey != action.Key || parameters.ContractVersion != action.Version || parameters.Connection is not { } binding
-            || binding.AllowedActions?.Contains(action) != true) throw Denied();
-        return binding;
+        if (parameters.ActionKey != action.Key || parameters.ContractVersion != action.Version
+            || (parameters.Connection is { } binding && binding.AllowedActions?.Contains(action) != true)) throw Denied();
+        return parameters.Connection;
     }
     private static PermissionDeniedException Denied() => new("Integration.Use", "Connector use requires the actual leased step and its published account binding.");
 }

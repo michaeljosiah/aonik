@@ -94,10 +94,12 @@ public class ConnectorWorkflowTests
             host.Scenario.TenantId, "AutomationIdentity", actorId, runId.ToString("D"), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    [Fact]
-    public async Task RevokedBinding_Should_PauseAtItsCheckpoint_AndRequireExplicitResumeOfTheSameAccount()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RevokedBinding_Should_PauseAtItsCheckpoint_AndRequireExplicitResumeOfTheSameAccount(bool hasIntakeSource)
     {
-        using var host = new Host();
+        using var host = new Host(hasIntakeSource);
         Guid runId = await host.StartAsync();
         using (var scope = host.Scenario.Scope())
         {
@@ -112,6 +114,12 @@ public class ConnectorWorkflowTests
         {
             var runs = scope.ServiceProvider.GetRequiredService<IWorkflowRunService>();
             WorkflowRunDetail waiting = (await runs.GetAsync(runId))!;
+            var recovery = scope.ServiceProvider.GetRequiredService<IWorkflowConnectorContextReader>();
+            WorkflowConnectorRequestTarget target = await recovery.GetRequestTargetAsync(runId, host.Scenario.Current.OwnerId);
+            target.WorkflowId.Should().Be(host.WorkflowId);
+            target.ConnectionId.Should().Be(host.ConnectionId);
+            target.WorkflowGrantId.Should().Be(host.WorkflowGrantId);
+            target.AllowedActions.Should().ContainSingle().Which.Should().Be(new ConnectorActionRef(GmailActionKeys.Search, 1));
             Func<Task> premature = () => runs.ResumeAsync(runId, new(waiting.ExpectedVersion));
             await premature.Should().ThrowAsync<ConnectorAccessException>();
             var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
@@ -159,7 +167,7 @@ public class ConnectorWorkflowTests
         public Guid ConnectionId { get; private set; }
         public Guid WorkflowGrantId { get; private set; }
         public Guid VersionId { get; private set; }
-        public Host()
+        public Host(bool hasIntakeSource = false)
         {
             string databaseName = $"ConnectorWorkflow_{Guid.NewGuid()}";
             var settings = new Mock<ITenantSettingStore>();
@@ -169,6 +177,13 @@ public class ConnectorWorkflowTests
             facts.SetupGet(provider => provider.Schema).Returns("InvoiceFacts@1");
             facts.Setup(provider => provider.LoadAsync(SubjectId, It.IsAny<WorkflowActor>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new WorkflowFactsSnapshot("InvoiceFacts@1", new Dictionary<string, JsonElement> { ["invoice.id"] = ConnectorJson.Element(SubjectId) }, "version-1"));
+            if (hasIntakeSource)
+            {
+                var source = new WorkflowConnectionDependency(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1,
+                    "Document", Guid.NewGuid(), Guid.NewGuid(), new(Guid.NewGuid(), Guid.NewGuid(), [new(GmailActionKeys.GetAttachment, 1)]), "synthetic-source");
+                facts.Setup(provider => provider.GetConnectionDependencyAsync(SubjectId, It.IsAny<WorkflowActor>(), It.IsAny<CancellationToken>()))
+                    .ReturnsAsync(source);
+            }
             Scenario = new(configure: services =>
             {
                 services.AddLogging();

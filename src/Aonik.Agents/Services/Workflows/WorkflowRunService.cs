@@ -292,21 +292,8 @@ internal sealed class WorkflowRunService(
             WorkflowExecutionAuthorization.Actor(run), cancellationToken);
         if (WorkflowFactsHash.Compute(current) != run.FactsHash && !await HasAppliedPendingOperationAsync(run, cancellationToken))
             throw new WorkflowConflictException("The workflow subject changed. Review a new run instead of replacing its approved facts.");
-        if (run.Status == WorkflowRunStatuses.WaitingForConnection
-            && await executionAuthorization.GetConnectionDependencyAsync(run.SubjectType!, run.SubjectId!.Value,
-                WorkflowExecutionAuthorization.Actor(run), cancellationToken) is null)
-        {
-            WorkflowStepRun pending = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == run.TenantId
-                && step.RunId == run.Id && step.Id == run.PendingStepRunId, cancellationToken);
-            WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == run.TenantId
-                && version.Id == run.WorkflowVersionId && version.WorkflowId == run.WorkflowId, cancellationToken);
-            if (version.DefinitionHash != run.DefinitionHash) throw new WorkflowConflictException("The pinned definition changed.");
-            WorkflowToolParameters parameters = ReadDefinition(version).Nodes.Single(node => node.Key == pending.NodeKey).Parameters
-                .Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
-            if (connectors is null || parameters.Connection is null) throw new WorkflowConflictException("The published connector binding is unavailable.");
-            await connectors.ValidateWorkflowBindingAsync(run.WorkflowId, parameters.Connection, new(parameters.ActionKey, parameters.ContractVersion),
-                WorkflowExecutionAuthorization.Actor(run), cancellationToken);
-        }
+        if (run.Status == WorkflowRunStatuses.WaitingForConnection)
+            await ValidatePendingConnectionAsync(run, cancellationToken);
         run.Status = WorkflowRunStatuses.Queued;
         run.ErrorCode = null;
         run.Continuation++;
@@ -314,6 +301,30 @@ internal sealed class WorkflowRunService(
         if (run.DeadlineUtc is { } runDeadline) Queue(run, DateTime.SpecifyKind(runDeadline, DateTimeKind.Utc));
         await SaveAsync(cancellationToken);
         return await DetailAsync(run, cancellationToken);
+    }
+
+    private async Task ValidatePendingConnectionAsync(WorkflowRun run, CancellationToken cancellationToken)
+    {
+        WorkflowActor actor = WorkflowExecutionAuthorization.Actor(run);
+        if (run.PendingStepRunId is { } pendingStepId)
+        {
+            WorkflowStepRun pending = await database.WorkflowStepRuns.AsNoTracking().SingleAsync(step => step.TenantId == run.TenantId
+                && step.RunId == run.Id && step.Id == pendingStepId, cancellationToken);
+            WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == run.TenantId
+                && version.Id == run.WorkflowVersionId && version.WorkflowId == run.WorkflowId, cancellationToken);
+            if (version.DefinitionHash != run.DefinitionHash) throw new WorkflowConflictException("The pinned definition changed.");
+            WorkflowDefinitionNode node = ReadDefinition(version).Nodes.Single(node => node.Key == pending.NodeKey);
+            if (WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Tool)
+                && node.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions) is { Connection: { } binding } parameters)
+            {
+                if (connectors is null) throw new WorkflowConflictException("The published connector binding is unavailable.");
+                await connectors.ValidateWorkflowBindingAsync(run.WorkflowId, binding, new(parameters.ActionKey, parameters.ContractVersion),
+                    actor, cancellationToken);
+                return;
+            }
+        }
+        if (await executionAuthorization.GetConnectionDependencyAsync(run.SubjectType!, run.SubjectId!.Value, actor, cancellationToken) is null)
+            throw new WorkflowConflictException("The published connector binding is unavailable.");
     }
 
     private async Task<bool> HasAppliedPendingOperationAsync(WorkflowRun run, CancellationToken cancellationToken)
