@@ -46,6 +46,8 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
     private readonly DescriptorModuleFilter _moduleFilter;
     private readonly IAguiMessageConverter _messageConverter;
     private readonly IToolCallClassifier _toolClassifier;
+    private readonly IMasterOrchestratorService _orchestrator;
+    private readonly IToolApprovalStreamNotifier _approvalNotifier;
     private readonly ISpeechRenderer _speechRenderer;
     private readonly ILogger<PlaygroundStreamingEndpoint> _logger;
     private readonly ICurrentUserProvider? _currentUserProvider;
@@ -60,6 +62,8 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         DescriptorModuleFilter moduleFilter,
         IAguiMessageConverter messageConverter,
         IToolCallClassifier toolClassifier,
+        IMasterOrchestratorService orchestrator,
+        IToolApprovalStreamNotifier approvalNotifier,
         ISpeechRenderer speechRenderer,
         ILogger<PlaygroundStreamingEndpoint> logger,
         ICurrentUserProvider? currentUserProvider = null,
@@ -73,6 +77,8 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         _moduleFilter = moduleFilter;
         _messageConverter = messageConverter;
         _toolClassifier = toolClassifier;
+        _orchestrator = orchestrator;
+        _approvalNotifier = approvalNotifier;
         _speechRenderer = speechRenderer;
         _logger = logger;
         _currentUserProvider = currentUserProvider;
@@ -106,6 +112,15 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
             return;
         }
 
+        bool runsOrchestrator = !request.AiTaskId.HasValue
+            && string.Equals(request.AgentName, IMasterOrchestratorService.AgentName, StringComparison.OrdinalIgnoreCase);
+        if (runsOrchestrator && request.ImpersonateUserId.HasValue)
+        {
+            AddError("Run Aonik under your own account to review workflows and connector requests.");
+            await Send.ErrorsAsync(cancellation: cancellationToken);
+            return;
+        }
+
         var runId = Guid.NewGuid().ToString("N");
         StampPlaygroundTelemetryContext(request, runId);
 
@@ -136,7 +151,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         // begun and ModuleDisabledException can no longer become the real
         // 403 module.disabled answer. An unknown name is still reported as an
         // AGENT_BUILD_FAILED event below, exactly as before.
-        if (!string.IsNullOrWhiteSpace(request.AgentName))
+        if (!runsOrchestrator && !string.IsNullOrWhiteSpace(request.AgentName))
         {
             await _moduleFilter.FindAsync(_descriptors, request.AgentName, cancellationToken);
         }
@@ -169,7 +184,9 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
         AIAgent agent;
         try
         {
-            agent = await BuildAgentAsync(request, cancellationToken);
+            agent = runsOrchestrator
+                ? await _orchestrator.GetAgentAsync(cancellationToken)
+                : await BuildAgentAsync(request, cancellationToken);
         }
         catch (InvalidOperationException ex)
         {
@@ -185,6 +202,15 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
 
         // ── Build ChatOptions for model/temperature/maxTokens ───────────
         var chatOptions = await BuildChatOptionsAsync(request, cancellationToken);
+        if (runsOrchestrator)
+        {
+            chatOptions ??= new ChatOptions();
+            chatOptions.AdditionalProperties = new()
+            {
+                [AiTelemetry.UseCaseAttribute] = "playground",
+                [AiTelemetry.ConversationThreadIdProperty] = Guid.Empty,
+            };
+        }
 
         var clientTools = _messageConverter.ConvertClientTools(request.ToolDefinitions);
         var clientToolNames = new HashSet<string>(
@@ -221,7 +247,19 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
             var messageStarted = false;
             var requiresVisualAttention = false;
             var requiresApproval = false;
+            var emittedApprovals = new HashSet<string>(StringComparer.Ordinal);
             var speechBuffer = new SpeechStreamBuffer();
+
+            async ValueTask PresentApprovalAsync(object? result, string? toolCallId)
+            {
+                var signal = ToolApprovalStreamEvents.Inspect(result, toolCallId);
+                requiresApproval |= signal.RequiresApproval;
+                if (signal.CustomEvent is { } approvalEvent
+                    && (signal.ApprovalKey is null || emittedApprovals.Add(signal.ApprovalKey)))
+                {
+                    await WriteSseEventAsync(response, approvalEvent, cancellationToken);
+                }
+            }
 
             ChatClientAgentRunOptions? runOptions = null;
             if (chatOptions is not null || clientTools.Count > 0)
@@ -295,20 +333,7 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
                         case FunctionResultContent functionResult:
                             await WriteSseEventAsync(response, AguiStreamEvents.ToolCallResult(functionResult.CallId, functionResult.Result?.ToString()), cancellationToken);
 
-                            // Spec 032: surface a gated Medium/High approval result as a
-                            // machine-parseable CUSTOM event (see ToolApprovalStreamEvents) so the
-                            // playground client renders an approval card and routes the decision to
-                            // POST /ai/tool-approvals/{id}/decide. Mirrors AguiStreamPipeline.
-                            var approvalSignal = ToolApprovalStreamEvents.Inspect(
-                                functionResult.Result, functionResult.CallId);
-                            if (approvalSignal.RequiresApproval)
-                            {
-                                requiresApproval = true;
-                                if (approvalSignal.CustomEvent is { } approvalEvent)
-                                {
-                                    await WriteSseEventAsync(response, approvalEvent, cancellationToken);
-                                }
-                            }
+                            await PresentApprovalAsync(functionResult.Result, functionResult.CallId);
                             break;
 
                         case TextReasoningContent reasoningContent
@@ -329,6 +354,9 @@ internal sealed class PlaygroundStreamingEndpoint : Endpoint<PlaygroundRunReques
             {
                 await WriteSseEventAsync(response, AguiStreamEvents.TextMessageEnd(messageId), cancellationToken);
             }
+
+            foreach (object pending in _approvalNotifier.Drain())
+                await PresentApprovalAsync(pending, toolCallId: null);
 
             var tailChunk = speechBuffer.FlushRemaining();
             if (tailChunk is not null)

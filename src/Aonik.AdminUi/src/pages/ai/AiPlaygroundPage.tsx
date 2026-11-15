@@ -15,6 +15,7 @@ import {
   ListChecks,
 } from 'lucide-react';
 import { usePlaygroundChat } from '@/hooks/usePlaygroundChat';
+import { AONIK_ORCHESTRATOR_NAME } from '@/lib/agentIdentity';
 import { streamPlaygroundReview } from '@/lib/playground-client';
 import type { PlaygroundReviewResult } from '@/types/ai';
 import { useAuth } from '@/auth';
@@ -195,6 +196,8 @@ export function AiPlaygroundPage() {
     runFollowUpSuggestion,
   } = usePlaygroundChat();
 
+  const usesOrchestrator = config.agentName === AONIK_ORCHESTRATOR_NAME;
+
   // ── Agent change handler ────────────────────────────────────────────────
 
   const handleAgentChange = useCallback(
@@ -224,11 +227,12 @@ export function AiPlaygroundPage() {
         defaultPromptRef.current = null;
 
         updateConfig({
-          agentName: null,
+          agentName,
           systemPrompt: '',
           enabledToolNames: [],
           modelId: null,
           modelName: null,
+          ...(agentName === AONIK_ORCHESTRATOR_NAME ? { userBriefJson: '', impersonateUserId: null } : {}),
         });
       }
       resetChat();
@@ -685,6 +689,9 @@ export function AiPlaygroundPage() {
       if (scenario.modelId) configUpdates.modelId = scenario.modelId;
       if (scenario.userBriefJson) configUpdates.userBriefJson = scenario.userBriefJson;
       if (scenario.promptVariables) configUpdates.promptVariables = scenario.promptVariables;
+      if (scenario.agentName === AONIK_ORCHESTRATOR_NAME) {
+        Object.assign(configUpdates, { systemPrompt: '', userBriefJson: '', impersonateUserId: null, enabledToolNames: [] });
+      }
       updateConfig(configUpdates);
 
       // Populate conversation turns
@@ -804,7 +811,7 @@ export function AiPlaygroundPage() {
         </div>
 
         {/* Tools popover (agent mode only) */}
-        {playgroundMode === 'agent' && (
+        {playgroundMode === 'agent' && !usesOrchestrator && (
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 text-xs">
@@ -852,7 +859,7 @@ export function AiPlaygroundPage() {
         )}
 
         {/* User Brief popover (agent mode) */}
-        {playgroundMode === 'agent' && (
+        {playgroundMode === 'agent' && !usesOrchestrator && (
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 text-xs">
@@ -874,7 +881,7 @@ export function AiPlaygroundPage() {
         )}
 
         {/* Agent context viewer (agent mode only) */}
-        {playgroundMode === 'agent' && (
+        {playgroundMode === 'agent' && !usesOrchestrator && (
           <AgentContextDrawer
             agentConfig={selectedAgentConfig}
             currentUserBriefJson={config.userBriefJson}
@@ -954,15 +961,21 @@ export function AiPlaygroundPage() {
           {/* Scrollable message area */}
           <div className="flex-1 overflow-y-auto">
             {/* System message block */}
-            <PlaygroundMessageBlock
-              role="system"
-              content={config.systemPrompt}
-              onContentChange={(v) => updateConfig({ systemPrompt: v })}
-              roleFixed
-              agentName={config.agentName}
-              defaultPrompt={defaultPromptRef.current}
-              onDefaultPromptSaved={(saved) => { defaultPromptRef.current = saved; }}
-            />
+            {usesOrchestrator ? (
+              <p className="border-b px-6 py-3 text-sm text-muted-foreground">
+                Aonik runs with your current workspace permissions.
+              </p>
+            ) : (
+              <PlaygroundMessageBlock
+                role="system"
+                content={config.systemPrompt}
+                onContentChange={(v) => updateConfig({ systemPrompt: v })}
+                roleFixed
+                agentName={config.agentName}
+                defaultPrompt={defaultPromptRef.current}
+                onDefaultPromptSaved={(saved) => { defaultPromptRef.current = saved; }}
+              />
+            )}
 
             {/* User / assistant message blocks */}
             {editableMessages.map((msg, i) => (

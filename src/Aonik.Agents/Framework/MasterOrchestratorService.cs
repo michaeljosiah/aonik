@@ -56,7 +56,6 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
     /// available on the base <see cref="AIAgent"/> type.
     /// </summary>
     private ChatClientAgent? _rawOrchestrator;
-    private ChatOptions? _orchestratorChatOptions;
     private readonly SemaphoreSlim _buildLock = new(1, 1);
 
     private const string OrchestratorInstructions =
@@ -278,17 +277,9 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         // conversation history natively — no manual message list management needed.
         var session = await GetOrCreateSessionAsync(sessionId, cancellationToken);
 
-        // Run the orchestrator with the user's message and session.
-        // If a model was resolved via AiRoutePolicy, pass it as ChatClientAgentRunOptions
-        // so the LLM call uses the configured model rather than the default.
-        ChatClientAgentRunOptions? runOptions = _orchestratorChatOptions is not null
-            ? new ChatClientAgentRunOptions(_orchestratorChatOptions)
-            : null;
-
         var response = await orchestrator.RunAsync(
             request.Message,
             session,
-            runOptions,
             cancellationToken: cancellationToken);
 
         var responseText = response.Text ?? string.Empty;
@@ -335,7 +326,7 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
         {
             Message = responseText,
             SessionId = sessionId,
-            AgentName = "master-orchestrator",
+            AgentName = IMasterOrchestratorService.AgentName,
             ThreadId = threadId?.ToString(),
             ThreadTitle = threadTitle,
         };
@@ -413,18 +404,16 @@ internal sealed class MasterOrchestratorService : IMasterOrchestratorService
                 _logger.LogWarning(ex, "Failed to resolve orchestrator model — using default");
             }
 
-            var chatOptions = orchestratorModel is not null
-                ? new ChatOptions { ModelId = orchestratorModel }
-                : null;
-
-            _rawOrchestrator = new ChatClientAgent(
-                _chatClient,
-                name: "master-orchestrator",
-                instructions: OrchestratorInstructions,
-                tools: tools);
-
-            // Store resolved ChatOptions for use at run-time via ChatClientAgentRunOptions
-            _orchestratorChatOptions = chatOptions;
+            _rawOrchestrator = new ChatClientAgent(_chatClient, new ChatClientAgentOptions
+            {
+                Name = IMasterOrchestratorService.AgentName,
+                ChatOptions = new ChatOptions
+                {
+                    Instructions = OrchestratorInstructions,
+                    ModelId = orchestratorModel,
+                    Tools = tools,
+                },
+            });
 
             // Wrap with OpenTelemetry instrumentation to emit invoke_agent
             // spans per the GenAI semantic conventions.

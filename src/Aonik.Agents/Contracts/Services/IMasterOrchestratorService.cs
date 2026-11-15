@@ -11,6 +11,8 @@ namespace Aonik.Agents.Contracts.Services;
 /// </summary>
 public interface IMasterOrchestratorService
 {
+    const string AgentName = "master-orchestrator";
+
     /// <summary>
     /// Sends a user message to the master orchestrator agent and returns
     /// the agent's response. The orchestrator determines which domain agent(s)

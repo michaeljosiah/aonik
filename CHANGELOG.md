@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Aonik in AI Playground (#438)** Run Aonik’s workflow and connector tools as the signed-in operator using the existing approval cards. Chat and Playground use the orchestrator’s routed model by default. Playground presents each pending decision once, including decisions raised by a delegated agent.
+
 - **Chat and voice audit provenance (#438)** Record each model invocation through the existing audit middleware so gated actions and agent-created connector requests can retain the exact AiRun ID. Conversation audit failure stops the provider call.
 
 - **Approval review from voice (#438)** Voice clients that cannot show an approval or its exact changes receive a link to the existing Admin approvals page. The page opens the specific pending request and uses the existing decision endpoint. The server rechecks requester, tenant, current permissions and expiry.

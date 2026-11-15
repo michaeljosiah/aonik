@@ -1,5 +1,7 @@
 import { AGENT_PORTRAITS, resolveAgentPortrait } from './agentPortraits.generated';
 
+export const AONIK_ORCHESTRATOR_NAME = 'master-orchestrator';
+
 const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
 export function agentDisplayName(name?: string): string {

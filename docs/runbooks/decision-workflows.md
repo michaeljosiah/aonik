@@ -14,6 +14,12 @@ Use this runbook to enable, verify and roll back the Spec 099 workflow features 
 
 Draft trigger authoring through Aonik tools requires medium confirmation. Activation, disablement and changes to an active source require a durable high-risk proposal. The HTTP editor is an authenticated human administration surface with explicit change review.
 
+## Rehearse the Aonik tools
+
+Select **AONIK Orchestrator** in Chat or **AONIK** in AI Playground. Use a synthetic invoice workflow draft to rehearse creation, a threshold change and deletion. Inspect each exact change before confirming the draft operation. Playground uses your signed-in workspace permissions and the same server approval endpoint as Chat.
+
+Ask Aonik to request the exact Gmail actions and ownership needed for the rehearsal. Confirm the request in the conversation, then open its review link. My Connections handles personal requests and Tenant Integrations handles organizational accounts and grants. Mailbox access begins after the applicable reviews and owner consent.
+
 ## Source behavior
 
 Invoice creation and issue stage typed events in Finance's own save. Events contain invoice references and trusted causation, rather than model-provided facts. Admission reloads current facts and preserves the source event, binding revision and exact activation receipt. Repeated delivery returns the original run.
