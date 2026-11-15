@@ -137,6 +137,95 @@ public partial class WorkflowExecutionTests
     }
 
     [Fact]
+    public async Task InvoiceTrigger_Should_SkipSelfGeneratedEventsAfterTheWorkItemIsVerified()
+    {
+        using var host = new Host();
+        (WorkflowTriggerDetail source, WorkflowRun template) = await ActivateTriggerAsync(host);
+        using IServiceScope scope = host.Scope();
+        IServiceProvider services = scope.ServiceProvider;
+        var events = services.GetRequiredService<InvoiceWorkflowTriggerHandler>();
+        var message = new InvoiceLifecycleChangedEvent(Guid.NewGuid(), host.Clock.UtcNow, template.TenantId,
+            template.SubjectId!.Value, "Created", CausationRunId: template.Id);
+        await events.HandleAsync(message);
+        WorkflowTriggerAdmissionRequestedEvent wake = (await TriggerWakesAsync(services)).Should().ContainSingle().Which;
+        await services.GetRequiredService<WorkflowTriggerAdmissionRequestedHandler>().HandleAsync(wake);
+        host.Actor.Authenticated = false;
+
+        TaskActionResult result = await services.GetRequiredService<WorkflowTriggerAdmissionTaskHandler>().ExecuteAsync(AdmissionContext(wake));
+
+        result.Outcome.Should().Be(TaskActionOutcome.Skipped);
+        result.Error.Should().Be("SelfGeneratedTriggerIgnored");
+        var database = services.GetRequiredService<AgentsDbContext>();
+        (await database.WorkflowRuns.AnyAsync(run => run.TriggerBindingId == source.Id)).Should().BeFalse();
+        (await database.ToolApprovalRequests.AnyAsync(request => request.WorkflowStepRunId.HasValue)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task InvoiceTrigger_Should_SkipRecursiveEvents_EvenWhenSelfGeneratedEventsAreAllowed()
+    {
+        using var host = new Host();
+        (WorkflowTriggerDetail source, WorkflowRun template) = await ActivateTriggerAsync(host,
+            (definition, _) => definition with { Limits = definition.Limits with { IgnoreSelfGenerated = false } });
+        using IServiceScope scope = host.Scope();
+        IServiceProvider services = scope.ServiceProvider;
+        var events = services.GetRequiredService<InvoiceWorkflowTriggerHandler>();
+        var handler = services.GetRequiredService<WorkflowTriggerAdmissionTaskHandler>();
+        var message = new InvoiceLifecycleChangedEvent(Guid.NewGuid(), host.Clock.UtcNow, template.TenantId,
+            template.SubjectId!.Value, "Created");
+        await events.HandleAsync(message);
+        host.Actor.Authenticated = false;
+        WorkflowTriggerAdmissionRequestedEvent first = (await TriggerWakesAsync(services)).Should().ContainSingle().Which;
+        (await handler.ExecuteAsync(AdmissionContext(first))).Outcome.Should().Be(TaskActionOutcome.Succeeded);
+        var database = services.GetRequiredService<AgentsDbContext>();
+        WorkflowRun original = await database.WorkflowRuns.SingleAsync(run => run.TriggerBindingId == source.Id);
+        original.WorkflowVersionId.Should().Be(template.WorkflowVersionId);
+        var nested = message with { EventId = Guid.NewGuid(), CausationRunId = original.Id };
+        await events.HandleAsync(nested);
+        WorkflowTriggerAdmissionRequestedEvent recursiveWake = (await TriggerWakesAsync(services)).Single(wake => wake.SourceEventId == nested.EventId);
+
+        TaskActionResult result = await handler.ExecuteAsync(AdmissionContext(recursiveWake));
+
+        result.Outcome.Should().Be(TaskActionOutcome.Skipped);
+        result.Error.Should().Be("TriggerCausationLimit");
+        (await database.WorkflowRuns.CountAsync(run => run.TriggerBindingId == source.Id)).Should().Be(1);
+        (await database.ToolApprovalRequests.AnyAsync(request => request.WorkflowStepRunId.HasValue)).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task InvoiceTrigger_Should_DiscardOldEventsAndProtectedWakes_AfterReactivation()
+    {
+        using var host = new Host();
+        (WorkflowTriggerDetail source, WorkflowRun template) = await ActivateTriggerAsync(host);
+        using IServiceScope scope = host.Scope();
+        IServiceProvider services = scope.ServiceProvider;
+        var events = services.GetRequiredService<InvoiceWorkflowTriggerHandler>();
+        var original = new InvoiceLifecycleChangedEvent(Guid.NewGuid(), host.Clock.UtcNow, template.TenantId,
+            template.SubjectId!.Value, "Created");
+        await events.HandleAsync(original);
+        WorkflowTriggerAdmissionRequestedEvent retiredWake = (await TriggerWakesAsync(services)).Should().ContainSingle().Which;
+        var triggers = services.GetRequiredService<WorkflowTriggerService>();
+        var approvals = services.GetRequiredService<IToolApprovalService>();
+        host.Clock.UtcNow = host.Clock.UtcNow.AddMinutes(1);
+        foreach (bool disabling in new[] { true, false })
+        {
+            WorkflowTriggerDetail binding = (await triggers.GetAsync("invoice-route", source.Id))!;
+            var proposal = await triggers.RequestAsync("invoice-route", source.Id,
+                new(binding.ExpectedVersion, disabling ? binding.ActiveHash! : binding.DraftHash), disabling);
+            (await approvals.DecideAsync(proposal.ApprovalRequestId, new(ToolApprovalDecisionType.Approve))).Outcome.Should().Be(ToolApprovalDecisionOutcome.Approved);
+        }
+        (await triggers.GetAsync("invoice-route", source.Id))!.ActiveRevision.Should().Be(2);
+        host.Actor.Authenticated = false;
+
+        await events.HandleAsync(original);
+        TaskActionResult delayed = await services.GetRequiredService<WorkflowTriggerAdmissionTaskHandler>().ExecuteAsync(AdmissionContext(retiredWake));
+
+        delayed.Outcome.Should().Be(TaskActionOutcome.Skipped);
+        delayed.Error.Should().Be("TriggerRevisionNotActive");
+        (await TriggerWakesAsync(services)).Should().ContainSingle().Which.Revision.Should().Be(1);
+        (await services.GetRequiredService<AgentsDbContext>().WorkflowRuns.AnyAsync(run => run.TriggerBindingId == source.Id)).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task TriggerCapacity_Should_DeferAnotherSourceEvent_AndAdmitItWhenTheOriginalRunIsCancelled()
     {
         using var host = new Host();

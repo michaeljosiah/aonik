@@ -106,8 +106,11 @@ public partial class WorkflowExecutionTests
         using (IServiceScope scope = host.Scope())
         {
             var services = scope.ServiceProvider; var handler = services.GetRequiredService<MailboxWorkflowTriggerHandler>();
+            await handler.HandleAsync(message with { EventId = Guid.NewGuid(), SelfGenerated = true });
+            await handler.HandleAsync(message with { EventId = Guid.NewGuid(), ReceivedAtUtc = host.Clock.UtcNow.AddMinutes(-1) });
             await handler.HandleAsync(message); await handler.HandleAsync(message);
             var wakes = await TriggerWakesAsync(services); wakes.Should().HaveCount(2);
+            wakes.Should().OnlyContain(wake => wake.SourceEventId == message.EventId);
             foreach (var wake in wakes) (await services.GetRequiredService<WorkflowTriggerAdmissionTaskHandler>().ExecuteAsync(AdmissionContext(wake))).Outcome.Should().Be(SharedKernel.Abstractions.Tasks.TaskActionOutcome.Succeeded);
             var run = await services.GetRequiredService<AgentsDbContext>().WorkflowRuns.SingleAsync(run => run.TriggerBindingId == active.BindingId);
             runId = run.Id; run.ActorType.Should().Be("AutomationIdentity"); run.SubjectType.Should().Be("Document"); run.InitiatingUserId.Should().BeNull();

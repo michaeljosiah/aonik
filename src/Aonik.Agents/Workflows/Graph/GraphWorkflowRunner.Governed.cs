@@ -26,6 +26,8 @@ internal sealed partial class GraphWorkflowRunner
             && run.Mode == "Live", cancellationToken);
         if (run is null || run.Continuation != continuation) return new("Skipped");
         if (run.Status is WorkflowRunStatuses.Completed or WorkflowRunStatuses.Failed) return new(run.Status, run.Outcome, run.ErrorCode);
+        if ((run.Status is WorkflowRunStatuses.WaitingForConnection or WorkflowRunStatuses.NeedsAttention)
+            && (run.DeadlineUtc is null || run.DeadlineUtc > clock.UtcNow)) return new(run.Status, run.Outcome, run.ErrorCode);
         bool cancelled = run.Status == WorkflowRunStatuses.Cancelled;
         if (cancelled && !await database.WorkflowStepRuns.AsNoTracking().AnyAsync(step => step.TenantId == tenantId && step.RunId == run.Id
             && step.Id == run.PendingStepRunId && step.Status == "Executing", cancellationToken)) return new(run.Status, run.Outcome, run.ErrorCode);

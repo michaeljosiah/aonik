@@ -366,6 +366,7 @@ public partial class WorkflowExecutionTests
         host.CrashAfterIssue = true;
 
         (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.NeedsAttention);
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.NeedsAttention);
 
         using (IServiceScope scope = host.Scope())
         {

@@ -128,6 +128,8 @@ public class ConnectorWorkflowTests
                 new("Workflow", host.WorkflowId, [new(GmailActionKeys.Search, 1)], Convert.ToBase64String((await db.ConnectorConnections.SingleAsync()).RowVersion),
                     grant.Id, Convert.ToBase64String(grant.RowVersion)));
             (await runs.GetAsync(runId))!.Status.Should().Be(WorkflowRunStatuses.WaitingForConnection);
+            (await host.ContinueAsync(runId)).Status.Should().Be(WorkflowRunStatuses.WaitingForConnection);
+            host.Scenario.Actions.Verify(provider => provider.InvokeAsync(It.IsAny<ConnectorProviderCall>(), It.IsAny<CancellationToken>()), Times.Never);
             await runs.ResumeAsync(runId, new(waiting.ExpectedVersion));
         }
 

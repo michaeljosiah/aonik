@@ -86,6 +86,28 @@ public partial class WorkflowExecutionTests
     }
 
     [Fact]
+    public async Task LifetimeLimit_Should_ExpireAHeldRunWithoutReplayingItsOldWake()
+    {
+        using var host = new Host();
+        DateTime started = host.Clock.UtcNow;
+        Guid runId = await host.Start(draft => WithWait(draft, new(1, DelaySeconds: 120)));
+        host.Inactive.Add(host.Actor.Author);
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.NeedsAttention);
+        host.Inactive.Remove(host.Actor.Author);
+        host.Clock.UtcNow = started.AddMinutes(5);
+
+        (await host.Continue(runId)).Status.Should().Be(WorkflowRunStatuses.NeedsAttention);
+        host.Clock.UtcNow = started.AddDays(7);
+        var expired = await host.Continue(runId);
+
+        expired.Status.Should().Be(WorkflowRunStatuses.Cancelled);
+        expired.ErrorCode.Should().Be("RunDeadlineExceeded");
+        using IServiceScope scope = host.Scope();
+        (await scope.ServiceProvider.GetRequiredService<AgentsDbContext>().WorkflowStepRuns.AnyAsync(step => step.RunId == runId)).Should().BeFalse();
+        (await scope.ServiceProvider.GetRequiredService<FinanceDbContext>().Invoices.SingleAsync()).Status.Should().Be("Draft");
+    }
+
+    [Fact]
     public async Task LifetimeLimit_Should_CancelAnExpiredWait_BeforeAQueuedFinancialEffect()
     {
         using var host = new Host(); Guid runId = await host.Start(draft => WithWait(draft, new(1, DelaySeconds: 120)));
