@@ -230,6 +230,15 @@ public sealed record ToolGateContext(
 
 public sealed record ToolApprovalPreview(string Title, JsonElement? Before, JsonElement? After);
 
+public sealed record PendingToolApprovalReview(
+    Guid Id,
+    string Tool,
+    string Tier,
+    string ActionKind,
+    Guid? ProposalId,
+    DateTime ExpiresAt,
+    ToolApprovalPreview? Preview);
+
 /// <summary>Uniform outcome of <see cref="IToolApprovalService.GateAsync"/>.</summary>
 /// <param name="Decision">How the call was routed.</param>
 /// <param name="ApprovalRequestId">The durable <c>ToolApprovalRequest</c> id created for this call.
@@ -358,6 +367,10 @@ public interface IToolApprovalService
     /// persists a durable proposal and returns <see cref="ToolGateDecision.Queued"/> with its id.
     /// </summary>
     Task<ToolGateOutcome> GateAsync(ToolGateContext context, CancellationToken cancellationToken = default);
+
+    /// <summary>Loads an unexpired conversation approval the current user can review.</summary>
+    Task<PendingToolApprovalReview?> GetPendingReviewAsync(Guid approvalRequestId, CancellationToken cancellationToken = default)
+        => Task.FromResult<PendingToolApprovalReview?>(null);
 
     /// <summary>
     /// Records a server-validated decision for a pending request (Medium), or routes a High

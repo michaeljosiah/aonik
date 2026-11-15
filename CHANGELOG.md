@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Approval review from voice (#438)** Voice clients that cannot show an approval or its exact changes receive a link to the existing Admin approvals page. The page opens the specific pending request and uses the existing decision endpoint. The server rechecks requester, tenant, current permissions and expiry.
+
 - **Invoice issue review (#438):** Show the pinned amount, currency and Draft → Issued transition in the workflow approval card. Build the preview from the current invoice only when its version and facts still match the prepared action.
 
 - **Workflow qualification and deployment safeguards (#438, T15):** Link actual MAF tool calls to their recorded AiRuns in approvals and proposals. Recheck tenant activity before deferred actions, reject ambiguous typed JSON and exercise the 100-item loop limit across fresh scopes. Recover the exact pending connector action once the intake source is available, and revalidate both dependencies before resuming. Worker wake-ups respect held states until explicit resume or the run deadline. Sweep expired temporary connector uploads through the existing Worker scheduler. Configure API and Worker to share private blob storage, package the OCR binaries, support an opt-in private ClamAV sidecar and forward authenticated mailbox push and Gmail OAuth Key Vault settings through deployment.

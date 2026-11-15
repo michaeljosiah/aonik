@@ -70,6 +70,12 @@ Disable automatic tenant admission first. Request disabling the exact trigger re
 
 Use the existing workflow retirement/rollback proposal for a bad published graph. Preserve immutable versions, source IDs, approvals, operation receipts and checkpoints. Resolve uncertain financial/provider outcomes from recorded evidence before deliberately reprocessing. Rebind triggers explicitly after a rollback or upgrade. Deactivating the tenant stops the next workflow action and connector call even when existing grants and execution settings still allow them.
 
+## Review a voice approval
+
+When the voice client cannot show an approval or its exact changes, open the link in the voice transcript. Sign in to Admin and select the tenant used in the voice session. The link opens the specific pending request and checks current approval authority. For a Medium conversational approval, ask the agent to continue after approving so the server can consume the approval against the original arguments.
+
+In Azure Container Apps, the API defaults the review link to the deployed Admin UI origin. Set `Voice__ApprovalReviewBaseUrl` to the Admin HTTPS origin when using a custom hostname. The Admin voice tester opens the review in its current workspace.
+
 ## Pilot evidence
 
 | Exercise | Record |

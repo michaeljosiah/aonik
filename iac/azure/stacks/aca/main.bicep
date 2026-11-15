@@ -125,6 +125,7 @@ var alertsWebhookServiceUri = 'https://${apiApp.properties.configuration.ingress
 var codeActSessionPoolName = '${namePrefix}-sessions'
 var codeActPoolManagementEndpoint = 'https://${location}.dynamicsessions.io/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/sessionPools/${codeActSessionPoolName}'
 var apiBaseUrl = 'https://${apiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
+var adminUiBaseUrl = 'https://${adminUiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
 var gmailOAuthConfigured = !empty(gmailOAuthClientId) && !empty(gmailOAuthClientSecretUri)
 var gmailOAuthSecrets = gmailOAuthConfigured ? [
   {
@@ -148,7 +149,7 @@ var gmailOAuthEnv = gmailOAuthConfigured ? [
   }
   {
     name: 'Integrations__Gmail__OAuth__ReviewReturnUri'
-    value: 'https://${adminUiAppName}.${containerAppsEnvironment.properties.defaultDomain}/settings/my-connections'
+    value: '${adminUiBaseUrl}/settings/my-connections'
   }
 ] : []
 var blobStorageSecrets = [
@@ -203,7 +204,14 @@ var clamAvEnv = localClamAv ? [
   }
 ] : []
 var localScannerSettings = map(clamAvEnv, setting => toUpper(setting.name))
-var apiAdditionalEnvVars = [for setting in filter(items(union(apiAppSettings, publishingAppSettings)), item => !contains(localScannerSettings, toUpper(item.key))): {
+var mergedApiAppSettings = union(apiAppSettings, publishingAppSettings)
+var voiceReviewEnv = contains(mergedApiAppSettings, 'Voice__ApprovalReviewBaseUrl') ? [] : [
+  {
+    name: 'Voice__ApprovalReviewBaseUrl'
+    value: adminUiBaseUrl
+  }
+]
+var apiAdditionalEnvVars = [for setting in filter(items(mergedApiAppSettings), item => !contains(localScannerSettings, toUpper(item.key))): {
   name: setting.key
   value: string(setting.value)
 }]
@@ -591,7 +599,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'AI__CODEACT__NONCESIGNINGKEY'
               secretRef: 'code-act-nonce-signing-key'
             }
-          ], sharedBlobStorageEnv, gmailOAuthEnv, clamAvEnv, apiAdditionalEnvVars)
+          ], sharedBlobStorageEnv, gmailOAuthEnv, voiceReviewEnv, clamAvEnv, apiAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'

@@ -78,7 +78,8 @@ public static class AonikVoiceAgent
         string? agentId,
         Guid? tenantId,
         Guid? userId,
-        ILogger? logger = null)
+        ILogger? logger = null,
+        string? adminUiBaseUrl = null)
     {
         ArgumentNullException.ThrowIfNull(voiceAgent);
         ArgumentNullException.ThrowIfNull(frontendToolNames);
@@ -180,7 +181,8 @@ public static class AonikVoiceAgent
 
                 // Spec 032 — surface any gated Medium/High mutation the turn raised. For a read-only
                 // voice agent the notifier is empty and this is a no-op.
-                await PresentPendingApprovalsAsync(turnCtx, approvalNotifier, approvalService, logger, ct)
+                await PresentPendingApprovalsAsync(turnCtx, approvalNotifier, approvalService,
+                    frontendToolNames.Contains(ConfirmActionToolName), adminUiBaseUrl, logger, ct)
                     .ConfigureAwait(false);
             };
         }, logger);
@@ -197,6 +199,8 @@ public static class AonikVoiceAgent
         VoiceTurnContext turnCtx,
         IToolApprovalStreamNotifier approvalNotifier,
         IToolApprovalService approvalService,
+        bool canShowBasicApproval,
+        string? adminUiBaseUrl,
         ILogger? logger,
         CancellationToken ct)
     {
@@ -218,7 +222,14 @@ public static class AonikVoiceAgent
 
             try
             {
-                await PresentSingleApprovalAsync(turnCtx, approvalService, card, logger, ct)
+                if (!canShowBasicApproval || card.RequiresVisualReview)
+                {
+                    await turnCtx.Emitter.EmitAsync(new ApprovalReviewFrame(card.ApprovalRequestId, adminUiBaseUrl), ct)
+                        .ConfigureAwait(false);
+                    continue;
+                }
+
+                await PresentSingleApprovalAsync(turnCtx, approvalService, card, adminUiBaseUrl, logger, ct)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -242,6 +253,7 @@ public static class AonikVoiceAgent
         VoiceTurnContext turnCtx,
         IToolApprovalService approvalService,
         VoiceApprovalCard card,
+        string? adminUiBaseUrl,
         ILogger? logger,
         CancellationToken ct)
     {
@@ -273,12 +285,8 @@ public static class AonikVoiceAgent
         var decision = ParseDecision(toolResult);
         if (decision is null)
         {
-            // The client neither approved nor rejected (cancelled / unparsable). Leave the request
-            // Pending and tell the user nothing happened.
-            await EmitTextAsync(
-                turnCtx,
-                $"No decision was recorded for {card.ActionKind}, so nothing was changed.",
-                ct).ConfigureAwait(false);
+            await turnCtx.Emitter.EmitAsync(new ApprovalReviewFrame(card.ApprovalRequestId, adminUiBaseUrl), ct)
+                .ConfigureAwait(false);
             return;
         }
 
@@ -317,7 +325,8 @@ public static class AonikVoiceAgent
                 ProposalId: null,
                 Tool: required.Tool,
                 Tier: required.Tier,
-                ActionKind: required.ActionKind),
+                ActionKind: required.ActionKind,
+                RequiresVisualReview: required.Preview is not null),
 
         ToolApprovalQueuedResult queued =>
             new VoiceApprovalCard(
@@ -326,7 +335,8 @@ public static class AonikVoiceAgent
                 ProposalId: queued.ProposalId,
                 Tool: queued.Tool,
                 Tier: queued.Tier,
-                ActionKind: queued.ActionKind),
+                ActionKind: queued.ActionKind,
+                RequiresVisualReview: queued.Preview is not null),
 
         _ => null,
     };
@@ -420,7 +430,8 @@ public static class AonikVoiceAgent
         Guid? ProposalId,
         string Tool,
         string Tier,
-        string ActionKind);
+        string ActionKind,
+        bool RequiresVisualReview);
 
     // Marks the streaming call so AuditMiddleware skips its own AiRun for it (this loop persists
     // one per turn). Marks the existing ChatOptions in place where present so no other run-option

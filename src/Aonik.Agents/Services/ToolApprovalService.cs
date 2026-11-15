@@ -348,6 +348,27 @@ internal sealed partial class ToolApprovalService : IToolApprovalService
             ToolGateDecision.Queued, ApprovalRequestId: request.Id, ProposalId: proposalId, Summary: actionKind);
     }
 
+    public async Task<PendingToolApprovalReview?> GetPendingReviewAsync(Guid approvalRequestId, CancellationToken cancellationToken = default)
+    {
+        if (!_currentUserProvider.TryGetCurrentUserId(out Guid userId)) return null;
+
+        ToolApprovalRequest? request = await _requestStore.GetByIdAsync(approvalRequestId, cancellationToken);
+        if (request is null || request.Status != ToolApprovalRequestStatus.Pending || request.ExpiresAt <= _clock.UtcNow
+            || request.WorkflowStepRunId.HasValue || request.RiskTier is not ("Medium" or HighRiskTier)
+            || (request.RequestingUserId is null && !WorkflowApprovalAuthority.IsGovernanceTool(request.ToolName)))
+            return null;
+
+        if (await GetDecisionAuthorityErrorAsync(request, userId, cancellationToken) is not null) return null;
+
+        if (request.RiskTier == HighRiskTier && (request.ProposalId is not { } proposalId
+            || (await _proposalStore.GetByIdAsync(proposalId, cancellationToken))?.Status != nameof(ProposalStatus.Proposed)))
+            return null;
+
+        return new(request.Id, request.ToolName, request.RiskTier, request.ActionKind, request.ProposalId,
+            DateTime.SpecifyKind(request.ExpiresAt, DateTimeKind.Utc),
+            request.PreviewJson is { } preview ? JsonSerializer.Deserialize<ToolApprovalPreview>(preview) : null);
+    }
+
     public async Task<ToolApprovalDecisionResult> DecideAsync(
         Guid approvalRequestId,
         ToolApprovalDecisionInput decision,
@@ -397,34 +418,9 @@ internal sealed partial class ToolApprovalService : IToolApprovalService
                 Message: $"This request was already {request.Status} and cannot be decided again.");
         }
 
-        bool workflowGovernance = WorkflowApprovalAuthority.IsGovernanceTool(request.ToolName) || request.WorkflowStepRunId.HasValue;
-        if (((WorkflowApprovalAuthority.IsWorkflowMutation(request.ToolName) || request.WorkflowStepRunId.HasValue) && _workflowAuthority is null)
-            || (_workflowAuthority is not null && !await _workflowAuthority.CanDecideRequestAsync(request, cancellationToken)))
-            return new ToolApprovalDecisionResult(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
-                "Current workflow permissions do not permit this decision.");
-        if (!workflowGovernance && _roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(request.AiRunId, cancellationToken))
-        {
-            return new ToolApprovalDecisionResult(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
-                "Current room access does not permit deciding this action.");
-        }
-
-        // Consumer self-approval (§12): when the request records a requesting user, the deciding
-        // user must be that same user. B2B operator approval (a different authorised user) is a
-        // deferred policy rule; until it lands, equality is the safe default.
-        if (!workflowGovernance && request.RequestingUserId is { } requestingUserId && requestingUserId != decidingUserId)
-        {
-            return new ToolApprovalDecisionResult(
-                request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId,
-                Message: "Only the user who requested the action may approve it.");
-        }
-
-        if (Framework.ConnectorToolApprovalManifest.IsConnectorMutation(request.ToolName))
-        {
-            if (_connectorMutations is null) return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, "Connector approval authority is unavailable.");
-            try { await _connectorMutations.RequireReviewAsync(request.Id, cancellationToken); }
-            catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException or WorkflowConflictException)
-            { return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, "Current mailbox, workflow or reviewer authority does not permit this decision."); }
-        }
+        string? authorityError = await GetDecisionAuthorityErrorAsync(request, decidingUserId, cancellationToken);
+        if (authorityError is not null)
+            return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, authorityError);
 
         try
         {
@@ -518,6 +514,30 @@ internal sealed partial class ToolApprovalService : IToolApprovalService
             request.Id, ToolApprovalDecisionOutcome.Approved, ProposalId: null,
             Message: request.WorkflowStepRunId.HasValue ? "The action was approved. The workflow will continue automatically."
                 : "The action was approved. Ask the agent to proceed.");
+    }
+
+    private async Task<string?> GetDecisionAuthorityErrorAsync(ToolApprovalRequest request, Guid userId, CancellationToken cancellationToken)
+    {
+        bool workflowApproval = WorkflowApprovalAuthority.IsGovernanceTool(request.ToolName) || request.WorkflowStepRunId.HasValue;
+        if (((WorkflowApprovalAuthority.IsWorkflowMutation(request.ToolName) || request.WorkflowStepRunId.HasValue) && _workflowAuthority is null)
+            || (_workflowAuthority is not null && !await _workflowAuthority.CanDecideRequestAsync(request, cancellationToken)))
+            return "Current workflow permissions do not permit this decision.";
+
+        if (!workflowApproval && _roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(request.AiRunId, cancellationToken))
+            return "Current room access does not permit deciding this action.";
+
+        if (!workflowApproval && request.RequestingUserId is { } requestingUserId && requestingUserId != userId)
+            return "Only the user who requested the action may approve it.";
+
+        if (Framework.ConnectorToolApprovalManifest.IsConnectorMutation(request.ToolName))
+        {
+            if (_connectorMutations is null) return "Connector approval authority is unavailable.";
+            try { await _connectorMutations.RequireReviewAsync(request.Id, cancellationToken); }
+            catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException or WorkflowConflictException)
+            { return "Current mailbox, workflow or reviewer authority does not permit this decision."; }
+        }
+
+        return null;
     }
 
     private ToolApprovalRequest NewRequest(

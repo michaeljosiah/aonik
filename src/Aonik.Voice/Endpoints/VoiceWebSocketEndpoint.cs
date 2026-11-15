@@ -71,7 +71,8 @@ internal static class VoiceWebSocketEndpoint
 
             // Validate frontend tools against the server-owned allowlist.
             var catalog = services.GetRequiredService<IVoiceFrontendToolCatalog>();
-            var rejected = catalog.Validate(hello.FrontendTools ?? new List<string>());
+            List<string> frontendTools = hello.FrontendTools ?? [];
+            var rejected = catalog.Validate(frontendTools);
             if (rejected.Count > 0)
             {
                 var message = $"Unknown frontend tool name(s): {string.Join(", ", rejected)}";
@@ -134,7 +135,7 @@ internal static class VoiceWebSocketEndpoint
             // negotiation (the server only declares tools the client claims it can
             // render). Once the catalog ships canonical AITool declarations
             // (Phase 3 follow-up), this will populate.
-            var clientTools = catalog.ResolveCanonical(hello.FrontendTools ?? new List<string>());
+            var clientTools = catalog.ResolveCanonical(frontendTools);
             var runOptions = runOptionsBuilder.Build(clientTools, agentContext.ConfiguredModelName);
 
             // Stamp use_case = "voice" on ChatOptions.AdditionalProperties so
@@ -160,7 +161,7 @@ internal static class VoiceWebSocketEndpoint
                 VoiceAgent: voiceAgentResult.Agent,
                 UserBriefPreamble: agentContext.UserBriefPreamble,
                 RunOptions: runOptions,
-                FrontendToolNames: catalog.AllowedNames,
+                FrontendToolNames: frontendTools.ToHashSet(StringComparer.OrdinalIgnoreCase),
                 InitialChatThreadId: hello.ChatThreadId,
                 AgentId: hello.AgentId,
                 TenantId: tenantId,

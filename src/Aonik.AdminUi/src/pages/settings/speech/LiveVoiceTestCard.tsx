@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Mic, MicOff, Plug, PlugZap, Square } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { apiConfig } from "@/auth/authConfig";
@@ -38,6 +39,7 @@ interface TranscriptEntry {
   who: "user" | "bot" | "system";
   text: string;
   isFinal?: boolean;
+  reviewPath?: string;
 }
 
 interface LiveVoiceTestCardProps {
@@ -199,6 +201,13 @@ export function LiveVoiceTestCard({
           const message = envelope.message as string | undefined;
           if (message) {
             appendTranscript({ who: "system", text: message });
+          }
+          break;
+        }
+        case "approvalReview": {
+          const path = envelope.reviewPath;
+          if (typeof path === "string" && /^\/approvals\?requestId=[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(path)) {
+            appendTranscript({ who: "system", text: "Review the pending action in Approvals.", reviewPath: path });
           }
           break;
         }
@@ -520,7 +529,9 @@ export function LiveVoiceTestCard({
                       "italic text-muted-foreground",
                   )}
                 >
-                  {entry.text}
+                  {entry.reviewPath
+                    ? <Link className="text-primary underline" to={entry.reviewPath}>{entry.text}</Link>
+                    : entry.text}
                 </span>
               </div>
             ))}

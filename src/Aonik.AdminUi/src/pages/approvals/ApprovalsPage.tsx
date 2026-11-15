@@ -14,6 +14,7 @@
 //     proposal's RiskTier and CreatedAt; no real policy registry yet.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -35,6 +36,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { agentProposalsService } from '@/services/agentProposalsService';
 import { ApprovalPreview } from '@/components/ai/ApprovalPreview';
+import { ToolApprovalReview } from './ToolApprovalReview';
 import type {
   ProposalDetailResponse,
   ProposalListItem,
@@ -102,6 +104,12 @@ function payloadRows(payloadJson: string): Array<[string, string]> {
 // ─── Page ────────────────────────────────────────────────────────────────
 
 export function ApprovalsPage() {
+  const [search] = useSearchParams();
+  const requestId = search.get('requestId');
+  return requestId ? <ToolApprovalReview key={requestId} requestId={requestId} /> : <ProposalQueue />;
+}
+
+function ProposalQueue() {
   const [items, setItems] = useState<ProposalListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
