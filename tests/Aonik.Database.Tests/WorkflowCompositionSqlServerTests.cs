@@ -28,7 +28,7 @@ using Aonik.TestSupport.Multitenancy;
 
 namespace Aonik.Database.Tests;
 
-public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
+public sealed partial class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database) : IClassFixture<SqlLocalDbFixture>
 {
     [SkippableTheory]
     [InlineData("Timer")]
@@ -186,7 +186,7 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
         wakes.Should().ContainSingle(message => message.NotBeforeUtc == fixture.Clock.UtcNow.AddDays(7));
     }
 
-    private ServiceProvider Provider(Scenario fixture, Guid? currentUserId = null)
+    private ServiceProvider Provider(Scenario fixture, Guid? currentUserId = null, Action<IServiceCollection>? configure = null)
     {
         var services = new ServiceCollection(); services.AddLogging();
         services.AddSingleton<ITenantProvider>(new TestTenantProvider(fixture.TenantId));
@@ -208,6 +208,7 @@ public sealed class WorkflowCompositionSqlServerTests(SqlLocalDbFixture database
         services.AddScoped<WorkflowRunService>(); services.AddScoped<WorkflowStepExecutionService>(); services.AddScoped<IGraphWorkflowRunner, GraphWorkflowRunner>();
         services.AddScoped<IToolApprovalRequestStore, ToolApprovalRequestStore>(); services.AddScoped<IToolApprovalService, ToolApprovalService>();
         services.AddSingleton(Mock.Of<IAgentProposalStore>()); services.AddSingleton(Mock.Of<IProposalApprovalService>()); services.AddSingleton(Mock.Of<IProposalApprovalPolicy>());
+        configure?.Invoke(services);
         return services.BuildServiceProvider();
     }
 
