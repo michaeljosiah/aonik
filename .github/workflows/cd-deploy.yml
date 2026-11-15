@@ -200,6 +200,15 @@ jobs:
       # Firebase Cloud Messaging (mobile push)
       NOTIFICATIONS__FCM__PROJECTID: ${{ vars.NOTIFICATIONS__FCM__PROJECTID }}
       NOTIFICATIONS__FCM__SERVICEACCOUNTJSON: ${{ secrets.NOTIFICATIONS__FCM__SERVICEACCOUNTJSON }}
+      # Spec 099. Attachments and authenticated mailbox push remain environment opt-ins.
+      DOCUMENTS__OCR__ENABLED: ${{ vars.DOCUMENTS__OCR__ENABLED }}
+      CONTACTENQUIRIES__CLAMAV__ENABLED: ${{ vars.CONTACTENQUIRIES__CLAMAV__ENABLED }}
+      CONTACTENQUIRIES__CLAMAV__HOST: ${{ vars.CONTACTENQUIRIES__CLAMAV__HOST }}
+      CONTACTENQUIRIES__CLAMAV__PORT: ${{ vars.CONTACTENQUIRIES__CLAMAV__PORT }}
+      INTEGRATIONS__GMAIL__MAILBOX__PUSHTOPIC: ${{ vars.INTEGRATIONS__GMAIL__MAILBOX__PUSHTOPIC }}
+      INTEGRATIONS__GMAIL__MAILBOX__PUSHSUBSCRIPTION: ${{ vars.INTEGRATIONS__GMAIL__MAILBOX__PUSHSUBSCRIPTION }}
+      INTEGRATIONS__GMAIL__MAILBOX__PUSHAUDIENCE: ${{ vars.INTEGRATIONS__GMAIL__MAILBOX__PUSHAUDIENCE }}
+      INTEGRATIONS__GMAIL__MAILBOX__PUSHSERVICEACCOUNT: ${{ vars.INTEGRATIONS__GMAIL__MAILBOX__PUSHSERVICEACCOUNT }}
       # Commerce postcode validation is an explicit per-environment opt-in.
       COMMERCE__POSTCODESIO__ENABLED: ${{ vars.COMMERCE__POSTCODESIO__ENABLED }}
 
@@ -234,6 +243,7 @@ jobs:
           # Any env var whose name starts with a recognised prefix is forwarded
           # to the API container as a .NET configuration environment variable.
           # Add new prefixes here when new config sections need runtime overrides.
+          SHARED_INTAKE_PREFIXES = ("DOCUMENTS__OCR__", "CONTACTENQUIRIES__CLAMAV__", "INTEGRATIONS__GMAIL__MAILBOX__")
           API_SETTING_PREFIXES = (
               "AI__",
               "AUTH__",
@@ -241,7 +251,7 @@ jobs:
               "COMMERCE__",
               "NOTIFICATIONS__",
               "SETTINGS__",
-          )
+          ) + SHARED_INTAKE_PREFIXES
 
           api = {}
           for key, val in sorted(os.environ.items()):
@@ -249,7 +259,7 @@ jobs:
                   api[key] = val.strip()
 
           # Worker shares AI settings with API and can have its own WORKER__ overrides.
-          WORKER_SETTING_PREFIXES = ("AI__", "WORKER__",)
+          WORKER_SETTING_PREFIXES = ("AI__", "WORKER__") + SHARED_INTAKE_PREFIXES
           worker = {}
           for key, val in sorted(os.environ.items()):
               if any(key.startswith(p) for p in WORKER_SETTING_PREFIXES) and val.strip():
@@ -283,6 +293,8 @@ jobs:
           use_digest_references: ${{ inputs.use_digest_references }}
           skip_image_validation: ${{ inputs.skip_image_validation }}
           app_settings: ${{ steps.app-settings.outputs.app_settings_json }}
+          gmail_oauth_client_id: ${{ vars.GMAIL_OAUTH_CLIENT_ID }}
+          gmail_oauth_client_secret_uri: ${{ vars.GMAIL_OAUTH_CLIENT_SECRET_URI }}
 
       - name: Deploy
         uses: ./.github/actions/bicep-deploy

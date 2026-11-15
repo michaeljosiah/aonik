@@ -50,6 +50,14 @@ inputs:
     description: 'JSON object with apiAppSettings and/or workerAppSettings keys'
     required: false
     default: ""
+  gmail_oauth_client_id:
+    description: "Optional development or release Gmail OAuth Web application client ID"
+    required: false
+    default: ""
+  gmail_oauth_client_secret_uri:
+    description: "Optional Key Vault secret URI for the Gmail OAuth client secret"
+    required: false
+    default: ""
   image_repos:
     description: 'JSON object mapping param keys to repository names (overrides defaults)'
     required: false
@@ -85,5 +93,7 @@ runs:
         INPUT_BOOTSTRAP_IMAGES: ${{ inputs.bootstrap_images }}
         INPUT_ADMIN_UI_TARGET_PORT: ${{ inputs.admin_ui_target_port }}
         INPUT_APP_SETTINGS: ${{ inputs.app_settings }}
+        INPUT_GMAIL_OAUTH_CLIENT_ID: ${{ inputs.gmail_oauth_client_id }}
+        INPUT_GMAIL_OAUTH_CLIENT_SECRET_URI: ${{ inputs.gmail_oauth_client_secret_uri }}
         INPUT_IMAGE_REPOS: ${{ inputs.image_repos }}
       run: python "${{ github.action_path }}/resolve_params.py"

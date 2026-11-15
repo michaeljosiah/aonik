@@ -122,6 +122,16 @@ def main() -> None:
 
     document = json.loads(base_param_file.read_text())
     params = document.get("parameters", {})
+    gmail_client_id = env("INPUT_GMAIL_OAUTH_CLIENT_ID")
+    gmail_secret_uri = env("INPUT_GMAIL_OAUTH_CLIENT_SECRET_URI")
+    if not gmail_client_id and not gmail_secret_uri:
+        gmail_client_id = params.get("gmailOAuthClientId", {}).get("value", "")
+        gmail_secret_uri = params.get("gmailOAuthClientSecretUri", {}).get("value", "")
+    if bool(gmail_client_id) != bool(gmail_secret_uri):
+        sys.exit("Configure both Gmail OAuth client ID and Key Vault secret URI.")
+    if gmail_client_id:
+        params["gmailOAuthClientId"] = {"value": gmail_client_id}
+        params["gmailOAuthClientSecretUri"] = {"value": gmail_secret_uri}
 
     # --- Resolve workload name ---
     workload_wrapper = params.get("workloadName")
@@ -248,7 +258,8 @@ def main() -> None:
             if settings and isinstance(settings, dict):
                 clean = {str(k): str(v) for k, v in settings.items() if str(v).strip()}
                 if clean:
-                    params[param_name] = {"value": clean}
+                    base_settings = params.get(param_name, {}).get("value", {})
+                    params[param_name] = {"value": {**base_settings, **clean}}
 
     # --- Write effective parameters ---
     output_param_file.write_text(json.dumps(document, indent=2) + "\n")

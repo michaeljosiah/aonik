@@ -25,7 +25,7 @@ Configure these values for API **and Worker**, preserving their shared persisten
 | `Integrations__Gmail__OAuth__RedirectUri` | Exact API callback above |
 | `Integrations__Gmail__OAuth__ReviewReturnUri` | `https://aonik-dev-adminui.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/settings/my-connections` |
 
-For Container Apps deployments, set the `gmailOAuthClientId` and `gmailOAuthClientSecretUri` parameters of the ACA stack. Use the development Key Vault secret URI. The stack supplies the API callback and Admin return URI to both hosts and uses their existing managed identities to read the secret. The same stack configures shared Blob Storage for the hosts. Confirm all four Gmail variable names exist on both active revisions and the Worker runs before the rehearsal.
+For Container Apps deployments, set the GitHub environment variables `GMAIL_OAUTH_CLIENT_ID` and `GMAIL_OAUTH_CLIENT_SECRET_URI`. The deployment workflows resolve them to the `gmailOAuthClientId` and `gmailOAuthClientSecretUri` ACA parameters. Use the development Key Vault secret URI. The stack supplies the API callback and Admin return URI to both hosts and uses their existing managed identities to read the secret. The same stack configures shared Blob Storage for the hosts. Confirm all four Gmail variable names exist on both active revisions and the Worker runs before the rehearsal.
 
 The callback uses its protected owner/tenant state and HttpOnly cookie. An anonymous callback or tenant header cannot choose the account's tenant. After callback, the owner signs in to review the returned request and explicitly confirms the provider identity. A callback alone does not grant use.
 

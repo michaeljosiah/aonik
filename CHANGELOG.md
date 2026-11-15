@@ -4,7 +4,7 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
-- **Workflow qualification and deployment safeguards (#438, T15):** Link actual MAF tool calls to their recorded AiRuns in approvals and proposals. Recheck tenant activity before deferred actions, reject ambiguous typed JSON, and exercise the 100-item loop limit across fresh scopes. Sweep expired temporary connector uploads through the existing Worker scheduler. Configure API and Worker to share private blob storage and support a Key Vault reference for the dedicated Gmail OAuth client.
+- **Workflow qualification and deployment safeguards (#438, T15):** Link actual MAF tool calls to their recorded AiRuns in approvals and proposals. Recheck tenant activity before deferred actions, reject ambiguous typed JSON, and exercise the 100-item loop limit across fresh scopes. Sweep expired temporary connector uploads through the existing Worker scheduler. Configure API and Worker to share private blob storage, package the OCR binaries and forward the private scanner, authenticated mailbox push and Gmail OAuth Key Vault settings through deployment.
 
 - **Governed curated connector actions (#438, T14):** Use reviewed MCP/HTTP installations through existing tenant accounts, connector grants, Aonik tools and workflow capabilities. Pin signed releases and action contracts, check schemas and credential versions at runtime, and send remote mutations through the existing High proposal and operation journal. Tenant Integrations adds catalog inspection, credential rotation, activation, account registration and upgrade impact. Signed native contracts are verified against deployed action descriptors.
 

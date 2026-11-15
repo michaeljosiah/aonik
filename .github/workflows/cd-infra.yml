@@ -109,6 +109,8 @@ jobs:
           bootstrap_images: >-
             {"apiImage":"${{ env.BOOTSTRAP_API_IMAGE }}","workerImage":"${{ env.BOOTSTRAP_WORKER_IMAGE }}","adminUiImage":"${{ env.BOOTSTRAP_ADMINUI_IMAGE }}"}
           admin_ui_target_port: ${{ env.BOOTSTRAP_ADMINUI_TARGET_PORT }}
+          gmail_oauth_client_id: ${{ vars.GMAIL_OAUTH_CLIENT_ID }}
+          gmail_oauth_client_secret_uri: ${{ vars.GMAIL_OAUTH_CLIENT_SECRET_URI }}
 
       - name: Deploy
         uses: ./.github/actions/bicep-deploy

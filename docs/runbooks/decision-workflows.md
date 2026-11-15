@@ -26,7 +26,7 @@ Gmail triggers can use a fixed invoice reference or admit supported attachments 
 
 ## Gmail deployment configuration
 
-Configure the existing OAuth client on the server under `Integrations:Gmail:OAuth`: `ClientId`, `ClientSecret`, `RedirectUri` and `ReviewReturnUri`. Register the exact callback `/integrations/gmail/oauth/callback` with Google. Keep secrets out of browser configuration, workflow JSON and chat. Read-only connections use the Gmail read scope plus verified account identity scopes. Attachments additionally require the existing private content store and malware scanner. Confirm OCR and scanner readiness on the Worker before enabling attachment admission.
+Configure the existing OAuth client on the server under `Integrations:Gmail:OAuth`: `ClientId`, `ClientSecret`, `RedirectUri` and `ReviewReturnUri`. Register the exact callback `/integrations/gmail/oauth/callback` with Google. Keep secrets out of browser configuration, workflow JSON and chat. Read-only connections use the Gmail read scope plus verified account identity scopes. Attachments additionally require the existing private content store and malware scanner. Confirm OCR and scanner readiness on the Worker before enabling attachment admission. The API and Worker images include Tesseract with English language data and Poppler. Set `DOCUMENTS__OCR__ENABLED=true` and the `CONTACTENQUIRIES__CLAMAV__ENABLED`, `CONTACTENQUIRIES__CLAMAV__HOST` and `CONTACTENQUIRIES__CLAMAV__PORT` environment variables for a reachable private ClamAV service. CD: Deploy forwards these settings to both hosts.
 
 For a new development client, use the [exact Gmail OAuth setup and rehearsal checklist](decision-workflows-google-oauth.md). Setup and owner consent remain distinct from financial action approval.
 
