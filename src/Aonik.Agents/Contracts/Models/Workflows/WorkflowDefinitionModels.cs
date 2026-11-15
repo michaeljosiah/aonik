@@ -52,6 +52,6 @@ public sealed record WorkflowControlCapabilityLimits(int MaximumGraphNodes, int 
     int MaximumConcurrentBranches, int MaximumNestingDepth, int MaximumLifetimeSeconds);
 
 public sealed record WorkflowActionCapability(string Key, int ContractVersion, string RequiredPermission, string RiskTier,
-    JsonElement InputSchema, JsonElement OutputSchema);
+    JsonElement InputSchema, JsonElement OutputSchema, string? ConnectorKey = null, string? ConnectorAuthenticationKind = null);
 
 public sealed record DecisionFactField(string Name, string Type, bool Required);

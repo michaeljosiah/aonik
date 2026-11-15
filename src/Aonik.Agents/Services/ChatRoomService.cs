@@ -344,7 +344,8 @@ internal sealed class ChatRoomService(
         return new(turn.Id, turn.PromptMessageId, turn.RequestedByUserId, turn.AgentName, turn.Status, turn.AiRunId, turn.StartedAt, turn.Error,
             approvals.Where(item => ids.Contains(item.Id)).Select(item => new ChatRoomApproval(item.Id, item.ProposalId, item.ToolName, item.RiskTier, item.ActionKind,
                 item.Status == ToolApprovalRequestStatus.Pending && item.ExpiresAt <= clock.UtcNow ? "Expired" : item.Status.ToString(),
-                item.ArgumentsRedactedJson, _canInvokeAgents && item.RequestingUserId == UserId && (role is "Owner" or "Participant") && item.Status == ToolApprovalRequestStatus.Pending && item.ExpiresAt > clock.UtcNow,
+                Framework.ConnectorToolApprovalManifest.IsConnectorMutation(item.ToolName) ? "{}" : item.ArgumentsRedactedJson,
+                _canInvokeAgents && item.RequestingUserId == UserId && (role is "Owner" or "Participant") && item.Status == ToolApprovalRequestStatus.Pending && item.ExpiresAt > clock.UtcNow,
                 _canInvokeAgents && item.RequestingUserId == UserId && (role is "Owner" or "Participant") && item.RiskTier == "Medium" && item.Status == ToolApprovalRequestStatus.Approved && !item.ConsumedAt.HasValue && item.ExpiresAt > clock.UtcNow)).ToList(), role == "Owner" && turn.Status == "Running" && clock.UtcNow - turn.StartedAt >= TimeSpan.FromMinutes(10));
     }
 

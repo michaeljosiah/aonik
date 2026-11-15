@@ -1,6 +1,7 @@
 using System.Net.Http;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -51,6 +52,7 @@ internal sealed class TenantHttpToolFactory : ITenantHttpToolFactory
         var tools = new List<AITool>(rows.Count);
         foreach (var row in rows)
         {
+            if (ConnectorInvocationIdentity.IsCuratedTool(row.Name)) continue;
             // Defense-in-depth: a non-conforming tool name would break serialization of the whole
             // agent tool list. Names are rejected at create/update, but skip any that slipped through
             // (e.g. a legacy row) so one bad tool can't take down every request for the tenant.

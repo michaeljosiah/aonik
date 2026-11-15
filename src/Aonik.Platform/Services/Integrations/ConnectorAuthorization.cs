@@ -12,7 +12,8 @@ namespace Aonik.Platform.Services.Integrations;
 
 internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenantProvider tenantProvider, ICurrentUserProvider currentUser,
     IPermissionService permissions, IUserDirectoryReader users, ITenantRoleReader roles, ConnectorPolicyService policies, IClock clock,
-    IAutomationIdentityAuthorization? automation = null)
+    IAutomationIdentityAuthorization? automation = null, IEnumerable<IConnectorActionProvider>? providers = null,
+    INativeConnectorReleaseCatalog? nativeReleases = null)
 {
     public Guid TenantId => tenantProvider.TryGetCurrentTenantId(out Guid id) && id != Guid.Empty
         ? id : throw new PermissionDeniedException("Integration.Read", "A tenant context is required.");
@@ -75,8 +76,33 @@ internal sealed class ConnectorAuthorization(PlatformDbContext database, ITenant
         if (connection.Status != "Active") throw Access("NoAuthorizedConnection");
         IReadOnlyList<string> granted = ConnectorJson.Read<List<string>>(connection.GrantedScopesJson);
         if (!ConnectorScopeRequirements.Satisfied(action, granted.ToArray())) throw Access("InsufficientScopes");
+        if (context.WorkflowId is not null && ServiceProvider(action.ConnectorKey) is not null && context.Artifact is null)
+            throw Access("WorkflowBindingRequired");
+        await RequireServiceAccountAsync(connection, new(action.Key, action.Version), context.Artifact, cancellationToken);
         return connection;
     }
+
+    internal IConnectorServiceAccountProvider? ServiceProvider(string connectorKey) => providers?.OfType<IConnectorServiceAccountProvider>()
+        .SingleOrDefault(provider => provider.ConnectorKey == connectorKey);
+
+    internal async Task<ConnectorServiceAccount?> RequireServiceAccountAsync(ConnectorConnection connection, ConnectorActionRef action,
+        ConnectorArtifactPin? artifact, CancellationToken cancellationToken)
+    {
+        IConnectorServiceAccountProvider? provider = ServiceProvider(connection.ConnectorKey);
+        if (provider is null)
+        {
+            if (artifact is not null)
+            {
+                if (nativeReleases is null) throw Access("WorkflowBindingRequired");
+                nativeReleases.Require(connection.ConnectorKey, action, artifact);
+            }
+            return null;
+        }
+        if (connection.Ownership != "Tenant" || connection.Status != "Active") throw Access("NoAuthorizedConnection");
+        return await provider.RequireAccountAsync(connection.ProviderAccountId, action, artifact, cancellationToken);
+    }
+
+    internal ConnectorArtifactPin? LatestNativeArtifact(string connectorKey, ConnectorActionRef action) => nativeReleases?.Latest(connectorKey, action);
 
     public async Task<bool> HasActorGrantAsync(ConnectorConnection connection, WorkflowActor actor, ConnectorActionRef action,
         CancellationToken cancellationToken = default)

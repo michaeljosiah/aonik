@@ -15,17 +15,21 @@ internal sealed class WorkflowPublicationValidator(
     WorkflowActionRegistry actions, ITenantRoleReader roles, ITenantProvider tenantProvider,
     WorkflowExecutionAuthorization authorization, IEnumerable<IConnectorDescriptor>? connectors = null,
     IConnectorService? connectorService = null, ICurrentUserProvider? currentUser = null, IUserDirectoryReader? users = null, IClock? clock = null,
-    WorkflowDependencyValidator? dependencies = null)
+    WorkflowDependencyValidator? dependencies = null, INativeConnectorReleaseCatalog? nativeReleases = null)
 {
     public async Task<IReadOnlyList<WorkflowActionCapability>> CapabilitiesAsync(CancellationToken cancellationToken = default)
     {
         var available = new List<WorkflowActionCapability>();
+        var connectorTypes = (connectors ?? []).Select(item => item.Descriptor)
+            .SelectMany(connector => connector.Actions.Select(action => (action, connector)))
+            .ToDictionary(item => (item.action.Key, item.action.Version), item => item.connector);
         foreach (var descriptor in actions.Descriptors)
         {
             try { await authorization.RequireModuleAsync(actions.Resolve(descriptor.Key, descriptor.Version).GetType(), cancellationToken); }
             catch (WorkflowExecutionException) { continue; }
+            ConnectorDescriptor? connector = connectorTypes.GetValueOrDefault((descriptor.Key, descriptor.Version));
             available.Add(new(descriptor.Key, descriptor.Version, descriptor.RequiredPermission, descriptor.Approval?.Tier.ToString() ?? "Read",
-                descriptor.InputSchema, descriptor.OutputSchema));
+                descriptor.InputSchema, descriptor.OutputSchema, connector?.Key, connector?.AuthenticationKind));
         }
         return available;
     }
@@ -93,6 +97,8 @@ internal sealed class WorkflowPublicationValidator(
                 {
                     if (connectorService is null || workflowId is null || parameters.Connection is null || currentUser?.GetCurrentUserId() is not { } userId)
                         throw new ArgumentException("An exact authorized connection and workflow grant are required before publication.");
+                    if (parameters.Connection.Artifact is null && nativeReleases?.Latest(connector.ConnectorKey, new(connector.Key, connector.Version)) is not null)
+                        throw new ArgumentException("Refresh the connection binding to pin its reviewed native connector release before publication.");
                     await connectorService.ValidateWorkflowBindingAsync(workflowId.Value, parameters.Connection, new(connector.Key, connector.Version), new("User", userId, userId), cancellationToken);
                 }
                 else if (parameters.Connection is not null) throw new ArgumentException("Native domain actions cannot carry connector bindings.");

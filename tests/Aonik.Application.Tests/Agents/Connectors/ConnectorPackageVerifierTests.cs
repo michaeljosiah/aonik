@@ -78,10 +78,7 @@ public sealed class ConnectorPackageVerifierTests
     public void NativeGmailPackage_Should_MatchDeployedContracts_AndRefuseASignedRiskDowngrade()
     {
         using var signer = new Signer(); var registration = new GmailConnectorDescriptor();
-        var native = Manifest() with { PackageKey = "native-gmail", ConnectorKey = "gmail", AdapterKind = "Native", Authentication = new("OAuth2"),
-            Actions = registration.Descriptor.Actions.Select(action => new ConnectorPackageAction(action.Key, action.Version, action.ToolName,
-                action.Approval?.Tier.ToString() ?? "ReadOnly", action.InputSchema, action.OutputSchema, action.RequiredScopes,
-                "https://gmail.googleapis.com/gmail/v1/users/me/", ScopeAlternatives: action.ScopeAlternatives)).ToArray() };
+        ConnectorPackageManifest native = NativeGmailManifest();
         VerifiedConnectorPackage valid = signer.Verifier.Verify(signer.Sign(native));
         CuratedConnectorCatalog.RequireNativeContracts(valid, [registration]);
         native.Actions.Should().HaveCount(19);
@@ -210,6 +207,32 @@ public sealed class ConnectorPackageVerifierTests
             JsonSerializer.SerializeToElement(new { type = "object", properties = new { id = new { type = "string" } }, required = new[] { "id" }, additionalProperties = false }),
             JsonSerializer.SerializeToElement(new { type = "object", properties = new { status = new { type = "string" } }, additionalProperties = false }), [],
             "https://example.test/records/{id}", HttpMethod: "GET")]);
+
+    [Fact]
+    public void Catalog_Should_RejectAReadAliasForAnIndependentlyClassifiedRemoteWrite()
+    {
+        using var signer = new Signer();
+        ConnectorPackageManifest template = Manifest();
+        ConnectorPackageAction read = template.Actions[0] with { Endpoint = "https://example.test/mcp", RemoteToolName = "change_record", HttpMethod = null };
+        ConnectorPackageAction write = read with { Key = "synthetic.records.change", MinimumRiskTier = "High" };
+        using var files = new Artifacts(signer, template with { AdapterKind = "Mcp", Actions = [read, write] });
+
+        Action load = () => new CuratedConnectorCatalog(files.Options);
+
+        load.Should().Throw<InvalidOperationException>().WithMessage("ConnectorPackage.ConflictingEndpointRisk");
+    }
+
+    internal static ConnectorPackageManifest NativeGmailManifest() => Manifest() with
+    {
+        PackageKey = "native-gmail",
+        ConnectorKey = GmailActionKeys.Connector,
+        AdapterKind = "Native",
+        Authentication = new("OAuth2"),
+        Actions = new GmailConnectorDescriptor().Descriptor.Actions.Select(action =>
+            new ConnectorPackageAction(action.Key, action.Version, action.ToolName,
+                action.Approval?.Tier.ToString() ?? "ReadOnly", action.InputSchema, action.OutputSchema, action.RequiredScopes,
+                "https://gmail.googleapis.com/gmail/v1/users/me/", ScopeAlternatives: action.ScopeAlternatives)).ToArray()
+    };
 
     internal sealed class Signer : IDisposable
     {

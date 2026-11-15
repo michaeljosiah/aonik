@@ -23,9 +23,13 @@ internal sealed class ConnectorGrantService(PlatformDbContext database, Connecto
             && (grant.ExpiresAt == null || grant.ExpiresAt > clock.UtcNow), cancellationToken);
         if (grant is null) return null;
         if (!ConnectorJson.Read<List<ConnectorActionRef>>(grant.AllowedActionsJson).Contains(action)) throw ConnectorAuthorization.Access("ConnectionGrantRequired");
+        ConnectorConnection connection = await FindConnectionAsync(connectionId, cancellationToken);
+        ConnectorServiceAccount? serviceAccount = await authorization.RequireServiceAccountAsync(connection, action, null, cancellationToken);
+        ConnectorArtifactPin? pin = serviceAccount?.Actions.Single(item => item.Action == action).Artifact
+            ?? authorization.LatestNativeArtifact(connection.ConnectorKey, action);
         await authorization.RequireUseAsync(connectionId, catalog.Resolve(action), new(new("User", userId, userId), workflowId,
-            PinnedGrantId: grant.Id, AllowedActions: [action]), cancellationToken);
-        return new(connectionId, grant.Id, [action]);
+            PinnedGrantId: grant.Id, AllowedActions: [action], Artifact: pin), cancellationToken);
+        return new(connectionId, grant.Id, [action], pin);
     }
 
     public async Task<IReadOnlyList<ConnectorGrantDetail>> ListAsync(Guid connectionId, CancellationToken cancellationToken = default)
@@ -162,6 +166,7 @@ internal sealed class ConnectorGrantService(PlatformDbContext database, Connecto
             ConnectorActionDescriptor descriptor = catalog.Resolve(connection.ConnectorKey, action);
             if (!policy.AllowedActions.Contains(action) || action.Key == GmailActionKeys.PermanentDelete && !policy.AllowPermanentDelete) throw ConnectorAuthorization.Access("ForbiddenByPolicy");
             if (!ConnectorScopeRequirements.Satisfied(descriptor, scopes.ToArray())) throw ConnectorAuthorization.Access("InsufficientScopes");
+            await authorization.RequireServiceAccountAsync(connection, action, null, cancellationToken);
         }
     }
     private async Task<ConnectorConnection> FindConnectionAsync(Guid id, CancellationToken cancellationToken)

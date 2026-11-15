@@ -67,7 +67,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         if (row is not null && WorkflowApprovalAuthority.IsGovernanceType(row.Proposal.ProposalType)
             && (_workflowAuthority is null || !await _workflowAuthority.CanReadGovernanceAsync(ct))) return null;
         ToolApprovalRequest? connectorRequest = null;
-        if (row is not null && GmailActionPolicies.ActionForProposal(row.Proposal.ProposalType) is not null)
+        if (row is not null && ConnectorInvocationIdentity.IsConnectorProposal(row.Proposal.ProposalType))
         {
             if (_connectorMutations is null) return null;
             ToolApprovalRequest? request = await _dbContext.ToolApprovalRequests.AsNoTracking().SingleOrDefaultAsync(request => request.ProposalId == proposalId, ct);
@@ -336,7 +336,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
 
     private async Task<ToolApprovalRequest?> RequireDispatchDecisionAsync(Proposal proposal, CancellationToken cancellationToken)
     {
-        bool connector = GmailActionPolicies.ActionForProposal(proposal.ProposalType) is not null;
+        bool connector = ConnectorInvocationIdentity.IsConnectorProposal(proposal.ProposalType);
         if (!connector && (!proposal.WorkflowStepRunId.HasValue || proposal.RiskTier != "High")) return null;
         ToolApprovalRequest request = await _dbContext.ToolApprovalRequests.SingleOrDefaultAsync(request => request.TenantId == proposal.TenantId && request.ProposalId == proposal.Id, cancellationToken)
             ?? throw new PermissionDeniedException("Integration.Use");

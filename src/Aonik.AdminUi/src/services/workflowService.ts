@@ -124,7 +124,7 @@ export interface WorkflowVersionDto {
 
 export interface WorkflowDiagnostic { code: string; path: string; message: string; severity: string }
 export interface WorkflowValidation { isValid: boolean; definitionHash: string; diagnostics: WorkflowDiagnostic[] }
-export interface WorkflowActionCapability { key: string; contractVersion: number; requiredPermission: string; riskTier: string; inputSchema: Record<string, unknown>; outputSchema: Record<string, unknown> }
+export interface WorkflowActionCapability { key: string; contractVersion: number; requiredPermission: string; riskTier: string; inputSchema: Record<string, unknown>; outputSchema: Record<string, unknown>; connectorKey?: string | null; connectorAuthenticationKind?: string | null }
 export interface WorkflowCapabilities { schemaVersion: number; nodeKinds: { kind: string; canSimulate: boolean; canExecute: boolean }[]; invoiceFacts: { name: string; type: string; required?: boolean }[]; comparisonOperators: string[]; actions: WorkflowActionCapability[]; subjectTypes?: string[]; subjectFacts?: Record<string, { name: string; type: string; required?: boolean }[]> }
 export interface WorkflowSimulation { mode: string; status: string; definitionHash: string; steps: { nodeKey: string; kind: string; status: string; decision?: unknown; fixtureOutput?: unknown }[]; diagnostics: WorkflowDiagnostic[] }
 export interface WorkflowRunDetail {

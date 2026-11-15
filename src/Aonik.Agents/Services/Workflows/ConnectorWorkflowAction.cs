@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Workflows;
@@ -11,11 +12,11 @@ internal sealed class ConnectorWorkflowAction(ConnectorActionDescriptor action, 
     IEnumerable<IConnectorActionProvider> providers, WorkflowInvocationContext context, IConnectorMutationService? mutations = null) : IWorkflowActionHandler
 {
     public WorkflowActionDescriptor Descriptor { get; } = new(action.Key, action.Version, action.ToolName, "Integration.Use",
-        action.Approval, action.InputSchema, action.OutputSchema, SupportsProposalReconciliation: GmailActionPolicies.IsMutation(action.Key));
+        action.Approval, action.InputSchema, action.OutputSchema, SupportsProposalReconciliation: RequiresEffectPreview(action));
     public void ValidateArguments(JsonElement arguments) => providers.Single(provider => provider.ConnectorKey == action.ConnectorKey)
         .ValidateArguments(new(action.Key, action.Version), arguments);
     public Task<SharedKernel.Abstractions.Agents.ToolApprovalPreview?> GetPreviewAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken = default)
-        => GmailActionPolicies.IsMutation(action.Key) ? PreviewAsync(invocation, cancellationToken)
+        => RequiresEffectPreview(action) ? PreviewAsync(invocation, cancellationToken)
             : Task.FromResult<SharedKernel.Abstractions.Agents.ToolApprovalPreview?>(null);
     private async Task<SharedKernel.Abstractions.Agents.ToolApprovalPreview?> PreviewAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken)
         => await RequireMutations().PreviewWorkflowAsync(invocation.RunId, invocation.StepRunId, ConnectionId(), new(action.Key, action.Version), invocation.Arguments, cancellationToken);
@@ -35,12 +36,13 @@ internal sealed class ConnectorWorkflowAction(ConnectorActionDescriptor action, 
     }
     public async Task<WorkflowActionReconciliation> ReconcileAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken = default)
     {
-        if (!GmailActionPolicies.IsMutation(action.Key)) return new(null, true);
+        if (!RequiresEffectPreview(action)) return new(null, true);
         if (invocation.ApprovalRequestId is not { } requestId) return new(null, false);
         JsonElement? receipt = await RequireMutations().ReconcileWorkflowAsync(requestId, cancellationToken);
         return new(receipt is { } result ? new("Completed", result) : null, false);
     }
     private IConnectorMutationService RequireMutations() => mutations ?? throw new InvalidOperationException("The enforcing connector mutation service is unavailable.");
+    private static bool RequiresEffectPreview(ConnectorActionDescriptor action) => action.Approval?.Tier is ToolApprovalTier.Medium or ToolApprovalTier.High;
     private Guid ConnectionId()
     {
         var definition = context.Definition ?? throw new InvalidOperationException("A published definition is required.");

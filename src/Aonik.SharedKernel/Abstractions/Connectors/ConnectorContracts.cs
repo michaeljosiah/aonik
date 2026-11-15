@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Workflows;
@@ -9,12 +10,15 @@ public sealed record ConnectorActionRef(string Key, int Version);
 public sealed record ConnectorActionDescriptor(string ConnectorKey, string Key, int Version, string ToolName,
     IReadOnlyList<string> RequiredScopes, ToolApprovalOptions? Approval, JsonElement InputSchema, JsonElement OutputSchema,
     IReadOnlyList<IReadOnlyList<string>>? ScopeAlternatives = null);
-public sealed record ConnectorDescriptor(string Key, string DisplayName, IReadOnlyList<ConnectorActionDescriptor> Actions);
+public sealed record ConnectorDescriptor(string Key, string DisplayName, IReadOnlyList<ConnectorActionDescriptor> Actions,
+    string AuthenticationKind = "OAuth2");
 public interface IConnectorDescriptor { ConnectorDescriptor Descriptor { get; } }
 
 public sealed record ConnectorUseContext(WorkflowActor Actor, Guid? WorkflowId = null, Guid? WorkflowVersionId = null,
-    Guid? RunId = null, Guid? StepRunId = null, Guid? PinnedGrantId = null, IReadOnlyList<ConnectorActionRef>? AllowedActions = null);
-public sealed record WorkflowConnectorBinding(Guid ConnectionId, Guid WorkflowGrantId, IReadOnlyList<ConnectorActionRef> AllowedActions);
+    Guid? RunId = null, Guid? StepRunId = null, Guid? PinnedGrantId = null, IReadOnlyList<ConnectorActionRef>? AllowedActions = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ConnectorArtifactPin? Artifact = null);
+public sealed record WorkflowConnectorBinding(Guid ConnectionId, Guid WorkflowGrantId, IReadOnlyList<ConnectorActionRef> AllowedActions,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ConnectorArtifactPin? Artifact = null);
 public sealed record ConnectorReadiness(string Code, string NextAction, Guid? ConnectionId = null, string? DisplayName = null);
 public sealed record ConnectorConnectionSummary(Guid Id, string ConnectorKey, string Ownership, string DisplayName,
     string Status, IReadOnlyList<string> GrantedScopes, string ExpectedVersion, Guid? OwnerUserId);
@@ -33,6 +37,10 @@ public interface IConnectorService
         CancellationToken cancellationToken = default);
     Task ValidateReviewAccessAsync(Guid connectionId, ConnectorActionRef action, Guid userId, CancellationToken cancellationToken = default)
         => throw new NotSupportedException("Connector review authorization is unavailable.");
+    Task ValidateReviewAccessAsync(Guid connectionId, ConnectorActionRef action, Guid userId, ConnectorArtifactPin artifact, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Curated connector review authorization is unavailable.");
+    Task<ConnectorConnectionSummary> ProvisionServiceAccountAsync(string connectorKey, string providerAccountId, string displayName,
+        CancellationToken cancellationToken = default) => throw new NotSupportedException("Reviewed service accounts are unavailable.");
 }
 
 /// <summary>Verifies the actual leased step and its published connection binding in the Agents module.</summary>

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
 
@@ -29,9 +30,10 @@ internal sealed class ConnectorPackageMcpClient(ITenantCredentialProtector prote
             await RequireContractsAsync(client, package, cancellationToken);
             return client;
         }
-        catch
+        catch (Exception error)
         {
             if (client is not null) await client.DisposeAsync(); else await transport.DisposeAsync();
+            if (error is McpException or HttpRequestException or IOException) throw new ConnectorProviderException("RemoteMcpDiscoveryFailed");
             throw;
         }
     }
@@ -47,7 +49,7 @@ internal sealed class ConnectorPackageMcpClient(ITenantCredentialProtector prote
             discovered.AddRange(page.Tools);
             if (discovered.Count > 100) throw Changed();
             cursor = page.NextCursor;
-            if (cursor is not null && !cursors.Add(cursor)) throw Changed();
+            if (cursor is not null && (!cursors.Add(cursor) || cursors.Count >= 10)) throw Changed();
         } while (cursor is not null);
         if (discovered.Select(tool => tool.Name).Distinct(StringComparer.Ordinal).Count() != discovered.Count) throw Changed();
         foreach (ConnectorPackageAction action in package.Manifest.Actions)

@@ -30,3 +30,9 @@ public interface IConnectorPackageCatalog
     Task<ConnectorPackageDetail?> GetAsync(string packageKey, string version, CancellationToken cancellationToken = default);
     Task<string?> DownloadAsync(string packageKey, string version, CancellationToken cancellationToken = default);
 }
+
+public interface INativeConnectorReleaseCatalog
+{
+    ConnectorArtifactPin? Latest(string connectorKey, ConnectorActionRef action);
+    void Require(string connectorKey, ConnectorActionRef action, ConnectorArtifactPin pin);
+}

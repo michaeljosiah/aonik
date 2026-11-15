@@ -21,7 +21,7 @@ using Aonik.SharedKernel.Serialization;
 namespace Aonik.Agents.Services.Connectors.Catalog;
 
 /// <summary>Imports passive releases into the existing tenant extension review lifecycle. No executable installation or account grant occurs.</summary>
-internal sealed class ConnectorPackageInstallationService(AgentsDbContext database, CuratedConnectorCatalog catalog,
+internal sealed partial class ConnectorPackageInstallationService(AgentsDbContext database, CuratedConnectorCatalog catalog,
     TenantMcpServerService mcp, TenantHttpToolService http, ITenantEgressAllowList egress, ITenantProvider tenantProvider,
     ICurrentUserProvider currentUser, IUserDirectoryReader users, IPermissionService permissions,
     IAuthorizationService authorization, IHttpContextAccessor httpContext, ConnectorPackageMcpClient remoteMcp, ITenantCredentialProtector protector) : IConnectorPackageInstallationService
@@ -41,11 +41,9 @@ internal sealed class ConnectorPackageInstallationService(AgentsDbContext databa
     {
         await RequireUserAsync(["Integration.Manage", "Workflow.Write"], cancellationToken);
         if (request.Digest is not { Length: 64 } || !request.Digest.All(Uri.IsHexDigit)) throw new InvalidOperationException("ConnectorPackage.PackageDigestChanged");
-        if (request.AuthSecret is { Length: > 16_384 } || request.AuthUsername is { Length: > 500 }
-            || request.AuthSecret?.Any(char.IsControl) == true || request.AuthUsername?.Any(char.IsControl) == true)
-            throw new InvalidOperationException("ConnectorPackage.CredentialInvalid");
         VerifiedConnectorPackage package = catalog.Require(request.PackageKey, request.PackageVersion, request.Digest);
         if (package.Manifest.AdapterKind == "Native") throw new InvalidOperationException("Native adapters are installed by deployment. Use the deployed connector's ordinary account consent flow.");
+        ValidateCredential(package, request.AuthSecret, request.AuthUsername);
         foreach (ConnectorPackageAction action in package.Manifest.Actions)
             if (!egress.IsAllowed(action.Endpoint, out _)) throw new PermissionDeniedException("Integration.Manage", "The signed endpoint is not allowed by current deployment egress policy.");
         if (package.Manifest.AdapterKind == "Mcp")
@@ -125,7 +123,9 @@ internal sealed class ConnectorPackageInstallationService(AgentsDbContext databa
                 RequireCredentials(server.AuthKind, server.ProtectedAuthJson);
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeout.CancelAfter(TimeSpan.FromSeconds(package.Manifest.Limits.TimeoutSeconds));
-                await using var client = await remoteMcp.ConnectAsync(server, package, timeout.Token);
+                try { await using var client = await remoteMcp.ConnectAsync(server, package, timeout.Token); }
+                catch (Exception error) when (error is ConnectorProviderException || error is OperationCanceledException && !cancellationToken.IsCancellationRequested)
+                { throw new InvalidOperationException("The reviewed MCP endpoint did not return its signed contracts. Check availability, credentials and egress policy before approval."); }
             }
             _ = await mcp.ReviewPackageAsync(id, new(request.Approve, request.Notes, "High"), cancellationToken);
             return Map(server);
@@ -159,24 +159,36 @@ internal sealed class ConnectorPackageInstallationService(AgentsDbContext databa
         _ = await http.ActivatePackageAsync(id, cancellationToken); return Map(tool);
     }
 
-    internal VerifiedConnectorPackage RequireConfiguration(TenantMcpServer server)
+    public async Task<ConnectorPackageInstallationItem> RotateCredentialAsync(Guid id, RotateConnectorPackageCredentialRequest request, CancellationToken cancellationToken = default)
     {
-        var (package, _) = ConnectorPackageReferences.Require(catalog, server.ConnectorPackageJson ?? throw Missing(), "Mcp");
-        if (server.TenantId != TenantId || server.Name != ConnectorPackageReferences.ServerName(package) || server.Endpoint != package.Manifest.Actions[0].Endpoint
-            || server.TransportType != TenantMcpTransportType.Http || server.AuthKind.ToString() != package.Manifest.Authentication.Kind
-            || !(JsonSerializer.Deserialize<string[]>(server.AllowedToolPrefixesJson) ?? []).Order(StringComparer.Ordinal)
-                .SequenceEqual(package.Manifest.Actions.Select(action => action.RemoteToolName!).Order(StringComparer.Ordinal))) throw Changed();
-        return package;
+        await RequireUserAsync(["Integration.Manage", "Workflow.Write"], cancellationToken);
+        var command = new ConnectorPackageInstallationCommand(request.ExpectedVersion);
+        if (string.IsNullOrWhiteSpace(request.AuthSecret)) throw new InvalidOperationException("Provide the new service credential.");
+        TenantMcpServer? server = await FindMcpAsync(id, cancellationToken);
+        if (server is not null)
+        {
+            Version(server, command);
+            VerifiedConnectorPackage package = RequireConfiguration(server);
+            ValidateCredential(package, request.AuthSecret, request.AuthUsername);
+            await mcp.UpdateAsync(id, new(server.Name, server.Endpoint, server.TransportType.ToString(), server.AuthKind.ToString(),
+                request.AuthSecret, request.AuthUsername, package.Manifest.Authentication.HeaderName,
+                package.Manifest.Actions.Select(action => action.RemoteToolName!).ToArray()), cancellationToken);
+            return Map(server);
+        }
+        TenantHttpTool tool = await FindHttpAsync(id, cancellationToken);
+        Version(tool, command);
+        var (release, _) = RequireConfiguration(tool);
+        ValidateCredential(release, request.AuthSecret, request.AuthUsername);
+        await http.UpdateAsync(id, new(tool.Name, tool.Description, tool.Method, tool.UrlTemplate, tool.ParameterSchemaJson, tool.AuthKind.ToString(),
+            request.AuthSecret, request.AuthUsername, release.Manifest.Authentication.HeaderName), cancellationToken);
+        return Map(tool);
     }
 
+    internal VerifiedConnectorPackage RequireConfiguration(TenantMcpServer server)
+        => ConnectorPackageReferences.Require(catalog, server, TenantId);
+
     internal (VerifiedConnectorPackage Package, ConnectorPackageAction Action) RequireConfiguration(TenantHttpTool tool)
-    {
-        var (package, action) = ConnectorPackageReferences.Require(catalog, tool.ConnectorPackageJson ?? throw Missing(), "Http");
-        if (tool.TenantId != TenantId || tool.Name != ConnectorPackageReferences.HttpToolName(package, action!) || tool.Description != action!.DisplayName
-            || tool.Method != action.HttpMethod || tool.UrlTemplate != action.Endpoint || tool.AuthKind.ToString() != package.Manifest.Authentication.Kind
-            || CanonicalJson.Hash(JsonSerializer.Deserialize<JsonElement>(tool.ParameterSchemaJson, ConnectorPackageVerifier.JsonOptions)) != CanonicalJson.Hash(action.InputSchema)) throw Changed();
-        return (package, action);
-    }
+        => ConnectorPackageReferences.Require(catalog, tool, TenantId);
 
     private Guid TenantId => tenantProvider.GetCurrentTenantId();
     private Task<TenantMcpServer?> FindMcpAsync(Guid id, CancellationToken cancellationToken) => database.TenantMcpServers.SingleOrDefaultAsync(row => row.TenantId == TenantId && row.Id == id && row.ConnectorPackageJson != null, cancellationToken);
@@ -203,6 +215,15 @@ internal sealed class ConnectorPackageInstallationService(AgentsDbContext databa
     private static void ValidateNotes(string? notes)
     {
         if (notes is { Length: > 2000 }) throw new InvalidOperationException("Review notes must contain at most 2000 characters.");
+    }
+    private static void ValidateCredential(VerifiedConnectorPackage package, string? secret, string? username)
+    {
+        string kind = package.Manifest.Authentication.Kind;
+        if (secret is { Length: > 16_384 } || username is { Length: > 500 } || secret?.Any(char.IsControl) == true
+            || username?.Any(char.IsControl) == true || (kind == "None" && (secret is not null || username is not null))
+            || (kind == "Basic" && secret is not null && (string.IsNullOrWhiteSpace(username) || username.Contains(':')))
+            || (kind != "Basic" && username is not null))
+            throw new InvalidOperationException("ConnectorPackage.CredentialInvalid");
     }
     private ConnectorPackageInstallationItem Map(TenantMcpServer row)
     {

@@ -5,7 +5,9 @@ export interface ConnectorAction extends ConnectorActionRef {
   connectorKey: string; toolName: string; requiredScopes: string[]; approval: { tier: number | string } | null;
   inputSchema: Record<string, unknown>; outputSchema: Record<string, unknown>; scopeAlternatives?: string[][] | null;
 }
-export interface ConnectorDescriptor { key: string; displayName: string; actions: ConnectorAction[] }
+export interface ConnectorDescriptor { key: string; displayName: string; actions: ConnectorAction[]; authenticationKind?: string }
+export interface ConnectorArtifactPin { packageKey: string; packageVersion: string; artifactDigest: string; actionContractHash: string }
+export interface WorkflowConnectorBinding { connectionId: string; workflowGrantId: string; allowedActions: ConnectorActionRef[]; artifact?: ConnectorArtifactPin }
 export interface ConnectorConnection {
   id: string; connectorKey: string; ownership: 'User' | 'Tenant'; ownerUserId: string | null;
   displayName: string; status: string; grantedScopes: string[]; expectedVersion: string;
@@ -51,7 +53,7 @@ export const connectorService = {
   rename: (connection: ConnectorConnection, displayName: string) => api.put<ConnectorConnection>(`${root}/connections/${connection.id}`, { expectedVersion: connection.expectedVersion, displayName }),
   grants: (id: string) => api.get<ConnectorGrant[]>(`${root}/connections/${encodeURIComponent(id)}/grants`),
   subscription: (id: string) => api.get<{ subscription: MailboxSubscriptionHealth | null }>(`${root}/connections/${encodeURIComponent(id)}/mailbox-subscription`),
-  binding: (id: string, workflowId: string, action: ConnectorActionRef) => api.get<{ connectionId: string; workflowGrantId: string; allowedActions: ConnectorActionRef[] }>(`${root}/connections/${encodeURIComponent(id)}/workflow-binding`, { params: { workflowId, actionKey: action.key, version: action.version } }),
+  binding: (id: string, workflowId: string, action: ConnectorActionRef) => api.get<WorkflowConnectorBinding>(`${root}/connections/${encodeURIComponent(id)}/workflow-binding`, { params: { workflowId, actionKey: action.key, version: action.version } }),
   issueGrant: (connection: ConnectorConnection, granteeType: string, granteeId: string, actions: ConnectorActionRef[], expiresAt?: string, existing?: ConnectorGrant) => api.post<ConnectorGrant>(`${root}/connections/${connection.id}/grants`,
     { granteeType, granteeId, actions, expectedConnectionVersion: connection.expectedVersion, expiresAt, existingGrantId: existing?.id, expectedGrantVersion: existing?.expectedVersion }),
   revokeGrant: (grant: ConnectorGrant) => api.post(`${root}/grants/${grant.id}/revoke`, { expectedVersion: grant.expectedVersion }),

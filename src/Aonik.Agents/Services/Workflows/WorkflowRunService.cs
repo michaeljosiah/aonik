@@ -396,15 +396,25 @@ internal sealed class WorkflowRunService(
         Dictionary<Guid, int> order = WorkflowService.ParseGuidArray(run.SequenceJson).Select((id, index) => (id, index)).ToDictionary(item => item.id, item => item.index);
         steps = steps.OrderBy(step => order.GetValueOrDefault(step.Id, int.MaxValue)).ThenBy(step => step.StartedAt).ThenBy(step => step.Id).ToList();
         Guid userId = await authorization.RequireAsync("Workflow.Read", cancellationToken);
-        if (!restricted && steps.Any(step => step.ActionKey?.StartsWith("gmail.", StringComparison.Ordinal) == true))
+        if (!restricted && steps.Any(step => step.ActionKey is not null))
         {
             WorkflowVersion pinned = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == run.TenantId && version.Id == run.WorkflowVersionId, cancellationToken);
             WorkflowDefinition definition = ReadDefinition(pinned);
-            foreach (WorkflowStepRun step in steps.Where(step => step.ActionKey?.StartsWith("gmail.", StringComparison.Ordinal) == true))
+            var toolNodes = definition.Nodes.Where(node => WorkflowDefinitionValidator.IsKind(node, WorkflowNodeKinds.Tool)).ToDictionary(node => node.Key, StringComparer.Ordinal);
+            foreach (WorkflowStepRun step in steps.Where(step => step.ActionKey is not null).DistinctBy(step => step.NodeKey))
             {
-                WorkflowToolParameters parameters = definition.Nodes.Single(node => node.Key == step.NodeKey).Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
+                if (!toolNodes.TryGetValue(step.NodeKey, out WorkflowDefinitionNode? node)) continue;
+                WorkflowToolParameters parameters = node.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)!;
+                if (parameters.Connection is null && step.ActionKey?.StartsWith("gmail.", StringComparison.Ordinal) != true) continue;
                 if (connectors is null || parameters.Connection is null) { restricted = true; break; }
-                try { await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, new(step.ActionKey!, step.ActionVersion!.Value), userId, cancellationToken); }
+                var action = new ConnectorActionRef(step.ActionKey!, step.ActionVersion!.Value);
+                try
+                {
+                    if (parameters.Connection.Artifact is { } pin)
+                        await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, action, userId, pin, cancellationToken);
+                    else
+                        await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, action, userId, cancellationToken);
+                }
                 catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException) { restricted = true; break; }
             }
         }

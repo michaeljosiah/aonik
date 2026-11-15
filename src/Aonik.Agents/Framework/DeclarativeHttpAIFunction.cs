@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Aonik.Agents.Entities;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Microsoft.Extensions.AI;
 
 namespace Aonik.Agents.Framework;
@@ -50,13 +51,55 @@ internal sealed partial class DeclarativeHttpAIFunction : AIFunction
 
     protected override async ValueTask<object?> InvokeCoreAsync(AIFunctionArguments arguments, CancellationToken cancellationToken)
     {
-        var consumed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var request = BuildRequest(arguments, TenantRemoteAuth.BuildHeaders(_tool.AuthKind, _tool.ProtectedAuthJson, _protector));
+            using var client = _httpClientFactory?.CreateClient("TenantHttpTool")
+                ?? new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false });
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(CallTimeout);
+            using var response = await client.SendAsync(request, cts.Token).ConfigureAwait(false);
+            if ((int)response.StatusCode is >= 300 and < 400)
+                return $"The '{_tool.Name}' tool received an HTTP {(int)response.StatusCode} redirect, " +
+                    "which is not followed for security (a redirect could leave the allow-listed host). No data was returned.";
+            var content = await response.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+            if (content.Length > MaxResponseChars) content = content[..MaxResponseChars] + "…(truncated)";
+            return $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{content}";
+        }
+        catch (ConnectorAccessException error) { return $"The '{_tool.Name}' tool was not called: {error.Message}"; }
+        catch (Exception error) { return $"The '{_tool.Name}' tool call failed: {error.Message}"; }
+    }
+
+    internal async Task<JsonElement> InvokePackageAsync(JsonElement arguments, string? expectedHeader, int maximumOutputBytes,
+        CancellationToken cancellationToken)
+    {
+        IDictionary<string, string> headers = TenantRemoteAuth.RequireHeaders(_tool.AuthKind, _tool.ProtectedAuthJson, _protector, expectedHeader);
+        var fields = new AIFunctionArguments(arguments.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value, StringComparer.Ordinal));
+        using var request = BuildRequest(fields, headers, strict: true);
+        using var client = (_httpClientFactory ?? throw new InvalidOperationException("Curated transport is unavailable.")).CreateClient("CuratedConnectorTool");
+        using HttpResponseMessage response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        if (!response.IsSuccessStatusCode) throw new ConnectorProviderException("RemoteHttpError");
+        if (response.Content.Headers.ContentLength > maximumOutputBytes) throw new ConnectorProviderException("ResponseTooLarge");
+        await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        byte[] bytes = new byte[maximumOutputBytes + 1];
+        int count = await stream.ReadAtLeastAsync(bytes, bytes.Length, throwOnEndOfStream: false, cancellationToken);
+        if (count > maximumOutputBytes) throw new ConnectorProviderException("ResponseTooLarge");
+        using JsonDocument document = JsonDocument.Parse(bytes.AsMemory(0, count));
+        return document.RootElement.Clone();
+    }
+
+    private HttpRequestMessage BuildRequest(AIFunctionArguments arguments, IDictionary<string, string> headers, bool strict = false)
+    {
+        var consumed = new HashSet<string>(strict ? StringComparer.Ordinal : StringComparer.OrdinalIgnoreCase);
 
         var url = PlaceholderRegex().Replace(_tool.UrlTemplate, match =>
         {
             var key = match.Groups[1].Value;
             consumed.Add(key);
-            return Uri.EscapeDataString(StringifyArg(arguments, key));
+            string value = StringifyArg(arguments, key);
+            if (strict && (!arguments.ContainsKey(key) || value is "" or "." or ".."))
+                throw new ArgumentException("The reviewed endpoint requires a valid path parameter.");
+            return Uri.EscapeDataString(value);
         });
 
         var method = new HttpMethod(string.IsNullOrWhiteSpace(_tool.Method) ? "GET" : _tool.Method.ToUpperInvariant());
@@ -67,7 +110,7 @@ internal sealed partial class DeclarativeHttpAIFunction : AIFunction
         // oversized limit) is dropped, so the parameter surface the model can actually reach is exactly
         // the declared one — the model cannot smuggle fields into the outbound call (Spec 033 §8.4).
         var remaining = arguments
-            .Where(kvp => !consumed.Contains(kvp.Key) && _declaredParameters.Contains(kvp.Key))
+            .Where(kvp => !consumed.Contains(kvp.Key) && (strict || _declaredParameters.Contains(kvp.Key)))
             .ToList();
 
         if (!hasBody && remaining.Count > 0)
@@ -80,54 +123,25 @@ internal sealed partial class DeclarativeHttpAIFunction : AIFunction
         // SSRF guard: re-check the FINAL, fully-substituted URL against the egress allow-list.
         if (!_egress.IsAllowed(url, out var reason))
         {
-            return $"The '{_tool.Name}' tool was not called: {reason}";
+            throw new ConnectorAccessException("EndpointBlocked", strict ? "The reviewed endpoint is no longer allowed." : reason ?? "Endpoint blocked.");
         }
 
-        using var request = new HttpRequestMessage(method, url);
+        var request = new HttpRequestMessage(method, url);
         if (hasBody)
         {
             var body = JsonSerializer.Serialize(remaining.ToDictionary(kvp => kvp.Key, kvp => kvp.Value));
             request.Content = new StringContent(body, Encoding.UTF8, "application/json");
         }
 
-        foreach (var (key, value) in TenantRemoteAuth.BuildHeaders(_tool.AuthKind, _tool.ProtectedAuthJson, _protector))
+        foreach (var (key, value) in headers)
         {
-            request.Headers.TryAddWithoutValidation(key, value);
-        }
-
-        // The named "TenantHttpTool" client disables auto-redirect (registered in AgentsModule); the
-        // fallback (no factory, e.g. tests) does the same so a 30x is never auto-followed past the
-        // single egress check above — which would otherwise allow a bounce to an internal host and
-        // forward the auth headers cross-host.
-        using var client = _httpClientFactory?.CreateClient("TenantHttpTool")
-            ?? new HttpClient(new SocketsHttpHandler { AllowAutoRedirect = false });
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        cts.CancelAfter(CallTimeout);
-
-        try
-        {
-            using var response = await client.SendAsync(request, cts.Token).ConfigureAwait(false);
-
-            // Redirects are not followed: the allow-list was validated on the original URL only, so a
-            // cross-host 30x would be an egress bypass. Surface it instead of chasing it.
-            if ((int)response.StatusCode is >= 300 and < 400)
+            if (!request.Headers.TryAddWithoutValidation(key, value) && strict)
             {
-                return $"The '{_tool.Name}' tool received an HTTP {(int)response.StatusCode} redirect, " +
-                    "which is not followed for security (a redirect could leave the allow-listed host). No data was returned.";
+                request.Dispose();
+                throw new ConnectorProviderException("InvalidCredentialHeader");
             }
-
-            var content = await response.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
-            if (content.Length > MaxResponseChars)
-            {
-                content = content[..MaxResponseChars] + "…(truncated)";
-            }
-
-            return $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}\n{content}";
         }
-        catch (Exception ex)
-        {
-            return $"The '{_tool.Name}' tool call failed: {ex.Message}";
-        }
+        return request;
     }
 
     private static JsonElement ParseSchema(string? schemaJson)

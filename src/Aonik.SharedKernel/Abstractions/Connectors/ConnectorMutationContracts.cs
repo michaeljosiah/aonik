@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 using Aonik.SharedKernel.Abstractions.Agents;
 
@@ -12,7 +13,8 @@ public sealed record ConnectorMutationClaim(Guid ApprovalRequestId, Guid Operati
 public sealed record ConnectorMutationStatus(Guid ApprovalRequestId, Guid? ProposalId, Guid ConnectionId, ConnectorActionRef Action,
     string Status, JsonElement? Result, string? ErrorCode);
 public sealed record ConnectorMutationExecutionRequest(Guid ConnectionId, string ProviderAccountId, ConnectorActionRef Action, JsonElement Arguments,
-    Guid? RunId = null, Guid? StepRunId = null, Guid? ProposalId = null, ConnectorUseContext? RecordedContext = null, Guid? OperationId = null);
+    Guid? RunId = null, Guid? StepRunId = null, Guid? ProposalId = null, ConnectorUseContext? RecordedContext = null, Guid? OperationId = null,
+    ConnectorArtifactPin? Artifact = null, int? ServiceCredentialVersion = null);
 public sealed record ConnectorApprovedProposal(Guid ConnectionId, ConnectorActionRef Action, JsonElement Arguments, ConnectorUseContext Context, ToolApprovalPreview? Preview = null);
 
 public interface IConnectorMutationService
@@ -44,6 +46,21 @@ public interface IConnectorMutationAuthority
 
 public static class ConnectorInvocationIdentity
 {
+    public const string CuratedToolPrefix = "aonik_curated_";
+    public const string CuratedProposalPrefix = "Connector.Curated.";
+    public static bool IsCuratedTool(string toolName) => toolName.StartsWith(CuratedToolPrefix, StringComparison.Ordinal);
+    public static bool IsConnectorProposal(string proposalType) => proposalType.StartsWith(CuratedProposalPrefix, StringComparison.Ordinal)
+        || GmailActionPolicies.ActionForProposal(proposalType) is not null;
+
+    public static string IdempotencyKey(JsonElement arguments)
+    {
+        string? key = arguments.ValueKind == JsonValueKind.Object && arguments.TryGetProperty("idempotencyKey", out JsonElement value)
+            && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+        if (key is not { Length: > 0 and <= 128 } || !Regex.IsMatch(key, "^[A-Za-z0-9_.-]+$", RegexOptions.NonBacktracking))
+            throw new ArgumentException("A stable operation key of 1–128 letters, digits, dots, underscores or hyphens is required.");
+        return key;
+    }
+
     public static string Key(Guid tenantId, Guid userId, Guid connectionId, ConnectorActionRef action, string idempotencyKey)
         => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{tenantId:D}|{userId:D}|{connectionId:D}|{action.Key}@{action.Version}|{idempotencyKey}")));
 }

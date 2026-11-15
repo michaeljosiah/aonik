@@ -1,12 +1,15 @@
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Connectors;
+using Aonik.Agents.Services.Connectors.Catalog;
 
 namespace Aonik.Agents.Framework;
 
-internal sealed class ConnectorToolApprovalManifest : IToolApprovalManifest
+internal sealed class ConnectorToolApprovalManifest(CuratedConnectorCatalog? catalog = null) : IToolApprovalManifest
 {
     public string Module => "Platform";
-    public ToolClassification? Classify(string name) => GmailActionPolicies.ActionForTool(name) is { } action
+    public ToolClassification? Classify(string name) => catalog?.FindAction(name) is { } curated
+        ? curated.Descriptor.Approval is { } approval ? ToolClassification.Mutating(approval) : ToolClassification.ReadOnly
+        : GmailActionPolicies.ActionForTool(name) is { } action
         ? GmailActionPolicies.Approval(action) is { } options ? ToolClassification.Mutating(options) : ToolClassification.ReadOnly
         : name switch
     {
@@ -16,4 +19,7 @@ internal sealed class ConnectorToolApprovalManifest : IToolApprovalManifest
         "aonik_create_connection_request" or "aonik_cancel_connection_request" => ToolClassification.Mutating(new(ToolApprovalTier.Medium, name)),
         _ => null,
     };
+
+    internal static bool IsConnectorMutation(string toolName) => ConnectorInvocationIdentity.IsCuratedTool(toolName)
+        || GmailActionPolicies.IsMutation(GmailActionPolicies.ActionForTool(toolName) ?? string.Empty);
 }

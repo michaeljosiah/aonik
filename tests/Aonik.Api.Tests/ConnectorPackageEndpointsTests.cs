@@ -42,6 +42,20 @@ public sealed class ConnectorPackageEndpointsTests(CustomWebApplicationFactory f
         (await manager.PostAsJsonAsync(path + "/activate", new ConnectorPackageInstallationCommand(""))).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await manager.PostAsJsonAsync(path + "/disable", new ConnectorPackageInstallationCommand(""))).StatusCode.Should().Be(HttpStatusCode.NotFound);
         (await manager.PostAsJsonAsync(path + "/review", new ReviewConnectorPackageInstallationRequest("", true))).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await manager.GetAsync(path + "/impact")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public async Task ServiceAccountProvisioning_Should_RequireAdministrationAndAReviewedServiceAdapter()
+    {
+        const string path = "/v1/integrations/connectors/gmail/service-accounts";
+        var request = new { adapterKind = "Http", installationId = Guid.NewGuid(), displayName = "Synthetic account" };
+        using HttpClient reader = await ClientAsync("Integration.Read");
+        (await reader.PostAsJsonAsync(path, request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        using HttpClient manager = await ClientAsync("Integration.Read", "Integration.Manage", "Workflow.Write");
+        (await manager.PostAsJsonAsync(path, request)).StatusCode.Should().Be(HttpStatusCode.Forbidden);
+        (await manager.PostAsJsonAsync(path, new { adapterKind = "Native", request.installationId, request.displayName })).StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
+        (await manager.GetFromJsonAsync<List<ConnectorConnectionSummary>>("/v1/integrations/managed-connections")).Should().BeEmpty();
     }
 
     private async Task<HttpClient> ClientAsync(params string[] permissions)

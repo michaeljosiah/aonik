@@ -36,6 +36,6 @@ internal sealed class ConnectorPackageCatalogService(CuratedConnectorCatalog cat
             || !(await users.GetByIdsAsync(tenantId, [userId], cancellationToken)).Any(user => user.UserId == userId && user.Status == "Active"))
             throw new PermissionDeniedException("Integration.Read");
     }
-    private static ConnectorPackageSummary Summary(VerifiedConnectorPackage package) => new(package.Manifest.PackageKey, package.Manifest.PackageVersion,
+    internal static ConnectorPackageSummary Summary(VerifiedConnectorPackage package) => new(package.Manifest.PackageKey, package.Manifest.PackageVersion,
         package.Manifest.ConnectorKey, package.Manifest.DisplayName, package.Manifest.PublisherId, package.Digest, package.Manifest.AdapterKind, package.Manifest.Actions.Count);
 }

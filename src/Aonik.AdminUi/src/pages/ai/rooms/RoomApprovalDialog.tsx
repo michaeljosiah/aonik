@@ -11,24 +11,24 @@ export function RoomApprovalDialog({ approval, choice, disabled, busy, error, on
   approval: RoomApproval; choice: 'Approve' | 'Reject'; disabled: boolean; busy: boolean; error: string; onClose: () => void; onConfirm: () => void;
 }) {
   const [preview, setPreview] = useState<ToolApprovalPreview | null>(null); const [reviewError, setReviewError] = useState('');
-  const mailbox = approval.tool.startsWith('gmail_');
+  const connector = approval.tool.startsWith('gmail_') || approval.tool.startsWith('aonik_curated_');
   useEffect(() => {
-    if (!mailbox) return;
+    if (!connector) return;
     let disposed = false;
     void connectorService.mutationReview(approval.id).then(value => { if (!disposed) setPreview(value); })
       .catch(reason => { if (!disposed) setReviewError(connectorError(reason)); });
     return () => { disposed = true; };
-  }, [approval.id, mailbox]);
+  }, [approval.id, connector]);
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}><DialogContent><DialogHeader>
     <DialogTitle>{choice === 'Approve' ? 'Confirm this proposed action' : 'Reject this proposed action'}</DialogTitle>
-    <DialogDescription>Review the exact request. Your decision is checked by the server; a room role does not grant financial or mailbox authority.</DialogDescription>
+    <DialogDescription>Review the exact request. The server checks your financial and connector permissions before deciding.</DialogDescription>
   </DialogHeader><div className="space-y-3"><strong className="text-sm">{approval.actionKind}</strong>
-    {mailbox && !preview && !reviewError && <p className="text-xs text-muted-foreground">Checking your mailbox access and loading the private reviewed effect…</p>}
+    {connector && !preview && !reviewError && <p className="text-xs text-muted-foreground">Checking your account access and loading the private reviewed effect…</p>}
     {preview && <ApprovalPreview preview={preview} />}
-    <pre className="max-h-72 overflow-auto rounded-lg border bg-muted p-3 font-mono text-xs whitespace-pre-wrap break-words">{approval.argumentsJson}</pre>
+    {!connector && <pre className="max-h-72 overflow-auto rounded-lg border bg-muted p-3 font-mono text-xs whitespace-pre-wrap break-words">{approval.argumentsJson}</pre>}
     <p className="text-xs text-muted-foreground">{approval.tier === 'High' ? 'High-risk action: the durable proposal dispatcher owns execution.' : 'Medium-risk action: approval authorises only the exact recorded arguments, once.'}</p>
     {(reviewError || error) && <p role="alert" className="text-sm text-destructive">{reviewError || error}</p>}
-  </div><DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button variant={choice === 'Approve' ? 'agent' : 'destructive'} disabled={disabled || busy || mailbox && !preview} onClick={onConfirm}>
+  </div><DialogFooter><Button variant="outline" onClick={onClose}>Cancel</Button><Button variant={choice === 'Approve' ? 'agent' : 'destructive'} disabled={disabled || busy || connector && !preview} onClick={onConfirm}>
     {busy ? <Loader2 className="animate-spin" /> : <Check />}Confirm {choice.toLowerCase()}
   </Button></DialogFooter></DialogContent></Dialog>;
 }

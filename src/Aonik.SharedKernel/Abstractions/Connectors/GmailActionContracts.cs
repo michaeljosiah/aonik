@@ -95,12 +95,7 @@ public static class GmailActionContracts
         }
     }
 
-    public static string IdempotencyKey(JsonElement arguments)
-    {
-        string? key = arguments.TryGetProperty("idempotencyKey", out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
-        if (!ValidIdentifier(key, 128, allowDot: true)) throw new ArgumentException("A stable operation key of 1–128 letters, digits, dots, underscores or hyphens is required.");
-        return key!;
-    }
+    public static string IdempotencyKey(JsonElement arguments) => ConnectorInvocationIdentity.IdempotencyKey(arguments);
     private static void Targets(IReadOnlyList<string>? ids)
     {
         if (ids is null || ids.Count is < 1 or > 50 || ids.Any(id => !ValidIdentifier(id, 256)) || ids.Distinct(StringComparer.Ordinal).Count() != ids.Count)

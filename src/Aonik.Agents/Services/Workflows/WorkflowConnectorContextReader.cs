@@ -46,7 +46,7 @@ internal sealed class WorkflowConnectorContextReader(AgentsDbContext database, I
         WorkflowConnectorBinding binding = await BindingAsync(run, step.NodeKey, action, cancellationToken);
         if (binding.ConnectionId != connectionId) throw Denied();
         return new(WorkflowExecutionAuthorization.Actor(run), run.WorkflowId, run.WorkflowVersionId, run.Id, step.Id,
-            binding.WorkflowGrantId, binding.AllowedActions);
+            binding.WorkflowGrantId, binding.AllowedActions, binding.Artifact);
     }
 
     public async Task RequireGrantTargetAsync(Guid workflowId, Guid userId, CancellationToken cancellationToken = default)

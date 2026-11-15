@@ -14,12 +14,14 @@ internal sealed record ConnectorPolicy(string Code, IReadOnlyList<ConnectorActio
     bool AllowPermanentDelete = false);
 
 /// <summary>Intersects explicit platform and tenant restrictions. User preferences never enter an authorization decision.</summary>
-internal sealed class ConnectorPolicyService(PlatformDbContext database, ITenantProvider tenantProvider, IConfiguration configuration)
+internal sealed class ConnectorPolicyService(PlatformDbContext database, ITenantProvider tenantProvider, IConfiguration configuration, ConnectorCatalog? catalog = null)
 {
     public async Task<ConnectorPolicy> GetAsync(string connectorKey, CancellationToken cancellationToken = default)
     {
         Guid tenantId = tenantProvider.GetCurrentTenantId();
-        if (connectorKey != GmailActionKeys.Connector) return new("ConnectorUnavailable", [], false, false, false, null, 7);
+        bool gmail = connectorKey == GmailActionKeys.Connector;
+        ConnectorDescriptor? serviceConnector = gmail ? null : catalog?.Find(connectorKey);
+        if (!gmail && serviceConnector?.AuthenticationKind != "ServiceAccount") return new("ConnectorUnavailable", [], false, false, false, null, 7);
         List<Entities.Settings.Setting> values = await database.Settings.AsNoTracking().Where(setting => setting.Key.StartsWith("Integrations.")
             && ((setting.Scope == SettingScope.Global && setting.TenantId == null && setting.UserId == null)
                 || (setting.Scope == SettingScope.Tenant && setting.TenantId == tenantId && setting.UserId == null))).ToListAsync(cancellationToken);
@@ -27,25 +29,27 @@ internal sealed class ConnectorPolicyService(PlatformDbContext database, ITenant
         string? Host(string key) => configuration[$"Settings:{key}"] ?? configuration[key.Replace('.', ':')];
         bool Flag(string key, bool tenantDefault) => Parse(Stored(key, SettingScope.Global) ?? Host(key), true)
             && Parse(Stored(key, SettingScope.Tenant), tenantDefault);
-        string? tenantEnabled = Stored(IntegrationSettingNames.GmailEnabled, SettingScope.Tenant);
-        string code = !Parse(Stored(IntegrationSettingNames.GmailEnabled, SettingScope.Global) ?? Host(IntegrationSettingNames.GmailEnabled), true)
+        string enabledSetting = gmail ? IntegrationSettingNames.GmailEnabled : IntegrationSettingNames.CuratedEnabled;
+        string actionsSetting = gmail ? IntegrationSettingNames.GmailAllowedActions : IntegrationSettingNames.CuratedAllowedActions;
+        string? tenantEnabled = Stored(enabledSetting, SettingScope.Tenant);
+        string code = !Parse(Stored(enabledSetting, SettingScope.Global) ?? Host(enabledSetting), true)
             ? "ForbiddenByPolicy" : tenantEnabled is null ? "TenantNotEnabled" : Parse(tenantEnabled, false) ? "Ready" : "ForbiddenByPolicy";
         try
         {
-            ConnectorActionRef[] defaults = GmailActionKeys.ReadActions.Select(key => new ConnectorActionRef(key, 1)).ToArray();
-            IReadOnlyList<ConnectorActionRef> platformActions = Actions(Stored(IntegrationSettingNames.GmailAllowedActions, SettingScope.Global)
-                ?? Host(IntegrationSettingNames.GmailAllowedActions), defaults);
-            IReadOnlyList<ConnectorActionRef> tenantActions = Actions(Stored(IntegrationSettingNames.GmailAllowedActions, SettingScope.Tenant), defaults);
+            ConnectorActionRef[] defaults = gmail ? GmailActionKeys.ReadActions.Select(key => new ConnectorActionRef(key, 1)).ToArray()
+                : serviceConnector!.Actions.Select(action => new ConnectorActionRef(action.Key, action.Version)).ToArray();
+            IReadOnlyList<ConnectorActionRef> platformActions = Actions(Stored(actionsSetting, SettingScope.Global) ?? Host(actionsSetting), defaults);
+            IReadOnlyList<ConnectorActionRef> tenantActions = Actions(Stored(actionsSetting, SettingScope.Tenant), defaults);
             string? role = Stored(IntegrationSettingNames.RequestReviewerRoleId, SettingScope.Tenant);
             string? days = Stored(IntegrationSettingNames.RequestExpiryDays, SettingScope.Tenant)
                 ?? Stored(IntegrationSettingNames.RequestExpiryDays, SettingScope.Global) ?? Host(IntegrationSettingNames.RequestExpiryDays);
             if (days is not null && (!int.TryParse(days, out int count) || count is < 1 or > 30))
                 return new("ForbiddenByPolicy", [], false, false, false, null, 7);
             return new(code, tenantActions.Intersect(platformActions).Distinct().ToList(),
-                Flag(IntegrationSettingNames.GmailAllowUserConnections, true), Flag(IntegrationSettingNames.GmailAllowSelfService, false),
-                Flag(IntegrationSettingNames.GmailAllowWorkflowConnections, false), Guid.TryParse(role, out Guid roleId) ? roleId : null,
+                gmail && Flag(IntegrationSettingNames.GmailAllowUserConnections, true), gmail && Flag(IntegrationSettingNames.GmailAllowSelfService, false),
+                Flag(gmail ? IntegrationSettingNames.GmailAllowWorkflowConnections : IntegrationSettingNames.CuratedAllowWorkflowConnections, false), Guid.TryParse(role, out Guid roleId) ? roleId : null,
                 days is null ? 7 : int.Parse(days, System.Globalization.CultureInfo.InvariantCulture),
-                Parse(Stored(IntegrationSettingNames.GmailAllowPermanentDelete, SettingScope.Global) ?? Host(IntegrationSettingNames.GmailAllowPermanentDelete), false)
+                gmail && Parse(Stored(IntegrationSettingNames.GmailAllowPermanentDelete, SettingScope.Global) ?? Host(IntegrationSettingNames.GmailAllowPermanentDelete), false)
                     && Parse(Stored(IntegrationSettingNames.GmailAllowPermanentDelete, SettingScope.Tenant), false));
         }
         catch (Exception exception) when (exception is System.Text.Json.JsonException or ArgumentException)

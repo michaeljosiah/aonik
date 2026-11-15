@@ -22,7 +22,7 @@ using Aonik.TestSupport.Multitenancy;
 
 namespace Aonik.Application.Tests.Platform.Integrations;
 
-internal sealed class ConnectorScenario : IDisposable
+internal sealed class ConnectorScenario : IDisposable, IAsyncDisposable
 {
     private readonly ServiceProvider _provider;
     public Guid TenantId { get; } = Guid.NewGuid();
@@ -109,6 +109,7 @@ internal sealed class ConnectorScenario : IDisposable
     public CreateConnectionRequest Request(string key = "gmail-read-1") => new("gmail", "User", [new(GmailActionKeys.Search, 1)], "Review invoice correspondence", key);
     public static string State(ConnectorConsentChallenge challenge) => Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(challenge.AuthorizationUrl).Query)["state"].ToString();
     public void Dispose() => _provider.Dispose();
+    public ValueTask DisposeAsync() => _provider.DisposeAsync();
     internal sealed class Actor : ICurrentUserProvider
     {
         public bool Authenticated { get; set; } = true;

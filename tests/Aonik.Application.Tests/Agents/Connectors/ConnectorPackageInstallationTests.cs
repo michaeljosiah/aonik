@@ -25,6 +25,37 @@ namespace Aonik.Application.Tests.Agents.Connectors;
 
 public sealed class ConnectorPackageInstallationTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AccountReader_Should_RequireTheCurrentReviewedInstallation_WithoutAnHttpActor(bool mcp)
+    {
+        using var scenario = new Scenario(mcp);
+        ConnectorPackageInstallationItem row = (await scenario.ImportAsync()).Single();
+        string accountId = (mcp ? "mcp:" : "http:") + row.Id.ToString("N");
+        Func<Task> unreviewed = () => scenario.Reader.RequireAsync("synthetic", accountId);
+        await unreviewed.Should().ThrowAsync<ConnectorAccessException>();
+        row = await scenario.Service.SubmitAsync(row.Id, new(row.ExpectedVersion));
+        row = await scenario.Service.ReviewAsync(row.Id, new(row.ExpectedVersion, true));
+        row = await scenario.Service.ActivateAsync(row.Id, new(row.ExpectedVersion));
+        scenario.Denied = "anonymous";
+
+        ConnectorServiceAccount account = (await scenario.Reader.RequireAsync("synthetic", accountId)).Describe();
+
+        account.ProviderAccountId.Should().Be(accountId); account.Actions.Should().ContainSingle();
+        account.Actions[0].Artifact.ArtifactDigest.Should().Be(row.Digest);
+        account.CredentialVersion.Should().Be(row.CredentialVersion);
+        Func<Task> wrongConnector = () => scenario.Reader.RequireAsync("other", accountId);
+        Func<Task> wrongAction = () => scenario.Reader.RequireAsync("synthetic", accountId, new("synthetic.records.delete", 1));
+        Func<Task> wrongPin = () => scenario.Reader.RequireAsync("synthetic", accountId, account.Actions[0].Action, account.Actions[0].Artifact with { ArtifactDigest = new string('f', 64) });
+        await wrongConnector.Should().ThrowAsync<ConnectorAccessException>();
+        await wrongAction.Should().ThrowAsync<ConnectorAccessException>();
+        await wrongPin.Should().ThrowAsync<ConnectorAccessException>();
+        scenario.Denied = null;
+        await scenario.Service.DisableAsync(row.Id, new(row.ExpectedVersion));
+        await unreviewed.Should().ThrowAsync<ConnectorAccessException>();
+    }
+
     [Fact]
     public async Task HttpInstallation_Should_RequireHumanPlatformReview_AndKeepTheExistingExtensionLifecycle()
     {
@@ -151,6 +182,7 @@ public sealed class ConnectorPackageInstallationTests
         public TenantMcpServerService Mcp { get; }
         public TenantHttpToolService Http { get; }
         public ConnectorPackageInstallationService Service { get; }
+        public ConnectorPackageAccountReader Reader { get; }
         public McpRemote Remote { get; }
         public Guid UserId { get; } = Guid.NewGuid();
         public bool PlatformAdmin { get; set; } = true;
@@ -183,10 +215,12 @@ public sealed class ConnectorPackageInstallationTests
             var clients = new Mock<IHttpClientFactory>(); clients.Setup(value => value.CreateClient("CuratedConnectorTool")).Returns(() => new HttpClient(Remote, disposeHandler: false));
             Service = new(Database, _catalog, Mcp, Http, egress.Object, tenant, user.Object, users.Object, permissions.Object,
                 authorization.Object, context, new(protector.Object, egress.Object, clients.Object), protector.Object);
+            Reader = new(Database, _catalog, tenant, protector.Object, egress.Object);
         }
 
         public Task<IReadOnlyList<ConnectorPackageInstallationItem>> ImportAsync() => Service.ImportAsync(new("synthetic-status", "1.0.0",
-            Denied == "digest" ? new string('a', 64) : _catalog.Packages[0].Digest, "initial-private-secret"));
+            Denied == "digest" ? new string('a', 64) : _catalog.Packages[0].Digest,
+            _catalog.Packages[0].Manifest.Authentication.Kind == "None" ? null : "initial-private-secret"));
         public void Dispose() { Database.Dispose(); Remote.Dispose(); _files.Dispose(); _signer.Dispose(); }
     }
 

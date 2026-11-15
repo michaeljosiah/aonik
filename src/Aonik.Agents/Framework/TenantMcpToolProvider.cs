@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -92,6 +93,7 @@ internal sealed class TenantMcpToolProvider : ITenantMcpToolProvider
             var prefixes = ParsePrefixes(server.AllowedToolPrefixesJson);
             foreach (var tool in connection.Tools)
             {
+                if (ConnectorInvocationIdentity.IsCuratedTool(tool.Name)) continue;
                 if (prefixes.Count > 0 && !prefixes.Any(p => tool.Name.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
                 {
                     continue;

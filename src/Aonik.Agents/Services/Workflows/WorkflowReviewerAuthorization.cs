@@ -49,10 +49,14 @@ internal sealed class WorkflowReviewerAuthorization(
         WorkflowToolParameters parameters = node.Parameters.Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions)
             ?? throw new WorkflowConflictException("The published action contract is invalid.");
         WorkflowReviewerRequirement requirement = parameters.Reviewer ?? throw new WorkflowConflictException("The published action has no reviewer requirement.");
-        if (GmailActionPolicies.IsMutation(parameters.ActionKey))
+        if (parameters.Connection is not null || GmailActionPolicies.IsMutation(parameters.ActionKey))
         {
             if (connectors is null || parameters.Connection is null) throw new PermissionDeniedException("Integration.Use");
-            await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, new(parameters.ActionKey, parameters.ContractVersion), userId, cancellationToken);
+            var action = new ConnectorActionRef(parameters.ActionKey, parameters.ContractVersion);
+            if (parameters.Connection.Artifact is { } pin)
+                await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, action, userId, pin, cancellationToken);
+            else
+                await connectors.ValidateReviewAccessAsync(parameters.Connection.ConnectionId, action, userId, cancellationToken);
         }
         WorkflowFactsSnapshot recorded = JsonSerializer.Deserialize<WorkflowFactsSnapshot>(step.FactsJson!, WorkflowDefinitionCodec.JsonOptions)!;
         if (parameters.ActionKey != step.ActionKey || parameters.ContractVersion != step.ActionVersion

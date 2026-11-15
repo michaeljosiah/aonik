@@ -6,9 +6,16 @@ using Aonik.SharedKernel.Serialization;
 namespace Aonik.Agents.Services.Connectors.Catalog;
 
 /// <summary>Deployment-curated passive artifacts, verified before composition. Tenant requests cannot supply paths or publisher keys.</summary>
-internal sealed class CuratedConnectorCatalog
+internal sealed class CuratedConnectorCatalog : INativeConnectorReleaseCatalog
 {
     public IReadOnlyList<VerifiedConnectorPackage> Packages { get; }
+    public IReadOnlyList<ConnectorPackageRegistration> RemoteRegistrations { get; } = [];
+
+    internal ConnectorPackageActionContract? FindAction(string toolName) => RemoteRegistrations.SelectMany(registration => registration.Contracts.Values)
+        .SingleOrDefault(contract => contract.Descriptor.ToolName == toolName);
+
+    internal ConnectorPackageActionContract? FindAction(ConnectorActionRef action) => RemoteRegistrations
+        .Select(registration => registration.Contracts.GetValueOrDefault(action)).SingleOrDefault(contract => contract is not null);
 
     public CuratedConnectorCatalog(ConnectorPackageTrustOptions options)
     {
@@ -42,6 +49,15 @@ internal sealed class CuratedConnectorCatalog
                 throw Invalid("ActionContractDrift");
         Packages = packages.OrderBy(package => package.Manifest.PackageKey, StringComparer.Ordinal)
             .ThenByDescending(package => Version.Parse(package.Manifest.PackageVersion)).ToArray();
+        var remote = Packages.Where(package => package.Manifest.AdapterKind != "Native").ToArray();
+        if (remote.Any(package => package.Manifest.ConnectorKey == GmailActionKeys.Connector)) throw Invalid("NativeAdapterRequired");
+        foreach (var target in remote.SelectMany(package => package.Manifest.Actions.Select(action => (package.Manifest.AdapterKind, action)))
+            .GroupBy(item => (item.AdapterKind, item.action.Endpoint, Tool: item.action.RemoteToolName ?? item.action.HttpMethod)))
+            if (target.Select(item => item.action.MinimumRiskTier == "ReadOnly").Distinct().Count() > 1) throw Invalid("ConflictingEndpointRisk");
+        if (remote.SelectMany(package => package.Manifest.Actions).DistinctBy(action => (action.Key, action.Version)).Take(101).Count() > 100)
+            throw Invalid("ActionCatalogLimit");
+        RemoteRegistrations = remote.GroupBy(package => package.Manifest.ConnectorKey, StringComparer.Ordinal)
+            .Select(releases => new ConnectorPackageRegistration(releases)).ToArray();
     }
 
     public VerifiedConnectorPackage Require(string packageKey, string version, string? digest = null)
@@ -57,6 +73,24 @@ internal sealed class CuratedConnectorCatalog
         VerifiedConnectorPackage package = Require(pin.PackageKey, pin.PackageVersion, pin.ArtifactDigest);
         if (!package.Manifest.Actions.Any(action => package.Pin(action).ActionContractHash == pin.ActionContractHash)) throw Invalid("ActionContractDrift");
         return package;
+    }
+
+    public ConnectorArtifactPin? Latest(string connectorKey, ConnectorActionRef action)
+    {
+        foreach (VerifiedConnectorPackage package in Packages.Where(package => package.Manifest.AdapterKind == "Native" && package.Manifest.ConnectorKey == connectorKey))
+            if (package.Manifest.Actions.SingleOrDefault(candidate => candidate.Key == action.Key && candidate.Version == action.Version) is { } selected)
+                return package.Pin(selected);
+        return null;
+    }
+
+    public void Require(string connectorKey, ConnectorActionRef action, ConnectorArtifactPin pin)
+    {
+        VerifiedConnectorPackage? package = Packages.SingleOrDefault(candidate => candidate.Manifest.AdapterKind == "Native"
+            && candidate.Manifest.ConnectorKey == connectorKey && candidate.Manifest.PackageKey == pin.PackageKey
+            && candidate.Manifest.PackageVersion == pin.PackageVersion && candidate.Digest == pin.ArtifactDigest);
+        if (package?.Manifest.Actions.SingleOrDefault(candidate => candidate.Key == action.Key && candidate.Version == action.Version) is not { } selected
+            || package.Pin(selected) != pin)
+            throw new ConnectorAccessException("ConnectorContractChanged", "The pinned native connector release is unavailable.");
     }
 
     public static void RequireNativeContracts(VerifiedConnectorPackage package, IEnumerable<IConnectorDescriptor> registrations)

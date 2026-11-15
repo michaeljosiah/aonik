@@ -50,7 +50,7 @@ export function WorkflowRunPage() {
         {(run.status === 'WaitingForConnection' || run.status === 'NeedsAttention' || (run.status === 'WaitingForTimer' && run.waitUntilUtc && Date.parse(run.waitUntilUtc) <= Date.now())) && <Button disabled={busy} onClick={() => void act(() => workflowService.resume(run))}>Revalidate and resume this run</Button>}
         {!['Completed', 'Cancelled', 'Failed'].includes(run.status) && <Button disabled={busy} variant="outline" onClick={() => void act(() => workflowService.cancelRun(run))}>Cancel remaining work</Button>}
         {run.status === 'WaitingForConnection' && <Button disabled={busy} variant="outline" onClick={() => void act(async () => {
-          const request = await connectorService.createRequest({ connectorKey: 'gmail', ownership: 'User', actions: [],
+          const request = await connectorService.createRequest({ connectorKey: '', ownership: 'User', actions: [],
             purpose: 'Restore this published workflow’s exact account and action access', idempotencyKey: crypto.randomUUID(), runId: run.id });
           setReviewPath(request.reviewPath);
         })}>Request access for the pinned account</Button>}

@@ -418,7 +418,7 @@ internal sealed partial class ToolApprovalService : IToolApprovalService
                 Message: "Only the user who requested the action may approve it.");
         }
 
-        if (GmailActionPolicies.IsMutation(GmailActionPolicies.ActionForTool(request.ToolName) ?? ""))
+        if (Framework.ConnectorToolApprovalManifest.IsConnectorMutation(request.ToolName))
         {
             if (_connectorMutations is null) return new(request.Id, ToolApprovalDecisionOutcome.Forbidden, request.ProposalId, "Connector approval authority is unavailable.");
             try { await _connectorMutations.RequireReviewAsync(request.Id, cancellationToken); }

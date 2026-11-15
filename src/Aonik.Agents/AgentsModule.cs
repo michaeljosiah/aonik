@@ -93,19 +93,40 @@ public sealed class AgentsModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Connectors.IWorkflowConnectorContextReader, Services.Workflows.WorkflowConnectorContextReader>();
         var connectorPackages = configuration.GetSection(Services.Connectors.Catalog.ConnectorPackageTrustOptions.SectionName)
             .Get<Services.Connectors.Catalog.ConnectorPackageTrustOptions>() ?? new();
-        services.AddSingleton(new Services.Connectors.Catalog.CuratedConnectorCatalog(connectorPackages));
+        var curatedCatalog = new Services.Connectors.Catalog.CuratedConnectorCatalog(connectorPackages);
+        services.AddSingleton(provider =>
+        {
+            foreach (var package in curatedCatalog.Packages.Where(package => package.Manifest.AdapterKind == "Native"))
+                Services.Connectors.Catalog.CuratedConnectorCatalog.RequireNativeContracts(package, provider.GetServices<SharedKernel.Abstractions.Connectors.IConnectorDescriptor>());
+            return curatedCatalog;
+        });
+        services.AddSingleton<SharedKernel.Abstractions.Connectors.INativeConnectorReleaseCatalog>(provider => provider.GetRequiredService<Services.Connectors.Catalog.CuratedConnectorCatalog>());
         services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorPackageCatalog, Services.Connectors.Catalog.ConnectorPackageCatalogService>();
         services.AddScoped<Services.Connectors.Catalog.ConnectorPackageInstallationService>();
         services.AddScoped<IConnectorPackageInstallationService>(provider => provider.GetRequiredService<Services.Connectors.Catalog.ConnectorPackageInstallationService>());
         services.AddScoped<Services.Connectors.Catalog.ConnectorPackageMcpClient>();
+        services.AddScoped<Services.Connectors.Catalog.ConnectorPackageAccountReader>();
         services.AddTransient<Services.Connectors.Catalog.ConnectorPackageHttpHandler>();
         services.AddHttpClient("CuratedConnectorTool")
-            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false, UseCookies = false })
             // The host adds a general retry pipeline. A remote write must have exactly one dispatch;
             // its existing approval journal owns any uncertain outcome, not transport retries.
             .ConfigureAdditionalHttpMessageHandlers((handlers, _) => handlers.Clear())
             .AddHttpMessageHandler<Services.Connectors.Catalog.ConnectorPackageHttpHandler>();
         services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorMutationAuthority, Services.Connectors.ConnectorMutationAuthority>();
+        foreach (var registration in curatedCatalog.RemoteRegistrations)
+        {
+            services.AddSingleton<SharedKernel.Abstractions.Connectors.IConnectorDescriptor>(registration);
+            services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorActionProvider>(provider =>
+                ActivatorUtilities.CreateInstance<Services.Connectors.Catalog.ConnectorPackageActionProvider>(provider, registration));
+            foreach (var action in registration.Descriptor.Actions)
+            {
+                RegisterConnectorWorkflowAction(services, action);
+                if (action.Approval?.ProposalType is { } type)
+                    services.AddKeyedScoped<IProposalHandler>(type, (provider, key) => new Services.Connectors.ConnectorMutationProposalHandler((string)key!,
+                        provider.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorMutationService>()));
+            }
+        }
         foreach (var action in SharedKernel.Abstractions.Connectors.GmailActionPolicies.ToolNames.Keys
             .Where(key => SharedKernel.Abstractions.Connectors.GmailActionPolicies.Approval(key)?.Tier == ToolApprovalTier.High))
         {
@@ -116,16 +137,9 @@ public sealed class AgentsModule : IModule
         foreach (string action in new[] { SharedKernel.Abstractions.Connectors.GmailActionKeys.Search,
             SharedKernel.Abstractions.Connectors.GmailActionKeys.GetMessage, SharedKernel.Abstractions.Connectors.GmailActionKeys.GetAttachment }
             .Concat(SharedKernel.Abstractions.Connectors.GmailActionPolicies.ToolNames.Keys))
-            services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler>(sp =>
-            {
-                var descriptor = sp.GetServices<SharedKernel.Abstractions.Connectors.IConnectorDescriptor>()
-                    .SelectMany(item => item.Descriptor.Actions).Single(item => item.Key == action && item.Version == 1);
-                return new Services.Workflows.ConnectorWorkflowAction(descriptor,
-                    sp.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorService>(),
-                    sp.GetServices<SharedKernel.Abstractions.Connectors.IConnectorActionProvider>(),
-                    sp.GetRequiredService<Services.Workflows.WorkflowInvocationContext>(),
-                    sp.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorMutationService>());
-            });
+            services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler>(provider => CreateConnectorWorkflowAction(provider,
+                provider.GetServices<SharedKernel.Abstractions.Connectors.IConnectorDescriptor>().SelectMany(item => item.Descriptor.Actions)
+                    .Single(item => item.Key == action && item.Version == 1)));
         services.AddScoped<Services.Workflows.WorkflowGovernanceService>();
         services.AddScoped<IWorkflowGovernanceService>(provider => provider.GetRequiredService<Services.Workflows.WorkflowGovernanceService>());
         services.AddScoped<IAgentMutationGuard, Services.Workflows.WorkflowMutationGuard>();
@@ -342,6 +356,16 @@ public sealed class AgentsModule : IModule
 
         return services;
     }
+
+    private static void RegisterConnectorWorkflowAction(IServiceCollection services, SharedKernel.Abstractions.Connectors.ConnectorActionDescriptor action)
+        => services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler>(provider => CreateConnectorWorkflowAction(provider, action));
+
+    private static Services.Workflows.ConnectorWorkflowAction CreateConnectorWorkflowAction(IServiceProvider provider,
+        SharedKernel.Abstractions.Connectors.ConnectorActionDescriptor action) => new(action,
+            provider.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorService>(),
+            provider.GetServices<SharedKernel.Abstractions.Connectors.IConnectorActionProvider>(),
+            provider.GetRequiredService<Services.Workflows.WorkflowInvocationContext>(),
+            provider.GetRequiredService<SharedKernel.Abstractions.Connectors.IConnectorMutationService>());
 }
 
 /// <summary>

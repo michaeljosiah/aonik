@@ -18,8 +18,15 @@ export function WorkflowToolPanel({ workflowId, parameters, onChange }: { workfl
   useEffect(() => { latest.current = { parameters, onChange }; }, [parameters, onChange]);
   useEffect(() => { void workflowService.capabilities().then(result => setActions(result.actions ?? [])).catch(reason => setError(connectorError(reason))); }, []);
   const selected = actions.find(action => action.key === parameters.actionKey && action.contractVersion === parameters.contractVersion);
-  const connector = selected?.key.startsWith('gmail.') ? 'gmail' : null;
-  useEffect(() => { if (connector) void connectorService.connections(connector).then(setConnections).catch(reason => setError(connectorError(reason))); }, [connector]);
+  const connector = selected?.connectorKey ?? (selected?.key.startsWith('gmail.') ? 'gmail' : null);
+  useEffect(() => {
+    let current = true;
+    if (connector) void connectorService.connections(connector).then(accounts => {
+      if (current) setConnections(accounts);
+    }).catch(reason => { if (current) setError(connectorError(reason)); });
+    return () => { current = false; };
+  }, [connector]);
+  const accounts = connections.filter(account => account.connectorKey === connector);
   return <div className="space-y-3">
     {error && <p role="alert" className="text-xs text-destructive">{error}</p>}
     <label className="block space-y-1 text-xs">Registered action<NativeSelect value={selected ? `${selected.key}@${selected.contractVersion}` : ''} onChange={event => {
@@ -46,10 +53,10 @@ export function WorkflowToolPanel({ workflowId, parameters, onChange }: { workfl
             if (current.parameters.connection?.connectionId === connectionId && current.parameters.actionKey === actionKey && current.parameters.contractVersion === contractVersion)
               current.onChange({ ...current.parameters, connection: binding });
           }).catch(reason => setError(connectorError(reason)));
-        }}><option value="">Unresolved: save as a draft</option>{connections.map(account => <option key={account.id} value={account.id}>{account.displayName} · {account.ownership} · {account.status}</option>)}</NativeSelect></label>
-        <label className="block space-y-1 text-xs">Pinned workflow grant ID<Input value={parameters.connection?.workflowGrantId ?? ''} onChange={event => onChange({ ...parameters, connection: { connectionId: parameters.connection?.connectionId ?? '', workflowGrantId: event.target.value, allowedActions: parameters.connection?.allowedActions ?? [{ key: selected.key, version: selected.contractVersion }] } })} /></label>
-        <p className="text-xs text-muted-foreground">A published version keeps this account and grant. Changing a default account has no effect on it.</p>
-        <Button variant="outline" size="sm" onClick={() => { void connectorService.createRequest({ connectorKey: connector, ownership: connections.find(account => account.id === parameters.connection?.connectionId)?.ownership ?? 'User',
+        }}><option value="">Unresolved: save as a draft</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.displayName} · {account.ownership} · {account.status}</option>)}</NativeSelect></label>
+        <label className="block space-y-1 text-xs">Pinned workflow grant ID<Input readOnly={selected.connectorAuthenticationKind === 'ServiceAccount'} value={parameters.connection?.workflowGrantId ?? ''} onChange={event => onChange({ ...parameters, connection: { ...parameters.connection, connectionId: parameters.connection?.connectionId ?? '', workflowGrantId: event.target.value, allowedActions: parameters.connection?.allowedActions ?? [{ key: selected.key, version: selected.contractVersion }] } })} /></label>
+        {parameters.connection?.artifact && <p className="break-all text-xs text-muted-foreground">Pinned release {parameters.connection.artifact.packageKey} {parameters.connection.artifact.packageVersion} · {parameters.connection.artifact.artifactDigest}</p>}
+        <Button variant="outline" size="sm" onClick={() => { void connectorService.createRequest({ connectorKey: connector, ownership: accounts.find(account => account.id === parameters.connection?.connectionId)?.ownership ?? (selected.connectorAuthenticationKind === 'ServiceAccount' ? 'Tenant' : 'User'),
           connectionId: parameters.connection?.connectionId || undefined, workflowId, actions: [{ key: selected.key, version: selected.contractVersion }], purpose: `Use ${selected.key} in this invoice workflow`, idempotencyKey: crypto.randomUUID() })
           .then(request => setRequestPath(request.reviewPath)).catch(reason => setError(connectorError(reason))); }}>Request this connection use</Button>
         {requestPath && <Link to={requestPath} className="block text-sm text-primary underline">Review connection request</Link>}

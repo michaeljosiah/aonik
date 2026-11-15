@@ -9,7 +9,8 @@ internal sealed class CreateConnectionRequestValidator : Validator<CreateConnect
 {
     public CreateConnectionRequestValidator()
     {
-        RuleFor(input => input.ConnectorKey).NotEmpty().Matches("^[a-z][a-z0-9-]{0,79}$");
+        RuleFor(input => input.ConnectorKey).NotEmpty().Matches("^[a-z][a-z0-9-]{0,79}$")
+            .When(input => input.RunId is null || !string.IsNullOrEmpty(input.ConnectorKey));
         RuleFor(input => input.Ownership).Must(value => value is "User" or "Tenant");
         RuleFor(input => input.Purpose).NotEmpty().MaximumLength(1000);
         RuleFor(input => input.IdempotencyKey).NotEmpty().MaximumLength(128).Matches("^[a-zA-Z0-9][a-zA-Z0-9_.-]*$");

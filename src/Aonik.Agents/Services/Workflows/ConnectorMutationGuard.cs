@@ -1,24 +1,30 @@
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Connectors;
+using Aonik.Agents.Services.Connectors.Catalog;
 
 namespace Aonik.Agents.Services.Workflows;
 
-internal sealed class ConnectorMutationGuard(IConnectorConnectionRequests requests, IConnectorMutationService? mutations = null) : IAgentMutationGuard
+internal sealed class ConnectorMutationGuard(IConnectorConnectionRequests requests, IConnectorMutationService? mutations = null,
+    CuratedConnectorCatalog? curated = null) : IAgentMutationGuard
 {
     public Task ValidateAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     public async Task<ToolGateContext> PrepareAsync(ToolGateContext context, CancellationToken cancellationToken = default)
     {
-        if (GmailActionPolicies.ActionForTool(context.ToolName) is { } actionKey)
+        string? gmail = GmailActionPolicies.ActionForTool(context.ToolName);
+        ConnectorPackageActionContract? remote = curated?.FindAction(context.ToolName);
+        if (gmail is not null || remote?.Descriptor.Approval is not null)
         {
             if (mutations is null) throw new InvalidOperationException("The enforcing connector mutation service is unavailable.");
             Require(context, "connectionId", "request");
             Guid connectionId = Read<Guid>(context, "connectionId");
             context.Arguments["connectionId"] = connectionId;
-            var action = new ConnectorActionRef(actionKey, 1);
-            System.Text.Json.JsonElement arguments = GmailActionContracts.Normalize(action, ConnectorJson.Element(context.Arguments["request"]));
+            var action = remote is null ? new ConnectorActionRef(gmail!, 1) : new(remote.Descriptor.Key, remote.Descriptor.Version);
+            System.Text.Json.JsonElement arguments = ConnectorJson.Element(context.Arguments["request"]);
+            if (remote is null) arguments = GmailActionContracts.Normalize(action, arguments);
+            else remote.RequireInput(arguments);
             context.Arguments["request"] = arguments;
-            if (actionKey == GmailActionKeys.PrepareMessage)
-                return context with { AuditArgumentsJson = ConnectorJson.Serialize(new { connectionId, actionKey,
+            if (action.Key == GmailActionKeys.PrepareMessage)
+                return context with { AuditArgumentsJson = ConnectorJson.Serialize(new { connectionId, actionKey = action.Key,
                     requestHash = ToolArgumentsHash.Compute(context.Arguments) }) };
             ConnectorMutationPreview preview = await mutations.PreviewAsync(connectionId, action, arguments, cancellationToken);
             return context with { Preview = preview.Preview, InvocationKey = preview.InvocationKey };

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
+using Aonik.Agents.Framework;
 using Aonik.SharedKernel.Abstractions.Connectors;
 
 namespace Aonik.Agents.Services.Connectors;
@@ -36,7 +37,7 @@ internal sealed partial class ConnectorMutationAuthority
     public async Task<ConnectorMutationStatus?> GetStatusAsync(Guid approvalRequestId, CancellationToken cancellationToken = default)
     {
         ToolApprovalRequest? request = await database.ToolApprovalRequests.AsNoTracking().SingleOrDefaultAsync(request => request.TenantId == TenantId && request.Id == approvalRequestId, cancellationToken);
-        if (request is null || !GmailActionPolicies.IsMutation(GmailActionPolicies.ActionForTool(request.ToolName) ?? "")) return null;
+        if (request is null || !ConnectorToolApprovalManifest.IsConnectorMutation(request.ToolName)) return null;
         await RequireStatusAccessAsync(request, cancellationToken);
         ConnectorApprovedProposal binding = await BindingAsync(request, cancellationToken);
         ConnectorMutationJournal? journal = request.ExecutionJson is null ? null : Journal(request.ExecutionJson);
@@ -71,7 +72,7 @@ internal sealed partial class ConnectorMutationAuthority
         ConnectorMutationJournal journal = Journal(request.ExecutionJson ?? throw Denied());
         await ValidateReceiptAsync(request, journal, result, cancellationToken);
         if (journal.Status == "Completed") return;
-        if (!ConnectorJson.Read<GmailMutationReceipt>(result).Reconciled) throw Denied();
+        if (RequireContract(journal.Action).Curated is not null || !ConnectorJson.Read<GmailMutationReceipt>(result).Reconciled) throw Denied();
         request.ExecutionJson = ConnectorJson.Serialize(journal with { Status = "Completed", Result = result, CompletedAtUtc = clock.UtcNow, ErrorCode = null });
         await SaveClaimAsync(cancellationToken);
     }
@@ -92,6 +93,11 @@ internal sealed partial class ConnectorMutationAuthority
 
     private async Task ValidateReceiptAsync(ToolApprovalRequest request, ConnectorMutationJournal journal, JsonElement result, CancellationToken cancellationToken)
     {
+        if (RequireContract(journal.Action).Curated is { } contract)
+        {
+            contract.RequireOutput(result);
+            return;
+        }
         if (result.GetRawText().Length > 32_768) throw Denied();
         GmailMutationReceipt receipt = ConnectorJson.Read<GmailMutationReceipt>(result);
         if (receipt.ActionKey != journal.Action.Key || receipt.OperationId != await OperationIdAsync(request, cancellationToken) || receipt.Status != "Completed") throw Denied();

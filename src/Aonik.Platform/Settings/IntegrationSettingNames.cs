@@ -9,8 +9,12 @@ public static class IntegrationSettingNames
     public const string GmailAllowWorkflowConnections = "Integrations.Gmail.AllowWorkflowConnections";
     public const string GmailAllowPermanentDelete = "Integrations.Gmail.AllowPermanentDelete";
     public const string GmailDefaultConnectionId = "Integrations.Gmail.DefaultConnectionId";
+    public const string CuratedEnabled = "Integrations.Curated.Enabled";
+    public const string CuratedAllowedActions = "Integrations.Curated.AllowedActions";
+    public const string CuratedAllowWorkflowConnections = "Integrations.Curated.AllowWorkflowConnections";
     public const string RequestReviewerRoleId = "Integrations.RequestReviewerRoleId";
     public const string RequestExpiryDays = "Integrations.RequestExpiryDays";
     public static readonly IReadOnlyList<string> All = [GmailEnabled, GmailAllowedActions, GmailAllowUserConnections,
-        GmailAllowSelfService, GmailAllowWorkflowConnections, GmailDefaultConnectionId, RequestReviewerRoleId, RequestExpiryDays, GmailAllowPermanentDelete];
+        GmailAllowSelfService, GmailAllowWorkflowConnections, GmailDefaultConnectionId, RequestReviewerRoleId, RequestExpiryDays, GmailAllowPermanentDelete,
+        CuratedEnabled, CuratedAllowedActions, CuratedAllowWorkflowConnections];
 }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 
+using Aonik.Agents.Services.Connectors.Catalog;
 using Aonik.SharedKernel.Abstractions.Agents;
 using Aonik.SharedKernel.Abstractions.Connectors;
 
@@ -52,7 +53,8 @@ internal sealed partial class ConnectorTools(IConnectorService connectors, IConn
         IConnectorService? connectors = services.GetService<IConnectorService>();
         IConnectorConnectionRequests? requests = services.GetService<IConnectorConnectionRequests>();
         if (connectors is null || requests is null) return [];
-        var tools = new ConnectorTools(connectors, requests, services.GetService<IConnectorMutationService>(), services.GetService<IConnectorPackageCatalog>());
+        IConnectorMutationService? mutationService = services.GetService<IConnectorMutationService>();
+        var tools = new ConnectorTools(connectors, requests, mutationService, services.GetService<IConnectorPackageCatalog>());
         List<AITool> functions = [
             AIFunctionFactory.Create(tools.ListConnectors, name: "aonik_list_connectors"),
             AIFunctionFactory.Create(tools.ListConnections, name: "aonik_list_connections"),
@@ -69,6 +71,10 @@ internal sealed partial class ConnectorTools(IConnectorService connectors, IConn
         if (tools.HasPackages) functions.AddRange([AIFunctionFactory.Create(tools.ListConnectorPackages, name: "aonik_list_connector_packages"),
             AIFunctionFactory.Create(tools.GetConnectorPackage, name: "aonik_get_connector_package")]);
         if (tools.HasMutations) functions.AddRange(tools.MutationTools());
+        if (services.GetService<CuratedConnectorCatalog>() is { } curated)
+            functions.AddRange(curated.RemoteRegistrations.SelectMany(registration => registration.Descriptor.Actions)
+                .Where(action => action.Approval is null || tools.HasMutations)
+                .Select(action => new CuratedConnectorActionFunction(action, connectors, mutationService)));
         return services.GetRequiredService<IToolApprovalGate>().GateAll(functions, services);
     }
     private bool HasPackages => packages is not null;

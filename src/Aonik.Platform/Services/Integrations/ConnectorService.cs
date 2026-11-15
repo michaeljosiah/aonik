@@ -12,7 +12,7 @@ using Aonik.SharedKernel.Abstractions.Workflows;
 
 namespace Aonik.Platform.Services.Integrations;
 
-internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuthorization authorization, ConnectorCatalog catalog,
+internal sealed partial class ConnectorService(PlatformDbContext database, ConnectorAuthorization authorization, ConnectorCatalog catalog,
     ConnectorPolicyService policies, ConnectorCredentialService credentials, IEnumerable<IConnectorActionProvider> providers,
     IEnumerable<IConnectorOAuthProvider> oauthProviders, IConnectorContentStore content, IAuditLogWriter audit, IClock clock,
     IWorkflowConnectorContextReader? workflowContext = null) : IConnectorService
@@ -47,7 +47,7 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
         ConnectorPolicy policy = await policies.GetAsync(connectorKey, cancellationToken);
         if (policy.Code != "Ready") return Readiness(policy.Code);
         if (!policy.AllowedActions.Contains(action)) return Readiness("ForbiddenByPolicy");
-        if (oauthProviders.SingleOrDefault(provider => provider.ConnectorKey == connectorKey)?.IsConfigured != true
+        if (authorization.ServiceProvider(connectorKey) is null && oauthProviders.SingleOrDefault(provider => provider.ConnectorKey == connectorKey)?.IsConfigured != true
             || !providers.Any(provider => provider.ConnectorKey == connectorKey)) return Readiness("ConnectorUnavailable");
         var context = new ConnectorUseContext(new("User", userId, userId));
         if (connectionId.HasValue) return await ForConnectionAsync(connectionId.Value);
@@ -93,15 +93,20 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
         CancellationToken cancellationToken = default)
     {
         if (workflowId == Guid.Empty || binding.ConnectionId == Guid.Empty || binding.WorkflowGrantId == Guid.Empty
-            || binding.AllowedActions is null || binding.AllowedActions.Count is 0 or > 100 || !binding.AllowedActions.Contains(action))
+            || binding.AllowedActions is null || binding.AllowedActions.Count is 0 or > 100 || !binding.AllowedActions.Contains(action)
+            || (binding.Artifact is not null && binding.AllowedActions.Count != 1))
             throw ConnectorAuthorization.Access("WorkflowBindingRequired");
         foreach (ConnectorActionRef allowed in binding.AllowedActions.Distinct())
             await authorization.RequireUseAsync(binding.ConnectionId, catalog.Resolve(allowed),
-                new(actor, workflowId, actor.WorkflowVersionId, PinnedGrantId: binding.WorkflowGrantId, AllowedActions: binding.AllowedActions), cancellationToken);
+                new(actor, workflowId, actor.WorkflowVersionId, PinnedGrantId: binding.WorkflowGrantId, AllowedActions: binding.AllowedActions, Artifact: binding.Artifact), cancellationToken);
     }
 
     public async Task ValidateReviewAccessAsync(Guid connectionId, ConnectorActionRef action, Guid userId, CancellationToken cancellationToken = default)
         => _ = await authorization.RequireUseAsync(connectionId, catalog.Resolve(action), new(new("User", userId, userId)), cancellationToken);
+
+    public async Task ValidateReviewAccessAsync(Guid connectionId, ConnectorActionRef action, Guid userId, ConnectorArtifactPin artifact,
+        CancellationToken cancellationToken = default)
+        => _ = await authorization.RequireUseAsync(connectionId, catalog.Resolve(action), new(new("User", userId, userId), Artifact: artifact), cancellationToken);
 
     public async Task<JsonElement> InvokeWorkflowReadAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action,
         JsonElement arguments, CancellationToken cancellationToken = default)
@@ -138,7 +143,7 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
         if (descriptor.Approval is not null) throw new PermissionDeniedException("Integration.Use", "Mutating connector actions require their enforcing approval path.");
         IConnectorActionProvider provider = providers.SingleOrDefault(provider => provider.ConnectorKey == descriptor.ConnectorKey)
             ?? throw ConnectorAuthorization.Access("ConnectorUnavailable");
-        if (oauthProviders.SingleOrDefault(provider => provider.ConnectorKey == descriptor.ConnectorKey)?.IsConfigured != true)
+        if (provider is not IConnectorServiceAccountProvider && oauthProviders.SingleOrDefault(provider => provider.ConnectorKey == descriptor.ConnectorKey)?.IsConfigured != true)
             throw ConnectorAuthorization.Access("ConnectorUnavailable");
         if (arguments.ValueKind != JsonValueKind.Object || arguments.GetRawText().Length > 65_536) throw new ArgumentException("Provide bounded typed action arguments.");
         provider.ValidateArguments(action, arguments);
@@ -152,13 +157,17 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
             await RecordAsync("Connector.ReadRequested", connection.Id, context, action, operationId, argumentsHash, attempt, null, budget.Token);
             try
             {
-                string token = await credentials.AccessTokenAsync(connectionId, budget.Token);
+                string token = provider is IConnectorServiceAccountProvider ? string.Empty : await credentials.AccessTokenAsync(connectionId, budget.Token);
                 connection = await authorization.RequireUseAsync(connectionId, descriptor, context, budget.Token);
                 string accountId = connection.ProviderAccountId;
+                ConnectorServiceAccount? serviceAccount = await authorization.RequireServiceAccountAsync(connection, action, context.Artifact, budget.Token);
+                ConnectorArtifactPin? pin = serviceAccount?.Actions.Single(item => item.Action == action).Artifact;
                 JsonElement result = await provider.InvokeAsync(new(connection.Id, accountId, token, action, arguments, operationId,
-                    SourceMetadataOnly: sourceMetadataOnly), budget.Token);
+                    SourceMetadataOnly: sourceMetadataOnly, Artifact: pin, ServiceCredentialVersion: serviceAccount?.CredentialVersion), budget.Token);
                 ConnectorConnection current = await authorization.RequireUseAsync(connection.Id, descriptor, context, budget.Token);
                 if (current.ProviderAccountId != accountId) throw ConnectorAuthorization.Access("ProviderAccountChanged");
+                if (serviceAccount is not null && (await authorization.RequireServiceAccountAsync(current, action, pin, budget.Token))?.CredentialVersion != serviceAccount.CredentialVersion)
+                    throw ConnectorAuthorization.Access("ProviderAccountChanged");
                 await RecordAsync("Connector.ReadCompleted", connection.Id, context, action, operationId, argumentsHash, attempt, null, budget.Token);
                 return result;
             }
@@ -212,6 +221,8 @@ internal sealed class ConnectorService(PlatformDbContext database, ConnectorAuth
     {
         "Ready" => "The action may proceed under its ordinary approval policy.",
         "ConnectorUnavailable" => "Request platform provisioning from the tenant integration reviewer.",
+        "ConnectorContractChanged" => "Review the installed release before publishing a new workflow binding.",
+        "EndpointBlocked" => "Ask the integration reviewer to check the current egress policy.",
         "TenantNotEnabled" => "Request tenant integration enablement.",
         "ReauthorizationRequired" or "InsufficientScopes" => "The account owner must complete renewed consent.",
         "ConnectionGrantRequired" => "Ask the account owner or integration manager to review the exact requested use.",

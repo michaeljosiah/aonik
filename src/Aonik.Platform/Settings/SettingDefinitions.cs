@@ -27,6 +27,9 @@ public static class SettingDefinitions
             [IntegrationSettingNames.GmailAllowWorkflowConnections] = new(IntegrationSettingNames.GmailAllowWorkflowConnections, "false"),
             [IntegrationSettingNames.GmailAllowPermanentDelete] = new(IntegrationSettingNames.GmailAllowPermanentDelete, "false"),
             [IntegrationSettingNames.GmailDefaultConnectionId] = new(IntegrationSettingNames.GmailDefaultConnectionId),
+            [IntegrationSettingNames.CuratedEnabled] = new(IntegrationSettingNames.CuratedEnabled, "false"),
+            [IntegrationSettingNames.CuratedAllowedActions] = new(IntegrationSettingNames.CuratedAllowedActions),
+            [IntegrationSettingNames.CuratedAllowWorkflowConnections] = new(IntegrationSettingNames.CuratedAllowWorkflowConnections, "false"),
             [IntegrationSettingNames.RequestReviewerRoleId] = new(IntegrationSettingNames.RequestReviewerRoleId),
             [IntegrationSettingNames.RequestExpiryDays] = new(IntegrationSettingNames.RequestExpiryDays, "7"),
 

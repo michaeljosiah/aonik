@@ -7,6 +7,7 @@ using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Services.Connectors.Catalog;
 using Aonik.Agents.Services.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
@@ -21,18 +22,21 @@ internal sealed partial class ConnectorMutationAuthority(AgentsDbContext databas
     ICurrentUserProvider currentUser, IUserDirectoryReader users, IPermissionService permissions, IClock clock,
     WorkflowInvocationContext workflowContext, IWorkflowConnectorContextReader workflowConnections,
     WorkflowReviewerAuthorization reviewers, WorkflowExecutionAuthorization execution,
-    ChatRoomInvocationGuard? roomContext = null, IChatRoomApprovalAuthority? roomAuthority = null) : IConnectorMutationAuthority
+    ChatRoomInvocationGuard? roomContext = null, IChatRoomApprovalAuthority? roomAuthority = null,
+    CuratedConnectorCatalog? curated = null) : IConnectorMutationAuthority
 {
     private Guid TenantId => tenantProvider.GetCurrentTenantId();
 
     public async Task<ConnectorMutationPreview?> FindInvocationAsync(Guid connectionId, ConnectorActionRef action, JsonElement arguments, CancellationToken cancellationToken = default)
     {
         Guid userId = await RequireUserAsync(cancellationToken);
-        string key = ConnectorInvocationIdentity.Key(TenantId, userId, connectionId, action, GmailActionContracts.IdempotencyKey(arguments));
+        MutationContract contract = RequireContract(action);
+        arguments = Normalize(contract, arguments);
+        string key = ConnectorInvocationIdentity.Key(TenantId, userId, connectionId, action, ConnectorInvocationIdentity.IdempotencyKey(arguments));
         ToolApprovalRequest? request = await database.ToolApprovalRequests.AsNoTracking().SingleOrDefaultAsync(request => request.TenantId == TenantId && request.InvocationKey == key, cancellationToken);
         if (request is null) return null;
         if (request.RequestingUserId != userId || request.ThreadId != roomContext?.RoomId?.ToString() || request.WorkflowStepRunId.HasValue
-            || request.ToolName != GmailActionPolicies.ToolNames[action.Key] || request.ArgsHash != ConnectorMutationArguments.Hash(connectionId, arguments)) throw Denied();
+            || request.ToolName != contract.ToolName || request.ArgsHash != ConnectorMutationArguments.Hash(connectionId, arguments)) throw Denied();
         await RequireRoomAsync(request, cancellationToken);
         ToolApprovalPreview preview = request.PreviewJson is not null ? ConnectorJson.Read<ToolApprovalPreview>(request.PreviewJson)
             : throw Denied();
@@ -59,8 +63,8 @@ internal sealed partial class ConnectorMutationAuthority(AgentsDbContext databas
         Proposal proposal = await database.Proposals.AsNoTracking().SingleOrDefaultAsync(proposal => proposal.TenantId == TenantId && proposal.Id == proposalId, cancellationToken) ?? throw Denied();
         ToolApprovalRequest request = await database.ToolApprovalRequests.SingleOrDefaultAsync(request => request.TenantId == TenantId && request.ProposalId == proposalId, cancellationToken) ?? throw Denied();
         ConnectorApprovedProposal binding = await BindingAsync(request, cancellationToken);
-        ToolApprovalOptions? policy = GmailActionPolicies.Approval(binding.Action.Key);
-        if (policy?.Tier != ToolApprovalTier.High || policy.ProposalType != proposal.ProposalType || proposal.RiskTier != "High"
+        ToolApprovalOptions policy = RequireContract(binding.Action).Approval;
+        if (policy.Tier != ToolApprovalTier.High || policy.ProposalType != proposal.ProposalType || proposal.RiskTier != "High"
             || proposal.Status is not (ProposalStatus.Approved or ProposalStatus.Applied) || proposal.ApprovedByUserId is not { } reviewer
             || proposal.ApprovedAt is not { } approved || approved >= request.ExpiresAt || approved < request.RequestedAt
             || proposal.WorkflowStepRunId != request.WorkflowStepRunId || proposal.PayloadJson != request.ArgumentsRedactedJson
@@ -78,8 +82,8 @@ internal sealed partial class ConnectorMutationAuthority(AgentsDbContext databas
 
     public async Task<ConnectorMutationClaim> ClaimAsync(ConnectorMutationExecutionRequest input, CancellationToken cancellationToken = default)
     {
-        if (input.Action.Version != 1 || !GmailActionPolicies.IsMutation(input.Action.Key)) throw Denied();
-        JsonElement arguments = GmailActionContracts.Normalize(input.Action, input.Arguments);
+        MutationContract contract = RequireContract(input.Action);
+        JsonElement arguments = Normalize(contract, input.Arguments);
         ToolApprovalRequest request;
         ConnectorUseContext context;
         if (input.ProposalId is { } proposalId)
@@ -99,7 +103,7 @@ internal sealed partial class ConnectorMutationAuthority(AgentsDbContext databas
         else
         {
             Guid userId = await RequireUserAsync(cancellationToken);
-            string key = ConnectorInvocationIdentity.Key(TenantId, userId, input.ConnectionId, input.Action, GmailActionContracts.IdempotencyKey(arguments));
+            string key = ConnectorInvocationIdentity.Key(TenantId, userId, input.ConnectionId, input.Action, ConnectorInvocationIdentity.IdempotencyKey(arguments));
             request = await database.ToolApprovalRequests.SingleOrDefaultAsync(request => request.TenantId == TenantId && request.InvocationKey == key, cancellationToken) ?? throw Denied();
             if (request.WorkflowStepRunId.HasValue || request.RequestingUserId != userId || request.DecidedByUserId != userId
                 || request.ThreadId != roomContext?.RoomId?.ToString() || request.ArgsHash != ConnectorMutationArguments.Hash(input.ConnectionId, arguments)) throw Denied();
@@ -109,7 +113,10 @@ internal sealed partial class ConnectorMutationAuthority(AgentsDbContext databas
         await database.Entry(request).ReloadAsync(cancellationToken);
         ConnectorApprovedProposal exact = await BindingAsync(request, cancellationToken);
         if (exact.ConnectionId != input.ConnectionId || exact.Action != input.Action || Hash(exact.Arguments) != Hash(arguments)) throw Denied();
-        ConnectorMutationArguments.RequireReviewedAccount(request.PreviewJson is { } preview ? ConnectorJson.Read<ToolApprovalPreview>(preview) : null, input.ConnectionId, input.ProviderAccountId);
+        ToolApprovalPreview? reviewed = request.PreviewJson is { } preview ? ConnectorJson.Read<ToolApprovalPreview>(preview) : null;
+        ConnectorMutationArguments.RequireReviewedAccount(reviewed, input.ConnectionId, input.ProviderAccountId);
+        if (contract.Curated is not null)
+            ConnectorMutationArguments.RequireReviewedServiceAccount(reviewed, input.Artifact, input.ServiceCredentialVersion);
         if (request.ExecutionJson is { } previous)
         {
             ConnectorMutationJournal journal = Journal(previous);
@@ -119,7 +126,7 @@ internal sealed partial class ConnectorMutationAuthority(AgentsDbContext databas
         }
         if (request.ExpiresAt <= clock.UtcNow || request.ProposalId is null && (request.Status != ToolApprovalRequestStatus.Approved
             || request.ConsumedAt is null || request.DecidedAt is null || request.DecidedAt >= request.ExpiresAt)) throw Denied();
-        if (GmailActionPolicies.Approval(input.Action.Key)?.Tier == ToolApprovalTier.High && input.ProposalId is null) throw Denied();
+        if (contract.Approval.Tier == ToolApprovalTier.High && input.ProposalId is null) throw Denied();
         Guid leaseId = Guid.NewGuid();
         request.ExecutionJson = ConnectorJson.Serialize(new ConnectorMutationJournal(1, "InFlight", input.ConnectionId, input.ProviderAccountId,
             input.Action, context, Hash(arguments), clock.UtcNow, leaseId, clock.UtcNow.AddMinutes(2)));
@@ -129,14 +136,15 @@ internal sealed partial class ConnectorMutationAuthority(AgentsDbContext databas
 
     private async Task<ConnectorApprovedProposal> BindingAsync(ToolApprovalRequest request, CancellationToken cancellationToken)
     {
-        string key = GmailActionPolicies.ActionForTool(request.ToolName) ?? throw Denied();
-        if (!GmailActionPolicies.IsMutation(key) || request.RiskTier != GmailActionPolicies.Approval(key)!.Tier.ToString()) throw Denied();
-        var action = new ConnectorActionRef(key, 1);
+        MutationContract contract = RequireContract(request.ToolName);
+        if (request.RiskTier != contract.Approval.Tier.ToString()) throw Denied();
+        ConnectorActionRef action = contract.Action;
         if (request.WorkflowStepRunId is not { } stepId)
         {
-            (Guid connectionId, JsonElement arguments) = ConnectorMutationArguments.ReadTool(request.ArgumentsRedactedJson, action);
+            (Guid connectionId, JsonElement payload) = ConnectorMutationArguments.ReadTool(request.ArgumentsRedactedJson);
+            JsonElement arguments = Normalize(contract, payload);
             if (request.RequestingUserId is not { } actor || request.ArgsHash != ConnectorMutationArguments.Hash(connectionId, arguments)
-                || request.InvocationKey != ConnectorInvocationIdentity.Key(TenantId, actor, connectionId, action, GmailActionContracts.IdempotencyKey(arguments))) throw Denied();
+                || request.InvocationKey != ConnectorInvocationIdentity.Key(TenantId, actor, connectionId, action, ConnectorInvocationIdentity.IdempotencyKey(arguments))) throw Denied();
             return new(connectionId, action, arguments, new(new("User", actor, actor)));
         }
         WorkflowStepRun step = await database.WorkflowStepRuns.AsNoTracking().SingleOrDefaultAsync(step => step.TenantId == TenantId && step.Id == stepId, cancellationToken) ?? throw Denied();
@@ -144,14 +152,39 @@ internal sealed partial class ConnectorMutationAuthority(AgentsDbContext databas
         WorkflowVersion version = await database.WorkflowVersions.AsNoTracking().SingleAsync(version => version.TenantId == TenantId && version.Id == run.WorkflowVersionId, cancellationToken);
         WorkflowToolParameters parameters = WorkflowRunService.ReadDefinition(version).Nodes.Single(node => node.Key == step.NodeKey).Parameters
             .Deserialize<WorkflowToolParameters>(WorkflowDefinitionCodec.JsonOptions) ?? throw Denied();
-        JsonElement args = GmailActionContracts.Normalize(action, ConnectorJson.Read<JsonElement>(request.ArgumentsRedactedJson));
-        if (step.ApprovalRequestId != request.Id || step.ProposalId != request.ProposalId || parameters.ActionKey != key || parameters.ContractVersion != 1
-            || step.ActionKey != key || step.ActionVersion != 1 || version.DefinitionHash != run.DefinitionHash
+        JsonElement args = Normalize(contract, ConnectorJson.Read<JsonElement>(request.ArgumentsRedactedJson));
+        if (step.ApprovalRequestId != request.Id || step.ProposalId != request.ProposalId || parameters.ActionKey != action.Key || parameters.ContractVersion != action.Version
+            || step.ActionKey != action.Key || step.ActionVersion != action.Version || version.DefinitionHash != run.DefinitionHash
             || request.ArgsHash != step.ArgumentsHash || request.ArgsHash != Hash(args) || parameters.Connection is not { } binding
             || binding.AllowedActions?.Contains(action) != true || step.ArgumentsJson is null || Hash(ConnectorJson.Read<JsonElement>(step.ArgumentsJson)) != Hash(args)) throw Denied();
         return new(binding.ConnectionId, action, args, new(WorkflowExecutionAuthorization.Actor(run), run.WorkflowId, run.WorkflowVersionId,
-            run.Id, step.Id, binding.WorkflowGrantId, binding.AllowedActions));
+            run.Id, step.Id, binding.WorkflowGrantId, binding.AllowedActions, binding.Artifact));
     }
+
+    private MutationContract RequireContract(ConnectorActionRef action)
+    {
+        if (action.Version == 1 && GmailActionPolicies.IsMutation(action.Key))
+            return new(action, GmailActionPolicies.ToolNames[action.Key], GmailActionPolicies.Approval(action.Key)!);
+        ConnectorPackageActionContract? contract = curated?.FindAction(action);
+        if (contract?.Descriptor.Approval is not { Tier: ToolApprovalTier.High } approval) throw Denied();
+        return new(action, contract.Descriptor.ToolName, approval, contract);
+    }
+
+    private MutationContract RequireContract(string toolName)
+    {
+        if (GmailActionPolicies.ActionForTool(toolName) is { } gmail) return RequireContract(new ConnectorActionRef(gmail, 1));
+        ConnectorActionDescriptor descriptor = curated?.FindAction(toolName)?.Descriptor ?? throw Denied();
+        return RequireContract(new ConnectorActionRef(descriptor.Key, descriptor.Version));
+    }
+
+    private static JsonElement Normalize(MutationContract contract, JsonElement arguments)
+    {
+        if (contract.Curated is null) return GmailActionContracts.Normalize(contract.Action, arguments);
+        contract.Curated.RequireInput(arguments);
+        return arguments;
+    }
+
+    private sealed record MutationContract(ConnectorActionRef Action, string ToolName, ToolApprovalOptions Approval, ConnectorPackageActionContract? Curated = null);
 
     private async Task<ToolApprovalRequest> RequestAsync(Guid id, CancellationToken cancellationToken)
         => await database.ToolApprovalRequests.SingleOrDefaultAsync(request => request.TenantId == TenantId && request.Id == id, cancellationToken) ?? throw Denied();

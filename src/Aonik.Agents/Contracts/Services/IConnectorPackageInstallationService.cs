@@ -10,4 +10,6 @@ public interface IConnectorPackageInstallationService
     Task<ConnectorPackageInstallationItem> ReviewAsync(Guid id, ReviewConnectorPackageInstallationRequest request, CancellationToken cancellationToken = default);
     Task<ConnectorPackageInstallationItem> ActivateAsync(Guid id, ConnectorPackageInstallationCommand command, CancellationToken cancellationToken = default);
     Task<ConnectorPackageInstallationItem> DisableAsync(Guid id, ConnectorPackageInstallationCommand command, CancellationToken cancellationToken = default);
+    Task<ConnectorPackageImpact> PreviewAsync(Guid id, string? targetVersion = null, CancellationToken cancellationToken = default);
+    Task<ConnectorPackageInstallationItem> RotateCredentialAsync(Guid id, RotateConnectorPackageCredentialRequest request, CancellationToken cancellationToken = default);
 }

@@ -63,6 +63,7 @@ internal sealed class ConnectorPackageVerifier(ConnectorPackageTrustOptions trus
             || manifest.PackageVersion is null || !Regex.IsMatch(manifest.PackageVersion, "^[0-9]{1,5}\\.[0-9]{1,5}\\.[0-9]{1,5}$", RegexOptions.NonBacktracking)
             || !Version.TryParse(manifest.PackageVersion, out Version? version) || version.ToString(3) != manifest.PackageVersion
             || manifest.ConnectorKey is null || !Regex.IsMatch(manifest.ConnectorKey, "^[a-z][a-z0-9-]{0,79}$", RegexOptions.NonBacktracking)
+            || !Regex.IsMatch(manifest.ConnectorKey, "^[a-z][a-z0-9-]{0,79}$", RegexOptions.NonBacktracking)
             || manifest.DisplayName is not { Length: > 0 and <= 160 } || manifest.AdapterKind is not ("Native" or "Mcp" or "Http")
             || manifest.Authentication is null || manifest.Limits is null || manifest.Actions is null || manifest.Actions.Count is < 1 or > 100)
             throw Invalid("ManifestInvalid");
@@ -79,7 +80,7 @@ internal sealed class ConnectorPackageVerifier(ConnectorPackageTrustOptions trus
         foreach (ConnectorPackageAction action in manifest.Actions)
         {
             if (action is null || action.Key is null || !action.Key.StartsWith(manifest.ConnectorKey + ".", StringComparison.Ordinal)
-                || action.Key.Length > 128 || !Regex.IsMatch(action.Key, "^[a-z][a-z0-9_.-]+$", RegexOptions.NonBacktracking)
+                || action.Key.Length > 100 || !Regex.IsMatch(action.Key, "^[a-z][a-z0-9_.-]+$", RegexOptions.NonBacktracking)
                 || action.Version is < 1 or > 1_000_000 || !actions.Add(action.Key + "@" + action.Version)
                 || action.DisplayName is not { Length: > 0 and <= 160 } || action.MinimumRiskTier is not ("ReadOnly" or "Low" or "Medium" or "High")
                 || !IsObjectSchema(action.InputSchema) || action.OutputSchema.ValueKind != JsonValueKind.Object
@@ -90,10 +91,16 @@ internal sealed class ConnectorPackageVerifier(ConnectorPackageTrustOptions trus
                 || alternatives.Any(option => option is null || option.Count is < 1 or > 20 || option.Any(scope => !IsScope(scope)))))
                 throw Invalid("ActionContractInvalid");
             if (manifest.AdapterKind != "Native" && (action.RequiredScopes.Count != 0 || action.ScopeAlternatives is not null)) throw Invalid("NativeOAuthAdapterRequired");
+            if (manifest.AdapterKind != "Native")
+            {
+                ConnectorPackageSchema.ValidateDeclaration(action.InputSchema);
+                ConnectorPackageSchema.ValidateDeclaration(action.OutputSchema);
+            }
             if (!Uri.TryCreate(action.Endpoint, UriKind.Absolute, out Uri? endpoint) || endpoint.Scheme is not ("https" or "http")
                 || endpoint.UserInfo.Length != 0 || endpoint.Fragment.Length != 0 || action.Endpoint.Length > 2048) throw Invalid("EndpointInvalid");
             if (manifest.AdapterKind == "Mcp" && (!IsToolName(action.RemoteToolName) || action.HttpMethod is not null)) throw Invalid("McpActionInvalid");
             if (manifest.AdapterKind == "Http" && (action.RemoteToolName is not null || action.HttpMethod is not ("GET" or "POST" or "PUT" or "PATCH" or "DELETE"))) throw Invalid("HttpActionInvalid");
+            if (manifest.AdapterKind == "Http" && action.MinimumRiskTier == "ReadOnly" && action.HttpMethod != "GET") throw Invalid("HttpReadMustUseGet");
             if (manifest.AdapterKind == "Native" && (action.RemoteToolName is not null || action.HttpMethod is not null)) throw Invalid("NativeActionInvalid");
         }
         if (manifest.AdapterKind == "Mcp" && manifest.Actions.Select(action => action.Endpoint).Distinct(StringComparer.Ordinal).Count() != 1)

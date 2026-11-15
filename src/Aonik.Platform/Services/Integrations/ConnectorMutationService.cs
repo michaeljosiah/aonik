@@ -21,17 +21,23 @@ internal sealed partial class ConnectorMutationService(ConnectorAuthorization au
     public async Task<ConnectorMutationPreview> PreviewAsync(Guid connectionId, ConnectorActionRef action, JsonElement arguments, CancellationToken cancellationToken = default)
     {
         Guid userId = await authorization.RequireUserAsync("Integration.Use", cancellationToken);
-        arguments = GmailActionContracts.Normalize(action, arguments);
-        await authorization.RequireUseAsync(connectionId, catalog.Resolve(action), new(new("User", userId, userId)), cancellationToken);
+        arguments = Normalize(action, arguments);
+        var context = new ConnectorUseContext(new("User", userId, userId));
+        ConnectorConnection connection = await authorization.RequireUseAsync(connectionId, catalog.Resolve(action), context, cancellationToken);
         ConnectorMutationPreview? existing = await authority.FindInvocationAsync(connectionId, action, arguments, cancellationToken);
-        if (existing is not null) return existing;
-        ToolApprovalPreview preview = await PreviewCoreAsync(connectionId, action, arguments, new(new("User", userId, userId)), cancellationToken);
-        return new(preview, ConnectorInvocationIdentity.Key(authorization.TenantId, userId, connectionId, action, GmailActionContracts.IdempotencyKey(arguments)));
+        if (existing is not null)
+        {
+            if (Provider(action) is IConnectorServiceAccountProvider)
+                await RequireReviewedAccountAsync(existing.Preview, connection, action, context.Artifact, cancellationToken);
+            return existing;
+        }
+        ToolApprovalPreview preview = await PreviewCoreAsync(connectionId, action, arguments, context, cancellationToken);
+        return new(preview, ConnectorInvocationIdentity.Key(authorization.TenantId, userId, connectionId, action, ConnectorInvocationIdentity.IdempotencyKey(arguments)));
     }
 
     public async Task<ToolApprovalPreview> PreviewWorkflowAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action, JsonElement arguments, CancellationToken cancellationToken = default)
     {
-        arguments = GmailActionContracts.Normalize(action, arguments);
+        arguments = Normalize(action, arguments);
         ConnectorUseContext context = await workflowContext.RequirePreparationAsync(runId, stepRunId, connectionId, action, arguments, cancellationToken);
         return await PreviewCoreAsync(connectionId, action, arguments, context, cancellationToken);
     }
@@ -39,16 +45,16 @@ internal sealed partial class ConnectorMutationService(ConnectorAuthorization au
     public async Task<JsonElement> ExecuteAsync(Guid connectionId, ConnectorActionRef action, JsonElement arguments, CancellationToken cancellationToken = default)
     {
         Guid userId = await authorization.RequireUserAsync("Integration.Use", cancellationToken);
-        if (GmailActionPolicies.Approval(action.Key)?.Tier != ToolApprovalTier.Medium) throw ConnectorAuthorization.Access("DurableProposalRequired");
+        if (catalog.Resolve(action).Approval?.Tier != ToolApprovalTier.Medium) throw ConnectorAuthorization.Access("DurableProposalRequired");
         return await ExecuteCoreAsync(connectionId, action, arguments, new(new("User", userId, userId)), null, cancellationToken);
     }
 
     public async Task<JsonElement> ExecuteWorkflowAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action, JsonElement arguments, CancellationToken cancellationToken = default)
     {
-        arguments = GmailActionContracts.Normalize(action, arguments);
+        arguments = Normalize(action, arguments);
         ConnectorUseContext context = await workflowContext.RequireAsync(runId, stepRunId, connectionId, action, arguments, cancellationToken);
         if (action.Key == GmailActionKeys.PrepareMessage) return await PrepareAsync(connectionId, ConnectorJson.Read<GmailPrepareMessageRequest>(arguments), context, cancellationToken);
-        if (GmailActionPolicies.Approval(action.Key)?.Tier != ToolApprovalTier.Medium) throw ConnectorAuthorization.Access("DurableProposalRequired");
+        if (catalog.Resolve(action).Approval?.Tier != ToolApprovalTier.Medium) throw ConnectorAuthorization.Access("DurableProposalRequired");
         return await ExecuteCoreAsync(connectionId, action, arguments, context, null, cancellationToken);
     }
 
@@ -64,7 +70,7 @@ internal sealed partial class ConnectorMutationService(ConnectorAuthorization au
         ConnectorApprovedProposal binding = await authority.RequireReviewAsync(approvalRequestId, cancellationToken);
         await authorization.RequireUseAsync(binding.ConnectionId, catalog.Resolve(binding.Action), new(new("User", userId, userId)), cancellationToken);
         ConnectorConnection connection = await authorization.RequireUseAsync(binding.ConnectionId, catalog.Resolve(binding.Action), binding.Context, cancellationToken);
-        ConnectorMutationArguments.RequireReviewedAccount(binding.Preview, binding.ConnectionId, connection.ProviderAccountId);
+        await RequireReviewedAccountAsync(binding.Preview, connection, binding.Action, binding.Context.Artifact, cancellationToken);
         return binding.Preview ?? throw ConnectorAuthorization.Access("ActionPreviewUnavailable");
     }
 
@@ -84,7 +90,8 @@ internal sealed partial class ConnectorMutationService(ConnectorAuthorization au
 
     private async Task<ToolApprovalPreview> PreviewCoreAsync(Guid connectionId, ConnectorActionRef action, JsonElement arguments, ConnectorUseContext context, CancellationToken cancellationToken)
     {
-        if (!GmailActionPolicies.IsMutation(action.Key)) throw new ArgumentException("Only classified connector mutations require an effect preview.");
+        if (catalog.Resolve(action).Approval?.Tier is not (ToolApprovalTier.Medium or ToolApprovalTier.High))
+            throw new ArgumentException("Only classified connector mutations require an effect preview.");
         ConnectorProviderCall call = await CallAsync(connectionId, action, arguments, context, Guid.NewGuid(), cancellationToken);
         ToolApprovalPreview preview = await Provider(action).PreviewAsync(call, cancellationToken) ?? throw ConnectorAuthorization.Access("ActionPreviewUnavailable");
         await authorization.RequireUseAsync(connectionId, catalog.Resolve(action), context, cancellationToken);
@@ -93,10 +100,11 @@ internal sealed partial class ConnectorMutationService(ConnectorAuthorization au
 
     private async Task<JsonElement> ExecuteCoreAsync(Guid connectionId, ConnectorActionRef action, JsonElement arguments, ConnectorUseContext context, Guid? proposalId, CancellationToken cancellationToken)
     {
-        arguments = GmailActionContracts.Normalize(action, arguments);
+        arguments = Normalize(action, arguments);
         using var budget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken); budget.CancelAfter(TimeSpan.FromSeconds(60));
         ConnectorProviderCall call = await CallAsync(connectionId, action, arguments, context, Guid.Empty, budget.Token);
-        ConnectorMutationClaim claim = await authority.ClaimAsync(new(connectionId, call.ProviderAccountId, action, arguments, context.RunId, context.StepRunId, proposalId), budget.Token);
+        ConnectorMutationClaim claim = await authority.ClaimAsync(new(connectionId, call.ProviderAccountId, action, arguments, context.RunId, context.StepRunId,
+            proposalId, Artifact: call.Artifact, ServiceCredentialVersion: call.ServiceCredentialVersion), budget.Token);
         if (claim.Status == "Completed" && claim.Result is { } recorded) return recorded;
         if (claim.Status != "Claimed") throw ConnectorAuthorization.Access("ActionOutcomeUnknown");
         call = call with { OperationId = claim.OperationId };
@@ -125,6 +133,13 @@ internal sealed partial class ConnectorMutationService(ConnectorAuthorization au
         ConnectorActionDescriptor descriptor = catalog.Resolve(action);
         IConnectorActionProvider provider = Provider(action); provider.ValidateArguments(action, arguments);
         ConnectorConnection connection = await authorization.RequireUseAsync(connectionId, descriptor, context, cancellationToken);
+        if (provider is IConnectorServiceAccountProvider)
+        {
+            ConnectorServiceAccount account = await authorization.RequireServiceAccountAsync(connection, action, context.Artifact, cancellationToken)
+                ?? throw ConnectorAuthorization.Access("ConnectorUnavailable");
+            return new(connectionId, account.ProviderAccountId, string.Empty, action, arguments, operationId, connection.DisplayName,
+                Artifact: account.Actions.Single(item => item.Action == action).Artifact, ServiceCredentialVersion: account.CredentialVersion);
+        }
         IConnectorOAuthProvider oauth = oauthProviders.SingleOrDefault(provider => provider.ConnectorKey == descriptor.ConnectorKey && provider.IsConfigured) ?? throw ConnectorAuthorization.Access("ConnectorUnavailable");
         string token = await credentials.AccessTokenAsync(connectionId, cancellationToken);
         ConnectorAccountIdentity identity = await oauth.GetIdentityAsync(token, cancellationToken);
@@ -134,6 +149,23 @@ internal sealed partial class ConnectorMutationService(ConnectorAuthorization au
     }
     private IConnectorActionProvider Provider(ConnectorActionRef action) => providers.SingleOrDefault(provider => provider.ConnectorKey == catalog.Resolve(action).ConnectorKey)
         ?? throw ConnectorAuthorization.Access("ConnectorUnavailable");
+
+    private JsonElement Normalize(ConnectorActionRef action, JsonElement arguments)
+    {
+        IConnectorActionProvider provider = Provider(action);
+        if (provider is not IConnectorServiceAccountProvider) return GmailActionContracts.Normalize(action, arguments);
+        provider.ValidateArguments(action, arguments);
+        return arguments;
+    }
+
+    private async Task RequireReviewedAccountAsync(ToolApprovalPreview? preview, ConnectorConnection connection, ConnectorActionRef action,
+        ConnectorArtifactPin? pin, CancellationToken cancellationToken)
+    {
+        ConnectorMutationArguments.RequireReviewedAccount(preview, connection.Id, connection.ProviderAccountId);
+        ConnectorServiceAccount? account = await authorization.RequireServiceAccountAsync(connection, action, pin, cancellationToken);
+        if (account is not null)
+            ConnectorMutationArguments.RequireReviewedServiceAccount(preview, account.Actions.Single(item => item.Action == action).Artifact, account.CredentialVersion);
+    }
     private Task RecordAsync(string name, Guid connectionId, ConnectorActionRef action, Guid operationId, ConnectorUseContext context, string? code, CancellationToken cancellationToken)
         => audit.LogActorAsync(name, "ConnectorConnection", connectionId, authorization.TenantId, context.Actor.Type, context.Actor.Id,
             context.RunId?.ToString("D"), ConnectorJson.Serialize(new { action, operationId, context.RunId, context.StepRunId, code }), cancellationToken);

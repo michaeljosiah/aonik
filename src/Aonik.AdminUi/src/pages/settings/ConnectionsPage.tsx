@@ -13,6 +13,7 @@ import { AutomationIdentitiesPanel } from './AutomationIdentitiesPanel';
 import { WorkflowExecutionPolicyPanel } from './WorkflowExecutionPolicyPanel';
 import { MailboxSubscriptionHealth } from './MailboxSubscriptionHealth';
 import { ConnectorMutationStatusPanel } from './ConnectorMutationStatusPanel';
+import { ConnectorCatalogPanel } from './ConnectorCatalogPanel';
 
 export function MyConnectionsPage() { return <ConnectionsPage />; }
 export function TenantIntegrationsPage() { return <ConnectionsPage tenant />; }
@@ -26,20 +27,24 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
   const [managedIds, setManagedIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [provider, setProvider] = useState('gmail');
   const [purpose, setPurpose] = useState('Read invoice correspondence');
   const [actions, setActions] = useState<ConnectorActionRef[]>([]);
   const refresh = useCallback(async () => {
-    const [descriptors, managed, eligible, items] = await Promise.all([connectorService.catalog(), connectorService.managed(), connectorService.connections('gmail'), connectorService.requests()]);
+    const [descriptors, managed, eligible, items] = await Promise.all([connectorService.catalog(), connectorService.managed(), connectorService.connections(provider), connectorService.requests()]);
     if (requestId && !items.some(item => item.id === requestId)) items.unshift(await connectorService.request(requestId));
     setCatalog(descriptors); setManagedIds(managed.map(account => account.id));
     setAccounts([...new Map([...eligible, ...managed].map(account => [account.id, account])).values()]); setRequests(items);
-  }, [requestId]);
+  }, [requestId, provider]);
   useEffect(() => { void refresh().catch(reason => setError(connectorError(reason))); }, [refresh]);
   const run = async (operation: () => Promise<unknown>) => {
     setBusy(true); setError(null);
     try { await operation(); await refresh(); } catch (reason) { setError(connectorError(reason)); } finally { setBusy(false); }
   };
   const gmail = catalog.find(item => item.key === 'gmail');
+  const requestedConnector = catalog.find(item => item.key === provider);
+  const curated = catalog.filter(item => item.authenticationKind === 'ServiceAccount');
+  const usesServiceAccount = requestedConnector?.authenticationKind === 'ServiceAccount';
   const visibleAccounts = accounts.filter(account => !tenant || account.ownership === 'Tenant');
   return <div className="h-full space-y-6 overflow-auto p-6">
     <div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold">{tenant ? 'Tenant integrations' : 'My connections'}</h1>
@@ -49,18 +54,22 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
     {tenant && <IntegrationPolicyPanel disabled={busy} onSave={run} availableActions={gmail?.actions ?? []} />}
     {tenant && <AutomationIdentitiesPanel />}
     {tenant && <WorkflowExecutionPolicyPanel />}
-    <Card><CardHeader><CardTitle>Request Gmail access</CardTitle></CardHeader><CardContent className="space-y-4">
-      <p className="text-sm text-muted-foreground">{tenant ? 'An integration reviewer chooses an organizational account or completes its consent.' : 'Your account stays private unless you explicitly grant a user, role or workflow access.'} Select the actions and review Google consent before access is applied.</p>
-      <ActionChoices actions={gmail?.actions ?? []} selected={actions} onChange={setActions} />
+    {tenant && <ConnectorCatalogPanel onAccountConnected={refresh} availableActions={curated.flatMap(connector => connector.actions)} />}
+    <Card><CardHeader><CardTitle>Request connector access</CardTitle></CardHeader><CardContent className="space-y-4">
+      <label className="block space-y-1 text-sm">Connector<NativeSelect value={provider} onChange={event => {
+        setProvider(event.target.value); setActions([]); setPurpose(event.target.value === 'gmail' ? 'Read invoice correspondence' : '');
+      }}><option value="gmail">Gmail</option>{curated.map(item => <option key={item.key} value={item.key}>{item.displayName}</option>)}</NativeSelect></label>
+      <p className="text-sm text-muted-foreground">{usesServiceAccount ? 'An integration reviewer selects a reviewed tenant service account and grants the requested actions.' : 'Select the Gmail actions you need. Google consent is required for a new account.'}</p>
+      <ActionChoices actions={requestedConnector?.actions ?? []} selected={actions} onChange={setActions} />
       <label className="block space-y-2 text-sm">Purpose<Textarea value={purpose} maxLength={1000} onChange={event => setPurpose(event.target.value)} /></label>
       <Button disabled={busy || !actions.length || !purpose.trim()} onClick={() => void run(async () => {
-        const created = await connectorService.createRequest({ connectorKey: 'gmail', ownership: tenant ? 'Tenant' : 'User', actions, purpose, idempotencyKey: crypto.randomUUID() });
+        const created = await connectorService.createRequest({ connectorKey: provider, ownership: tenant || usesServiceAccount ? 'Tenant' : 'User', actions, purpose, idempotencyKey: crypto.randomUUID() });
         setRequests(items => [created, ...items.filter(item => item.id !== created.id)]);
       })}>Submit access request</Button>
     </CardContent></Card>
     <section className="space-y-3" aria-label="Connection requests"><h2 className="text-lg font-semibold">Requests and reviews</h2>
       {requests.length === 0 && <p className="text-sm text-muted-foreground">No requests are available.</p>}
-      {requests.map(request => <ConnectionRequestCard key={request.id} request={request} accounts={accounts} disabled={busy} onAction={run} highlighted={request.id === requestId} />)}
+      {requests.map(request => <ConnectionRequestCard key={request.id} request={request} accounts={accounts} serviceAccount={curated.some(item => item.key === request.connectorKey)} disabled={busy} onAction={run} highlighted={request.id === requestId} />)}
     </section>
     <section className="space-y-3" aria-label="Connected accounts"><h2 className="text-lg font-semibold">Accounts</h2>
       {visibleAccounts.length === 0 && <p className="text-sm text-muted-foreground">No eligible accounts have been connected.</p>}
@@ -72,8 +81,8 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
 }
 
 type RunAction = (operation: () => Promise<unknown>) => Promise<void>;
-function ConnectionRequestCard({ request, accounts, disabled, onAction, highlighted }: {
-  request: ConnectionRequest; accounts: ConnectorConnection[]; disabled: boolean; onAction: RunAction; highlighted: boolean;
+function ConnectionRequestCard({ request, accounts, serviceAccount, disabled, onAction, highlighted }: {
+  request: ConnectionRequest; accounts: ConnectorConnection[]; serviceAccount: boolean; disabled: boolean; onAction: RunAction; highlighted: boolean;
 }) {
   const [selectedAccount, setSelectedAccount] = useState('');
   return <Card className={highlighted ? 'border-primary' : undefined}><CardHeader><CardTitle className="flex flex-wrap items-center gap-2 text-base">{request.connectorKey} · {request.ownership === 'User' ? 'Personal account' : 'Organization account'}<Badge variant="outline">{request.status}</Badge></CardTitle></CardHeader>
@@ -86,11 +95,11 @@ function ConnectionRequestCard({ request, accounts, disabled, onAction, highligh
         {request.connectionId && <p>Account: {request.connectionId}</p>}{request.workflowId && <p>Workflow: {request.workflowId}</p>}{request.runId && <p>Run: {request.runId}</p>}
       </div></details>
       {request.canReview && !request.connectionId && request.ownership === 'Tenant' && <label className="block space-y-2">Use an existing organizational account<NativeSelect value={selectedAccount} onChange={event => setSelectedAccount(event.target.value)}>
-        <option value="">Request new account consent</option>{accounts.filter(account => account.ownership === 'Tenant' && account.connectorKey === request.connectorKey && account.status === 'Active').map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}
+        <option value="">{serviceAccount ? 'Select a reviewed service account' : 'Request new account consent'}</option>{accounts.filter(account => account.ownership === 'Tenant' && account.connectorKey === request.connectorKey && account.status === 'Active').map(account => <option key={account.id} value={account.id}>{account.displayName}</option>)}
       </NativeSelect></label>}
       {request.canConfirm && <p className="rounded-md border p-3">Google returned <strong>{request.consentedAccountLabel}</strong>. Confirm this exact account for the actions above.</p>}
       <div className="flex flex-wrap gap-2">
-        {request.canReview && <><Button disabled={disabled} onClick={() => void onAction(() => connectorService.decideRequest(request, 'Approve', selectedAccount || undefined))}>Approve requested use</Button><Button variant="outline" disabled={disabled} onClick={() => void onAction(() => connectorService.decideRequest(request, 'Reject'))}>Reject</Button></>}
+        {request.canReview && <><Button disabled={disabled || (serviceAccount && !request.connectionId && !selectedAccount)} onClick={() => void onAction(() => connectorService.decideRequest(request, 'Approve', selectedAccount || undefined))}>Approve requested use</Button><Button variant="outline" disabled={disabled} onClick={() => void onAction(() => connectorService.decideRequest(request, 'Reject'))}>Reject</Button></>}
         {request.canConnect && !request.canConfirm && <Button disabled={disabled} onClick={() => void onAction(async () => { const challenge = await connectorService.beginConsent(request); window.location.assign(consentUrl(challenge.authorizationUrl)); })}>Continue to Google consent</Button>}
         {request.canConfirm && <Button disabled={disabled} onClick={() => void onAction(() => connectorService.confirmAccount(request))}>Confirm account and requested access</Button>}
         {request.canConnect && request.ownership === 'User' && <Button disabled={disabled} variant="outline" onClick={() => void onAction(() => connectorService.decideRequest(request, 'Reject'))}>Decline requested access</Button>}
@@ -109,7 +118,7 @@ function ConnectionAccountCard({ account, canManage, catalog, tenantDefault, dis
   return <Card><CardHeader><CardTitle className="flex flex-wrap items-center gap-2 text-base">{account.displayName}<Badge variant="outline">{account.status}</Badge><Badge variant="secondary">{account.ownership}</Badge></CardTitle></CardHeader><CardContent className="space-y-3">
     <p className="break-all text-xs text-muted-foreground">{account.id}</p>
     <div className="flex flex-wrap gap-2">
-      {account.status === 'Active' && <Button variant="outline" disabled={disabled} onClick={() => void onAction(() => connectorService.setDefault(account.id, tenantDefault))}>Set {tenantDefault ? 'tenant' : 'my'} default</Button>}
+      {account.status === 'Active' && account.connectorKey === 'gmail' && <Button variant="outline" disabled={disabled} onClick={() => void onAction(() => connectorService.setDefault(account.id, tenantDefault))}>Set {tenantDefault ? 'tenant' : 'my'} default</Button>}
       {canManage && <><Button variant="outline" disabled={disabled} onClick={() => setShowGrants(value => !value)}>Manage use grants</Button><Button variant="outline" disabled={disabled} onClick={() => setDisconnect(true)}>Disconnect</Button></>}
     </div>
     {canManage && <div className="flex gap-2"><Input aria-label="Account label" value={name} maxLength={160} onChange={event => setName(event.target.value)} /><Button variant="outline" disabled={disabled || !name.trim() || name === account.displayName} onClick={() => void onAction(() => connectorService.rename(account, name))}>Save label</Button></div>}

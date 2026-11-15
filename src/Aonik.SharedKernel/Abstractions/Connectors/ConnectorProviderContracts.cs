@@ -17,7 +17,8 @@ public interface IConnectorActionProvider
 
 /// <summary>Credentials cross only the reviewed in-process provider boundary and must never be serialized into tools or audit.</summary>
 public sealed record ConnectorProviderCall(Guid ConnectionId, string ProviderAccountId, string AccessToken,
-    ConnectorActionRef Action, JsonElement Arguments, Guid OperationId, string? ProviderAccountLabel = null, bool SourceMetadataOnly = false)
+    ConnectorActionRef Action, JsonElement Arguments, Guid OperationId, string? ProviderAccountLabel = null, bool SourceMetadataOnly = false,
+    ConnectorArtifactPin? Artifact = null, int? ServiceCredentialVersion = null)
 {
     public override string ToString() => $"ConnectorProviderCall({ConnectionId:D}, {Action.Key}@{Action.Version})";
 }

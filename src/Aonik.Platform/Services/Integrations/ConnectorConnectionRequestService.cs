@@ -176,6 +176,8 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
                 }
                 else { request.Status = "AwaitingConsent"; request.NextAction = "The organizational account needs consent for the exact requested scopes."; }
             }
+            else if (ServiceAccount(request.ConnectorKey))
+                request.NextAction = "Select an active reviewed tenant service account for these exact actions, then decide this request again.";
             else { request.Status = "AwaitingConsent"; request.NextAction = "The account owner must complete provider consent and confirm the account."; }
         }
         StageWake(request, "Notify", clock.UtcNow, request.RequesterUserId);
@@ -190,7 +192,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
         Guid userId = requester ?? await authorization.RequireUserAsync("Integration.Request", cancellationToken);
         await authorization.RequireActorAsync(new("User", userId, userId), "Integration.Request", cancellationToken);
         await authorization.RequireActorAsync(new("User", userId, userId), "Integration.Use", cancellationToken);
-        if (input is null || input.ConnectorKey is null || !Regex.IsMatch(input.ConnectorKey, "^[a-z][a-z0-9-]{0,79}$", RegexOptions.NonBacktracking)
+        if (input is null || (input.RunId is null && (input.ConnectorKey is null || !Regex.IsMatch(input.ConnectorKey, "^[a-z][a-z0-9-]{0,79}$", RegexOptions.NonBacktracking)))
             || input.Ownership is not ("User" or "Tenant") || string.IsNullOrWhiteSpace(input.Purpose) || input.Purpose.Length > 1000
             || input.IdempotencyKey is null || !Regex.IsMatch(input.IdempotencyKey, "^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$", RegexOptions.NonBacktracking)
             || input.Actions is null || input.Actions.Count > 100 || input.Actions.Any(action => action is null)) throw new ArgumentException("Provide a valid connector, ownership, purpose, request key and bounded action list.");
@@ -206,9 +208,11 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             normalized = normalized with { WorkflowId = target.WorkflowId, ConnectionId = target.ConnectionId,
                 Actions = normalized.Actions.Count == 0 ? target.AllowedActions : normalized.Actions };
             ConnectorConnection pinned = await database.ConnectorConnections.AsNoTracking().SingleOrDefaultAsync(connection => connection.TenantId == authorization.TenantId
-                && connection.Id == target.ConnectionId && connection.ConnectorKey == normalized.ConnectorKey, cancellationToken) ?? throw new KeyNotFoundException("Pinned connection not found.");
+                && connection.Id == target.ConnectionId, cancellationToken) ?? throw new KeyNotFoundException("Pinned connection not found.");
+            if (!string.IsNullOrEmpty(normalized.ConnectorKey) && pinned.ConnectorKey != normalized.ConnectorKey)
+                throw new ArgumentException("A run request must retain its published connector.");
             if (target.ProviderAccountId is { } account && pinned.ProviderAccountId != account) throw ConnectorAuthorization.Access("ProviderAccountChanged");
-            normalized = normalized with { Ownership = pinned.Ownership };
+            normalized = normalized with { Ownership = pinned.Ownership, ConnectorKey = pinned.ConnectorKey };
             pinnedGrant = target.WorkflowGrantId;
             automationIdentityId = target.AutomationIdentityId;
         }
@@ -233,7 +237,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
                 scopes.UnionWith(descriptor.RequiredScopes);
             }
             scopes.Clear(); scopes.UnionWith(ConnectorScopeRequirements.Minimal(normalized.Actions.Select(action => catalog.Resolve(normalized.ConnectorKey, action)).ToList()));
-            scopes.UnionWith(["openid", "email"]);
+            if (!ServiceAccount(normalized.ConnectorKey)) scopes.UnionWith(["openid", "email"]);
         }
         else if (normalized.Actions.Count != 0 || string.IsNullOrWhiteSpace(normalized.DesiredCapability) || normalized.DesiredCapability.Length > 500)
             throw new ArgumentException("An unavailable provider request needs a desired capability and must not invent action versions or scopes.");
@@ -287,7 +291,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
         if (prepared.Preview.OwnerUserId != request.OwnerUserId || prepared.Preview.Ownership != request.Ownership
             || prepared.Preview.AutomationIdentityId != request.AutomationIdentityId)
             throw Conflict("The account ownership changed. Review a new request.");
-        if (!prepared.Known || !Available(request.ConnectorKey))
+        if (!prepared.Known || ServiceAccount(request.ConnectorKey) || !Available(request.ConnectorKey))
             throw ConnectorAuthorization.Access("ConnectorUnavailable");
         if (prepared.Policy.Code != "Ready") throw ConnectorAuthorization.Access(prepared.Policy.Code);
     }
@@ -337,7 +341,8 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
     private static CreateConnectionRequest Input(ConnectorConnectionRequest request) => new(request.ConnectorKey, request.Ownership,
         ConnectorJson.Read<List<ConnectorActionRef>>(request.ActionsJson), request.Purpose, request.IdempotencyKey, request.ConnectionId, request.WorkflowId, request.RunId, request.DesiredCapability);
     private static ConnectorAccessException Conflict(string message) => new("Conflict", message);
-    private bool Available(string key) => providers.SingleOrDefault(provider => provider.ConnectorKey == key)?.IsConfigured == true
+    private bool ServiceAccount(string key) => authorization.ServiceProvider(key) is not null;
+    private bool Available(string key) => ServiceAccount(key) || providers.SingleOrDefault(provider => provider.ConnectorKey == key)?.IsConfigured == true
         && actionProviders.Any(provider => provider.ConnectorKey == key);
     private sealed record Prepared(CreateConnectionRequest Request, Guid UserId, ConnectorPolicy Policy, bool Known, Guid? PinnedWorkflowGrantId, ConnectionRequestPreview Preview);
 }

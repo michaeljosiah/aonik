@@ -45,7 +45,7 @@ Authorized active tenant readers with `Integration.Read` can use:
 
 Retain old releases while published bindings/runs need their pins. Schema, endpoint, authentication, limits or approval changes under the same action version are rejected across loaded releases. Publish a new action version for changed behavior. Removing a release must explicitly block/drain its consumers; rollback cannot restore revoked account access.
 
-Discovery adds no execution database, scheduler, plugin host, installation script or dynamically loaded assembly. T14 remains open until reviewed MCP/HTTP installation, invocation, upgrade/disablement and the lifecycle fixtures are qualified.
+Discovery uses the existing workflow runtime and tenant extension tables. Tenant Integrations exposes the catalog, review commands, account registration and upgrade impact.
 
 ## Import and platform review
 
@@ -60,6 +60,21 @@ An active human with both `Integration.Manage` and `Workflow.Write` can import a
 
 Reload after a 409 conflict. Approval records the existing named reviewer and review timestamp. MCP review connects through the actual HTTP SDK, discovers at most 100 tools, and compares exact input/output schemas with the signed release. Remote tool names and annotations do not establish read authority. All remote mutations retain a High floor. HTTP review makes no business endpoint call. Every curated protocol request rechecks deployment egress; redirects and protocol responses over 1 MiB are refused. The curated client removes the host's automatic retry pipeline and disables SDK stream reconnection; the existing approval journal owns uncertain write outcomes. Package action-specific limits remain required at invocation.
 
-Use the existing extension update path only for credential rotation while retaining the exact package contract. Rotation returns the row to Draft, deactivates it and requires fresh review. A different API-key header fails review. Endpoint/schema/auth-kind changes require a new release. Legacy submit/review/activate paths refuse packaged rows, and legacy raw MCP/HTTP tool providers exclude them. Import, review and activation create no connection grant or workflow authority; account provisioning and per-action gateway execution remain the next T14 slice.
+Rotate a credential with `POST /v1/integrations/catalog/installations/{id}/credential`. Supply the current `expectedVersion` and write-only credential fields. Rotation returns the row to Draft and deactivates it. Submit, review and activate again before continuing. A changed credential version invalidates earlier approvals. Endpoint, schema and authentication-contract changes require a new signed release. Use the catalog commands for packaged rows.
 
-Schema change: canonical EF CLI migration `20261115004459_AddCuratedConnectorPackageReferences` adds two nullable, bounded package-reference fields to the existing extension tables. It does not add installation, credential, execution or review tables. Apply through the normal canonical migration stream; local SQL execution is not claimed by the Windows qualification.
+## Accounts and action use
+
+1. Enable the curated connector policy explicitly for the tenant. Review the allowed action versions and enable workflow connections if needed. Global and tenant policy both constrain use. Personal defaults continue to apply to eligible Gmail user connections.
+2. After activation, register the exact reviewed installation through Tenant Integrations, or call `POST /v1/integrations/connectors/{connectorKey}/service-accounts` with `adapterKind`, `installationId` and `displayName`. This creates or returns the tenant-owned account record. A credential remains encrypted on its existing tenant extension row.
+3. Approve a connection request against that account or issue an explicit grant for each actor and action version. Add a separate workflow grant and an automation-identity grant for unattended execution. Agent actions and Workflow Studio use the same connector authorization. The native Gmail OAuth and account-consent flow is unchanged.
+4. Select the account and grant in Workflow Studio. The saved action includes the connector release, artifact digest and action contract hash. Deployed signed native descriptors are checked against the code-owned action and scope contracts. Older published native bindings retain their previous authorization behavior.
+
+Curated HTTP uses typed JSON over a fixed reviewed endpoint template. Curated MCP uses Streamable HTTP and requires structured JSON output. Input and output must satisfy the signed bounded schemas. The runtime rechecks the current account, grant, endpoint and tool schema. A non-read remote action enters the existing durable High proposal and journal, with the account, artifact, credential version and exact arguments in the preview. A reply lost after dispatch requires review of the held operation. Retry a changed write only as a newly reviewed action after resolving the original outcome.
+
+## Upgrade and disablement
+
+Use the installation impact view or `GET /v1/integrations/catalog/installations/{id}/impact?targetVersion=...` before updating. It lists the pinned workflow versions and open runs it finds, and indicates when the bounded search is truncated. Compare the target action and version, scopes, approval tier and contract hash.
+
+Import, review, activate and register the new release independently. Rebind and publish new workflow versions explicitly. Keep the prior release and reviewed installation available while its runs drain. To stop the prior integration, disable it or revoke its grants. A pinned step with missing authority pauses for connection recovery. Restore an eligible reviewed release and grant, then resume through the existing run controls. A held write may need separate reconciliation before run recovery.
+
+Schema change: canonical EF CLI migration `20261115004459_AddCuratedConnectorPackageReferences` adds two nullable, bounded package-reference fields to the existing extension tables. It does not add installation, credential, execution or review tables. Apply through the normal canonical migration stream. [CI run 1391](https://github.com/michaeljosiah/aonik/actions/runs/43675234907) verified the canonical model and SQL checks.
