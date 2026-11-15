@@ -12,6 +12,7 @@ using Voxa.Services.MicrosoftAgents;
 using Aonik.Agents.Contracts.Agui;
 using Aonik.Agents.Contracts.Services;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.Voice.Frames;
 using Aonik.Voice.Processors;
 
@@ -101,6 +102,8 @@ public class MicrosoftAgentVoiceCompatibilityTests
 
         frames.OfType<ToolCallRequestFrame>().Should().BeEmpty();
         services.DecisionCalls.Should().Be(0);
+        client.LastOptions!.AdditionalProperties![AiTelemetry.UseCaseAttribute].Should().Be("voice");
+        client.LastOptions.AdditionalProperties[AiTelemetry.ConversationThreadIdProperty].Should().Be(services.ThreadId);
         var handoff = frames.OfType<ApprovalReviewFrame>().Should().ContainSingle().Which;
         using var envelope = JsonDocument.Parse(ThreadReadyFrameSerializer.Serialize(handoff)!);
         envelope.RootElement.GetProperty("type").GetString().Should().Be("approvalReview");
@@ -116,9 +119,10 @@ public class MicrosoftAgentVoiceCompatibilityTests
     {
         private readonly List<object> _pending = [];
         public int DecisionCalls { get; private set; }
+        public Guid ThreadId { get; } = Guid.NewGuid();
 
         public Task<ChatThreadContext> EnsureThreadAsync(string? clientThreadId, IReadOnlyList<AguiMessage>? messages, string? agentId,
-            CancellationToken cancellationToken) => Task.FromResult(new ChatThreadContext(null, "fixture-thread", true, messages?.Last().Content));
+            CancellationToken cancellationToken) => Task.FromResult(new ChatThreadContext(ThreadId, ThreadId.ToString("N"), true, messages?.Last().Content));
 
         public Task<ChatHistoryResolution> ReconstructHistoryAsync(Guid? persistedThreadId, IReadOnlyList<AguiMessage>? clientMessages,
             CancellationToken cancellationToken) => Task.FromResult(new ChatHistoryResolution(clientMessages, "client", 0));

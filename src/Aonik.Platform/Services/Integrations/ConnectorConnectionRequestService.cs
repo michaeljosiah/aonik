@@ -7,6 +7,7 @@ using Aonik.Platform.Entities.Integrations;
 using Aonik.Platform.Persistence;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Ai;
 using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Platform;
 using Aonik.SharedKernel.Events.Integration;
@@ -52,6 +53,7 @@ internal sealed class ConnectorConnectionRequestService(PlatformDbContext databa
             DesiredCapability = prepared.Request.DesiredCapability, Ownership = prepared.Request.Ownership, OwnerUserId = prepared.Preview.OwnerUserId,
             ActionsJson = ConnectorJson.Serialize(prepared.Request.Actions), RequiredScopesJson = ConnectorJson.Serialize(prepared.Preview.RequiredScopes),
             Purpose = prepared.Request.Purpose, WorkflowId = prepared.Request.WorkflowId, RunId = prepared.Request.RunId,
+            AiRunId = AiToolCallProvenance.CurrentRunId,
             RequestHash = equivalentHash, ActiveRequestHash = equivalentHash, InputHash = inputHash, IdempotencyKey = prepared.Request.IdempotencyKey,
             Status = selfService ? "AwaitingConsent" : "Pending", ReasonCode = prepared.Preview.ReasonCode,
             NextAction = selfService ? "Complete account-owner consent." : prepared.Preview.NextAction,

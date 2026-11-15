@@ -6,11 +6,7 @@ using Microsoft.Extensions.AI;
 namespace Aonik.Application.Tests.Agents;
 
 /// <summary>
-/// Verifies the load-bearing assumption behind the H14 double-write fix: a marker set on
-/// <see cref="ChatClientAgentRunOptions"/>.<c>ChatOptions.AdditionalProperties</c> actually
-/// reaches the inner <see cref="IChatClient"/> the audit middleware wraps. If MAF rebuilt
-/// ChatOptions and dropped AdditionalProperties, the AG-UI/voice suppression marker would never
-/// arrive and those paths would still double-write — so this pins the behaviour.
+/// Verifies that MAF passes the server-resolved conversation thread to the chat client audit.
 /// </summary>
 public class RunOptionsAdditionalPropertiesFlowTests
 {
@@ -19,12 +15,13 @@ public class RunOptionsAdditionalPropertiesFlowTests
     {
         var capturing = new OptionsCapturingChatClient();
         var agent = new ChatClientAgent(capturing, name: "test-agent", instructions: "You are a test.");
+        Guid threadId = Guid.NewGuid();
 
         var runOptions = new ChatClientAgentRunOptions(new ChatOptions
         {
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
-                [AiTelemetry.StreamAuditHandledDownstreamAttribute] = true,
+                [AiTelemetry.ConversationThreadIdProperty] = threadId,
             },
         });
 
@@ -36,9 +33,9 @@ public class RunOptionsAdditionalPropertiesFlowTests
         capturing.LastStreamingOptions.Should().NotBeNull();
         capturing.LastStreamingOptions!.AdditionalProperties.Should().NotBeNull();
         capturing.LastStreamingOptions.AdditionalProperties!
-            .TryGetValue(AiTelemetry.StreamAuditHandledDownstreamAttribute, out var value)
-            .Should().BeTrue("the marker set on the run options must reach the inner IChatClient");
-        value.Should().Be(true);
+            .TryGetValue(AiTelemetry.ConversationThreadIdProperty, out var value)
+            .Should().BeTrue();
+        value.Should().Be(threadId);
     }
 
     private sealed class OptionsCapturingChatClient : IChatClient

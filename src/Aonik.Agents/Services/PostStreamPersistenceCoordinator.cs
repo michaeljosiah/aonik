@@ -1,6 +1,5 @@
 using Aonik.Agents.Contracts.Agui;
 using Aonik.Agents.Contracts.Services;
-using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -37,7 +36,6 @@ public sealed class PostStreamPersistenceCoordinator : IPostStreamPersistenceCoo
                 var bgLogger = bgServices.GetRequiredService<ILogger<PostStreamPersistenceCoordinator>>();
 
                 await PersistThreadAsync(bgServices, bgLogger, context);
-                await PersistAiRunAsync(bgServices, bgLogger, context);
             }
             catch (Exception bgEx)
             {
@@ -123,43 +121,6 @@ public sealed class PostStreamPersistenceCoordinator : IPostStreamPersistenceCoo
         {
             logger.LogWarning(persistEx,
                 "AG-UI post-stream persistence failed for thread {ThreadId}", threadId);
-        }
-    }
-
-    private static async Task PersistAiRunAsync(
-        IServiceProvider bgServices,
-        ILogger logger,
-        PostStreamPersistenceContext context)
-    {
-        var aiRunWriter = bgServices.GetService<IAiRunWriter>();
-        if (aiRunWriter is null) return;
-
-        try
-        {
-            // Voice (and any future caller) can specify UseCase explicitly so AiRun
-            // rows aren't tagged by AgentId. AGUI doesn't supply it and falls back
-            // to the legacy AgentId-derived behavior.
-            var useCase = !string.IsNullOrWhiteSpace(context.UseCase)
-                ? context.UseCase!
-                : context.AgentId ?? "master-orchestrator";
-            var aiRunId = await aiRunWriter.StartRunAsync(
-                useCase,
-                $"{{\"threadId\":\"{context.ThreadIdString}\"}}",
-                CancellationToken.None);
-
-            var totalTokens = context.InputTokens + context.OutputTokens;
-            await aiRunWriter.MarkRunCompletedWithMetricsAsync(
-                aiRunId,
-                tokensUsed: (int)totalTokens,
-                latencyMs: (int)context.LatencyMs,
-                costEstimate: 0m,
-                outputRef: $"tokens:{totalTokens},latency:{context.LatencyMs}ms",
-                cancellationToken: CancellationToken.None);
-        }
-        catch (Exception aiRunEx)
-        {
-            logger.LogWarning(aiRunEx,
-                "AG-UI post-stream AiRun persistence failed for run {RunId}", context.RunId);
         }
     }
 }

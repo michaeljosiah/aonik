@@ -60,10 +60,11 @@ public class ToolApprovalServiceTests
     }
 
     [Theory]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    [InlineData(true, false)]
-    public async Task HighProposal_Should_LinkOnlyTheServerRecordedModelCall(bool streaming, bool audited)
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public async Task HighProposal_Should_LinkOnlyTheServerRecordedModelCall(bool streaming, bool audited, bool conversation)
     {
         var fixture = new Fixture();
         Guid originatingRun = Guid.NewGuid();
@@ -90,7 +91,11 @@ public class ToolApprovalServiceTests
 
         if (streaming)
         {
-            await foreach (AgentResponseUpdate _ in agent.RunStreamingAsync("Request payment approval.")) { }
+            var options = conversation ? new ChatClientAgentRunOptions(new ChatOptions
+            {
+                AdditionalProperties = new() { [AiTelemetry.ConversationThreadIdProperty] = Guid.NewGuid() },
+            }) : null;
+            await foreach (AgentResponseUpdate _ in agent.RunStreamingAsync("Request payment approval.", options: options)) { }
         }
         else
         {

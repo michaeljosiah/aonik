@@ -10,6 +10,7 @@ using Aonik.SharedKernel.Abstractions.Multitenancy;
 using FastEndpoints;
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -281,6 +282,10 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             }
 
             requestToLlmStartMs = requestStopwatch.ElapsedMilliseconds;
+            runOptions ??= new();
+            var auditProperties = (runOptions.ChatOptions ??= new ChatOptions()).AdditionalProperties ??= [];
+            auditProperties[AiTelemetry.UseCaseAttribute] = resolvedAgentName ?? input.AgentId ?? "master-orchestrator";
+            auditProperties[AiTelemetry.ConversationThreadIdProperty] = threadCtx.PersistedThreadId ?? Guid.Empty;
 
             // Hand the live agent run to the protocol pipeline. It owns
             // every TEXT_MESSAGE / TOOL_CALL / REASONING / speech.chunk
@@ -390,7 +395,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                     threadId);
             }
 
-            QueuePostStreamPersistence(assistantText, requestStopwatch.ElapsedMilliseconds);
+            QueuePostStreamPersistence(assistantText);
             persistenceQueued = true;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -422,7 +427,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
 
         if (!persistenceQueued && threadCtx.PersistedThreadId.HasValue && !string.IsNullOrEmpty(threadCtx.FirstUserMessage))
         {
-            QueuePostStreamPersistence(assistantText, requestStopwatch.ElapsedMilliseconds);
+            QueuePostStreamPersistence(assistantText);
         }
 
         if (requestStopwatch.IsRunning)
@@ -473,7 +478,7 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
             // Response already completed / connection already closed.
         }
 
-        void QueuePostStreamPersistence(string capturedText, long latencyMs)
+        void QueuePostStreamPersistence(string capturedText)
         {
             Guid? capturedTenantId = _tenantContext?.TenantId;
             Guid? capturedUserId = _currentUserContext?.UserId;
@@ -484,13 +489,9 @@ internal sealed class AguiStreamingEndpoint : Endpoint<AguiRunInput>
                 UserId: capturedUserId,
                 AssistantText: capturedText,
                 AgentId: resolvedAgentName ?? input.AgentId,
-                InputTokens: inputTokens,
-                OutputTokens: outputTokens,
-                LatencyMs: latencyMs,
                 IsNewThread: threadCtx.IsNewThread,
                 FirstUserMessage: threadCtx.FirstUserMessage,
-                ThreadIdString: threadId,
-                RunId: runId));
+                ThreadIdString: threadId));
         }
     }
 

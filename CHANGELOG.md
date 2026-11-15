@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Chat and voice audit provenance (#438)** Record each model invocation through the existing audit middleware so gated actions and agent-created connector requests can retain the exact AiRun ID. Conversation audit failure stops the provider call.
+
 - **Approval review from voice (#438)** Voice clients that cannot show an approval or its exact changes receive a link to the existing Admin approvals page. The page opens the specific pending request and uses the existing decision endpoint. The server rechecks requester, tenant, current permissions and expiry.
 
 - **Invoice issue review (#438):** Show the pinned amount, currency and Draft → Issued transition in the workflow approval card. Build the preview from the current invoice only when its version and facts still match the prepared action.

@@ -577,6 +577,10 @@
 <p>The voice server uses the client capabilities negotiated on the WebSocket. A client without confirmation support or with an approval that needs a detailed preview receives the exact pending-request link. The frame carries the review address only. The existing Admin approvals page loads the preview and submits the decision under current server authority. A resolved High proposal closes the link even when its request was decided through the queue.</p>
 <p>MAF/Voxa tests exercise the handoff with and without an advertised confirmation control. The API tests cover a different user and tenant, the requester, and both approval tiers. A browser rehearsal of the compiled Admin UI showed the exact Draft to Issued preview only to the requester and recorded an explicit rejection against the synthetic request. Live speech and the default-tenant operator journey remain open.</p>
 
+<h3>13.27 Chat and voice AiRun provenance</h3>
+<p>AG-UI and chained voice use the existing audit middleware for each actual model invocation. The conversation passes its server-resolved thread reference. The audit starts before the provider call and supplies the AiRun ID to each tool call before MAF invokes it. A failed audit start stops the conversation. Post-stream persistence stores the transcript. Connector requests created by the agent retain the calling model's AiRun ID in the existing request field. Tool arguments carry no authority over these references.</p>
+<p>The Release solution builds with zero errors. Local checks passed 53 focused application cases, 23 HTTP cases and all 142 voice cases. The tests exercise the MAF call creating a connector request, the same AiRun ID on a gated High action and its proposal, a declined audit start and the server-resolved voice thread reaching model run options.</p>
+
 <h2 id="automation">14. Expanded automation — included in revision 5</h2>
 <p>The user explicitly brought the previously deferred capabilities into scope. The foundation remains intentionally small; the following additions extend the same services and are required for epic completion. They are separately enabled and tested, not alternative architectures.</p>
 

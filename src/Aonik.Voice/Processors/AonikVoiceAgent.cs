@@ -17,7 +17,7 @@ namespace Aonik.Voice.Processors;
 /// <summary>
 /// AONIK glue around <see cref="MicrosoftAgentVoice.CreateProcessor"/>. Owns the per-connection
 /// voice-turn state that is genuinely AONIK-specific — ChatThread persistence, user-brief preamble,
-/// frontend-tool allowlist, post-stream <c>AiRun</c> audit, and the Spec 032 approval bridge — and
+/// frontend-tool allowlist, conversation audit context, and the Spec 032 approval bridge — and
 /// lets Voxa own the agent loop, the data-loop / turn-worker split, frontend-tool TCS correlation,
 /// and turn-boundary frames.
 ///
@@ -31,12 +31,11 @@ namespace Aonik.Voice.Processors;
 ///       <see cref="IChatThreadManager.ReconstructHistoryAsync"/> on every turn (mirrors AGUI's
 ///       stateless re-run model), prepends the optional user-brief preamble, and emits a
 ///       <see cref="ThreadReadyFrame"/> exactly once per WS session.</item>
-///   <item><c>BuildRunOptions</c> returns the precomputed <see cref="ChatClientAgentRunOptions"/>
-///       (already stamped with <c>use_case = "voice"</c> by the endpoint).</item>
+///   <item><c>BuildRunOptions</c> returns the configured <see cref="ChatClientAgentRunOptions"/>
+///       with the voice use case and current thread for audit.</item>
 ///   <item><c>IsFrontendTool</c> consults the AONIK frontend-tool catalog.</item>
-///   <item><c>OnTurnCompleted</c> enqueues a <see cref="PostStreamPersistenceContext"/> so the
-///       background coordinator writes the <c>AiRun</c> row, then drains any Spec 032 approval the
-///       turn raised (see below).</item>
+///   <item><c>OnTurnCompleted</c> enqueues transcript persistence and drains any Spec 032 approval
+///       raised by the turn.</item>
 /// </list>
 ///
 /// <para>
@@ -97,10 +96,9 @@ public static class AonikVoiceAgent
         ChatThreadContext? lastTurnThreadCtx = null;
         string? lastTurnUserText = null;
 
-        // This voice loop persists its own AiRun per turn (PostStreamPersistenceCoordinator via
-        // OnTurnCompleted), so mark the run options so AuditMiddleware skips its streaming audit
-        // and doesn't write a duplicate row (H14).
-        runOptions = MarkStreamAuditHandledDownstream(runOptions);
+        runOptions ??= new();
+        var auditProperties = (runOptions.ChatOptions ??= new ChatOptions()).AdditionalProperties ??= [];
+        auditProperties[AiTelemetry.UseCaseAttribute] = "voice";
 
         return MicrosoftAgentVoice.CreateProcessor(voiceAgent, options =>
         {
@@ -153,6 +151,7 @@ public static class AonikVoiceAgent
 
                 lastTurnThreadCtx = threadCtx;
                 lastTurnUserText = turnCtx.UserText;
+                auditProperties[AiTelemetry.ConversationThreadIdProperty] = persistedThreadId ?? Guid.Empty;
                 return messages;
             };
 
@@ -160,23 +159,15 @@ public static class AonikVoiceAgent
             {
                 if (lastTurnThreadCtx is { } captured)
                 {
-                    // Per-turn audit. Mirrors AguiStreamingEndpoint's PostStreamPersistenceContext
-                    // call. This coordinator owns the AiRun row for the turn; AuditMiddleware skips
-                    // its streaming audit because the run options were marked handled-downstream (H14).
                     postStreamCoordinator.Enqueue(new PostStreamPersistenceContext(
                         PersistedThreadId: persistedThreadId,
                         TenantId: tenantId,
                         UserId: userId,
                         AssistantText: summary.AssistantText,
                         AgentId: agentId,
-                        InputTokens: summary.Usage.InputTokens,
-                        OutputTokens: summary.Usage.OutputTokens,
-                        LatencyMs: summary.ElapsedMs,
                         IsNewThread: captured.IsNewThread,
                         FirstUserMessage: lastTurnUserText ?? string.Empty,
-                        ThreadIdString: captured.ThreadIdString,
-                        RunId: Guid.NewGuid().ToString("N"),
-                        UseCase: "voice"));
+                        ThreadIdString: captured.ThreadIdString));
                 }
 
                 // Spec 032 — surface any gated Medium/High mutation the turn raised. For a read-only
@@ -432,24 +423,4 @@ public static class AonikVoiceAgent
         string Tier,
         string ActionKind,
         bool RequiresVisualReview);
-
-    // Marks the streaming call so AuditMiddleware skips its own AiRun for it (this loop persists
-    // one per turn). Marks the existing ChatOptions in place where present so no other run-option
-    // settings are lost; only synthesises a fresh options object when there is nothing to mark.
-    private static ChatClientAgentRunOptions MarkStreamAuditHandledDownstream(ChatClientAgentRunOptions? runOptions)
-    {
-        if (runOptions?.ChatOptions is { } chatOptions)
-        {
-            (chatOptions.AdditionalProperties ??= [])[AiTelemetry.StreamAuditHandledDownstreamAttribute] = true;
-            return runOptions;
-        }
-
-        return new ChatClientAgentRunOptions(new ChatOptions
-        {
-            AdditionalProperties = new AdditionalPropertiesDictionary
-            {
-                [AiTelemetry.StreamAuditHandledDownstreamAttribute] = true,
-            },
-        });
-    }
 }
