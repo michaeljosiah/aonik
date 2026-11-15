@@ -76,7 +76,11 @@ public partial class WorkflowEndpointsTests
         WorkflowStepApproval approval = await ReadApprovalAsync(reviewerClient);
         approval.CanDecide.Should().BeTrue();
         approval.RiskTier.Should().Be("Medium");
-        approval.Preview.Should().NotBeNull();
+        approval.Preview!.Title.Should().Be("Issue invoice for 42.25 GBP");
+        approval.Preview.Before!.Value.GetProperty("invoiceId").GetGuid().Should().Be(invoiceId);
+        approval.Preview.Before.Value.GetProperty("status").GetString().Should().Be("Draft");
+        approval.Preview.After!.Value.GetProperty("invoiceId").GetGuid().Should().Be(invoiceId);
+        approval.Preview.After.Value.GetProperty("status").GetString().Should().Be("Issued");
         (await ReadApprovalAsync(authorClient)).CanDecide.Should().BeFalse();
         (await ReadApprovalAsync(otherClient)).CanDecide.Should().BeFalse();
         string decisionPath = $"/ai/tool-approvals/{approval.Id}/decide";

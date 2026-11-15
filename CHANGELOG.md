@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Invoice issue review (#438):** Show the pinned amount, currency and Draft → Issued transition in the workflow approval card. Build the preview from the current invoice only when its version and facts still match the prepared action.
+
 - **Workflow qualification and deployment safeguards (#438, T15):** Link actual MAF tool calls to their recorded AiRuns in approvals and proposals. Recheck tenant activity before deferred actions, reject ambiguous typed JSON and exercise the 100-item loop limit across fresh scopes. Recover the exact pending connector action once the intake source is available, and revalidate both dependencies before resuming. Worker wake-ups respect held states until explicit resume or the run deadline. Sweep expired temporary connector uploads through the existing Worker scheduler. Configure API and Worker to share private blob storage, package the OCR binaries, support an opt-in private ClamAV sidecar and forward authenticated mailbox push and Gmail OAuth Key Vault settings through deployment.
 
 - **Governed curated connector actions (#438, T14):** Use reviewed MCP/HTTP installations through existing tenant accounts, connector grants, Aonik tools and workflow capabilities. Pin signed releases and action contracts, check schemas and credential versions at runtime, and send remote mutations through the existing High proposal and operation journal. Tenant Integrations adds catalog inspection, credential rotation, activation, account registration and upgrade impact. Signed native contracts are verified against deployed action descriptors.

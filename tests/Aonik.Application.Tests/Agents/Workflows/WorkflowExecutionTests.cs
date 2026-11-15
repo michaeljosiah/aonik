@@ -639,6 +639,8 @@ public partial class WorkflowExecutionTests
     {
         public WorkflowActionDescriptor Descriptor => inner.Descriptor;
         public void ValidateArguments(JsonElement arguments) => inner.ValidateArguments(arguments);
+        public Task<ToolApprovalPreview?> GetPreviewAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken = default)
+            => inner.GetPreviewAsync(invocation, cancellationToken);
         public async Task<WorkflowActionResult> ExecuteAsync(WorkflowActionInvocation invocation, CancellationToken cancellationToken = default)
         {
             WorkflowActionResult result = await inner.ExecuteAsync(invocation, cancellationToken);
