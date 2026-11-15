@@ -71,4 +71,7 @@ public class TenantMcpServer : AuditableEntity, ITenantScoped
     /// (Spec 033 §8.3).
     /// </summary>
     public int CredentialVersion { get; set; } = 1;
+
+    /// <summary>Pinned signed release reference for curated installations; null for legacy entries. Contains no credentials.</summary>
+    public string? ConnectorPackageJson { get; set; }
 }

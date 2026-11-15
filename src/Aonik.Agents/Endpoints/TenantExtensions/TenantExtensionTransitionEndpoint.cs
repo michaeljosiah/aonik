@@ -24,6 +24,12 @@ public abstract class TenantExtensionTransitionEndpoint<TRequest, TResponse> : E
             }
             await Send.OkAsync(result, ct);
         }
+        catch (KeyNotFoundException) { await Send.NotFoundAsync(ct); }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+        {
+            AddError("The extension changed. Reload before applying another command.");
+            await Send.ErrorsAsync(StatusCodes.Status409Conflict, ct);
+        }
         catch (InvalidOperationException ex)
         {
             AddError(ex.Message);

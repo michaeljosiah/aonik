@@ -65,7 +65,13 @@ internal sealed class TenantHttpToolService : ITenantHttpToolService
         return row is null ? null : ToDto(row);
     }
 
-    public async Task<TenantHttpToolDto> CreateAsync(SaveHttpToolRequest request, CancellationToken ct = default)
+    public Task<TenantHttpToolDto> CreateAsync(SaveHttpToolRequest request, CancellationToken ct = default)
+        => CreateCoreAsync(request, null, ct);
+
+    internal Task<TenantHttpToolDto> CreatePackageAsync(SaveHttpToolRequest request, string packageReference, CancellationToken cancellationToken = default)
+        => CreateCoreAsync(request, packageReference, cancellationToken);
+
+    private async Task<TenantHttpToolDto> CreateCoreAsync(SaveHttpToolRequest request, string? packageReference, CancellationToken ct)
     {
         var tenantId = RequireTenant();
         var authKind = ParseEnum(request.AuthKind, TenantToolAuthKind.None);
@@ -89,6 +95,7 @@ internal sealed class TenantHttpToolService : ITenantHttpToolService
             ApprovalState = TenantExtensionApprovalState.Draft,
             IsActive = false,
             CredentialVersion = 1,
+            ConnectorPackageJson = packageReference,
         };
         _db.TenantHttpTools.Add(tool);
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -102,6 +109,11 @@ internal sealed class TenantHttpToolService : ITenantHttpToolService
         {
             return null;
         }
+
+        if (tool.ConnectorPackageJson is not null && (request.Name.Trim() != tool.Name || request.Description.Trim() != tool.Description
+            || NormalizeMethod(request.Method) != tool.Method || request.UrlTemplate.Trim() != tool.UrlTemplate || request.ParameterSchemaJson != tool.ParameterSchemaJson
+            || !string.Equals(request.AuthKind, tool.AuthKind.ToString(), StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("Use a reviewed catalog release to change a packaged action's behavior. Credential rotation retains its contract and requires fresh review.");
 
         var authKind = ParseEnum(request.AuthKind, TenantToolAuthKind.None);
         tool.Name = request.Name.Trim();
@@ -140,9 +152,12 @@ internal sealed class TenantHttpToolService : ITenantHttpToolService
         return true;
     }
 
-    public Task<TenantHttpToolDto?> SubmitAsync(Guid id, CancellationToken ct = default) =>
+    public Task<TenantHttpToolDto?> SubmitAsync(Guid id, CancellationToken ct = default) => SubmitCoreAsync(id, false, ct);
+    internal Task<TenantHttpToolDto?> SubmitPackageAsync(Guid id, CancellationToken ct = default) => SubmitCoreAsync(id, true, ct);
+    private Task<TenantHttpToolDto?> SubmitCoreAsync(Guid id, bool package, CancellationToken ct) =>
         MutateAsync(id, t =>
         {
+            RequireLifecycle(t, package);
             if (t.ApprovalState is not (TenantExtensionApprovalState.Draft or TenantExtensionApprovalState.Rejected))
             {
                 throw new InvalidOperationException("Only a draft or rejected tool can be submitted for review.");
@@ -154,9 +169,12 @@ internal sealed class TenantHttpToolService : ITenantHttpToolService
             t.ApprovalState = TenantExtensionApprovalState.PendingPlatformReview;
         }, ct);
 
-    public Task<TenantHttpToolDto?> ActivateAsync(Guid id, CancellationToken ct = default) =>
+    public Task<TenantHttpToolDto?> ActivateAsync(Guid id, CancellationToken ct = default) => ActivateCoreAsync(id, false, ct);
+    internal Task<TenantHttpToolDto?> ActivatePackageAsync(Guid id, CancellationToken ct = default) => ActivateCoreAsync(id, true, ct);
+    private Task<TenantHttpToolDto?> ActivateCoreAsync(Guid id, bool package, CancellationToken ct) =>
         MutateAsync(id, t =>
         {
+            RequireLifecycle(t, package);
             if (t.ApprovalState != TenantExtensionApprovalState.Approved)
             {
                 throw new InvalidOperationException("Only an approved tool can be activated.");
@@ -184,9 +202,12 @@ internal sealed class TenantHttpToolService : ITenantHttpToolService
         return new HttpToolTestDto(tool.Name, tier, tool.ParameterSchemaJson, note);
     }
 
-    public Task<TenantHttpToolDto?> ReviewAsync(Guid id, ReviewHttpToolRequest request, CancellationToken ct = default) =>
+    public Task<TenantHttpToolDto?> ReviewAsync(Guid id, ReviewHttpToolRequest request, CancellationToken ct = default) => ReviewCoreAsync(id, request, false, ct);
+    internal Task<TenantHttpToolDto?> ReviewPackageAsync(Guid id, ReviewHttpToolRequest request, CancellationToken ct = default) => ReviewCoreAsync(id, request, true, ct);
+    private Task<TenantHttpToolDto?> ReviewCoreAsync(Guid id, ReviewHttpToolRequest request, bool package, CancellationToken ct) =>
         MutateAsync(id, t =>
         {
+            RequireLifecycle(t, package);
             if (request.Approve && !_egress.IsAllowed(t.UrlTemplate, out var reason))
             {
                 throw new InvalidOperationException(reason ?? "URL host is not on the egress allow-list.");
@@ -213,6 +234,12 @@ internal sealed class TenantHttpToolService : ITenantHttpToolService
                 t.IsActive = false;
             }
         }, ct);
+
+    private static void RequireLifecycle(TenantHttpTool tool, bool package)
+    {
+        if ((tool.ConnectorPackageJson is not null) != package)
+            throw new InvalidOperationException("Use the connector catalog lifecycle for packaged actions.");
+    }
 
     private async Task<TenantHttpToolDto?> MutateAsync(Guid id, Action<TenantHttpTool> mutate, CancellationToken ct)
     {

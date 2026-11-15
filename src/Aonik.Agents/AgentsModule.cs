@@ -95,6 +95,16 @@ public sealed class AgentsModule : IModule
             .Get<Services.Connectors.Catalog.ConnectorPackageTrustOptions>() ?? new();
         services.AddSingleton(new Services.Connectors.Catalog.CuratedConnectorCatalog(connectorPackages));
         services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorPackageCatalog, Services.Connectors.Catalog.ConnectorPackageCatalogService>();
+        services.AddScoped<Services.Connectors.Catalog.ConnectorPackageInstallationService>();
+        services.AddScoped<IConnectorPackageInstallationService>(provider => provider.GetRequiredService<Services.Connectors.Catalog.ConnectorPackageInstallationService>());
+        services.AddScoped<Services.Connectors.Catalog.ConnectorPackageMcpClient>();
+        services.AddTransient<Services.Connectors.Catalog.ConnectorPackageHttpHandler>();
+        services.AddHttpClient("CuratedConnectorTool")
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler { AllowAutoRedirect = false })
+            // The host adds a general retry pipeline. A remote write must have exactly one dispatch;
+            // its existing approval journal owns any uncertain outcome, not transport retries.
+            .ConfigureAdditionalHttpMessageHandlers((handlers, _) => handlers.Clear())
+            .AddHttpMessageHandler<Services.Connectors.Catalog.ConnectorPackageHttpHandler>();
         services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorMutationAuthority, Services.Connectors.ConnectorMutationAuthority>();
         foreach (var action in SharedKernel.Abstractions.Connectors.GmailActionPolicies.ToolNames.Keys
             .Where(key => SharedKernel.Abstractions.Connectors.GmailActionPolicies.Approval(key)?.Tier == ToolApprovalTier.High))
@@ -208,8 +218,10 @@ public sealed class AgentsModule : IModule
         // Spec 033 §D — management services behind the FastEndpoints (CRUD / validate / test / submit /
         // activate / review). Scoped because they touch the scoped AgentsDbContext + tenant/user providers.
         services.AddScoped<Services.Tenant.ITenantSkillService, Services.Tenant.TenantSkillService>();
-        services.AddScoped<Services.Tenant.ITenantMcpServerService, Services.Tenant.TenantMcpServerService>();
-        services.AddScoped<Services.Tenant.ITenantHttpToolService, Services.Tenant.TenantHttpToolService>();
+        services.AddScoped<Services.Tenant.TenantMcpServerService>();
+        services.AddScoped<Services.Tenant.ITenantMcpServerService>(provider => provider.GetRequiredService<Services.Tenant.TenantMcpServerService>());
+        services.AddScoped<Services.Tenant.TenantHttpToolService>();
+        services.AddScoped<Services.Tenant.ITenantHttpToolService>(provider => provider.GetRequiredService<Services.Tenant.TenantHttpToolService>());
 
         // Spec 032 §7.5 — durable audit/correlation row store for every gated mutating-tool call.
         // Module-internal (only ToolApprovalService uses it); backed by the scoped AgentsDbContext.

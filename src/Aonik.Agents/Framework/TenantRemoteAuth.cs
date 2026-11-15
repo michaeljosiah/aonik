@@ -18,6 +18,18 @@ namespace Aonik.Agents.Framework;
 /// </summary>
 internal static class TenantRemoteAuth
 {
+    internal static IDictionary<string, string> RequireHeaders(TenantToolAuthKind kind, string? protectedAuthJson,
+        ITenantCredentialProtector protector, string? expectedHeader)
+    {
+        IDictionary<string, string> headers = BuildHeaders(kind, protectedAuthJson, protector);
+        if (kind == TenantToolAuthKind.None) return headers;
+        string name = kind == TenantToolAuthKind.ApiKeyHeader ? expectedHeader ?? string.Empty : "Authorization";
+        if (headers.Count != 1 || !headers.TryGetValue(name, out string? value) || string.IsNullOrWhiteSpace(value)
+            || value.Any(character => char.IsControl(character)))
+            throw new InvalidOperationException("ConnectorPackage.CredentialUnavailable");
+        return headers;
+    }
+
     public static IDictionary<string, string> BuildHeaders(
         TenantToolAuthKind kind,
         string? protectedAuthJson,

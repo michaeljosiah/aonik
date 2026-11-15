@@ -18,6 +18,7 @@ public sealed record ConnectorPackageAction(string Key, int Version, string Disp
 
 /// <summary>Exact release identity retained with a remote workflow binding; upgrades do not reinterpret it.</summary>
 public sealed record ConnectorArtifactPin(string PackageKey, string PackageVersion, string ArtifactDigest, string ActionContractHash);
+public sealed record ConnectorPackageInstallationRef(string PackageKey, string PackageVersion, string Digest, ConnectorActionRef? Action = null);
 
 public sealed record ConnectorPackageSummary(string PackageKey, string PackageVersion, string ConnectorKey, string DisplayName,
     string PublisherId, string Digest, string AdapterKind, int ActionCount);

@@ -56,7 +56,7 @@ internal sealed class TenantMcpToolProvider : ITenantMcpToolProvider
         // Tenant query filter scopes this to the current tenant automatically.
         var servers = await db.TenantMcpServers
             .AsNoTracking()
-            .Where(s => s.IsActive && s.ApprovalState == TenantExtensionApprovalState.Approved)
+            .Where(s => s.IsActive && s.ApprovalState == TenantExtensionApprovalState.Approved && s.ConnectorPackageJson == null)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

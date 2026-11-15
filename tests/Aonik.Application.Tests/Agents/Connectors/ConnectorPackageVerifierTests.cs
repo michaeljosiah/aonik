@@ -211,7 +211,7 @@ public sealed class ConnectorPackageVerifierTests
             JsonSerializer.SerializeToElement(new { type = "object", properties = new { status = new { type = "string" } }, additionalProperties = false }), [],
             "https://example.test/records/{id}", HttpMethod: "GET")]);
 
-    private sealed class Signer : IDisposable
+    internal sealed class Signer : IDisposable
     {
         private readonly RSA _key = RSA.Create(2048);
         public ConnectorPackageTrustOptions Trust => new() { TrustedPublishers = [new("synthetic-publisher", "test-key", _key.ExportSubjectPublicKeyInfoPem())] };
@@ -227,7 +227,7 @@ public sealed class ConnectorPackageVerifierTests
         public void Dispose() => _key.Dispose();
     }
 
-    private sealed class Artifacts : IDisposable
+    internal sealed class Artifacts : IDisposable
     {
         private readonly string _directory = Path.Combine(Path.GetTempPath(), "aonik-catalog-tests-" + Guid.NewGuid().ToString("N"));
         public ConnectorPackageTrustOptions Options { get; }

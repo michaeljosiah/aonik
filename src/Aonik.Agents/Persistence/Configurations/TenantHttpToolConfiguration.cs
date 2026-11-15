@@ -22,6 +22,7 @@ internal class TenantHttpToolConfiguration : IEntityTypeConfiguration<TenantHttp
         builder.Property(x => x.UrlTemplate).IsRequired().HasMaxLength(2048);
         builder.Property(x => x.ParameterSchemaJson).HasColumnType("nvarchar(max)");
         builder.Property(x => x.ProtectedAuthJson).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.ConnectorPackageJson).HasMaxLength(2000);
         builder.Property(x => x.ActionKind).HasMaxLength(400);
         builder.Property(x => x.ProposalType).HasMaxLength(200);
         builder.Property(x => x.ReviewNotes).HasMaxLength(2000);

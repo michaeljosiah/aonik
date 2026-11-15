@@ -73,7 +73,13 @@ internal sealed class TenantMcpServerService : ITenantMcpServerService
         return row is null ? null : ToDto(row);
     }
 
-    public async Task<TenantMcpServerDto> CreateAsync(SaveMcpServerRequest request, CancellationToken ct = default)
+    public Task<TenantMcpServerDto> CreateAsync(SaveMcpServerRequest request, CancellationToken ct = default)
+        => CreateCoreAsync(request, null, ct);
+
+    internal Task<TenantMcpServerDto> CreatePackageAsync(SaveMcpServerRequest request, string packageReference, CancellationToken cancellationToken = default)
+        => CreateCoreAsync(request, packageReference, cancellationToken);
+
+    private async Task<TenantMcpServerDto> CreateCoreAsync(SaveMcpServerRequest request, string? packageReference, CancellationToken ct)
     {
         var tenantId = RequireTenant();
         var authKind = ParseEnum(request.AuthKind, TenantToolAuthKind.None);
@@ -91,6 +97,7 @@ internal sealed class TenantMcpServerService : ITenantMcpServerService
             ApprovalState = TenantExtensionApprovalState.Draft,
             IsActive = false,
             CredentialVersion = 1,
+            ConnectorPackageJson = packageReference,
         };
         _db.TenantMcpServers.Add(server);
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -104,6 +111,12 @@ internal sealed class TenantMcpServerService : ITenantMcpServerService
         {
             return null;
         }
+
+        if (server.ConnectorPackageJson is not null && (request.Name.Trim() != server.Name || request.Endpoint.Trim() != server.Endpoint
+            || !string.Equals(request.TransportType, server.TransportType.ToString(), StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(request.AuthKind, server.AuthKind.ToString(), StringComparison.OrdinalIgnoreCase)
+            || !(request.AllowedToolPrefixes ?? []).Order(StringComparer.Ordinal).SequenceEqual(ParsePrefixes(server.AllowedToolPrefixesJson).Order(StringComparer.Ordinal))))
+            throw new InvalidOperationException("Use a reviewed catalog release to change a packaged server's behavior. Credential rotation retains its contract and requires fresh review.");
 
         var authKind = ParseEnum(request.AuthKind, TenantToolAuthKind.None);
         server.Name = request.Name.Trim();
@@ -143,9 +156,12 @@ internal sealed class TenantMcpServerService : ITenantMcpServerService
         return true;
     }
 
-    public Task<TenantMcpServerDto?> SubmitAsync(Guid id, CancellationToken ct = default) =>
+    public Task<TenantMcpServerDto?> SubmitAsync(Guid id, CancellationToken ct = default) => SubmitCoreAsync(id, false, ct);
+    internal Task<TenantMcpServerDto?> SubmitPackageAsync(Guid id, CancellationToken ct = default) => SubmitCoreAsync(id, true, ct);
+    private Task<TenantMcpServerDto?> SubmitCoreAsync(Guid id, bool package, CancellationToken ct) =>
         MutateAsync(id, s =>
         {
+            RequireLifecycle(s, package);
             if (s.ApprovalState is not (TenantExtensionApprovalState.Draft or TenantExtensionApprovalState.Rejected))
             {
                 throw new InvalidOperationException("Only a draft or rejected server can be submitted for review.");
@@ -157,9 +173,12 @@ internal sealed class TenantMcpServerService : ITenantMcpServerService
             s.ApprovalState = TenantExtensionApprovalState.PendingPlatformReview;
         }, ct);
 
-    public Task<TenantMcpServerDto?> ActivateAsync(Guid id, CancellationToken ct = default) =>
+    public Task<TenantMcpServerDto?> ActivateAsync(Guid id, CancellationToken ct = default) => ActivateCoreAsync(id, false, ct);
+    internal Task<TenantMcpServerDto?> ActivatePackageAsync(Guid id, CancellationToken ct = default) => ActivateCoreAsync(id, true, ct);
+    private Task<TenantMcpServerDto?> ActivateCoreAsync(Guid id, bool package, CancellationToken ct) =>
         MutateAsync(id, s =>
         {
+            RequireLifecycle(s, package);
             if (s.ApprovalState != TenantExtensionApprovalState.Approved)
             {
                 throw new InvalidOperationException("Only an approved server can be activated.");
@@ -177,6 +196,7 @@ internal sealed class TenantMcpServerService : ITenantMcpServerService
         {
             return new McpDryRunDto(false, "Server not found.", []);
         }
+        RequireLifecycle(server, false);
 
         if (!_egress.IsAllowed(server.Endpoint, out var reason))
         {
@@ -213,9 +233,12 @@ internal sealed class TenantMcpServerService : ITenantMcpServerService
         }
     }
 
-    public Task<TenantMcpServerDto?> ReviewAsync(Guid id, ReviewMcpServerRequest request, CancellationToken ct = default) =>
+    public Task<TenantMcpServerDto?> ReviewAsync(Guid id, ReviewMcpServerRequest request, CancellationToken ct = default) => ReviewCoreAsync(id, request, false, ct);
+    internal Task<TenantMcpServerDto?> ReviewPackageAsync(Guid id, ReviewMcpServerRequest request, CancellationToken ct = default) => ReviewCoreAsync(id, request, true, ct);
+    private Task<TenantMcpServerDto?> ReviewCoreAsync(Guid id, ReviewMcpServerRequest request, bool package, CancellationToken ct) =>
         MutateAsync(id, s =>
         {
+            RequireLifecycle(s, package);
             if (request.Approve && !_egress.IsAllowed(s.Endpoint, out var reason))
             {
                 throw new InvalidOperationException(reason ?? "Endpoint host is not on the egress allow-list.");
@@ -234,6 +257,12 @@ internal sealed class TenantMcpServerService : ITenantMcpServerService
                 s.IsActive = false;
             }
         }, ct);
+
+    private static void RequireLifecycle(TenantMcpServer server, bool package)
+    {
+        if ((server.ConnectorPackageJson is not null) != package)
+            throw new InvalidOperationException("Use the connector catalog lifecycle for packaged servers.");
+    }
 
     private async Task<TenantMcpServerDto?> MutateAsync(Guid id, Action<TenantMcpServer> mutate, CancellationToken ct)
     {

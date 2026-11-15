@@ -39,7 +39,7 @@ internal sealed class TenantHttpToolFactory : ITenantHttpToolFactory
 
         var rows = await db.TenantHttpTools
             .AsNoTracking()
-            .Where(t => t.IsActive && t.ApprovalState == TenantExtensionApprovalState.Approved)
+            .Where(t => t.IsActive && t.ApprovalState == TenantExtensionApprovalState.Approved && t.ConnectorPackageJson == null)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 

@@ -8,7 +8,7 @@ namespace Aonik.Agents.Endpoints.Connectors;
 
 public sealed class DownloadConnectorPackageEndpoint(IConnectorPackageCatalog catalog) : EndpointWithoutRequest
 {
-    public override void Configure() { Get("/integrations/catalog/packages/{packageKey}/{version}/artifact"); Policies("AdminUserPolicy"); }
+    public override void Configure() { Get("/v1/integrations/catalog/packages/{packageKey}/{version}/artifact"); Policies("AdminUserPolicy"); }
     public override async Task HandleAsync(CancellationToken ct)
     {
         string key = Route<string>("packageKey")!; string version = Route<string>("version")!;

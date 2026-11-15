@@ -38,11 +38,28 @@ Native manifests must agree with deployed action schemas, code-owned approval ti
 
 Authorized active tenant readers with `Integration.Read` can use:
 
-- `GET /integrations/catalog/packages` for bounded release summaries.
-- `GET /integrations/catalog/packages/{packageKey}/{version}` for the verified manifest.
-- `GET /integrations/catalog/packages/{packageKey}/{version}/artifact` for the exact original artifact download.
+- `GET /v1/integrations/catalog/packages` for bounded release summaries.
+- `GET /v1/integrations/catalog/packages/{packageKey}/{version}` for the verified manifest.
+- `GET /v1/integrations/catalog/packages/{packageKey}/{version}/artifact` for the exact original artifact download.
 - Aonik's `aonik_list_connector_packages` and `aonik_get_connector_package` read tools.
 
 Retain old releases while published bindings/runs need their pins. Schema, endpoint, authentication, limits or approval changes under the same action version are rejected across loaded releases. Publish a new action version for changed behavior. Removing a release must explicitly block/drain its consumers; rollback cannot restore revoked account access.
 
 Discovery adds no execution database, scheduler, plugin host, installation script or dynamically loaded assembly. T14 remains open until reviewed MCP/HTTP installation, invocation, upgrade/disablement and the lifecycle fixtures are qualified.
+
+## Import and platform review
+
+An active human with both `Integration.Manage` and `Workflow.Write` can import an exact catalog release using `POST /v1/integrations/catalog/packages/import`. Supply `packageKey`, `packageVersion` and the inspected `digest`. Optional `authSecret`/`authUsername` fields are write-only; store them through this authenticated API and never in a manifest, chat or issue. The existing tenant extension credential protector encrypts them. Repeating an import reuses the existing versioned rows and does not replace credentials or reset review. HTTP imports create one existing tool row per action; MCP imports create one existing server row with exact declared remote names.
+
+`GET /v1/integrations/catalog/installations` returns bounded summaries and an `expectedVersion`. Use it in these commands:
+
+- `POST /v1/integrations/catalog/installations/{id}/submit` with `expectedVersion` requests review.
+- `POST /v1/integrations/catalog/installations/{id}/review` with `expectedVersion`, `approve` and optional `notes` requires the actual `PlatformAdmin` authorization policy as well as the tenant permissions. Approval leaves the installation inactive.
+- `POST /v1/integrations/catalog/installations/{id}/activate` with `expectedVersion` activates an approved, unchanged installation.
+- `POST /v1/integrations/catalog/installations/{id}/disable` with `expectedVersion` stops it. Disabling remains available if deployment removes the release.
+
+Reload after a 409 conflict. Approval records the existing named reviewer and review timestamp. MCP review connects through the actual HTTP SDK, discovers at most 100 tools, and compares exact input/output schemas with the signed release. Remote tool names and annotations do not establish read authority. All remote mutations retain a High floor. HTTP review makes no business endpoint call. Every curated protocol request rechecks deployment egress; redirects and protocol responses over 1 MiB are refused. The curated client removes the host's automatic retry pipeline and disables SDK stream reconnection; the existing approval journal owns uncertain write outcomes. Package action-specific limits remain required at invocation.
+
+Use the existing extension update path only for credential rotation while retaining the exact package contract. Rotation returns the row to Draft, deactivates it and requires fresh review. A different API-key header fails review. Endpoint/schema/auth-kind changes require a new release. Legacy submit/review/activate paths refuse packaged rows, and legacy raw MCP/HTTP tool providers exclude them. Import, review and activation create no connection grant or workflow authority; account provisioning and per-action gateway execution remain the next T14 slice.
+
+Schema change: canonical EF CLI migration `20261115004459_AddCuratedConnectorPackageReferences` adds two nullable, bounded package-reference fields to the existing extension tables. It does not add installation, credential, execution or review tables. Apply through the normal canonical migration stream; local SQL execution is not claimed by the Windows qualification.

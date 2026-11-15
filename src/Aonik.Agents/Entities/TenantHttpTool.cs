@@ -75,4 +75,7 @@ public class TenantHttpTool : AuditableEntity, ITenantScoped
     /// declarative tools / clients be rebuilt on rotation (Spec 033 §8.3 / §8.4).
     /// </summary>
     public int CredentialVersion { get; set; } = 1;
+
+    /// <summary>Pinned signed release/action reference for curated installations; null for legacy entries. Contains no credentials.</summary>
+    public string? ConnectorPackageJson { get; set; }
 }

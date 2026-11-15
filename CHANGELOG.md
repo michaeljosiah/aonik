@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Curated connector installation review (#438, T14 slice):** Import exact signed releases into existing tenant MCP/HTTP rows with encrypted credentials, immutable contracts and optimistic concurrency. Reuse submission/platform review/activation/disablement, verify live MCP schemas through the real HTTP SDK, bound protocol responses and close legacy lifecycle/raw-provider bypasses. Credential rotation invalidates review; remote writes retain High approval. Canonical EF CLI migration `20261115004459_AddCuratedConnectorPackageReferences` adds only two nullable package references. Connection provisioning and governed per-action invocation remain separate.
+
 - **Signed connector descriptor discovery (#438, T14 slice):** Verify passive, versioned artifacts against deployment-owned RSA-PSS trust; bound resources and reject tampering, ambiguous contracts, schema/auth drift and native risk downgrades. Add authorized catalog inspect/download endpoints and read-only Aonik tools, preserving release pins and the existing canonical workflow format. Installation and execution governance remain separate.
 
 - **Worker-scoped tenant tool classification (#438, T14 prerequisite):** Forward the tool-build service scope through the existing approval manifest/gate. Background MCP/HTTP tool classification no longer depends on HttpContext or inherits another ambient tenant's store; existing name-only callers remain compatible.
