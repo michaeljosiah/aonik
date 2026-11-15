@@ -295,6 +295,7 @@ jobs:
           app_settings: ${{ steps.app-settings.outputs.app_settings_json }}
           gmail_oauth_client_id: ${{ vars.GMAIL_OAUTH_CLIENT_ID }}
           gmail_oauth_client_secret_uri: ${{ vars.GMAIL_OAUTH_CLIENT_SECRET_URI }}
+          clamav_image: ${{ vars.CLAMAV_IMAGE }}
 
       - name: Deploy
         uses: ./.github/actions/bicep-deploy

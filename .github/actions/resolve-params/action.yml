@@ -58,6 +58,10 @@ inputs:
     description: "Optional Key Vault secret URI for the Gmail OAuth client secret"
     required: false
     default: ""
+  clamav_image:
+    description: "Optional reviewed ClamAV image reference for the API and Worker"
+    required: false
+    default: ""
   image_repos:
     description: 'JSON object mapping param keys to repository names (overrides defaults)'
     required: false
@@ -95,5 +99,6 @@ runs:
         INPUT_APP_SETTINGS: ${{ inputs.app_settings }}
         INPUT_GMAIL_OAUTH_CLIENT_ID: ${{ inputs.gmail_oauth_client_id }}
         INPUT_GMAIL_OAUTH_CLIENT_SECRET_URI: ${{ inputs.gmail_oauth_client_secret_uri }}
+        INPUT_CLAMAV_IMAGE: ${{ inputs.clamav_image }}
         INPUT_IMAGE_REPOS: ${{ inputs.image_repos }}
       run: python "${{ github.action_path }}/resolve_params.py"

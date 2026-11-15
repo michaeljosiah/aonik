@@ -133,6 +133,10 @@ def main() -> None:
         params["gmailOAuthClientId"] = {"value": gmail_client_id}
         params["gmailOAuthClientSecretUri"] = {"value": gmail_secret_uri}
 
+    clamav_image = env("INPUT_CLAMAV_IMAGE")
+    if clamav_image:
+        params["clamAvImage"] = {"value": clamav_image}
+
     # --- Resolve workload name ---
     workload_wrapper = params.get("workloadName")
     if not workload_name:
