@@ -13,6 +13,7 @@ using Aonik.Agents.Entities.Workflows;
 using Aonik.Agents.Persistence;
 using Aonik.Agents.Services.Workflows;
 using Aonik.Agents.Workflows.Graph;
+using Aonik.Finance.Agents;
 using Aonik.Finance.Entities.Billing;
 using Aonik.Finance.Persistence;
 using Aonik.Finance.Services.Billing;
@@ -166,6 +167,7 @@ public sealed partial class WorkflowCompositionSqlServerTests
             services.AddScoped<InvoiceWorkflowFactsProvider>();
             services.AddScoped<IWorkflowFactsProvider>(provider => provider.GetRequiredService<InvoiceWorkflowFactsProvider>());
             services.AddScoped<IWorkflowActionHandler, InvoiceIssueWorkflowAction>();
+            services.AddSingleton<IToolApprovalManifest, FinanceToolApprovalManifest>();
             services.AddScoped<IWorkflowApprovalReader, WorkflowApprovalReader>();
             services.AddScoped<BillingService>();
             services.AddScoped<LedgerPostingService>();
