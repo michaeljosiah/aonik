@@ -18,6 +18,30 @@ namespace Aonik.Application.Tests.Agents.Workflows;
 public class ConnectorToolTests
 {
     [Fact]
+    public async Task AonikTools_Should_InspectCuratedPackages_WithoutInstallingOrGrantingConnectorAccess()
+    {
+        var packages = new Mock<IConnectorPackageCatalog>();
+        packages.Setup(service => service.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        using var scenario = new ConnectorScenario(configure: services =>
+        {
+            services.AddScoped<IConnectorService>(provider => provider.GetRequiredService<ConnectorService>());
+            services.AddSingleton(packages.Object);
+            services.AddSingleton<IToolApprovalGate, ToolApprovalGate>();
+            services.AddSingleton<IToolApprovalManifest, ConnectorToolApprovalManifest>();
+            services.AddSingleton(Mock.Of<IToolApprovalAuditSink>());
+        });
+        await scenario.InitializeAsync(); using IServiceScope scope = scenario.Scope();
+        AIFunction[] tools = ConnectorTools.CreateAll(scope.ServiceProvider).OfType<AIFunction>().ToArray();
+
+        await tools.Single(tool => tool.Name == "aonik_list_connector_packages").InvokeAsync(new AIFunctionArguments());
+
+        packages.Verify(service => service.ListAsync(It.IsAny<CancellationToken>()), Times.Once);
+        (await scope.ServiceProvider.GetRequiredService<PlatformDbContext>().ConnectorConnectionRequests.CountAsync()).Should().Be(0);
+        (await scope.ServiceProvider.GetRequiredService<PlatformDbContext>().ConnectorConnectionGrants.CountAsync()).Should().Be(0);
+        scenario.Actions.Verify(provider => provider.InvokeAsync(It.IsAny<ConnectorProviderCall>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task AonikTools_Should_UseTheReadGateway_AndRequireServerPreparedConfirmationForRequests()
     {
         bool approved = false;

@@ -91,6 +91,10 @@ public sealed class AgentsModule : IModule
         services.AddScoped<SharedKernel.Abstractions.Connectors.IWorkflowMailboxBindingReader, Services.Workflows.WorkflowMailboxBindingReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Workflows.IWorkflowApprovalReader, Services.Workflows.WorkflowApprovalReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Connectors.IWorkflowConnectorContextReader, Services.Workflows.WorkflowConnectorContextReader>();
+        var connectorPackages = configuration.GetSection(Services.Connectors.Catalog.ConnectorPackageTrustOptions.SectionName)
+            .Get<Services.Connectors.Catalog.ConnectorPackageTrustOptions>() ?? new();
+        services.AddSingleton(new Services.Connectors.Catalog.CuratedConnectorCatalog(connectorPackages));
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorPackageCatalog, Services.Connectors.Catalog.ConnectorPackageCatalogService>();
         services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorMutationAuthority, Services.Connectors.ConnectorMutationAuthority>();
         foreach (var action in SharedKernel.Abstractions.Connectors.GmailActionPolicies.ToolNames.Keys
             .Where(key => SharedKernel.Abstractions.Connectors.GmailActionPolicies.Approval(key)?.Tier == ToolApprovalTier.High))

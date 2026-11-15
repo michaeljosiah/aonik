@@ -7,6 +7,7 @@ using System.Text.Json.Schema;
 using System.Text.RegularExpressions;
 
 using Aonik.Agents.Contracts.Models.Workflows;
+using Aonik.SharedKernel.Serialization;
 
 namespace Aonik.Agents.Services.Workflows;
 
@@ -40,9 +41,7 @@ internal static class WorkflowDefinitionCodec
     public static string Serialize(WorkflowDefinition definition)
     {
         JsonElement element = JsonSerializer.SerializeToElement(definition, JsonOptions);
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream)) WriteCanonical(writer, element);
-        return Encoding.UTF8.GetString(stream.ToArray());
+        return CanonicalJson.Serialize(element);
     }
 
     public static string Hash(string definitionJson) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(definitionJson)));
@@ -58,24 +57,4 @@ internal static class WorkflowDefinitionCodec
         JsonOptions.GetJsonSchemaAsNode(typeof(WorkflowHumanParameters)));
     public static JsonElement ParametersSchema<T>() => JsonSerializer.SerializeToElement(JsonOptions.GetJsonSchemaAsNode(typeof(T)));
 
-    private static void WriteCanonical(Utf8JsonWriter writer, JsonElement element)
-    {
-        if (element.ValueKind == JsonValueKind.Object)
-        {
-            writer.WriteStartObject();
-            foreach (JsonProperty property in element.EnumerateObject().OrderBy(property => property.Name, StringComparer.Ordinal))
-            {
-                writer.WritePropertyName(property.Name);
-                WriteCanonical(writer, property.Value);
-            }
-            writer.WriteEndObject();
-        }
-        else if (element.ValueKind == JsonValueKind.Array)
-        {
-            writer.WriteStartArray();
-            foreach (JsonElement child in element.EnumerateArray()) WriteCanonical(writer, child);
-            writer.WriteEndArray();
-        }
-        else element.WriteTo(writer);
-    }
 }

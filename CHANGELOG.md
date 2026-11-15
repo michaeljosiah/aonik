@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Signed connector descriptor discovery (#438, T14 slice):** Verify passive, versioned artifacts against deployment-owned RSA-PSS trust; bound resources and reject tampering, ambiguous contracts, schema/auth drift and native risk downgrades. Add authorized catalog inspect/download endpoints and read-only Aonik tools, preserving release pins and the existing canonical workflow format. Installation and execution governance remain separate.
+
 - **Worker-scoped tenant tool classification (#438, T14 prerequisite):** Forward the tool-build service scope through the existing approval manifest/gate. Background MCP/HTTP tool classification no longer depends on HttpContext or inherits another ambient tenant's store; existing name-only callers remain compatible.
 
 - **Financial intake review and erasure (#438, T13):** Reuse the document page for authorized candidate/source review, add a small intake draft template and launch the immutable published subject. Protect financial-source metadata with current mailbox grants; scrub erased source metadata and copied approval previews through the existing outbox while cancelling remaining work and retaining financial/audit references.
