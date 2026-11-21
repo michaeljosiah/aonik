@@ -7,11 +7,9 @@
 // Layout: PageHeader → KPI strip (4) → filter pills + sort → two-pane
 // (workflow cards left · selected workflow detail rail right).
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshCw, Search, Workflow } from 'lucide-react';
-// `Plus` is still used by the page header's "New workflow" action; the
-// empty-state CTA was removed because no create-workflow flow exists yet.
 import { Button } from '@/components/ui/button';
 import {
   Select,
@@ -42,11 +40,6 @@ const FILTER_TO_STATE: Record<Filter, WorkflowState | null> = {
   Retired: 'Retired',
 };
 
-// Categorical sparkline series.
-const SPARK_TEAL = 'var(--chart-1)';
-const SPARK_JADE = 'var(--chart-2)';
-const SPARK_MINT = 'var(--chart-4)';
-
 export function WorkflowsListPage() {
   const navigate = useNavigate();
   const { workflows: rawWorkflows, loading, error, refresh } = useWorkflows();
@@ -59,21 +52,6 @@ export function WorkflowsListPage() {
   const [selectedSlug, setSelectedSlug] = useState<string>('');
   const [filter, setFilter] = useState<Filter>('All');
   const [sort, setSort] = useState<Sort>('Most run');
-  const [initialLoad, setInitialLoad] = useState(true);
-
-  // Clear initial load once the workflows hook finishes its first fetch.
-  useEffect(() => {
-    if (!loading) {
-      setInitialLoad(false);
-    }
-  }, [loading]);
-
-  // Default-select the first workflow once data arrives.
-  useEffect(() => {
-    if (!selectedSlug && workflows.length > 0) {
-      setSelectedSlug(workflows[0].slug);
-    }
-  }, [selectedSlug, workflows]);
 
   const counts = useMemo(() => {
     const acc: Record<Filter, number> = { All: 0, Active: 0, Paused: 0, Draft: 0, Retired: 0 };
@@ -115,7 +93,7 @@ export function WorkflowsListPage() {
 
   // ── States: error / loading / empty / loaded ──────────────────────────
 
-  if (initialLoad) {
+  if (loading && workflows.length === 0) {
     return <PageLoadingScreen message="Loading workflows" />;
   }
 
@@ -175,38 +153,30 @@ export function WorkflowsListPage() {
       />
 
       {/* KPI strip */}
-      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3.5 lg:grid-cols-4">
         <KpiTile
           label="Workflows · active"
           value={String(counts.Active)}
           delta={`${counts.Draft} draft`}
           deltaTone="neutral"
-          sparkline={[12, 10, 11, 9, 8]}
-          sparkColor={SPARK_TEAL}
         />
         <KpiTile
           label="Runs · today"
           value={totalRuns.toLocaleString()}
           delta="last 24h"
           deltaTone="neutral"
-          sparkline={[18, 15, 12, 10, 7]}
-          sparkColor={SPARK_JADE}
         />
         <KpiTile
           label="Wired triggers"
           value={String(totalTriggers)}
           delta={`across ${workflows.length} workflows`}
           deltaTone="neutral"
-          sparkline={[11, 11, 10, 9, 9]}
-          sparkColor={SPARK_MINT}
         />
         <KpiTile
           label="Weighted success"
           value={totalRuns > 0 ? `${(wAvgSuccess * 100).toFixed(1)}%` : '—'}
           delta="weighted by runs"
           deltaTone="neutral"
-          sparkline={[8, 7, 6, 5, 4]}
-          sparkColor={SPARK_JADE}
         />
       </div>
 

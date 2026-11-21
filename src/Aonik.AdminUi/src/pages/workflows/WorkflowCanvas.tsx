@@ -132,8 +132,8 @@ export function WorkflowCanvas({
     const availW = Math.max(1, r.width - padding * 2);
     const availH = Math.max(1, r.height - padding * 2);
 
-    // Scale to fit, capped at 1.0 so small graphs don't render gigantic.
-    const scale = Math.min(1, Math.min(availW / graphW, availH / graphH));
+    // Keep the same readable minimum as the wheel and zoom controls.
+    const scale = Math.max(0.35, Math.min(1, availW / graphW, availH / graphH));
 
     // Centre the graph within the viewport.
     const tx = (r.width - graphW * scale) / 2 - x0 * scale;

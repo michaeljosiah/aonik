@@ -7,10 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { TenantRoleSelect } from '@/components/access/TenantRoleSelect';
 import { api } from '@/lib/api';
-import { roleService } from '@/services/roleService';
 import { connectorService, connectorError, consentUrl, type ConnectionRequest, type ConnectorActionRef, type ConnectorConnection, type ConnectorDescriptor, type ConnectorGrant } from '@/services/connectorService';
-import type { AccessRoleSummary } from '@/types';
 import { AutomationIdentitiesPanel } from './AutomationIdentitiesPanel';
 import { WorkflowExecutionPolicyPanel } from './WorkflowExecutionPolicyPanel';
 import { MailboxSubscriptionHealth } from './MailboxSubscriptionHealth';
@@ -155,14 +154,7 @@ export function ActionChoices({ actions, selected, onChange }: { actions: Connec
 function IntegrationPolicyPanel({ disabled, onSave, availableActions }: { disabled: boolean; onSave: RunAction; availableActions: ConnectorActionRef[] }) {
   const [enabled, setEnabled] = useState(false); const [personal, setPersonal] = useState(true); const [selfService, setSelfService] = useState(false); const [workflows, setWorkflows] = useState(false); const [role, setRole] = useState('');
   const [loaded, setLoaded] = useState(false);
-  const [roles, setRoles] = useState<AccessRoleSummary[]>([]);
-  const [rolesLoading, setRolesLoading] = useState(true);
-  const [rolesUnavailable, setRolesUnavailable] = useState(false);
   const [permanentDelete, setPermanentDelete] = useState(false); const [allowed, setAllowed] = useState<ConnectorActionRef[]>([]);
-  useEffect(() => {
-    void roleService.list({ pageNumber: 1, pageSize: 100 }).then(result => setRoles(result.items))
-      .catch(() => setRolesUnavailable(true)).finally(() => setRolesLoading(false));
-  }, []);
   useEffect(() => {
     const entries = ['Enabled', 'AllowUserConnections', 'AllowSelfService', 'AllowWorkflowConnections'].map(key => `Integrations.Gmail.${key}`).concat('Integrations.RequestReviewerRoleId', 'Integrations.Gmail.AllowPermanentDelete', 'Integrations.Gmail.AllowedActions');
     void Promise.all(entries.map(key => api.get<{ value: string | null }>(`/tenant/settings/values/${key}`))).then(values => {
@@ -174,13 +166,7 @@ function IntegrationPolicyPanel({ disabled, onSave, availableActions }: { disabl
     {!loaded && <p className="text-muted-foreground">Policy values could not be loaded yet. Settings read/write permission is required.</p>}
     {[['Enable Gmail', enabled, setEnabled], ['Allow personal accounts', personal, setPersonal], ['Allow personal self-service consent', selfService, setSelfService], ['Allow explicit workflow grants', workflows, setWorkflows]].map(([label, checked, update]) => <label key={String(label)} className="flex items-center gap-2"><Checkbox disabled={disabled || !loaded} checked={Boolean(checked)} onCheckedChange={value => (update as (value: boolean) => void)(value === true)} />{String(label)}</label>)}
     <label className="block space-y-1">Integration reviewer role
-      {rolesUnavailable ? <><Input aria-label="Integration reviewer role ID" disabled={!loaded} value={role} onChange={event => setRole(event.target.value)} />
-        <p className="text-muted-foreground">Role names could not be loaded. An access administrator can provide the reviewer role ID.</p></>
-        : <NativeSelect disabled={disabled || !loaded || rolesLoading} value={role} onChange={event => setRole(event.target.value)}>
-          <option value="">{rolesLoading ? 'Loading roles…' : 'Choose a reviewer role'}</option>
-          {role && !roles.some(item => item.roleId === role) && <option value={role}>Current reviewer role</option>}
-          {roles.map(item => <option key={item.roleId} value={item.roleId}>{item.name}</option>)}
-        </NativeSelect>}
+      <TenantRoleSelect label="Integration reviewer role" disabled={disabled || !loaded} value={role} onChange={setRole} />
     </label>
     {enabled && (!selfService || workflows) && !role && <p role="status" className="text-muted-foreground">Choose a reviewer role for connection requests before saving.</p>}
     <label className="flex items-center gap-2"><Checkbox disabled={disabled || !loaded} checked={permanentDelete} onCheckedChange={value => setPermanentDelete(value === true)} />Allow permanent deletion when also enabled by the platform</label>

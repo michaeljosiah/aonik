@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { TenantRoleSelect } from '@/components/access/TenantRoleSelect';
 import { workflowService, type WorkflowActionCapability } from '@/services/workflowService';
 import { connectorService, connectorError, type ConnectorConnection } from '@/services/connectorService';
 import { JsonField } from './DecisionTablePanel';
@@ -39,7 +40,7 @@ export function WorkflowToolPanel({ workflowId, parameters, onChange }: { workfl
       {selected.key === 'documents.financial.extract' && <p className="text-xs text-muted-foreground">Bind documentId to document.id and fileId to document.fileId. Unsupported bills, low confidence and conflicting totals stop for manual review. Creation requires a separate confirmed action.</p>}
       {selected.key === 'finance.invoices.create_from_document' && <p className="text-xs text-muted-foreground">Bind extractionId and candidateHash from the extraction step; select the known customer ID. The reviewer sees exact source evidence and invoice fields. Pass the returned invoiceId to a pinned invoice child for routing.</p>}
       <details className="text-xs"><summary className="cursor-pointer">Action input contract</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap break-all rounded-md border p-2">{JSON.stringify(selected.inputSchema, null, 2)}</pre></details>
-      {['Medium', 'High'].includes(selected.riskTier) && <><label className="block space-y-1 text-xs">Tenant reviewer role ID<Input value={parameters.reviewer?.roleId ?? ''} onChange={event => onChange({ ...parameters, reviewer: { roleId: event.target.value, forbidSelfApproval: parameters.reviewer?.forbidSelfApproval ?? true } })} /></label>
+      {['Medium', 'High'].includes(selected.riskTier) && <><label className="block space-y-1 text-xs">Reviewer role<TenantRoleSelect label="Action reviewer role" value={parameters.reviewer?.roleId ?? ''} onChange={roleId => onChange({ ...parameters, reviewer: { roleId, forbidSelfApproval: parameters.reviewer?.forbidSelfApproval ?? true } })} /></label>
         <label className="flex items-center gap-2 text-xs"><Checkbox checked={parameters.reviewer?.forbidSelfApproval ?? true} onCheckedChange={value => onChange({ ...parameters, reviewer: { roleId: parameters.reviewer?.roleId ?? '', forbidSelfApproval: value === true } })} />Require a separate reviewer from initiator and invoice creator</label></>}
       {connector && <>
         <label className="block space-y-1 text-xs">Pinned account<NativeSelect value={parameters.connection?.connectionId ?? ''} onChange={event => {
