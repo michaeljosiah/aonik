@@ -1,0 +1,55 @@
+{
+  "epic": "https://github.com/michaeljosiah/aonik/issues/438",
+  "recordedOn": "2026-11-21",
+  "status": "client-provisioned-host-deployment-pending",
+  "implementationPullRequest": "https://github.com/michaeljosiah/aonik/pull/440",
+  "testedSourceCommit": "34bf02aa126affe45f87313d2589f87b8f22c269",
+  "mergeCommit": "375ab341844bb376b52d25bcb330380f4cd79228",
+  "google": {
+    "projectName": "Aonik",
+    "projectId": "gen-lang-client-0482317472",
+    "gmailApiEnabled": true,
+    "oauthApplicationStatus": "Testing",
+    "designatedTestUserAdded": true,
+    "clientName": "AONIK Gmail Automation — Development",
+    "applicationType": "Web application",
+    "aiPoweredAgentClient": true,
+    "redirectUri": "https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/integrations/gmail/oauth/callback"
+  },
+  "credentialStorage": {
+    "vaultName": "aonik-dev-kv",
+    "secretName": "gmail-oauth-client-secret",
+    "replacementSecretEnabled": true,
+    "initialSecretDisabled": true,
+    "storedAtUtc": "2026-11-21T13:11:29Z",
+    "verification": "Key Vault metadata and portal creation receipt; no secret value recorded"
+  },
+  "deployment": {
+    "environment": "dev",
+    "clientIdVariable": "GMAIL_OAUTH_CLIENT_ID",
+    "secretReferenceVariable": "GMAIL_OAUTH_CLIENT_SECRET_URI",
+    "deploymentVariablesVerified": true,
+    "imageBuildRun": "https://github.com/michaeljosiah/aonik/actions/runs/43697992512",
+    "imageBuildAndVulnerabilityScanSucceeded": true,
+    "initialDeploymentPreview": "https://github.com/michaeljosiah/aonik/actions/runs/44908769124",
+    "publishingParametersMatchRunningApiAndWorker": true,
+    "preservedPublishingSettingCount": 41,
+    "canonicalMigrationBaseline": {
+      "run": "https://github.com/michaeljosiah/aonik/actions/runs/44908605938",
+      "dryRunOnly": true,
+      "canonicalModelMatchesSnapshot": true,
+      "migrationCount": 148,
+      "pendingWorkflowMigrationCount": 12
+    },
+    "activeApiAndWorkerConfigurationVerified": false
+  },
+  "liveQualification": {
+    "mailboxConsentCompleted": false,
+    "providerReadActionsQualified": false,
+    "providerWriteActionsQualified": false,
+    "authenticatedPushAndWatchQualified": false,
+    "operatorAndVoiceJourneyQualified": false,
+    "rolloutAndRollbackQualified": false,
+    "epicComplete": false
+  }
+}
