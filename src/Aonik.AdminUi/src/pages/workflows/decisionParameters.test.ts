@@ -4,6 +4,15 @@ import { adaptGraph, buildSaveRequest } from './workflowAdapters';
 import type { WorkflowGraphDto } from '@/services/workflowService';
 
 describe('decision authoring', () => {
+  it('uses unique fixture names accepted by the server key contract', () => {
+    const names = invoiceDecision().fixtures!.map(fixture => fixture.name);
+
+    expect(new Set(names).size).toBe(names.length);
+    for (const name of names) {
+      expect(name).toMatch(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/);
+    }
+  });
+
   const dto = (): WorkflowGraphDto => ({ id: 'workflow', slug: 'invoice', name: 'Invoice', description: '', state: 'Draft', version: 'v1', autoRetry: false,
     ownerName: '', ownerColor: '', contributors: [], expectedVersion: 'token', comments: [], nodes: [
       { id: 'decision', key: 'route', kind: 'Decision', label: 'Route', summary: '', notes: '', x: 0, y: 0, paramsJson: JSON.stringify(invoiceDecision()) },

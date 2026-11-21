@@ -7,9 +7,9 @@ export const invoiceDecision = (): DecisionParameters => {
   const facts = (amount: string) => ({ 'invoice.id': '00000000-0000-0000-0000-000000000001', 'invoice.total': amount, 'invoice.currency': 'GBP', 'invoice.status': 'Draft' });
   return { schemaVersion: 1, factSchema: 'invoice-approval.v1', hitPolicy: 'FirstMatch',
     rows: [{ id: 'standard', priority: 10, route: 'standard', all: [{ field: 'invoice.currency', operator: 'eq', value: 'GBP' }, { field: 'invoice.total', operator: 'lte', value: '5000.00' }] }], defaultRoute: 'manual',
-    fixtures: [{ name: 'Normal invoice', kind: 'Normal', facts: facts('100.00'), expectedStatus: 'Completed', expectedRoutes: ['standard'] },
-      { name: 'Threshold boundary', kind: 'Boundary', facts: facts('5000.00'), expectedStatus: 'Completed', expectedRoutes: ['standard'] },
-      { name: 'Missing data', kind: 'MissingData', facts: {}, expectedStatus: 'NeedsManualReview', expectedRoutes: [] }] };
+    fixtures: [{ name: 'normal-invoice', kind: 'Normal', facts: facts('100.00'), expectedStatus: 'Completed', expectedRoutes: ['standard'] },
+      { name: 'threshold-boundary', kind: 'Boundary', facts: facts('5000.00'), expectedStatus: 'Completed', expectedRoutes: ['standard'] },
+      { name: 'missing-data', kind: 'MissingData', facts: {}, expectedStatus: 'NeedsManualReview', expectedRoutes: [] }] };
 };
 
 export function decisionRoutes(params: WorkflowNodeParams): string[] {
