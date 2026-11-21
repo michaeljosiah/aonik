@@ -4,6 +4,8 @@ This is the prerequisite for the consenting-account qualification in epic #438. 
 
 ## Google client
 
+Use the AONIK platform's development project. The current project is **Aonik** (`gen-lang-client-0482317472`); verify the selected project name and ID before saving configuration or creating credentials. Product projects such as Payabo have separate ownership and are not the default home for platform connectors.
+
 In the intended Google Cloud project, enable Gmail API and configure the Google Auth Platform application for testing. Add the designated mailbox as an explicit test user. Create a **Web application** client named **AONIK Gmail Automation — Development**, separate from AONIK sign-in clients. Use the AI-powered agent option for the dedicated automation client. AONIK uses the Gmail REST API. Google requires the option for its Gmail MCP endpoint and offers it for agentic Web application clients. See [Google's credential setup](https://developers.google.com/workspace/guides/create-credentials), [OAuth consent setup](https://developers.google.com/workspace/guides/configure-oauth-consent) and [Gmail release notes](https://developers.google.com/workspace/gmail/release-notes).
 
 Register the exact API callback:
@@ -13,6 +15,8 @@ https://aonik-dev-api.delightfulisland-9fd7c1e7.uksouth.azurecontainerapps.io/in
 ```
 
 The server handles authorization-code exchange with PKCE. No browser JavaScript client secret is used. Store the confidential client's secret directly in the deployment secret store, or transfer the downloaded credentials privately to the authorized host configuration. Never paste it into chat, workflow JSON, a PR, or browser environment variables. Client creation and mailbox consent require the accountable owner's review.
+
+Capture the new credential privately before leaving its creation view or changing another secret. The console can remove its download controls after another secret operation. During rotation, verify the replacement is stored before disabling the previous secret. Keep temporary transfer files outside the repository with access restricted to their owner, then remove them after storage succeeds. Accessibility copy-button labels can contain the secret even when the displayed value is masked; exclude those labels from setup evidence.
 
 ## Host configuration
 
