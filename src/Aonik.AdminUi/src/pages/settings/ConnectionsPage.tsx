@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,9 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { api } from '@/lib/api';
+import { roleService } from '@/services/roleService';
 import { connectorService, connectorError, consentUrl, type ConnectionRequest, type ConnectorActionRef, type ConnectorConnection, type ConnectorDescriptor, type ConnectorGrant } from '@/services/connectorService';
+import type { AccessRoleSummary } from '@/types';
 import { AutomationIdentitiesPanel } from './AutomationIdentitiesPanel';
 import { WorkflowExecutionPolicyPanel } from './WorkflowExecutionPolicyPanel';
 import { MailboxSubscriptionHealth } from './MailboxSubscriptionHealth';
@@ -26,6 +28,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
   const [requests, setRequests] = useState<ConnectionRequest[]>([]);
   const [managedIds, setManagedIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLParagraphElement>(null);
   const [busy, setBusy] = useState(false);
   const [provider, setProvider] = useState('gmail');
   const [purpose, setPurpose] = useState('Read invoice correspondence');
@@ -37,6 +40,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
     setAccounts([...new Map([...eligible, ...managed].map(account => [account.id, account])).values()]); setRequests(items);
   }, [requestId, provider]);
   useEffect(() => { void refresh().catch(reason => setError(connectorError(reason))); }, [refresh]);
+  useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
   const run = async (operation: () => Promise<unknown>) => {
     setBusy(true); setError(null);
     try { await operation(); await refresh(); } catch (reason) { setError(connectorError(reason)); } finally { setBusy(false); }
@@ -50,7 +54,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
     <div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold">{tenant ? 'Tenant integrations' : 'My connections'}</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{tenant ? 'Review organizational access, account consent and exact use grants. Managing an account does not grant access to its email.' : 'Choose the accounts Aonik can use, review connection requests and manage your grants.'}</p></div>
       <Button variant="outline" disabled={busy} onClick={() => void run(refresh)}>Refresh</Button></div>
-    {error && <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</p>}
+    {error && <p ref={errorRef} tabIndex={-1} role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</p>}
     {tenant && <IntegrationPolicyPanel disabled={busy} onSave={run} availableActions={gmail?.actions ?? []} />}
     {tenant && <AutomationIdentitiesPanel />}
     {tenant && <WorkflowExecutionPolicyPanel />}
@@ -151,7 +155,14 @@ export function ActionChoices({ actions, selected, onChange }: { actions: Connec
 function IntegrationPolicyPanel({ disabled, onSave, availableActions }: { disabled: boolean; onSave: RunAction; availableActions: ConnectorActionRef[] }) {
   const [enabled, setEnabled] = useState(false); const [personal, setPersonal] = useState(true); const [selfService, setSelfService] = useState(false); const [workflows, setWorkflows] = useState(false); const [role, setRole] = useState('');
   const [loaded, setLoaded] = useState(false);
+  const [roles, setRoles] = useState<AccessRoleSummary[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesUnavailable, setRolesUnavailable] = useState(false);
   const [permanentDelete, setPermanentDelete] = useState(false); const [allowed, setAllowed] = useState<ConnectorActionRef[]>([]);
+  useEffect(() => {
+    void roleService.list({ pageNumber: 1, pageSize: 100 }).then(result => setRoles(result.items))
+      .catch(() => setRolesUnavailable(true)).finally(() => setRolesLoading(false));
+  }, []);
   useEffect(() => {
     const entries = ['Enabled', 'AllowUserConnections', 'AllowSelfService', 'AllowWorkflowConnections'].map(key => `Integrations.Gmail.${key}`).concat('Integrations.RequestReviewerRoleId', 'Integrations.Gmail.AllowPermanentDelete', 'Integrations.Gmail.AllowedActions');
     void Promise.all(entries.map(key => api.get<{ value: string | null }>(`/tenant/settings/values/${key}`))).then(values => {
@@ -162,10 +173,19 @@ function IntegrationPolicyPanel({ disabled, onSave, availableActions }: { disabl
   return <Card><CardHeader><CardTitle>Tenant policy</CardTitle></CardHeader><CardContent className="space-y-3 text-sm"><p className="text-muted-foreground">Tenant enablement is explicit. Platform restrictions continue to apply. OAuth client credentials are configured by the platform operator.</p>
     {!loaded && <p className="text-muted-foreground">Policy values could not be loaded yet. Settings read/write permission is required.</p>}
     {[['Enable Gmail', enabled, setEnabled], ['Allow personal accounts', personal, setPersonal], ['Allow personal self-service consent', selfService, setSelfService], ['Allow explicit workflow grants', workflows, setWorkflows]].map(([label, checked, update]) => <label key={String(label)} className="flex items-center gap-2"><Checkbox disabled={disabled || !loaded} checked={Boolean(checked)} onCheckedChange={value => (update as (value: boolean) => void)(value === true)} />{String(label)}</label>)}
-    <label className="block space-y-1">Integration reviewer role ID<Input disabled={!loaded} value={role} onChange={event => setRole(event.target.value)} /></label>
+    <label className="block space-y-1">Integration reviewer role
+      {rolesUnavailable ? <><Input aria-label="Integration reviewer role ID" disabled={!loaded} value={role} onChange={event => setRole(event.target.value)} />
+        <p className="text-muted-foreground">Role names could not be loaded. An access administrator can provide the reviewer role ID.</p></>
+        : <NativeSelect disabled={disabled || !loaded || rolesLoading} value={role} onChange={event => setRole(event.target.value)}>
+          <option value="">{rolesLoading ? 'Loading roles…' : 'Choose a reviewer role'}</option>
+          {role && !roles.some(item => item.roleId === role) && <option value={role}>Current reviewer role</option>}
+          {roles.map(item => <option key={item.roleId} value={item.roleId}>{item.name}</option>)}
+        </NativeSelect>}
+    </label>
+    {enabled && (!selfService || workflows) && !role && <p role="status" className="text-muted-foreground">Choose a reviewer role for connection requests before saving.</p>}
     <label className="flex items-center gap-2"><Checkbox disabled={disabled || !loaded} checked={permanentDelete} onCheckedChange={value => setPermanentDelete(value === true)} />Allow permanent deletion when also enabled by the platform</label>
     <details><summary className="cursor-pointer">Allowed Gmail actions</summary><p className="my-2 text-muted-foreground">Platform restrictions, account consent, use grants and each action’s human approval still apply. Enabling an action here does not grant mailbox access.</p><ActionChoices actions={availableActions} selected={allowed} onChange={setAllowed} /></details>
-    <Button disabled={disabled || !loaded} onClick={() => void onSave(async () => {
+    <Button disabled={disabled || !loaded || (enabled && (!selfService || workflows) && !role)} onClick={() => void onSave(async () => {
       const values = { 'Integrations.Gmail.Enabled': String(enabled), 'Integrations.Gmail.AllowUserConnections': String(personal), 'Integrations.Gmail.AllowSelfService': String(selfService), 'Integrations.Gmail.AllowWorkflowConnections': String(workflows), 'Integrations.RequestReviewerRoleId': role || null,
         'Integrations.Gmail.AllowPermanentDelete': String(permanentDelete), 'Integrations.Gmail.AllowedActions': JSON.stringify(allowed) };
       for (const [key, value] of Object.entries(values)) await api.put(`/tenant/settings/values/${key}`, { value });
