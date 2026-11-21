@@ -114,6 +114,11 @@ internal sealed class ApproveProposalEndpoint : Endpoint<ApproveProposalRequest,
         {
             await Send.NotFoundAsync(ct);
         }
+        catch (Services.Workflows.WorkflowConflictException ex)
+        {
+            AddError(ex.Message, errorCode: "workflow_conflict");
+            await Send.ErrorsAsync(StatusCodes.Status409Conflict, ct);
+        }
         catch (NoProposalHandlerRegisteredException ex)
         {
             AddError(

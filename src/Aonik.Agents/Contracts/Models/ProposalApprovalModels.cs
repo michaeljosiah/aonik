@@ -34,7 +34,8 @@ public sealed record ProposalDetailResponse(
     DateTime CreatedAt,
     string? AppliedResourceType = null,
     Guid? AppliedResourceId = null,
-    string? AppliedMessage = null);
+    string? AppliedMessage = null,
+    Aonik.SharedKernel.Abstractions.Agents.ToolApprovalPreview? Preview = null);
 
 /// <summary>
 /// Compact list-row view of a pending agent proposal, returned by the

@@ -28,7 +28,9 @@ import type { CanvasView } from './Minimap';
 import { EditorHeader } from './EditorHeader';
 import { EditorPalette } from './EditorPalette';
 import { EditorInspector } from './EditorInspector';
-import { TestPanel, HistoryPanel, TraceBar } from './EditorPanels';
+import { HistoryPanel, TraceBar } from './EditorPanels';
+import { WorkflowQualificationPanel } from './WorkflowQualificationPanel';
+import { nodeRoutes, compositionParameters, humanTaskParameters, invoiceDecision, replaceNodeParameters } from './decisionParameters';
 
 // Validation — derive errors from the graph state.
 // Mirrors computeValidation() in workflow-editor-screen.jsx.
@@ -59,10 +61,10 @@ function computeValidation(
         message: `${n.label}: dangling output — connect to the next step or an End node.`,
       });
     }
-    if (n.kind === 'decision' && outDeg[n.id] < 2) {
+    if (n.kind === 'decision' && outDeg[n.id] < nodeRoutes(n.kind, n.params).length) {
       errs.push({
         nodeId: n.id,
-        message: `${n.label}: decision needs both yes and no branches wired.`,
+        message: `${n.label}: connect every declared decision route.`,
       });
     }
   });
@@ -104,6 +106,7 @@ export function WorkflowEditorPage() {
   const [testOpen, setTestOpen] = useState(true);
   const [traceOpen, setTraceOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [rollbackId, setRollbackId] = useState<string>();
 
   // Trace
   const [trace, setTrace] = useState<TraceState | null>(null);
@@ -137,22 +140,11 @@ export function WorkflowEditorPage() {
       id: string,
       patch: Partial<WorkflowNode> & { params?: Partial<WorkflowNodeParams> },
     ) => {
-      setWf((w) =>
-        w
-          ? {
-              ...w,
-              nodes: w.nodes.map((n) =>
-                n.id === id
-                  ? {
-                      ...n,
-                      ...patch,
-                      params: { ...n.params, ...(patch.params ?? {}) },
-                    }
-                  : n,
-              ),
-            }
-          : w,
-      );
+      setWf(current => {
+        if (!current) return current;
+        if (patch.params) return replaceNodeParameters(current, id, patch.params, patch);
+        return { ...current, nodes: current.nodes.map(node => node.id === id ? { ...node, ...patch } : node) };
+      });
       dirty();
     },
     [dirty],
@@ -187,12 +179,13 @@ export function WorkflowEditorPage() {
         const newId = 'e' + Math.random().toString(36).slice(2, 7);
         const fromNode = w.nodes.find((n) => n.id === from);
         let label: string | undefined;
-        if (fromNode?.kind === 'decision') {
-          label = fromIdx === 0 ? fromNode.params.yesLabel : fromNode.params.noLabel;
+        const routed = ['decision', 'human', 'child', 'loop', 'parallel'].includes(fromNode?.kind ?? '');
+        if (routed && fromNode) {
+          label = nodeRoutes(fromNode.kind, fromNode.params)[fromIdx];
         } else if (fromNode?.kind === 'loop') {
           label = fromIdx === 0 ? 'body' : 'done';
         }
-        const next: WorkflowEdge = { id: newId, from, to, fromIdx, label };
+        const next: WorkflowEdge = { id: newId, from, to, fromIdx, label, routeKey: routed ? label : undefined };
         return { ...w, edges: [...w.edges, next] };
       });
       dirty();
@@ -218,6 +211,7 @@ export function WorkflowEditorPage() {
         w
           ? {
               ...w,
+              ...(['wait', 'human', 'child', 'loop', 'parallel'].includes(kind) ? { schemaVersion: 2 } : {}),
               nodes: [
                 ...w.nodes,
                 {
@@ -227,7 +221,8 @@ export function WorkflowEditorPage() {
                   y,
                   label: k.label,
                   summary: '',
-                  params: { ...(k.defaults as WorkflowNodeParams) },
+                  params: kind === 'decision' ? invoiceDecision() : kind === 'human' ? humanTaskParameters()
+                    : ['child', 'loop', 'parallel'].includes(kind) ? compositionParameters(kind) : { ...(k.defaults as WorkflowNodeParams) },
                 },
               ],
             }
@@ -248,13 +243,11 @@ export function WorkflowEditorPage() {
   // ── Save ──
   const onSave = useCallback(async () => {
     if (!wf || !slug) return;
-    if (validationErrors.length > 0) {
-      setSaveError('Fix validation errors before saving.');
-      return;
-    }
     setSaving(true);
     setSaveError(null);
     try {
+      const invalid = document.querySelector<HTMLTextAreaElement>('textarea:invalid');
+      if (invalid) { invalid.reportValidity(); throw new Error('Fix invalid JSON before saving.'); }
       const payload = buildSaveRequest(wf, {
         autoRetry: false,
         contributors: [],
@@ -276,19 +269,20 @@ export function WorkflowEditorPage() {
     } finally {
       setSaving(false);
     }
-  }, [wf, slug, validationErrors, refreshWorkflow]);
+  }, [wf, slug, refreshWorkflow]);
 
   // ── Trace control ──
   const startTrace = useCallback(
     (runId: string = runs[0]?.id ?? '', atStep = 1) => {
       const run = runs.find((r) => r.id === runId);
       if (!run) return;
+      if (run.mode === 'Live') { navigate(`/ai/workflow-runs/${run.id}`); return; }
       const completed = run.sequence.slice(0, atStep);
       const current = run.sequence[atStep] ?? run.sequence[run.sequence.length - 1];
       setTrace({ runId, current, completed });
       setTraceOpen(true);
     },
-    [runs],
+    [runs, navigate],
   );
 
   const stepTrace = useCallback(
@@ -401,7 +395,7 @@ export function WorkflowEditorPage() {
       )}
 
       <div className="flex min-h-0 flex-1">
-        <EditorPalette collapsed={paletteCollapsed} setCollapsed={setPaletteCollapsed} />
+        <EditorPalette collapsed={paletteCollapsed} setCollapsed={setPaletteCollapsed} definitionKind={wf.definitionKind} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <WorkflowCanvas
@@ -421,15 +415,22 @@ export function WorkflowEditorPage() {
             validationErrors={validationErrors}
           />
           {testOpen && (
-            <TestPanel
+            <WorkflowQualificationPanel
+              key={`${wf.expectedVersion}:${rollbackId ?? ''}`}
               workflow={wf}
+              hasChanges={hasChanges}
               onClose={() => setTestOpen(false)}
-              onStartRun={() => startTrace()}
+              onChanged={refreshWorkflow}
+              rollback={rawVersions.find(version => version.id === rollbackId)}
+              onClearRollback={() => setRollbackId(undefined)}
+              publishedHash={rawVersions.find(version => version.id === wf.publishedVersionId)?.definitionHash}
+              publishedSubjectType={rawVersions.find(version => version.id === wf.publishedVersionId)?.subjectType}
             />
           )}
         </div>
 
         <EditorInspector
+          onUpdateWorkflow={patch => { setWf(current => current ? { ...current, ...patch } : current); dirty(); }}
           selection={selection}
           nodes={wf.nodes}
           edges={wf.edges}
@@ -444,7 +445,7 @@ export function WorkflowEditorPage() {
           <HistoryPanel
             versions={versions}
             onClose={() => setHistoryOpen(false)}
-            onRestore={() => {}}
+            onRestore={id => { setRollbackId(id); setTestOpen(true); }}
           />
         )}
       </div>

@@ -43,6 +43,9 @@ internal class AgentsDbContext : AonikDbContextBase
     public DbSet<WorkflowVersion> WorkflowVersions { get; set; } = null!;
     public DbSet<WorkflowComment> WorkflowComments { get; set; } = null!;
     public DbSet<WorkflowRun> WorkflowRuns { get; set; } = null!;
+    public DbSet<WorkflowTriggerBinding> WorkflowTriggerBindings { get; set; } = null!;
+    public DbSet<WorkflowStepRun> WorkflowStepRuns { get; set; } = null!;
+    public DbSet<WorkflowCheckpoint> WorkflowCheckpoints { get; set; } = null!;
 
     public AgentsDbContext(
         DbContextOptions<AgentsDbContext> options,
@@ -102,6 +105,9 @@ internal class AgentsDbContext : AonikDbContextBase
         MapTable<WorkflowVersion>(modelBuilder, "WorkflowVersions");
         MapTable<WorkflowComment>(modelBuilder, "WorkflowComments");
         MapTable<WorkflowRun>(modelBuilder, "WorkflowRuns");
+        MapTable<WorkflowTriggerBinding>(modelBuilder, "WorkflowTriggerBindings");
+        MapTable<WorkflowStepRun>(modelBuilder, "WorkflowStepRuns");
+        MapTable<WorkflowCheckpoint>(modelBuilder, "WorkflowCheckpoints");
 
         // ConversationSummary is already owned by the canonical AonikDbContext
         // migration stream as dbo.ConversationSummaries.

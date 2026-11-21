@@ -8,7 +8,7 @@ namespace Aonik.SharedKernel.Abstractions.Documents;
 /// (<see cref="ExtractedTextStatus.Unsupported"/>). <see cref="Text"/> is empty unless the
 /// status indicates text is available.
 /// </summary>
-public sealed record DocumentTextExtractionResult(string Text, ExtractedTextStatus Status)
+public sealed record DocumentTextExtractionResult(string Text, ExtractedTextStatus Status, DocumentTextProvenance? Provenance = null)
 {
     /// <summary>True when embeddable text was produced and is ready to chunk + embed.</summary>
     public bool HasText => Status is ExtractedTextStatus.Native or ExtractedTextStatus.OcrDone
@@ -18,6 +18,8 @@ public sealed record DocumentTextExtractionResult(string Text, ExtractedTextStat
     public static DocumentTextExtractionResult OcrRequired() => new(string.Empty, ExtractedTextStatus.OcrRequired);
     public static DocumentTextExtractionResult Unsupported() => new(string.Empty, ExtractedTextStatus.Unsupported);
 }
+
+public sealed record DocumentTextProvenance(string Extractor, string Version, int Pages, double? Confidence);
 
 /// <summary>
 /// Extracts embeddable plain text from a document file's bytes for the RAG ingestion pipeline

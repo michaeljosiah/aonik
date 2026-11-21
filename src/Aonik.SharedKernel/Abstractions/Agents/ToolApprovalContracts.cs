@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Aonik.SharedKernel.Abstractions.Agents;
 
 /// <summary>
@@ -88,7 +90,8 @@ public sealed record ToolApprovalRequiredResult(
     bool Executed,
     string Status,
     string Message,
-    Guid? ApprovalRequestId = null)
+    Guid? ApprovalRequestId = null,
+    ToolApprovalPreview? Preview = null)
 {
     /// <summary>The <see cref="Status"/> value used for a gated-but-not-executed action.</summary>
     public const string RequiresApprovalStatus = "RequiresApproval";
@@ -151,7 +154,8 @@ public sealed record ToolApprovalQueuedResult(
     string Status,
     Guid ProposalId,
     Guid ApprovalRequestId,
-    string Message)
+    string Message,
+    ToolApprovalPreview? Preview = null)
 {
     /// <summary>The <see cref="Status"/> value used for a queued-for-approval action.</summary>
     public const string QueuedStatus = "Queued";
@@ -175,7 +179,7 @@ public sealed record ToolApprovalQueuedResult(
             ProposalId: proposalId,
             ApprovalRequestId: approvalRequestId,
             Message:
-                $"The '{action}' action is a {options.Tier}-risk money movement and was NOT executed. " +
+                $"The '{action}' action is a {options.Tier}-risk mutation and was NOT executed. " +
                 $"It has been queued as proposal {proposalId} and will run only after a human approves it. " +
                 "Tell the user the action is prepared and awaiting their approval — do not claim it succeeded.");
     }
@@ -202,6 +206,12 @@ public enum ToolGateDecision
 
     /// <summary>The action was refused (rejected / expired / failed to gate). The inner tool must not run.</summary>
     Refused,
+
+    /// <summary>The same durable invocation already has verified execution evidence. Do not invoke it again.</summary>
+    Completed,
+
+    /// <summary>The invocation is in progress or uncertain. Only reconciliation may proceed.</summary>
+    NeedsAttention,
 }
 
 /// <summary>
@@ -212,7 +222,22 @@ public enum ToolGateDecision
 public sealed record ToolGateContext(
     string ToolName,
     ToolApprovalOptions Options,
-    IDictionary<string, object?> Arguments);
+    IDictionary<string, object?> Arguments,
+    ToolApprovalPreview? Preview = null,
+    string? InvocationKey = null,
+    string? AuditArgumentsJson = null,
+    Guid? AiRunId = null);
+
+public sealed record ToolApprovalPreview(string Title, JsonElement? Before, JsonElement? After);
+
+public sealed record PendingToolApprovalReview(
+    Guid Id,
+    string Tool,
+    string Tier,
+    string ActionKind,
+    Guid? ProposalId,
+    DateTime ExpiresAt,
+    ToolApprovalPreview? Preview);
 
 /// <summary>Uniform outcome of <see cref="IToolApprovalService.GateAsync"/>.</summary>
 /// <param name="Decision">How the call was routed.</param>
@@ -227,7 +252,11 @@ public sealed record ToolGateOutcome(
     Guid? ApprovalRequestId = null,
     Guid? ProposalId = null,
     string? Summary = null,
-    string? Reason = null);
+    string? Reason = null,
+    JsonElement? Result = null);
+
+public sealed record ToolApprovalExecutionResult(string Tool, string Status, bool Executed, Guid? ApprovalRequestId,
+    Guid? ProposalId, JsonElement? Result, string? Message);
 
 /// <summary>Whether a <see cref="IToolApprovalService.DecideAsync"/> caller is approving or rejecting.</summary>
 public enum ToolApprovalDecisionType
@@ -245,7 +274,8 @@ public enum ToolApprovalDecisionType
 /// </summary>
 public sealed record ToolApprovalDecisionInput(
     ToolApprovalDecisionType Decision,
-    string? Reason = null);
+    string? Reason = null,
+    JsonElement? Response = null);
 
 /// <summary>How <see cref="IToolApprovalService.DecideAsync"/> resolved a decision attempt.</summary>
 public enum ToolApprovalDecisionOutcome
@@ -337,6 +367,10 @@ public interface IToolApprovalService
     /// persists a durable proposal and returns <see cref="ToolGateDecision.Queued"/> with its id.
     /// </summary>
     Task<ToolGateOutcome> GateAsync(ToolGateContext context, CancellationToken cancellationToken = default);
+
+    /// <summary>Loads an unexpired conversation approval the current user can review.</summary>
+    Task<PendingToolApprovalReview?> GetPendingReviewAsync(Guid approvalRequestId, CancellationToken cancellationToken = default)
+        => Task.FromResult<PendingToolApprovalReview?>(null);
 
     /// <summary>
     /// Records a server-validated decision for a pending request (Medium), or routes a High

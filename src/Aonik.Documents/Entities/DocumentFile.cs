@@ -14,6 +14,8 @@ public class DocumentFile : AuditableEntity, ITenantScoped
     public string? FileName { get; set; }
     public long? FileSizeBytes { get; set; }
     public string? Sha256 { get; set; }
+    public string? SourceFingerprint { get; set; }
+    public string? SourceEvidenceJson { get; set; }
     public int? PageIndex { get; set; }
     public string? Side { get; set; }
     public DateTime? CapturedAt { get; set; }

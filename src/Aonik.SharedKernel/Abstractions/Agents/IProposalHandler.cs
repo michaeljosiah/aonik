@@ -8,11 +8,12 @@ namespace Aonik.SharedKernel.Abstractions.Agents;
 ///
 /// Failure modes:
 ///   • Throw for unexpected errors (DB unavailable, partner API failure).
-///     The dispatcher reverts the proposal to <c>Proposed</c> and rethrows.
+///     The approval service records failure. High-risk dispatch is terminal;
+///     a possibly committed effect requires reconciliation, never blind retry.
 ///   • Return <see cref="ProposalHandlerResult.Applied"/> = <c>false</c> +
 ///     <see cref="ProposalHandlerResult.Message"/> for expected business
 ///     reasons (payload references a deleted entity, idempotency conflict
-///     that should not retry). The dispatcher reverts and throws
+///     that should not retry). The approval service throws
 ///     <see cref="ProposalExecutionFailedException"/> which surfaces as HTTP 422.
 ///   • Return <see cref="ProposalHandlerResult.Applied"/> = <c>true</c> with
 ///     optional <see cref="ProposalHandlerResult.AppliedResourceType"/> /
@@ -58,7 +59,9 @@ public sealed record ProposalHandlerResult(
     bool Applied,
     string? AppliedResourceType = null,
     Guid? AppliedResourceId = null,
-    string? Message = null);
+    string? Message = null,
+    System.Text.Json.JsonElement? Output = null,
+    Guid? AiRunId = null);
 
 /// <summary>
 /// Resolves the <see cref="IProposalHandler"/> registered for a given

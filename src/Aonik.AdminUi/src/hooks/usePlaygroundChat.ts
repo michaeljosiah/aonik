@@ -273,6 +273,7 @@ export function usePlaygroundChat() {
         tool: payload.tool,
         tier: payload.tier,
         actionKind: payload.actionKind,
+        preview: payload.preview,
         status: 'pending',
       };
       approvalPartsRef.current.set(id, approval);

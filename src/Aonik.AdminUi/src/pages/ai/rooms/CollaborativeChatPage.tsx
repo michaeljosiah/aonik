@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { ArrowLeft, AtSign, Check, Hash, Link, Loader2, LockKeyhole, Plus, Search, Send, Users, X } from 'lucide-react';
+import { ArrowLeft, AtSign, Hash, Link, Loader2, LockKeyhole, Plus, Search, Send, Users, X } from 'lucide-react';
 import { AgentAvatar } from '@/components/ai/AgentAvatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +17,7 @@ import { mergeRoomMessages, roomError } from './roomPresentation';
 import { RoomMessageView, RoomTurnView } from './RoomMessages';
 import { RoomParticipants } from './RoomParticipants';
 import { RoomEditorDialog } from './RoomEditorDialog';
+import { RoomApprovalDialog } from './RoomApprovalDialog';
 
 export function CollaborativeChatPage({ onOpenPrivate }: { onOpenPrivate: () => void }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -188,6 +189,6 @@ export function CollaborativeChatPage({ onOpenPrivate }: { onOpenPrivate: () => 
     <Sheet open={peopleDrawer && !!room} onOpenChange={setPeopleDrawer}><SheetContent size="sm"><SheetHeader title="Room participants" subtitle="People, agents and shared context" /><SheetBody className="p-0">{room && <RoomParticipants room={room} agents={agents} className="w-full max-xl:w-full max-lg:flex border-0" onInvite={kind => { setPeopleDrawer(false); setModal(kind); }} onRemove={person => { setPeopleDrawer(false); setRemove(person); }} />}</SheetBody></SheetContent></Sheet>
     {modal && <RoomEditorDialog key={`${activeId}:${modal}`} kind={modal} room={room} agents={agents} onClose={() => setModal(null)} onCreated={openRoom} onChanged={refresh} />}
     <Dialog open={!!remove} onOpenChange={open => !open && setRemove(null)}><DialogContent><DialogHeader><DialogTitle>Remove room access?</DialogTitle><DialogDescription>{remove?.displayName} will lose access to this room and its updates. Existing messages remain in the history.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setRemove(null)}>Cancel</Button><Button variant="destructive" disabled={pending} onClick={() => { const person = remove; if (person) void act(async () => { await chatRoomService.remove(activeId, person.actorKey); setRemove(null); if (person.userId === room?.currentUserId) setSearchParams({ view: 'rooms' }); }); }}>Remove participant</Button></DialogFooter></DialogContent></Dialog>
-    <Dialog open={!!decision} onOpenChange={open => !open && setDecision(null)}><DialogContent><DialogHeader><DialogTitle>{decision?.choice === 'Approve' ? 'Confirm this proposed action' : 'Reject this proposed action'}</DialogTitle><DialogDescription>Review the exact request. Your decision is checked by the existing server policy; a room role does not grant financial authority.</DialogDescription></DialogHeader><div className="space-y-3"><strong className="text-sm">{decision?.approval.actionKind}</strong><pre className="max-h-72 overflow-auto rounded-lg border bg-muted p-3 font-mono text-xs whitespace-pre-wrap break-words">{decision?.approval.argumentsJson}</pre><p className="text-xs text-muted-foreground">{decision?.approval.tier === 'High' ? 'High-risk action: the durable proposal dispatcher owns execution.' : 'Medium-risk action: approval authorises only the exact recorded arguments, once.'}</p>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}</div><DialogFooter><Button variant="outline" onClick={() => setDecision(null)}>Cancel</Button><Button variant={decision?.choice === 'Approve' ? 'agent' : 'destructive'} disabled={pending || !writable || !canUseAgents} onClick={() => { const item = decision; if (item) void act(async () => { await chatRoomService.decide(item.roomId, item.turn.id, item.approval.id, item.choice); setDecision(null); }); }}>{pending ? <Loader2 className="animate-spin" /> : <Check />}Confirm {decision?.choice.toLowerCase()}</Button></DialogFooter></DialogContent></Dialog>
+    {decision && <RoomApprovalDialog key={decision.approval.id} approval={decision.approval} choice={decision.choice} disabled={!writable || !canUseAgents} busy={pending} error={error} onClose={() => setDecision(null)} onConfirm={() => { const item = decision; void act(async () => { await chatRoomService.decide(item.roomId, item.turn.id, item.approval.id, item.choice); setDecision(null); }); }} />}
   </div>;
 }

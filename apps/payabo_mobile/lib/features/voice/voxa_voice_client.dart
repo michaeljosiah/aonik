@@ -317,6 +317,27 @@ class VoxaVoiceClient {
         );
       case 'text':
         return VoxaVoiceEvent.botText(text: (json['text'] as String?) ?? '');
+      case 'approvalReview':
+        final Object? reviewPath = json['reviewPath'];
+        final Object? reviewUrl = json['reviewUrl'];
+        if (reviewPath is! String ||
+            !RegExp(
+              r'^/approvals\?requestId=[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$',
+              caseSensitive: false,
+            ).hasMatch(reviewPath)) {
+          return null;
+        }
+        final Uri? url = reviewUrl is String ? Uri.tryParse(reviewUrl) : null;
+        final bool trustedUrl = url != null &&
+            url.scheme == 'https' &&
+            url.host.isNotEmpty &&
+            url.userInfo.isEmpty &&
+            url.fragment.isEmpty &&
+            '${url.path}?${url.query}' == reviewPath;
+        return VoxaVoiceEvent.botText(
+          text: '\nReview the pending action in AONIK Approvals.\n'
+              '${trustedUrl ? reviewUrl : reviewPath}',
+        );
       case 'speaking':
         return VoxaVoiceEvent.speaking(
           who: (json['who'] as String?) ?? 'bot',

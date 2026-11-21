@@ -90,6 +90,7 @@ public static class Extensions
                         tracing.Filter = context =>
                             !context.Request.Path.StartsWithSegments(HealthEndpointPath)
                             && !context.Request.Path.StartsWithSegments(AlivenessEndpointPath)
+                            && !context.Request.Path.Equals("/integrations/gmail/oauth/callback", StringComparison.OrdinalIgnoreCase)
                     )
                     // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                     //.AddGrpcClientInstrumentation()
@@ -100,6 +101,10 @@ public static class Extensions
                             !(request.RequestUri is { IsAbsoluteUri: true } uri
                                 && uri.Host.Equals("api.postcodes.io", StringComparison.OrdinalIgnoreCase)
                                 && uri.AbsolutePath.StartsWith("/postcodes/", StringComparison.Ordinal))
+                            && !(request.RequestUri is { IsAbsoluteUri: true } provider
+                                && (provider.Host.Equals("gmail.googleapis.com", StringComparison.OrdinalIgnoreCase)
+                                    || provider.Host.Equals("oauth2.googleapis.com", StringComparison.OrdinalIgnoreCase)
+                                    || provider.Host.Equals("openidconnect.googleapis.com", StringComparison.OrdinalIgnoreCase)))
                     )
                     .AddSqlClientInstrumentation()
                     // AI / Agent Framework tracing (GenAI semantic conventions)

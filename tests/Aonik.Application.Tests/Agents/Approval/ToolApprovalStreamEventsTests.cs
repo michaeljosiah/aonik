@@ -22,6 +22,23 @@ public class ToolApprovalStreamEventsTests
     };
 
     [Fact]
+    public void Inspect_Should_PreserveTheServerGeneratedPreview_ForTheExistingApprovalCard()
+    {
+        var result = ToolApprovalRequiredResult.For("aonik_update_workflow", new(ToolApprovalTier.Medium), Guid.NewGuid()) with
+        {
+            Preview = new("Update invoice threshold", JsonSerializer.SerializeToElement(new { threshold = "1000.00" }),
+                JsonSerializer.SerializeToElement(new { threshold = "2500.00" }))
+        };
+
+        using var document = Serialize(ToolApprovalStreamEvents.Inspect(result, "call_threshold").CustomEvent!);
+
+        JsonElement preview = document.RootElement.GetProperty("value").GetProperty("preview");
+        preview.GetProperty("title").GetString().Should().Be("Update invoice threshold");
+        preview.GetProperty("before").GetProperty("threshold").GetString().Should().Be("1000.00");
+        preview.GetProperty("after").GetProperty("threshold").GetString().Should().Be("2500.00");
+    }
+
+    [Fact]
     public void Inspect_Should_EmitApprovalRequiredEvent_When_MediumResultCarriesRequestId()
     {
         var requestId = Guid.NewGuid();

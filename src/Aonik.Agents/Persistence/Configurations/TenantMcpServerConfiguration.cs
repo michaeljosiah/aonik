@@ -19,6 +19,7 @@ internal class TenantMcpServerConfiguration : IEntityTypeConfiguration<TenantMcp
         builder.Property(x => x.Name).IsRequired().HasMaxLength(200);
         builder.Property(x => x.Endpoint).IsRequired().HasMaxLength(2048);
         builder.Property(x => x.ProtectedAuthJson).HasColumnType("nvarchar(max)");
+        builder.Property(x => x.ConnectorPackageJson).HasMaxLength(2000);
         builder.Property(x => x.AllowedToolPrefixesJson).HasColumnType("nvarchar(max)");
         builder.Property(x => x.ReviewNotes).HasMaxLength(2000);
 

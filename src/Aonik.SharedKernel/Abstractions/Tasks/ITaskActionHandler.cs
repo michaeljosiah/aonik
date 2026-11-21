@@ -43,7 +43,8 @@ public sealed record TaskActionContext(
     Guid? AssigneeId,
     string? AssigneeKey,
     DateTime ScheduledForUtc,
-    string ActionPayloadJson);
+    string ActionPayloadJson,
+    DateTime? FirstStartedAtUtc = null);
 
 /// <summary>
 /// The outcome of a single due-occurrence dispatch. Stamped onto the
@@ -55,7 +56,8 @@ public sealed record TaskActionResult(
     string? ResultJson = null,
     string? Error = null,
     Guid? AiRunId = null,
-    Guid? ProposalId = null);
+    Guid? ProposalId = null,
+    DateTime? DeferredUntilUtc = null);
 
 /// <summary>The terminal disposition a handler reports for one due occurrence.</summary>
 public enum TaskActionOutcome
@@ -71,4 +73,7 @@ public enum TaskActionOutcome
 
     /// <summary>A high-risk action marshalled into a <c>Proposal</c>; money moves only after approval.</summary>
     Proposed = 4,
+
+    /// <summary>Expected backpressure: retain this occurrence and retry at a bounded future UTC time without consuming failure attempts.</summary>
+    Deferred = 5,
 }

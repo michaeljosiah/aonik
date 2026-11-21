@@ -19,6 +19,10 @@ public record DocumentFileUploadResult(
 /// </summary>
 public interface IDocumentFileStore
 {
+    Task<DocumentFileUploadResult> UploadPrivateDocumentFileAsync(Guid tenantId, Guid documentId, Stream fileStream,
+        string fileName, string contentType, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException("Private document storage is unavailable.");
+
     Task<DocumentFileUploadResult> UploadDocumentFileAsync(
         Guid tenantId,
         Guid documentId,

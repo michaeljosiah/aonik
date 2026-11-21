@@ -70,6 +70,7 @@ public class PaymentIntentConfiguration : IEntityTypeConfiguration<PaymentIntent
         // abandoned checkout, a switched payment method or a retried decline needs. Filtered
         // because every intent written before this phase has a null key.
         builder.Property(x => x.IdempotencyKey).HasMaxLength(200);
+        builder.Property(x => x.ProvenanceJson).HasColumnType("nvarchar(max)");
 
         builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey })
             .IsUnique()

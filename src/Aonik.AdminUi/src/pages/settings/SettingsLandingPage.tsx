@@ -31,6 +31,8 @@ interface SettingsTile {
 }
 
 const settingsTiles: SettingsTile[] = [
+  { section: 'Platform', title: 'My connections', description: 'Review account consent, access requests and personal connector grants.', href: '/settings/my-connections', icon: <Blocks className="h-[18px] w-[18px]" />, badge: 'Connections' },
+  { section: 'Platform', title: 'Tenant integrations', description: 'Manage organization accounts, connector policy and assigned access reviews.', href: '/settings/tenant-integrations', icon: <Blocks className="h-[18px] w-[18px]" />, badge: 'Integrations' },
   {
     section: 'Platform',
     title: 'Platform Settings',

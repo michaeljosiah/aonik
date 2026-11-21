@@ -64,6 +64,9 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         // every by-order lookup, since those always carry a non-null OrderId.
 
         builder.Property(x => x.IdempotencyKey).HasMaxLength(200);
+        builder.Property(x => x.InvoiceNumber).HasMaxLength(100);
+        builder.Property(x => x.IntakeBusinessKey).HasMaxLength(64);
+        builder.HasIndex(x => new { x.TenantId, x.IntakeBusinessKey }).IsUnique().HasFilter("[IntakeBusinessKey] IS NOT NULL");
 
         // Same reasoning: every invoice written before this phase has a null key.
         builder.HasIndex(x => new { x.TenantId, x.IdempotencyKey })
@@ -71,6 +74,8 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasFilter("[IdempotencyKey] IS NOT NULL");
         builder.HasIndex(x => new { x.TenantId, x.Status });
         builder.HasIndex(x => new { x.TenantId, x.DueDate });
+        builder.HasIndex(x => new { x.TenantId, x.IssueOperationId })
+            .IsUnique().HasFilter("[IssueOperationId] IS NOT NULL");
 
         // #223: covers the list endpoint's sort key — BillingService.ListInvoicesAsync
         // does OrderByDescending(IssueDate).ThenBy(Id) under the tenant query filter, so

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ConnectionRequestResultCard } from '@/components/ai/ConnectionRequestResultCard';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -287,14 +288,13 @@ export function PlaygroundOutputPanel({
                       return <ReasoningBlock key={`r-${i}`} content={part.content} />;
                     case 'tool-call':
                       return (
-                        <ToolCallCard
-                          key={part.toolCall.toolCallId}
+                        <div key={part.toolCall.toolCallId}><ToolCallCard
                           toolCall={part.toolCall}
                           onApprove={onApproveToolCall}
                           onReject={onRejectToolCall}
                           onSelectOptions={onSelectToolCallOptions}
                           onSelectFollowUpSuggestion={onSelectFollowUpSuggestion}
-                        />
+                        /><ConnectionRequestResultCard toolName={part.toolCall.toolCallName} result={part.toolCall.result} /></div>
                       );
                     case 'text':
                       return (

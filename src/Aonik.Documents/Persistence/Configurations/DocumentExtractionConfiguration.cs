@@ -21,5 +21,9 @@ public class DocumentExtractionConfiguration : IEntityTypeConfiguration<Document
             .HasDefaultValue("{}");
 
         builder.HasIndex(e => e.DocumentId);
+        builder.Property(e => e.InputHash).HasMaxLength(64);
+        builder.Property(e => e.Status).HasMaxLength(32).HasDefaultValue("Completed");
+        builder.HasIndex(e => new { e.TenantId, e.DocumentId, e.ExtractionType, e.InputHash })
+            .IsUnique().HasFilter("[InputHash] IS NOT NULL");
     }
 }

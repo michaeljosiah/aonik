@@ -47,6 +47,13 @@ public sealed class DocumentsModule : IModule
         services.AddScoped<DocumentService>();
         services.AddScoped<IDocumentReader>(sp => sp.GetRequiredService<DocumentService>());
         services.AddScoped<IDocumentWriter>(sp => sp.GetRequiredService<DocumentService>());
+        services.AddScoped<FinancialDocumentAuthorization>();
+        services.AddScoped<FinancialDocumentService>();
+        services.AddScoped<IFinancialDocumentReader>(sp => sp.GetRequiredService<FinancialDocumentService>());
+        services.AddScoped<IFinancialDocumentMailboxIntake, FinancialDocumentMailboxIntake>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowFactsProvider, FinancialDocumentFactsProvider>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowActionHandler, FinancialDocumentWorkflowAction>();
+        services.AddSingleton<SharedKernel.Abstractions.Agents.IToolApprovalManifest, FinancialDocumentToolApprovalManifest>();
 
         // Spec 046 — document linking (Vault). One service implements the cross-module
         // IDocumentLinkReader contract and the internal IDocumentLinkService CRUD.

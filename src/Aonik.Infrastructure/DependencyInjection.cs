@@ -70,6 +70,7 @@ using Aonik.Infrastructure.Time;
 using Aonik.Infrastructure.Features;
 using Aonik.SharedKernel.Caching;
 using Microsoft.FeatureManagement;
+using Aonik.Infrastructure.Integrations;
 using ZiggyCreatures.Caching.Fusion;
 
 
@@ -84,6 +85,7 @@ public static class DependencyInjection
     {
         // Core abstractions
         services.AddSingleton<IClock, SystemClock>();
+        services.AddConnectorInfrastructure(configuration);
         services.AddScoped<Aonik.Publishing.Contracts.IPublishingObjectStore, Publishing.PrivatePublicationObjectStore>();
         services.AddScoped<Publishing.DockerPackageVerifier>();
         services.AddHttpClient("Publishing.Verifier", client => client.Timeout = Timeout.InfiniteTimeSpan)
@@ -150,6 +152,7 @@ public static class DependencyInjection
         services.AddScoped<IProfilePhotoStore, ProfilePhotoStore>();
         
         services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentFileStore, DocumentFileStore>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentSafetyScanner, Aonik.Infrastructure.Documents.DocumentSafetyScanner>();
 
         // Generic file store for attachments (transaction receipts, etc.)
         services.AddScoped<Aonik.SharedKernel.Abstractions.Storage.IFileStore>(sp =>
@@ -413,13 +416,12 @@ public static class DependencyInjection
         services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentVectorIndex>(
             sp => sp.GetRequiredService<Aonik.Infrastructure.VectorStore.ScopedDocumentVectorIndex>());
 
-        // Document text extraction for the RAG ingestion pipeline (Spec 035 §13). Native text +
-        // DOCX are handled in-process (BCL only); the OCR hook is a deferred no-op by default —
-        // TryAdd so a real document-intelligence adapter can replace it without touching this line.
+        // Native text/DOCX reuse the current extractor. Local OCR/PDF parsing is explicitly enabled by the host.
         services.AddScoped<Aonik.SharedKernel.Abstractions.Documents.IDocumentTextExtractor,
             Aonik.Infrastructure.Documents.DocumentTextExtractor>();
+        services.Configure<Aonik.Infrastructure.Documents.DocumentOcrOptions>(configuration.GetSection(Aonik.Infrastructure.Documents.DocumentOcrOptions.SectionName));
         services.TryAddSingleton<Aonik.SharedKernel.Abstractions.Documents.IDocumentOcrExtractor,
-            Aonik.Infrastructure.Documents.DeferredDocumentOcrExtractor>();
+            Aonik.Infrastructure.Documents.ProcessDocumentOcrExtractor>();
 
         // Collection initializer
         services.AddHostedService<Aonik.Infrastructure.VectorStore.Qdrant.QdrantCollectionInitializer>();

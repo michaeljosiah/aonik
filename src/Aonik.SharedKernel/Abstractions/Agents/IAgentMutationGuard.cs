@@ -4,4 +4,7 @@ namespace Aonik.SharedKernel.Abstractions.Agents;
 public interface IAgentMutationGuard
 {
     Task ValidateAsync(CancellationToken cancellationToken = default);
+
+    Task<ToolGateContext> PrepareAsync(ToolGateContext context, CancellationToken cancellationToken = default)
+        => Task.FromResult(context);
 }

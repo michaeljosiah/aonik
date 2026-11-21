@@ -71,7 +71,8 @@ public sealed record AgentProposalCreateRequest(
     Guid? AiRunId,
     string ImpactSummary,
     string RiskTier,
-    string PayloadJson);
+    string PayloadJson,
+    Guid? WorkflowStepRunId = null);
 
 /// <summary>
 /// Output record for <see cref="IAgentProposalStore.GetByIdAsync"/> and

@@ -28,11 +28,14 @@ internal sealed class FinanceToolApprovalManifest : IToolApprovalManifest
                 High("Finance.CancelPayment", "Cancel a payment intent"),
             ["finance_create_payment_intent"] =
                 High("Finance.CreatePaymentIntent", "Create a payment intent (authorises funds)"),
+            [Services.Payments.InvoicePaymentIntentWorkflowAction.ToolName] =
+                High(Services.Payments.InvoicePaymentIntentWorkflowAction.ProposalType, "Create the exact Order-linked invoice payment intent"),
             ["finance_mark_invoice_paid"] =
                 High("Finance.MarkInvoicePaid", "Mark an invoice paid (posts to the ledger)"),
 
             // ── Medium — everyday domain writes (no money movement) ──
             ["finance_create_invoice"] = Medium("Create a draft invoice"),
+            [SharedKernel.Abstractions.Documents.FinancialDocumentActions.CreateInvoiceTool] = Medium("Create a draft sales invoice from reviewed document evidence"),
             ["finance_issue_invoice"] = Medium("Issue an invoice"),
             ["finance_cancel_invoice"] = Medium("Cancel an invoice"),
             ["finance_add_invoice_line"] = Medium("Add a line item to an invoice"),

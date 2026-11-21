@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using Aonik.SharedKernel.Abstractions.Ai;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -35,19 +37,7 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         var startedAt = DateTime.UtcNow;
         var useCase = ResolveUseCase(options);
 
-        Guid aiRunId;
-        try
-        {
-            aiRunId = await _aiRunWriter.StartRunAsync(
-                useCase,
-                "{}",
-                cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "AuditMiddleware: failed to start AiRun; proceeding without audit");
-            aiRunId = Guid.Empty;
-        }
+        Guid aiRunId = await StartRunAsync(options, useCase, cancellationToken);
 
         StampCallContext(options, useCase, aiRunId);
 
@@ -64,7 +54,7 @@ internal sealed class AuditMiddleware : DelegatingChatClient
             {
                 try
                 {
-                    await _aiRunWriter.MarkRunFailedAsync(aiRunId, ex.Message, cancellationToken);
+                    await _aiRunWriter.MarkRunFailedAsync(aiRunId, ex.Message, CancellationToken.None);
                 }
                 catch (Exception auditEx)
                 {
@@ -107,6 +97,8 @@ internal sealed class AuditMiddleware : DelegatingChatClient
             }
         }
 
+        foreach (FunctionCallContent call in response.Messages.SelectMany(message => message.Contents).OfType<FunctionCallContent>())
+            AiToolCallProvenance.Record(call, aiRunId);
         return response;
     }
 
@@ -132,10 +124,24 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         return DefaultUseCase;
     }
 
-    private static bool IsStreamAuditHandledDownstream(ChatOptions? options)
-        => options?.AdditionalProperties is { } props
-           && props.TryGetValue(AiTelemetry.StreamAuditHandledDownstreamAttribute, out var value)
-           && value is true;
+    private async Task<Guid> StartRunAsync(ChatOptions? options, string useCase, CancellationToken cancellationToken)
+    {
+        Guid? threadId = options?.AdditionalProperties is { } properties
+            && properties.TryGetValue(AiTelemetry.ConversationThreadIdProperty, out var value)
+            && value is Guid id ? id : null;
+        string inputRefs = threadId is { } persistedThreadId && persistedThreadId != Guid.Empty
+            ? JsonSerializer.Serialize(new { threadId = persistedThreadId.ToString("N") })
+            : "{}";
+        try
+        {
+            return await _aiRunWriter.StartRunAsync(useCase, inputRefs, cancellationToken);
+        }
+        catch (Exception ex) when (!threadId.HasValue)
+        {
+            _logger.LogWarning(ex, "AuditMiddleware: failed to start AiRun; proceeding without audit");
+            return Guid.Empty;
+        }
+    }
 
     private static void StampCallContext(ChatOptions? options, string useCase, Guid aiRunId)
     {
@@ -154,36 +160,9 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         ChatOptions? options = null,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        // AG-UI / voice persist their own AiRun for the stream (PostStreamPersistenceCoordinator)
-        // and mark the call as handled downstream, so this middleware skips its streaming audit to
-        // avoid a duplicate row (H14). The generic streaming paths (e.g. the admin playground) have
-        // no downstream owner and rely on the audit below.
-        if (IsStreamAuditHandledDownstream(options))
-        {
-            await foreach (var passthrough in base.GetStreamingResponseAsync(messages, options, cancellationToken))
-            {
-                yield return passthrough;
-            }
-
-            yield break;
-        }
-
-        // Streaming calls otherwise left NO AiRun record (they only logged), so the generic
-        // streaming path was unaudited (H14). Give it the same start/finalize/fault envelope as the
-        // non-streaming path, accumulating token usage from the stream's usage updates.
         var startedAt = DateTime.UtcNow;
         var useCase = ResolveUseCase(options);
-
-        Guid aiRunId;
-        try
-        {
-            aiRunId = await _aiRunWriter.StartRunAsync(useCase, "{}", cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "AuditMiddleware: failed to start streaming AiRun; proceeding without audit");
-            aiRunId = Guid.Empty;
-        }
+        Guid aiRunId = await StartRunAsync(options, useCase, cancellationToken);
 
         StampCallContext(options, useCase, aiRunId);
 
@@ -191,12 +170,12 @@ internal sealed class AuditMiddleware : DelegatingChatClient
 
         long totalTokens = 0;
         Exception? failure = null;
+        bool completed = false;
 
         // Manual enumeration: a fault around a `yield return` cannot be caught with try/catch,
         // so we advance the underlying enumerator in a try/catch, capture any fault, and still
         // finalize the run in the finally (even on early consumer disposal or cancellation).
-        var enumerator = base.GetStreamingResponseAsync(messages, options, cancellationToken)
-            .GetAsyncEnumerator(cancellationToken);
+        IAsyncEnumerator<ChatResponseUpdate>? enumerator = null;
         try
         {
             while (true)
@@ -204,8 +183,11 @@ internal sealed class AuditMiddleware : DelegatingChatClient
                 ChatResponseUpdate update;
                 try
                 {
+                    enumerator ??= base.GetStreamingResponseAsync(messages, options, cancellationToken)
+                        .GetAsyncEnumerator(cancellationToken);
                     if (!await enumerator.MoveNextAsync())
                     {
+                        completed = true;
                         break;
                     }
 
@@ -222,9 +204,14 @@ internal sealed class AuditMiddleware : DelegatingChatClient
                     // Streaming usage is cumulative/last-wins (a provider reports the running or
                     // final total), so ASSIGN rather than sum — matching TelemetryChatClient — to
                     // avoid double-counting when usage appears in more than one update.
-                    if (content is UsageContent { Details.TotalTokenCount: { } tokenCount })
+                    if (content is UsageContent usage)
                     {
-                        totalTokens = tokenCount;
+                        totalTokens = usage.Details.TotalTokenCount
+                            ?? ((usage.Details.InputTokenCount ?? 0) + (usage.Details.OutputTokenCount ?? 0));
+                    }
+                    else if (content is FunctionCallContent call)
+                    {
+                        AiToolCallProvenance.Record(call, aiRunId);
                     }
                 }
 
@@ -233,8 +220,20 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         }
         finally
         {
-            await enumerator.DisposeAsync();
-            await FinalizeStreamingRunAsync(aiRunId, failure, startedAt, totalTokens);
+            try
+            {
+                if (enumerator is not null) await enumerator.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                failure ??= ex;
+                throw;
+            }
+            finally
+            {
+                string? failureReason = failure?.Message ?? (completed ? null : "The response stream ended early.");
+                await FinalizeStreamingRunAsync(aiRunId, failureReason, startedAt, totalTokens);
+            }
         }
 
         // Surface the original fault to the caller with its stack intact, after the run has
@@ -245,13 +244,13 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         }
     }
 
-    private async Task FinalizeStreamingRunAsync(Guid aiRunId, Exception? failure, DateTime startedAt, long totalTokens)
+    private async Task FinalizeStreamingRunAsync(Guid aiRunId, string? failureReason, DateTime startedAt, long totalTokens)
     {
         var durationMs = (DateTime.UtcNow - startedAt).TotalMilliseconds;
 
         _logger.LogInformation(
             "AuditMiddleware: streaming AI request {Outcome}. Duration: {DurationMs}ms, TotalTokens: {TotalTokens}",
-            failure is null ? "completed" : "failed", durationMs, totalTokens);
+            failureReason is null ? "completed" : "failed", durationMs, totalTokens);
 
         if (aiRunId == Guid.Empty)
         {
@@ -263,9 +262,9 @@ internal sealed class AuditMiddleware : DelegatingChatClient
         // stuck in the started state.
         try
         {
-            if (failure is not null)
+            if (failureReason is not null)
             {
-                await _aiRunWriter.MarkRunFailedAsync(aiRunId, failure.Message, CancellationToken.None);
+                await _aiRunWriter.MarkRunFailedAsync(aiRunId, failureReason, CancellationToken.None);
             }
             else
             {

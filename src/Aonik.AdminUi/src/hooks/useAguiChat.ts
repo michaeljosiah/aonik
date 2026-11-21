@@ -1,3 +1,4 @@
+import { parseToolApprovalPreview, type ToolApprovalPreview } from '@/lib/toolApprovalPreview';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '@/auth';
@@ -100,6 +101,7 @@ export interface ServerApprovalChatMessage {
   /** Risk tier label as emitted by the server ("Medium" / "High"). */
   tier: string;
   actionKind: string;
+  preview?: ToolApprovalPreview;
   status: 'pending' | 'deciding' | 'approved' | 'rejected' | 'error';
   message?: string;
 }
@@ -1125,6 +1127,7 @@ function handleCustomEvent(
           tool,
           tier,
           actionKind,
+          preview: parseToolApprovalPreview(value.preview),
           status: 'pending',
         },
       ];

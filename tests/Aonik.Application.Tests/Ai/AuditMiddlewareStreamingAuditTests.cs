@@ -45,14 +45,13 @@ public class AuditMiddlewareStreamingAuditTests
     }
 
     [Fact]
-    public async Task GetStreamingResponseAsync_Should_NotAudit_When_HandledDownstream()
+    public async Task GetStreamingResponseAsync_Should_RecordTheTrustedConversationBeforeCallingTheModel()
     {
-        // AG-UI / voice mark the call handled-downstream (they persist their own AiRun), so the
-        // middleware must pass the stream through WITHOUT starting a second run.
+        Guid threadId = Guid.NewGuid();
         var updates = new List<ChatResponseUpdate>
         {
             new(ChatRole.Assistant, "hi"),
-            new() { Contents = [new UsageContent(new UsageDetails { TotalTokenCount = 10 })] },
+            new() { Contents = [new UsageContent(new UsageDetails { InputTokenCount = 7, OutputTokenCount = 3 })] },
         };
         var inner = new StreamingStubChatClient(updates, throwAt: null);
         var writer = new RecordingAiRunWriter();
@@ -62,19 +61,43 @@ public class AuditMiddlewareStreamingAuditTests
         {
             AdditionalProperties = new AdditionalPropertiesDictionary
             {
-                [AiTelemetry.StreamAuditHandledDownstreamAttribute] = true,
+                [AiTelemetry.ConversationThreadIdProperty] = threadId,
+                [AiTelemetry.UseCaseAttribute] = "voice",
             },
         };
 
         var received = new List<ChatResponseUpdate>();
         await foreach (var u in sut.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "hi")], options))
         {
+            writer.StartCount.Should().Be(1);
             received.Add(u);
         }
 
-        received.Should().HaveCount(2, "updates must still pass through unchanged");
-        writer.StartCount.Should().Be(0, "the downstream owner audits; the middleware must not double-write");
-        writer.CompletedTokens.Should().BeNull();
+        received.Should().HaveCount(2);
+        writer.UseCase.Should().Be("voice");
+        writer.InputRefs.Should().Be($"{{\"threadId\":\"{threadId:N}\"}}");
+        writer.CompletedTokens.Should().Be(10);
+    }
+
+    [Fact]
+    public async Task GetStreamingResponseAsync_Should_RefuseTheConversation_WhenAuditCannotStart()
+    {
+        var inner = new StreamingStubChatClient([new(ChatRole.Assistant, "unrecorded reply")], throwAt: null);
+        var writer = new RecordingAiRunWriter(new InvalidOperationException("Audit unavailable."));
+        var sut = new AuditMiddleware(inner, writer, NullLogger<AuditMiddleware>.Instance);
+        var options = new ChatOptions
+        {
+            AdditionalProperties = new() { [AiTelemetry.ConversationThreadIdProperty] = Guid.Empty },
+        };
+        var received = new List<ChatResponseUpdate>();
+        var act = async () =>
+        {
+            await foreach (var update in sut.GetStreamingResponseAsync([new ChatMessage(ChatRole.User, "hi")], options))
+                received.Add(update);
+        };
+
+        (await act.Should().ThrowAsync<InvalidOperationException>()).WithMessage("Audit unavailable.");
+        received.Should().BeEmpty();
     }
 
     [Fact]
@@ -163,16 +186,20 @@ public class AuditMiddlewareStreamingAuditTests
         public void Dispose() { }
     }
 
-    private sealed class RecordingAiRunWriter : IAiRunWriter
+    private sealed class RecordingAiRunWriter(Exception? startFailure = null) : IAiRunWriter
     {
         public int StartCount { get; private set; }
+        public string? UseCase { get; private set; }
+        public string? InputRefs { get; private set; }
         public int? CompletedTokens { get; private set; }
         public string? FailedReason { get; private set; }
 
         public Task<Guid> StartRunAsync(string useCase, string inputRefsJson, CancellationToken cancellationToken = default)
         {
             StartCount++;
-            return Task.FromResult(Guid.NewGuid());
+            UseCase = useCase;
+            InputRefs = inputRefsJson;
+            return startFailure is null ? Task.FromResult(Guid.NewGuid()) : Task.FromException<Guid>(startFailure);
         }
 
         public Task MarkRunCompletedAsync(Guid aiRunId, string? outputRef = null, CancellationToken cancellationToken = default)

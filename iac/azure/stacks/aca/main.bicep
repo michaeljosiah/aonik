@@ -100,6 +100,15 @@ var apiAppName = '${namePrefix}-api'
 var adminUiAppName = '${namePrefix}-adminui'
 @description('Whether real ACS and verification secrets are provided (enables Key Vault references instead of empty inline values).')
 param enableOptionalSecrets bool = false
+
+@description('Google Auth Platform Web application client ID for the governed Gmail connector. Leave both Gmail parameters empty to omit host configuration.')
+param gmailOAuthClientId string = ''
+
+@description('Key Vault secret URI containing the Gmail OAuth client secret. API and Worker use their existing Key Vault identities.')
+param gmailOAuthClientSecretUri string = ''
+
+@description('Optional reviewed ClamAV image for a private scanner in each API and Worker replica.')
+param clamAvImage string = ''
 var alertsWebhookServiceUri = 'https://${apiApp.properties.configuration.ingress.fqdn}/integrations/azure/alerts?code=${uriComponent(alertsSharedSecret)}'
 
 // =============================================================================
@@ -115,12 +124,98 @@ var alertsWebhookServiceUri = 'https://${apiApp.properties.configuration.ingress
 // =============================================================================
 var codeActSessionPoolName = '${namePrefix}-sessions'
 var codeActPoolManagementEndpoint = 'https://${location}.dynamicsessions.io/subscriptions/${subscription().subscriptionId}/resourceGroups/${resourceGroup().name}/sessionPools/${codeActSessionPoolName}'
-var codeActCallbackBaseUrl = 'https://${apiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
-var apiAdditionalEnvVars = [for setting in items(union(apiAppSettings, publishingAppSettings)): {
+var apiBaseUrl = 'https://${apiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
+var adminUiBaseUrl = 'https://${adminUiAppName}.${containerAppsEnvironment.properties.defaultDomain}'
+var gmailOAuthConfigured = !empty(gmailOAuthClientId) && !empty(gmailOAuthClientSecretUri)
+var gmailOAuthSecrets = gmailOAuthConfigured ? [
+  {
+    name: 'gmail-oauth-client-secret'
+    keyVaultUrl: gmailOAuthClientSecretUri
+    identity: 'system'
+  }
+] : []
+var gmailOAuthEnv = gmailOAuthConfigured ? [
+  {
+    name: 'Integrations__Gmail__OAuth__ClientId'
+    value: gmailOAuthClientId
+  }
+  {
+    name: 'Integrations__Gmail__OAuth__ClientSecret'
+    secretRef: 'gmail-oauth-client-secret'
+  }
+  {
+    name: 'Integrations__Gmail__OAuth__RedirectUri'
+    value: '${apiBaseUrl}/integrations/gmail/oauth/callback'
+  }
+  {
+    name: 'Integrations__Gmail__OAuth__ReviewReturnUri'
+    value: '${adminUiBaseUrl}/settings/my-connections'
+  }
+] : []
+var blobStorageSecrets = [
+  {
+    name: 'blob-storage-account-name'
+    keyVaultUrl: data.outputs.blobStorageAccountNameSecretUri
+    identity: 'system'
+  }
+  {
+    name: 'blob-storage-account-key'
+    keyVaultUrl: data.outputs.blobStorageAccountKeySecretUri
+    identity: 'system'
+  }
+]
+var sharedBlobStorageEnv = [
+  {
+    name: 'BlobStorage__Provider'
+    value: 'Azure'
+  }
+  {
+    name: 'BlobStorage__Azure__AccountName'
+    secretRef: 'blob-storage-account-name'
+  }
+  {
+    name: 'BlobStorage__Azure__AccountKey'
+    secretRef: 'blob-storage-account-key'
+  }
+]
+var localClamAv = !empty(clamAvImage)
+var clamAvSidecar = localClamAv ? [
+  {
+    name: 'clamav'
+    image: clamAvImage
+    resources: {
+      cpu: json('1.5')
+      memory: '3Gi'
+    }
+  }
+] : []
+var clamAvEnv = localClamAv ? [
+  {
+    name: 'ContactEnquiries__ClamAv__Enabled'
+    value: 'true'
+  }
+  {
+    name: 'ContactEnquiries__ClamAv__Host'
+    value: '127.0.0.1'
+  }
+  {
+    name: 'ContactEnquiries__ClamAv__Port'
+    value: '3310'
+  }
+] : []
+var localScannerSettings = map(clamAvEnv, setting => toUpper(setting.name))
+var mergedApiAppSettings = union(apiAppSettings, publishingAppSettings)
+var voiceReviewEnv = contains(mergedApiAppSettings, 'Voice__ApprovalReviewBaseUrl') ? [] : [
+  {
+    name: 'Voice__ApprovalReviewBaseUrl'
+    value: adminUiBaseUrl
+  }
+]
+var apiAdditionalEnvVars = [for setting in filter(items(mergedApiAppSettings), item => !contains(localScannerSettings, toUpper(item.key))): {
   name: setting.key
   value: string(setting.value)
 }]
-var workerAdditionalEnvVars = [for setting in items(union(workerAppSettings, publishingAppSettings)): {
+var workerAdditionalEnvVars = [for setting in filter(items(union(workerAppSettings, publishingAppSettings)), item => !contains(localScannerSettings, toUpper(item.key))): {
   name: setting.key
   value: string(setting.value)
 }]
@@ -367,21 +462,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'qdrant-api-key'
           value: qdrantApiKey
         }
-      ], [
-        {
-          name: 'blob-storage-account-name'
-          keyVaultUrl: data.outputs.blobStorageAccountNameSecretUri
-          identity: 'system'
-        }
-        {
-          name: 'blob-storage-account-key'
-          keyVaultUrl: data.outputs.blobStorageAccountKeySecretUri
-          identity: 'system'
-        }
-      ])
+      ], blobStorageSecrets, gmailOAuthSecrets)
     }
     template: {
-      containers: [
+      containers: concat([
         {
           name: 'api'
           image: apiImage
@@ -480,18 +564,6 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
           ], [
             {
-              name: 'BlobStorage__Provider'
-              value: 'Azure'
-            }
-            {
-              name: 'BlobStorage__Azure__AccountName'
-              secretRef: 'blob-storage-account-name'
-            }
-            {
-              name: 'BlobStorage__Azure__AccountKey'
-              secretRef: 'blob-storage-account-key'
-            }
-            {
               name: 'BlobStorage__ProfilePhotos__PublicBaseUrl'
               value: '${data.outputs.blobStoragePublicEndpoint}profiles'
             }
@@ -509,7 +581,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             }
             {
               name: 'AI__CODEACT__ACASESSIONS__CALLBACKBASEURL'
-              value: codeActCallbackBaseUrl
+              value: apiBaseUrl
             }
             {
               // Pin AcaSessionsClient to the user-assigned identity. Matches
@@ -527,13 +599,13 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'AI__CODEACT__NONCESIGNINGKEY'
               secretRef: 'code-act-nonce-signing-key'
             }
-          ], apiAdditionalEnvVars)
+          ], sharedBlobStorageEnv, gmailOAuthEnv, voiceReviewEnv, clamAvEnv, apiAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
           }
         }
-      ]
+      ], clamAvSidecar)
       scale: {
         // Studio's bounded requests must not depend on a dev scale-from-zero startup.
         minReplicas: environmentName == 'prod' ? 2 : publishingStorageEnabled ? 1 : environmentName == 'dev' ? 0 : 1
@@ -584,7 +656,7 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: workerPullIdentity.id
         }
       ]
-      secrets: [
+      secrets: concat([
         {
           name: 'sql-connection'
           keyVaultUrl: data.outputs.sqlConnectionSecretUri
@@ -598,10 +670,10 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'qdrant-api-key'
           value: qdrantApiKey
         }
-      ]
+      ], blobStorageSecrets, gmailOAuthSecrets)
     }
     template: {
-      containers: [
+      containers: concat([
         {
           name: 'worker'
           image: workerImage
@@ -631,13 +703,13 @@ resource workerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'Qdrant__CollectionPrefix'
               value: 'aonik-${environmentName}'
             }
-          ], workerAdditionalEnvVars)
+          ], sharedBlobStorageEnv, gmailOAuthEnv, clamAvEnv, workerAdditionalEnvVars)
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
           }
         }
-      ]
+      ], clamAvSidecar)
       scale: {
         // The outbox polls SQL; there is no ingress/scaler to wake a zero-replica Worker.
         minReplicas: environmentName == 'prod' ? 2 : publishingStorageEnabled ? 1 : environmentName == 'dev' ? 0 : 1

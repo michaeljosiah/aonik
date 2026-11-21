@@ -12,6 +12,7 @@ internal class WorkflowEdgeConfiguration : IEntityTypeConfiguration<WorkflowEdge
         builder.ToTable("WorkflowEdges", SchemaNames.Default);
 
         builder.Property(e => e.Label).HasMaxLength(64);
+        builder.Property(e => e.RouteKey).HasMaxLength(128);
 
         builder.HasIndex(e => e.WorkflowId)
             .HasDatabaseName("IX_WorkflowEdges_WorkflowId");

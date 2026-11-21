@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Aonik.Agents.Entities;
 using Aonik.SharedKernel.Abstractions.Storage;
+using Microsoft.Agents.AI;
 using Microsoft.Extensions.Logging;
 
 namespace Aonik.Agents.Framework;
@@ -41,10 +42,17 @@ internal sealed class TenantSkillMaterializer
             return null;
         }
 
+        if (!AgentSkillFrontmatter.ValidateName(skill.Name, out _))
+        {
+            _logger.LogWarning("Tenant skill {SkillId} has an invalid skill name.", skill.Id);
+            return null;
+        }
+
         var shaFragment = string.IsNullOrWhiteSpace(skill.Sha256)
             ? "nosha"
             : skill.Sha256[..Math.Min(16, skill.Sha256.Length)];
-        var skillDir = Path.Combine(_baseDirectory, tenantId.ToString("N"), $"{skill.Id:N}_{shaFragment}");
+        // MAF validates that the directory name matches the skill's frontmatter name.
+        var skillDir = Path.Combine(_baseDirectory, tenantId.ToString("N"), $"{skill.Id:N}_{shaFragment}", skill.Name);
         var skillFile = Path.Combine(skillDir, SkillFileName);
 
         if (File.Exists(skillFile))

@@ -38,4 +38,7 @@ public interface IToolApprovalGate
     /// <see cref="MutatingToolNameHeuristic.LooksMutating"/> is what would make <see cref="Gate"/> throw.
     /// </summary>
     ToolClassification? Classify(string toolName);
+
+    /// <summary>Introspect using the same scope passed to Gate, without requiring an HTTP request.</summary>
+    ToolClassification? Classify(string toolName, IServiceProvider? serviceProvider) => Classify(toolName);
 }

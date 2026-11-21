@@ -10,4 +10,5 @@ public static class WorkflowStates
     public const string Active = "Active";
     public const string Paused = "Paused";
     public const string Draft = "Draft";
+    public const string Retired = "Retired";
 }

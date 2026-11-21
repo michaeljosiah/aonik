@@ -7,15 +7,20 @@ using Aonik.Finance.Contracts.Services.Billing;
 
 using Aonik.SharedKernel.Abstractions;
 using Aonik.Finance.Entities.Billing;
+using Aonik.SharedKernel.Abstractions.Workflows;
+using Aonik.SharedKernel.Events.Integration;
 
 namespace Aonik.Finance.Services.Billing;
 
-internal class BillingService : FinanceServiceBase, IBillingService
+internal partial class BillingService : FinanceServiceBase, IBillingService
 {
     private readonly FinanceDbContext _dbContext;
     private readonly ITenantProvider _tenantProvider;
     private readonly Services.Observability.FinanceMetrics _metrics;
     private readonly Services.Ledger.LedgerPostingService _ledgerPoster;
+    private readonly IWorkflowApprovalReader? _workflowApprovals;
+    private readonly IClock? _clock;
+    private readonly SharedKernel.Abstractions.Documents.IFinancialDocumentReader? _financialDocuments;
 
     public BillingService(
         FinanceDbContext dbContext,
@@ -23,13 +28,19 @@ internal class BillingService : FinanceServiceBase, IBillingService
         IPermissionService permissionService,
         ICurrentUserProvider currentUserProvider,
         Services.Observability.FinanceMetrics metrics,
-        Services.Ledger.LedgerPostingService ledgerPoster)
+        Services.Ledger.LedgerPostingService ledgerPoster,
+        IWorkflowApprovalReader? workflowApprovals = null,
+        IClock? clock = null,
+        SharedKernel.Abstractions.Documents.IFinancialDocumentReader? financialDocuments = null)
         : base(currentUserProvider, permissionService)
     {
         _dbContext = dbContext;
         _tenantProvider = tenantProvider;
         _metrics = metrics;
         _ledgerPoster = ledgerPoster;
+        _workflowApprovals = workflowApprovals;
+        _clock = clock;
+        _financialDocuments = financialDocuments;
     }
 
     public Task<InvoiceResponse> CreateInvoiceAsync(CreateInvoiceRequest request, CancellationToken cancellationToken = default)
@@ -56,9 +67,10 @@ internal class BillingService : FinanceServiceBase, IBillingService
     private async Task<InvoiceResponse> CreateInvoiceAsync(
         CreateInvoiceRequest request,
         bool machineAuthorised,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        WorkflowInvoiceCreation? workflow = null)
     {
-        if (!machineAuthorised)
+        if (!machineAuthorised && workflow is null)
         {
             await EnsurePermissionAsync("Invoice.Create", cancellationToken);
         }
@@ -78,7 +90,10 @@ internal class BillingService : FinanceServiceBase, IBillingService
                     cancellationToken);
 
             if (existing is not null)
+            {
+                if (workflow is not null) RequireSameDocumentOperation(existing, workflow);
                 return MapToResponse(existing);
+            }
         }
 
         var invoice = new Invoice
@@ -89,12 +104,15 @@ internal class BillingService : FinanceServiceBase, IBillingService
             // order to read a type from and invoice idempotency with nothing to key on.
             OrderId = request.OrderId,
             IdempotencyKey = string.IsNullOrWhiteSpace(request.IdempotencyKey) ? null : request.IdempotencyKey,
+            InvoiceNumber = string.IsNullOrWhiteSpace(request.InvoiceNumber) ? null : request.InvoiceNumber.Trim(),
+            IntakeBusinessKey = workflow?.BusinessKey,
             CustomerAccountId = request.CustomerId,
             IssueDate = DateTime.UtcNow,
             DueDate = request.DueUtc,
             Currency = request.Currency,
             Status = "Draft",
-            ProvenanceJson = "{}",
+            ProvenanceJson = workflow is null ? "{}" : System.Text.Json.JsonSerializer.Serialize(workflow.Provenance,
+                SharedKernel.Abstractions.Documents.FinancialDocumentActions.JsonOptions),
             Subtotal = 0,
             TaxTotal = 0,
             DiscountTotal = 0,
@@ -105,6 +123,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
         foreach (var lineItemRequest in request.LineItems)
         {
             var lineTotal = lineItemRequest.Quantity * lineItemRequest.UnitPrice;
+            if (workflow is not null) lineTotal = decimal.Round(lineTotal, workflow.CurrencyScale, MidpointRounding.AwayFromZero);
 
             var lineItem = new InvoiceLine
             {
@@ -125,6 +144,8 @@ internal class BillingService : FinanceServiceBase, IBillingService
         RecalculateInvoiceTotals(invoice);
 
         _dbContext.Invoices.Add(invoice);
+        _dbContext.EnqueueIntegrationEvent(new InvoiceLifecycleChangedEvent(workflow?.Invocation.OperationId ?? invoice.Id,
+            _clock?.UtcNow ?? DateTime.UtcNow, tenantId, invoice.Id, "Created", workflow?.Invocation.RunId));
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         // Per-tenant invoice creation counter. Tagged with currency so a
@@ -204,11 +225,40 @@ internal class BillingService : FinanceServiceBase, IBillingService
         if (invoice == null)
             throw new NotFoundException($"Invoice {invoiceId} not found");
 
-        if (invoice.Status != "Draft")
-            throw new InvalidStateException("Only draft invoices can be issued");
-
-        invoice.Status = "Issued";
+        SetInvoiceIssued(invoice);
+        _dbContext.EnqueueIntegrationEvent(new InvoiceLifecycleChangedEvent(Guid.NewGuid(), _clock?.UtcNow ?? DateTime.UtcNow, tenantId, invoice.Id, "Issued"));
         await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    internal async Task<WorkflowActionResult> IssueInvoiceForWorkflowAsync(
+        WorkflowActionInvocation invocation, CancellationToken cancellationToken = default)
+    {
+        if (_workflowApprovals is null) throw new PermissionDeniedException("Invoice.Issue", "Workflow approval verification is unavailable.");
+        Guid reviewerId = await _workflowApprovals.RequireApprovedActorAsync(invocation, InvoiceIssueWorkflowAction.ActionKey, 1, cancellationToken);
+        if (!await PermissionService.HasPermissionAsync(reviewerId, "Invoice.Issue", cancellationToken))
+            throw new PermissionDeniedException("Invoice.Issue");
+        Guid tenantId = _tenantProvider.GetCurrentTenantId();
+        Invoice invoice = await _dbContext.Invoices.SingleOrDefaultAsync(invoice => invoice.TenantId == tenantId
+            && invoice.Id == invocation.SubjectId, cancellationToken) ?? throw new NotFoundException("Invoice not found.");
+        if (invoice.IssueOperationId == invocation.OperationId && invoice.IssueApprovalRequestId == invocation.ApprovalRequestId)
+            return InvoiceIssueWorkflowAction.Receipt(invoice);
+        WorkflowFactsSnapshot facts = InvoiceWorkflowFactsProvider.FromInvoice(invoice);
+        if (facts.BlockReason is not null || facts.SubjectVersion != invocation.ExpectedSubjectVersion || WorkflowFactsHash.Compute(facts) != invocation.FactsHash)
+            throw new InvalidStateException("The invoice changed after its workflow approval was prepared.");
+        SetInvoiceIssued(invoice);
+        invoice.IssueOperationId = invocation.OperationId;
+        invoice.IssueApprovalRequestId = invocation.ApprovalRequestId;
+        invoice.IssueApprovedByUserId = reviewerId;
+        _dbContext.EnqueueIntegrationEvent(new InvoiceLifecycleChangedEvent(invocation.OperationId, _clock?.UtcNow ?? DateTime.UtcNow, tenantId, invoice.Id, "Issued", invocation.RunId));
+        // State and operation evidence commit together, so a consumed approval is never mistaken for an execution receipt.
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return InvoiceIssueWorkflowAction.Receipt(invoice);
+    }
+
+    private static void SetInvoiceIssued(Invoice invoice)
+    {
+        if (invoice.Status != "Draft") throw new InvalidStateException("Only draft invoices can be issued");
+        invoice.Status = "Issued";
     }
 
     public async Task MarkInvoiceAsPaidAsync(Guid invoiceId, CancellationToken cancellationToken = default)
@@ -393,7 +443,7 @@ internal class BillingService : FinanceServiceBase, IBillingService
         return new InvoiceResponse(
             invoice.Id,
             invoice.CustomerAccountId,
-            invoice.Id.ToString("N"),
+            invoice.InvoiceNumber ?? invoice.Id.ToString("N"),
             invoice.Currency,
             invoice.Total,
             Enum.Parse<InvoiceStatus>(invoice.Status),

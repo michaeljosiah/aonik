@@ -1,3 +1,5 @@
+import type { ToolApprovalPreview } from '@/lib/toolApprovalPreview';
+import { ApprovalPreview } from './ApprovalPreview';
 /* eslint-disable react-refresh/only-export-components */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -567,6 +569,7 @@ export interface ServerApprovalState {
   /** Risk-tier label as emitted by the server ("Medium" / "High"). */
   tier: string;
   actionKind: string;
+  preview?: ToolApprovalPreview;
   status: ServerApprovalStatus;
   message?: string;
 }
@@ -652,7 +655,7 @@ export function ServerApprovalCard({
       <div className="flex items-center gap-2 px-4 py-2.5 bg-muted border-b border-border">
         {config.icon}
         <span className="font-semibold text-sm text-foreground">
-          {approval.kind === 'high' ? 'Approval required — money movement' : 'Approval required'}
+          Approval required
         </span>
         <Badge variant={config.badge} className="ml-auto">
           {config.label}
@@ -661,12 +664,13 @@ export function ServerApprovalCard({
 
       {/* Body */}
       <div className="px-4 py-3">
-        <div className="font-medium text-sm text-foreground">{approval.actionKind}</div>
+        <div className="font-medium text-sm text-foreground">{approval.preview?.title ?? approval.actionKind}</div>
         <div className="mt-1 text-xs text-muted-foreground leading-relaxed">
           {approval.kind === 'high'
-            ? 'This action moves money and runs only after you approve it. It is queued as a durable proposal.'
+            ? 'This action is queued as a durable proposal and runs only after an authorized person approves it.'
             : 'This action needs your explicit approval before it runs.'}
         </div>
+        {approval.preview && <ApprovalPreview preview={approval.preview} />}
         {approval.status === 'error' && approval.message && (
           <div className="mt-2 text-xs text-destructive">{approval.message}</div>
         )}

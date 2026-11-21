@@ -5,6 +5,8 @@
 // see WorkflowSaveRequest.cs server-side for the contract.
 
 import { api } from '@/lib/api';
+import type { ToolApprovalPreview } from '@/lib/toolApprovalPreview';
+import type { DecisionLibraryContract } from '@/pages/workflows/workflowTypes';
 
 // ── Response shapes (keep aligned with C# Contracts/Models/Workflows) ──
 
@@ -16,6 +18,7 @@ export interface WorkflowStepSummaryDto {
 
 export interface WorkflowSummaryDto {
   id: string;
+  definitionKind?: string;
   slug: string;
   name: string;
   description: string;
@@ -37,6 +40,7 @@ export interface WorkflowSummaryDto {
 
 export interface WorkflowGraphNodeDto {
   id: string;
+  key?: string;
   kind: string;
   label: string;
   summary: string;
@@ -49,6 +53,8 @@ export interface WorkflowGraphNodeDto {
 
 export interface WorkflowGraphEdgeDto {
   id: string;
+  routeKey?: string | null;
+  key?: string;
   fromNodeId: string;
   toNodeId: string;
   fromIndex: number;
@@ -65,6 +71,10 @@ export interface WorkflowGraphCommentDto {
 
 export interface WorkflowGraphDto {
   id: string;
+  expectedVersion?: string;
+  definitionKind?: string;
+  schemaVersion?: number;
+  publishedVersionId?: string | null;
   slug: string;
   name: string;
   description: string;
@@ -81,6 +91,8 @@ export interface WorkflowGraphDto {
 
 export interface WorkflowRunDto {
   id: string;
+  mode?: string;
+  workflowVersionId?: string | null;
   startedAt: string;
   completedAt: string | null;
   /** Relative-time label like "2m ago" — formatted server-side. */
@@ -96,6 +108,11 @@ export interface WorkflowRunDto {
 
 export interface WorkflowVersionDto {
   id: string;
+  subjectType?: 'Invoice' | 'Document' | null;
+  libraryContract?: DecisionLibraryContract | null;
+  definitionHash?: string | null;
+  publishedAt?: string | null;
+  isExecutable?: boolean;
   tag: string;
   message: string;
   authorName: string;
@@ -105,11 +122,35 @@ export interface WorkflowVersionDto {
   when: string;
 }
 
+export interface WorkflowDiagnostic { code: string; path: string; message: string; severity: string }
+export interface WorkflowValidation { isValid: boolean; definitionHash: string; diagnostics: WorkflowDiagnostic[] }
+export interface WorkflowActionCapability { key: string; contractVersion: number; requiredPermission: string; riskTier: string; inputSchema: Record<string, unknown>; outputSchema: Record<string, unknown>; connectorKey?: string | null; connectorAuthenticationKind?: string | null }
+export interface WorkflowCapabilities { schemaVersion: number; nodeKinds: { kind: string; canSimulate: boolean; canExecute: boolean }[]; invoiceFacts: { name: string; type: string; required?: boolean }[]; comparisonOperators: string[]; actions: WorkflowActionCapability[]; subjectTypes?: string[]; subjectFacts?: Record<string, { name: string; type: string; required?: boolean }[]> }
+export interface WorkflowSimulation { mode: string; status: string; definitionHash: string; steps: { nodeKey: string; kind: string; status: string; decision?: unknown; fixtureOutput?: unknown }[]; diagnostics: WorkflowDiagnostic[] }
+export interface WorkflowRunDetail {
+  id: string; workflowId: string; workflowVersionId: string; definitionHash: string; status: string; outcome: string | null; errorCode: string | null;
+  actorType: string; actorId: string; initiatingUserId: string | null; subjectType: string; subjectId: string; expectedVersion: string; startedAt: string; completedAt: string | null;
+  configuredByUserId?: string | null;
+  evidenceRestricted?: boolean;
+  deadlineUtc?: string | null;
+  waitUntilUtc?: string | null;
+  parentRunId?: string | null;
+  executionRootRunId?: string | null;
+  invocationPath?: string;
+  children?: { id: string; workflowVersionId: string; invocationPath: string; status: string; outcome: string | null; errorCode: string | null; subjectId: string }[] | null;
+  source?: { bindingId: string; revision: number; eventId: string; occurredAtUtc: string; causationRunId: string | null; rootRunId: string | null } | null;
+  steps: { id: string; nodeKey: string; invocationPath: string; status: string; actionKey: string | null; actionVersion: number | null; selectedRoute: string | null;
+    decisionTrace: unknown; result: unknown; approvalRequestId: string | null; proposalId: string | null; aiRunId: string | null; errorCode: string | null;
+    approval: { id: string; riskTier: string; actionKind: string; status: string; expiresAt: string; canDecide: boolean; preview: ToolApprovalPreview | null;
+      humanTask?: { purpose: string; choices: { key: string; label: string; route: string }[]; decidedByUserId: string | null; response: { choice: string } | null; responseHash: string | null } | null } | null; deadlineUtc?: string | null }[];
+}
+
 // ── Save payload (mirror of WorkflowSaveRequest.cs) ────────────────────
 
 export interface WorkflowSaveNodeDto {
   /** Either an existing server Guid or a transient editor id (e.g. "n3xa9f"). */
   clientId: string;
+  key?: string;
   kind: string;
   label: string;
   summary: string;
@@ -120,6 +161,7 @@ export interface WorkflowSaveNodeDto {
 }
 
 export interface WorkflowSaveEdgeDto {
+  routeKey?: string | null;
   fromClientId: string;
   toClientId: string;
   fromIndex: number;
@@ -127,6 +169,9 @@ export interface WorkflowSaveEdgeDto {
 }
 
 export interface WorkflowSaveRequestDto {
+  expectedVersion?: string;
+  definitionKind?: string;
+  schemaVersion?: number;
   slug: string;
   name: string;
   description: string;
@@ -144,8 +189,18 @@ export interface WorkflowSaveRequestDto {
 // ── Service ─────────────────────────────────────────────────────────────
 
 export const workflowService = {
-  list: async (): Promise<WorkflowSummaryDto[]> => {
-    return api.get<WorkflowSummaryDto[]>('/ai/workflows');
+  capabilities: () => api.get<WorkflowCapabilities>('/ai/workflows/capabilities'),
+  validate: (slug: string) => api.post<WorkflowValidation>(`/ai/workflows/${encodeURIComponent(slug)}/validate`, {}),
+  simulate: (slug: string, fixture: { facts: Record<string, unknown>; actionOutputs?: Record<string, unknown> }) => api.post<WorkflowSimulation>(`/ai/workflows/${encodeURIComponent(slug)}/simulate`, fixture),
+  requestPublication: (command: { slug: string; expectedVersion: string; definitionHash: string; expectedPublishedVersionId: string | null; targetVersionId?: string }) => api.post<{ proposalId: string; approvalRequestId: string; preview: ToolApprovalPreview }>(`/ai/workflows/${encodeURIComponent(command.slug)}/publication-requests`, command),
+  requestRetirement: (command: { slug: string; expectedVersion: string; definitionHash: string; expectedPublishedVersionId: string }) => api.post<{ proposalId: string; approvalRequestId: string; preview: ToolApprovalPreview }>(`/ai/workflows/${encodeURIComponent(command.slug)}/retirement-requests`, command),
+  start: (slug: string, workflowVersionId: string, subjectId: string, idempotencyKey: string, subjectType: 'Invoice' | 'Document' = 'Invoice') => api.post<WorkflowRunDetail>(`/ai/workflows/${encodeURIComponent(slug)}/runs`, { workflowVersionId, subjectType, subjectId, idempotencyKey }),
+  run: (id: string) => api.get<WorkflowRunDetail>(`/ai/workflow-runs/${encodeURIComponent(id)}`),
+  resume: (run: WorkflowRunDetail) => api.post<WorkflowRunDetail>(`/ai/workflow-runs/${run.id}/resume`, { expectedVersion: run.expectedVersion }),
+  cancelRun: (run: WorkflowRunDetail) => api.post<WorkflowRunDetail>(`/ai/workflow-runs/${run.id}/cancel`, { expectedVersion: run.expectedVersion }),
+  decide: (id: string, decision: 'Approve' | 'Reject', response?: { choice: string }) => api.post(`/ai/tool-approvals/${encodeURIComponent(id)}/decide`, { decision, ...(response ? { response } : {}) }),
+  list: async (skip = 0, take = 50): Promise<WorkflowSummaryDto[]> => {
+    return api.get<WorkflowSummaryDto[]>(`/ai/workflows?skip=${skip}&take=${take}`);
   },
 
   getBySlug: async (slug: string): Promise<WorkflowGraphDto> => {
@@ -168,7 +223,7 @@ export const workflowService = {
     return api.put<WorkflowGraphDto>(`/ai/workflows/${encodeURIComponent(slug)}`, req);
   },
 
-  delete: async (slug: string): Promise<void> => {
-    await api.delete(`/ai/workflows/${encodeURIComponent(slug)}`);
+  delete: async (slug: string, expectedVersion: string): Promise<void> => {
+    await api.delete(`/ai/workflows/${encodeURIComponent(slug)}?expectedVersion=${encodeURIComponent(expectedVersion)}`);
   },
 };

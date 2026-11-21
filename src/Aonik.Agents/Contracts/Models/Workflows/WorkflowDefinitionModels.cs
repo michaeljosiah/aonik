@@ -1,0 +1,57 @@
+using System.Text.Json;
+
+namespace Aonik.Agents.Contracts.Models.Workflows;
+
+public sealed record WorkflowDefinition(
+    int SchemaVersion,
+    string DefinitionKind,
+    string Slug,
+    string Name,
+    string Description,
+    IReadOnlyList<WorkflowDefinitionNode> Nodes,
+    IReadOnlyList<WorkflowDefinitionEdge> Edges);
+
+public sealed record WorkflowDefinitionNode(string Key, string Kind, string Label, JsonElement Parameters);
+public sealed record WorkflowDefinitionEdge(string Key, string From, string To, int FromIndex, string? RouteKey);
+public sealed record WorkflowDiagnostic(string Code, string Path, string Message, string Severity = "Error");
+public sealed record WorkflowValidation(
+    bool IsValid, string DefinitionHash, IReadOnlyList<WorkflowDiagnostic> Diagnostics);
+public sealed record WorkflowSimulationRequest(
+    IReadOnlyDictionary<string, JsonElement> Facts,
+    IReadOnlyDictionary<string, JsonElement>? ActionOutputs = null);
+public sealed record WorkflowSimulationStep(
+    string NodeKey, string Kind, string Status, DecisionEvaluation? Decision = null, JsonElement? FixtureOutput = null);
+public sealed record WorkflowSimulation(
+    string Mode, string Status, string DefinitionHash,
+    IReadOnlyList<WorkflowSimulationStep> Steps, IReadOnlyList<WorkflowDiagnostic> Diagnostics);
+public sealed record WorkflowCapability(string Kind, bool CanSimulate, bool CanExecute);
+public sealed record WorkflowCapabilities(
+    int SchemaVersion, int MaxNodes, int MaxEdges,
+    IReadOnlyList<WorkflowCapability> NodeKinds, IReadOnlyList<string> FactSchemas,
+    IReadOnlyList<DecisionFactField> InvoiceFacts,
+    IReadOnlyList<string> ComparisonOperators,
+    JsonElement DecisionParametersSchema,
+    IReadOnlyList<WorkflowActionCapability>? Actions = null,
+    JsonElement? ToolParametersSchema = null,
+    JsonElement? WaitParametersSchema = null,
+    JsonElement? HumanParametersSchema = null,
+    JsonElement? ChildParametersSchema = null,
+    JsonElement? LoopParametersSchema = null,
+    JsonElement? ParallelParametersSchema = null,
+    WorkflowControlCapabilityLimits? ControlLimits = null,
+    JsonElement? DecisionLibraryReferenceSchema = null,
+    JsonElement? DecisionLibraryContractSchema = null,
+    IReadOnlyList<string>? DefinitionKinds = null,
+    IReadOnlyList<string>? DecisionHitPolicies = null,
+    DecisionCapabilityLimits? DecisionLimits = null,
+    IReadOnlyList<string>? SubjectTypes = null,
+    IReadOnlyDictionary<string, IReadOnlyList<DecisionFactField>>? SubjectFacts = null);
+public sealed record DecisionCapabilityLimits(int MaximumRows, int MaximumPredicateDepth, int MaximumPredicateNodes,
+    int MaximumScoreWeightMagnitude, int MaximumScoreDecimalPlaces);
+public sealed record WorkflowControlCapabilityLimits(int MaximumGraphNodes, int MaximumInvocations, int MaximumLoopIterations,
+    int MaximumConcurrentBranches, int MaximumNestingDepth, int MaximumLifetimeSeconds);
+
+public sealed record WorkflowActionCapability(string Key, int ContractVersion, string RequiredPermission, string RiskTier,
+    JsonElement InputSchema, JsonElement OutputSchema, string? ConnectorKey = null, string? ConnectorAuthenticationKind = null);
+
+public sealed record DecisionFactField(string Name, string Type, bool Required);

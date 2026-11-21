@@ -133,6 +133,32 @@ public sealed class PlatformModule : IModule
         services.AddScoped<ICustomerAddressService, CustomerAddressService>();
         services.AddScoped<IUserRoleService, UserRoleService>();
         services.AddScoped<IPermissionService, PermissionService>();
+        services.AddSingleton<SharedKernel.Abstractions.Connectors.IConnectorDescriptor, Services.Integrations.GmailConnectorDescriptor>();
+        services.AddScoped<Services.Integrations.ConnectorCatalog>();
+        services.AddScoped<Services.Integrations.ConnectorPolicyService>();
+        services.AddScoped<Services.Integrations.ConnectorAuthorization>();
+        services.AddScoped<SharedKernel.Abstractions.Documents.IFinancialDocumentSourceAccess, Services.Integrations.FinancialDocumentSourceAccess>();
+        services.AddScoped<SharedKernel.Abstractions.Documents.IFinancialDocumentMailboxReader, Services.Integrations.FinancialDocumentMailboxReader>();
+        services.AddScoped<Services.Integrations.ConnectorCredentialProtector>();
+        services.AddScoped<Services.Integrations.ConnectorCredentialService>();
+        services.AddScoped<Services.Integrations.ConnectorSubscriptionService>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorSubscriptionService>(provider => provider.GetRequiredService<Services.Integrations.ConnectorSubscriptionService>());
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorMailboxPushIngress, Services.Integrations.ConnectorMailboxPushIngress>();
+        services.AddKeyedScoped<SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Integrations.ConnectorMailboxPollHandler>("connector_mailbox_poll");
+        services.AddScoped<Services.Integrations.ConnectorGrantService>();
+        services.AddScoped<Services.Integrations.AutomationIdentityService>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IAutomationIdentityAuthorization, Services.Integrations.AutomationIdentityAuthorization>();
+        services.AddScoped<SharedKernel.Abstractions.Workflows.IWorkflowUsageReader, Services.Integrations.ConnectorWorkflowUsageReader>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorPreferenceValidator, Services.Integrations.ConnectorPreferenceValidator>();
+        services.AddScoped<Services.Integrations.ConnectorConnectionManagementService>();
+        services.AddScoped<Services.Integrations.ConnectorService>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorService>(sp => sp.GetRequiredService<Services.Integrations.ConnectorService>());
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorMutationService, Services.Integrations.ConnectorMutationService>();
+        services.AddScoped<Services.Integrations.ConnectorConnectionRequestService>();
+        services.AddSingleton<Services.Integrations.ConnectorRequestRateLimiter>();
+        services.AddScoped<SharedKernel.Abstractions.Connectors.IConnectorConnectionRequests>(sp => sp.GetRequiredService<Services.Integrations.ConnectorConnectionRequestService>());
+        services.AddScoped<Services.Integrations.ConnectorConsentService>();
+        services.AddKeyedScoped<SharedKernel.Abstractions.Tasks.ITaskActionHandler, Services.Integrations.ConnectorRequestExpiryHandler>("connector_request_expire");
         services.AddScoped<IVerificationService, VerificationService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IUserNotificationWriter, UserNotificationWriter>();
@@ -154,6 +180,7 @@ public sealed class PlatformModule : IModule
             sp => sp.GetRequiredService<Services.Tasks.WorkItemService>());
         services.AddScoped<Aonik.Platform.Contracts.Services.Tasks.IWorkItemDispatcher, Services.Tasks.WorkItemDispatcher>();
         services.AddSingleton<Services.Tasks.RecurrenceCalculator>();
+        services.AddSingleton<SharedKernel.Abstractions.Tasks.IRecurrenceScheduleCalculator>(provider => provider.GetRequiredService<Services.Tasks.RecurrenceCalculator>());
         services.AddSingleton<Services.Tasks.ITaskActionHandlerCatalog, Services.Tasks.TaskActionHandlerCatalog>();
         // The reference low-risk action handler. Other modules register their own keyed handlers
         // (e.g. Finance → create_payment_proposal, Agents → run_agent) against the same gate.
@@ -169,6 +196,8 @@ public sealed class PlatformModule : IModule
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IPartyReader, Services.Party.PartyReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserPartyResolver, Services.Party.UserPartyResolver>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IUserDirectoryReader, Services.Identity.UserDirectoryReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.ITenantActivityReader, Services.Identity.TenantActivityReader>();
+        services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.ITenantRoleReader, Services.Identity.TenantRoleReader>();
         services.AddScoped<Aonik.SharedKernel.Abstractions.Platform.IChatParticipantDirectory, Services.Identity.ChatParticipantDirectory>();
 
         // Compliance reacts to document erasure (Spec 035 §12/§15) by marking dependent usages

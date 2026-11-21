@@ -7,7 +7,6 @@
 // the same selection/run-trace data.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NODE_KIND } from './stepKindCatalog';
 import {
   GRID,
   NODE_H,
@@ -418,7 +417,7 @@ export function WorkflowCanvas({
             const a = nodes.find((n) => n.id === e.from);
             const b = nodes.find((n) => n.id === e.to);
             if (!a || !b) return null;
-            const total = NODE_KIND[a.kind].outputs ?? 1;
+            const total = outputCount(a);
             const p1 = outPortPos(a, e.fromIdx ?? 0, total);
             const p2 = inPortPos(b);
             const isSel = selection.edges.includes(e.id);

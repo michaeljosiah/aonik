@@ -38,6 +38,7 @@ import {
   SettingsModulesPage,
 } from '@/pages/settings';
 import { AlertsPage, AlertDetailPage } from '@/pages/alerts';
+import { MyConnectionsPage, TenantIntegrationsPage } from '@/pages/settings/ConnectionsPage';
 import { TasksPage } from '@/pages/tasks';
 import { ContactEnquiriesPage, ContactEnquiryDetailPage } from '@/pages/contact/ContactEnquiriesPage';
 import {
@@ -207,6 +208,8 @@ const routes: ModuleRouteConfig[] = [
   { screen: { id: "settings.notification-templates", audience: "host", label: "Notification templates", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "settings" }, path: '/settings/notification-templates', element: NotificationTemplatesPage },
   // Spec 097 — read-only view of the tenant's module enablement.
   { screen: { id: "settings.modules", label: "Modules", permissions: {"authenticatedAdmin": true}, policy: "AdminUserPolicy", icon: "settings" }, path: '/settings/modules', element: SettingsModulesPage },
+  { screen: { id: 'settings.my-connections', label: 'My connections', permissions: { allOf: ['Integration.Read'] }, policy: 'UserPolicy', icon: 'settings' }, path: '/settings/my-connections', element: MyConnectionsPage },
+  { screen: { id: 'settings.tenant-integrations', label: 'Tenant integrations', permissions: { allOf: ['Integration.Read', 'Integration.Manage'] }, policy: 'AdminUserPolicy', icon: 'settings' }, path: '/settings/tenant-integrations', element: TenantIntegrationsPage },
   { screen: { id: "cms.content-blocks", label: "Content Blocks", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "file" }, path: '/cms/content-blocks', element: ContentBlocksListPage },
   { screen: { id: "cms.content-new", label: "New content block", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "file" }, path: '/cms/content-blocks/new', element: ContentBlockEditPage },
   { screen: { id: "cms.content-detail", label: "Content block", permissions: {"authenticatedAdmin": true}, policy: "AdminPolicy", icon: "file" }, path: '/cms/content-blocks/:id', element: ContentBlockEditPage, isDynamic: true },
@@ -272,6 +275,8 @@ const panelComponents = {
   'settings-system-tools': wrapPage(SystemToolsPage),
   'settings-notification-templates': wrapPage(NotificationTemplatesPage),
   'settings-modules': wrapPage(SettingsModulesPage),
+  'settings-my-connections': wrapPage(MyConnectionsPage),
+  'settings-tenant-integrations': wrapPage(TenantIntegrationsPage),
   'content-blocks': wrapPage(ContentBlocksListPage),
   'media-library': wrapPage(MediaLibraryPage),
   'observability': wrapPage(ObservabilityPage),
@@ -309,6 +314,8 @@ const breadcrumbs = [
   { pathPrefix: '/admin', trail: [{ label: 'Admin', href: '/admin' }, 'Infrastructure'] },
   { pathPrefix: '/tenants', trail: [{ label: 'Admin', href: '/admin' }, 'Infrastructure'] },
   { pathPrefix: '/settings/modules', trail: [{ label: 'Admin', href: '/admin' }, { label: 'Settings', href: '/settings' }, 'Modules'] },
+  { pathPrefix: '/settings/my-connections', trail: [{ label: 'Settings', href: '/settings' }, 'My connections'] },
+  { pathPrefix: '/settings/tenant-integrations', trail: [{ label: 'Settings', href: '/settings' }, 'Tenant integrations'] },
   { pathPrefix: '/settings', trail: [{ label: 'Admin', href: '/admin' }, 'Settings'] },
   { pathPrefix: '/cms', trail: [{ label: 'Admin', href: '/admin' }, 'Content'] },
 ];

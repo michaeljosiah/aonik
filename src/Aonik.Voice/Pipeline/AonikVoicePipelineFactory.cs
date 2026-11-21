@@ -210,7 +210,8 @@ internal sealed class AonikVoicePipelineFactory : IAonikVoicePipelineFactory
             agentId: request.AgentId,
             tenantId: request.TenantId,
             userId: request.UserId,
-            logger: _loggerFactory.CreateLogger("Aonik.Voice.AonikVoiceAgent"));
+            logger: _loggerFactory.CreateLogger("Aonik.Voice.AonikVoiceAgent"),
+            adminUiBaseUrl: _configuration["Voice:ApprovalReviewBaseUrl"] ?? _configuration["UserLifecycle:AdminUiBaseUrl"]);
 
         // Pipeline shape mirrors Voxa's reference sample at /voice/openai-batch —
         // proven working end-to-end against this same Whisper + TTS stack:

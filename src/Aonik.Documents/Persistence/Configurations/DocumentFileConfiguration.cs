@@ -49,5 +49,7 @@ public class DocumentFileConfiguration : IEntityTypeConfiguration<DocumentFile>
             .HasDefaultValue(ExtractedTextStatus.Unsupported);
 
         builder.HasIndex(f => f.DocumentId);
+        builder.Property(f => f.SourceFingerprint).HasMaxLength(64);
+        builder.HasIndex(f => new { f.TenantId, f.SourceFingerprint }).IsUnique().HasFilter("[SourceFingerprint] IS NOT NULL");
     }
 }

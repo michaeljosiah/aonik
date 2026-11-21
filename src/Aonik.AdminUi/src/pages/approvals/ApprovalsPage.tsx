@@ -14,6 +14,7 @@
 //     proposal's RiskTier and CreatedAt; no real policy registry yet.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
   AlertCircle,
@@ -34,6 +35,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { agentProposalsService } from '@/services/agentProposalsService';
+import { ApprovalPreview } from '@/components/ai/ApprovalPreview';
+import { ToolApprovalReview } from './ToolApprovalReview';
 import type {
   ProposalDetailResponse,
   ProposalListItem,
@@ -101,6 +104,12 @@ function payloadRows(payloadJson: string): Array<[string, string]> {
 // ─── Page ────────────────────────────────────────────────────────────────
 
 export function ApprovalsPage() {
+  const [search] = useSearchParams();
+  const requestId = search.get('requestId');
+  return requestId ? <ToolApprovalReview key={requestId} requestId={requestId} /> : <ProposalQueue />;
+}
+
+function ProposalQueue() {
   const [items, setItems] = useState<ProposalListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -628,6 +637,7 @@ function DetailColumn({
           )}
         </Section>
 
+        {detail?.preview && <Section title="Reviewed effect"><ApprovalPreview preview={detail.preview} /></Section>}
         {detail?.payloadJson && (
           <Section title="Raw payload">
             <pre className="max-h-[260px] overflow-auto rounded-md bg-muted p-3 font-[family-name:var(--font-mono)] text-[11px] leading-relaxed text-foreground">

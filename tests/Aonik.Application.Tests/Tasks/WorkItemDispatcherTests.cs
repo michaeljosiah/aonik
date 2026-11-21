@@ -21,6 +21,46 @@ namespace Aonik.Application.Tests.Tasks;
 
 public sealed class WorkItemDispatcherTests
 {
+    [Fact]
+    public async Task DeferredTask_Should_RetainItsOccurrence_AndResumeWithoutConsumingFailureAttempts()
+    {
+        var clock = new TestClock();
+        bool ready = false; List<TaskActionContext> contexts = [];
+        var handler = new StubHandler(TestAction, context => { contexts.Add(context); return ready ? new(TaskActionOutcome.Succeeded)
+            : new(TaskActionOutcome.Deferred, Error: "Capacity", DeferredUntilUtc: clock.UtcNow.AddMinutes(5)); });
+        using ServiceProvider provider = BuildProvider(clock, handler);
+        Guid taskId = await SeedAsync(provider, Guid.NewGuid(), item => item.NextRunAtUtc = clock.UtcNow);
+        DateTime occurrence = clock.UtcNow;
+        (await DispatchAsync(provider)).Deferred.Should().Be(1);
+        (await DispatchAsync(provider)).Considered.Should().Be(0);
+        WorkItem waiting = (await GetWorkItemAsync(provider, taskId))!;
+        waiting.AttemptCount.Should().Be(0); waiting.RunCount.Should().Be(0);
+        waiting.NextRunAtUtc.Should().Be(occurrence); waiting.DeferredUntilUtc.Should().Be(occurrence.AddMinutes(5));
+        waiting.LeasedBy.Should().BeNull();
+        (await GetRunsAsync(provider, taskId)).Should().ContainSingle().Which.CompletedAtUtc.Should().BeNull();
+        clock.UtcNow = clock.UtcNow.AddMinutes(5); ready = true;
+        (await DispatchAsync(provider)).Succeeded.Should().Be(1);
+        contexts.Should().HaveCount(2);
+        contexts[1].RunId.Should().Be(contexts[0].RunId);
+        contexts[1].ScheduledForUtc.Should().Be(occurrence);
+        contexts[1].FirstStartedAtUtc.Should().Be(contexts[0].FirstStartedAtUtc);
+        (await GetWorkItemAsync(provider, taskId))!.DeferredUntilUtc.Should().BeNull();
+        (await GetRunsAsync(provider, taskId)).Should().ContainSingle().Which.Outcome.Should().Be("Succeeded");
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1441)]
+    public async Task DeferredTask_Should_RejectInvalidRetryDeadlines(int minutes)
+    {
+        var clock = new TestClock();
+        var handler = new StubHandler(TestAction, _ => new(TaskActionOutcome.Deferred, DeferredUntilUtc: clock.UtcNow.AddMinutes(minutes)));
+        using ServiceProvider provider = BuildProvider(clock, handler);
+        Guid taskId = await SeedAsync(provider, Guid.NewGuid(), item => item.NextRunAtUtc = clock.UtcNow);
+        (await DispatchAsync(provider, new(MaxAttempts: 1))).Failed.Should().Be(1);
+        (await GetWorkItemAsync(provider, taskId))!.Status.Should().Be(TaskStatuses.Failed);
+    }
+
     private const string TestAction = "test_action";
 
     private sealed class TestClock : IClock

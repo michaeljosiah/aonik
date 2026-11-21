@@ -19,6 +19,8 @@ import {
   Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { workflowService } from '@/services/workflowService';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NODE_KIND } from './stepKindCatalog';
@@ -45,7 +47,7 @@ interface PaletteGroup {
 const GROUPS: PaletteGroup[] = [
   { name: 'Triggers', kinds: ['trigger'] },
   { name: 'Actions', kinds: ['tool', 'agent', 'notify', 'emit'] },
-  { name: 'Logic', kinds: ['decision', 'loop', 'wait'] },
+  { name: 'Logic', kinds: ['decision', 'child', 'loop', 'parallel', 'wait'] },
   { name: 'Coordination', kinds: ['human', 'end'] },
 ];
 
@@ -91,9 +93,12 @@ function PaletteItem({ kind }: PaletteItemProps) {
 export interface EditorPaletteProps {
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
+  definitionKind?: string;
 }
 
-export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
+export function EditorPalette({ collapsed, setCollapsed, definitionKind }: EditorPaletteProps) {
+  const [executable, setExecutable] = useState<string[]>([]);
+  useEffect(() => { void workflowService.capabilities().then(result => setExecutable(result.nodeKinds.filter(kind => kind.canExecute).map(kind => kind.kind.toLowerCase()))).catch(() => setExecutable([])); }, []);
   return (
     <div
       className="flex flex-none flex-col border-r border-border bg-card transition-[width] duration-150"
@@ -136,7 +141,7 @@ export function EditorPalette({ collapsed, setCollapsed }: EditorPaletteProps) {
                 {g.name}
               </div>
               <div className="flex flex-col gap-0.5">
-                {g.kinds.map((k) => (
+                {g.kinds.filter(kind => executable.includes(kind) && (definitionKind !== 'DecisionLibrary' || ['trigger', 'decision', 'end'].includes(kind))).map((k) => (
                   <PaletteItem key={k} kind={k} />
                 ))}
               </div>

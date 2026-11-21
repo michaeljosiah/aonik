@@ -1,0 +1,108 @@
+using FluentAssertions;
+using Microsoft.Agents.AI;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
+
+using Aonik.Agents.Framework;
+using Aonik.Agents.Services.Workflows;
+using Aonik.Ai.Middleware;
+using Aonik.Application.Tests.Platform.Integrations;
+using Aonik.Platform.Persistence;
+using Aonik.Platform.Services.Integrations;
+using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Abstractions.Connectors;
+using Aonik.SharedKernel.Agents.Approval;
+
+namespace Aonik.Application.Tests.Agents.Workflows;
+
+public class ConnectorToolTests
+{
+    [Fact]
+    public async Task AonikTools_Should_InspectCuratedPackages_WithoutInstallingOrGrantingConnectorAccess()
+    {
+        var packages = new Mock<IConnectorPackageCatalog>();
+        packages.Setup(service => service.ListAsync(It.IsAny<CancellationToken>())).ReturnsAsync([]);
+        using var scenario = new ConnectorScenario(configure: services =>
+        {
+            services.AddScoped<IConnectorService>(provider => provider.GetRequiredService<ConnectorService>());
+            services.AddSingleton(packages.Object);
+            services.AddSingleton<IToolApprovalGate, ToolApprovalGate>();
+            services.AddSingleton<IToolApprovalManifest, ConnectorToolApprovalManifest>();
+            services.AddSingleton(Mock.Of<IToolApprovalAuditSink>());
+        });
+        await scenario.InitializeAsync(); using IServiceScope scope = scenario.Scope();
+        AIFunction[] tools = ConnectorTools.CreateAll(scope.ServiceProvider).OfType<AIFunction>().ToArray();
+
+        await tools.Single(tool => tool.Name == "aonik_list_connector_packages").InvokeAsync(new AIFunctionArguments());
+
+        packages.Verify(service => service.ListAsync(It.IsAny<CancellationToken>()), Times.Once);
+        (await scope.ServiceProvider.GetRequiredService<PlatformDbContext>().ConnectorConnectionRequests.CountAsync()).Should().Be(0);
+        (await scope.ServiceProvider.GetRequiredService<PlatformDbContext>().ConnectorConnectionGrants.CountAsync()).Should().Be(0);
+        scenario.Actions.Verify(provider => provider.InvokeAsync(It.IsAny<ConnectorProviderCall>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AonikTools_Should_UseTheReadGateway_AndRequireServerPreparedConfirmationForRequests()
+    {
+        bool approved = false;
+        ToolGateContext? prepared = null;
+        var approvals = new Mock<IToolApprovalService>();
+        approvals.Setup(service => service.GateAsync(It.IsAny<ToolGateContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ToolGateContext context, CancellationToken _) =>
+            { prepared = context; return new(approved ? ToolGateDecision.ApprovedInline : ToolGateDecision.PendingApproval, Guid.NewGuid()); });
+        using var scenario = new ConnectorScenario(configure: services =>
+        {
+            services.AddScoped<IConnectorService>(provider => provider.GetRequiredService<ConnectorService>());
+            services.AddSingleton(approvals.Object);
+            services.AddSingleton<IToolApprovalGate, ToolApprovalGate>();
+            services.AddSingleton<IToolApprovalManifest, ConnectorToolApprovalManifest>();
+            services.AddSingleton(Mock.Of<IToolApprovalAuditSink>());
+            services.AddScoped<IAgentMutationGuard, ConnectorMutationGuard>();
+        });
+        await scenario.InitializeAsync();
+        using var scope = scenario.Scope();
+        AIFunction[] tools = ConnectorTools.CreateAll(scope.ServiceProvider).OfType<AIFunction>().ToArray();
+        tools.Should().HaveCount(11);
+        AIFunction create = tools.Single(tool => tool.Name == "aonik_create_connection_request");
+        object? pending = await create.InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?> { ["request"] = scenario.Request() }));
+
+        pending.Should().NotBeNull();
+        prepared!.Preview!.After!.Value.GetProperty("requiredScopes").EnumerateArray().Select(value => value.GetString()).Should().Contain(GmailActionKeys.ReadScope);
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        (await db.ConnectorConnectionRequests.CountAsync()).Should().Be(0);
+        scenario.OAuth.Verify(provider => provider.CreateAuthorization(It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>()), Times.Never);
+        approved = true;
+
+        Guid originatingRunId = Guid.NewGuid();
+        var writer = new Mock<IAiRunWriter>();
+        writer.SetupSequence(service => service.StartRunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(originatingRunId).ReturnsAsync(Guid.NewGuid());
+        var client = new Mock<IChatClient>();
+        var call = new FunctionCallContent("connect", create.Name, new Dictionary<string, object?> { ["request"] = scenario.Request() });
+        client.Setup(provider => provider.GetStreamingResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()))
+            .Returns((IEnumerable<ChatMessage> messages, ChatOptions _, CancellationToken _) => ReplyAsync(messages, call));
+        using var auditedClient = new AuditMiddleware(client.Object, writer.Object, NullLogger<AuditMiddleware>.Instance);
+        var agent = new ChatClientAgent(auditedClient, name: "Aonik", tools: [create]);
+        await foreach (AgentResponseUpdate _ in agent.RunStreamingAsync("Request a Gmail connection.")) { }
+
+        (await db.ConnectorConnectionRequests.SingleAsync()).AiRunId.Should().Be(originatingRunId);
+        (await db.ConnectorConnectionGrants.CountAsync()).Should().Be(0);
+        AIFunction read = tools.Single(tool => tool.Name == "gmail_search_messages");
+        Func<Task> unauthorized = async () => await read.InvokeAsync(new AIFunctionArguments(new Dictionary<string, object?>
+            { ["connectionId"] = Guid.NewGuid(), ["request"] = new GmailSearchRequest("invoice") }));
+        await unauthorized.Should().ThrowAsync<ConnectorAccessException>();
+        scenario.Actions.Verify(provider => provider.InvokeAsync(It.IsAny<ConnectorProviderCall>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static async IAsyncEnumerable<ChatResponseUpdate> ReplyAsync(IEnumerable<ChatMessage> messages, FunctionCallContent call)
+    {
+        await Task.Yield();
+        yield return messages.SelectMany(message => message.Contents).Any(content => content is FunctionResultContent)
+            ? new ChatResponseUpdate(ChatRole.Assistant, "Connection requested.")
+            : new ChatResponseUpdate { Role = ChatRole.Assistant, Contents = [call] };
+    }
+}

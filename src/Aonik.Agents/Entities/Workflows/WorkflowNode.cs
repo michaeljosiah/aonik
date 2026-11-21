@@ -14,6 +14,8 @@ public class WorkflowNode : AuditableEntity, ITenantScoped
 
     public Guid WorkflowId { get; set; }
 
+    public string? LogicalKey { get; set; }
+
     /// <summary>One of <see cref="WorkflowNodeKinds"/>.</summary>
     public string Kind { get; set; } = string.Empty;
 

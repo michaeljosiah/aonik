@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { documentService } from '@/services/documentService';
+import { FinancialDocumentPanel } from './FinancialDocumentPanel';
 import type {
   DocumentDetailsResponse,
   DocumentUsageResponse,
@@ -255,6 +256,7 @@ export function DocumentDetailPage() {
       </div>
 
       <div className="mx-auto max-w-[64rem] space-y-6">
+        {doc.document.documentType === 'FinancialSource' && documentId && <FinancialDocumentPanel documentId={documentId} />}
         {/* ================================================================ */}
         {/*  Files section — primary                                          */}
         {/* ================================================================ */}

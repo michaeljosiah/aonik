@@ -46,7 +46,7 @@ internal sealed class DocumentTextExtractor : IDocumentTextExtractor
             using var reader = new StreamReader(
                 content, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
             var text = await reader.ReadToEndAsync(cancellationToken);
-            return DocumentTextExtractionResult.Native(text);
+            return new(text, ExtractedTextStatus.Native, new("DotNetText", Environment.Version.ToString(), 1, null));
         }
 
         if (string.Equals(normalized, DocxContentType, StringComparison.OrdinalIgnoreCase))

@@ -20,7 +20,6 @@ internal sealed class GetWorkflowBySlugEndpoint
     public override void Configure()
     {
         Get("/ai/workflows/{Slug}");
-        Policies("AdminUserPolicy");
         Summary(s =>
         {
             s.Summary = "Get workflow graph by slug";

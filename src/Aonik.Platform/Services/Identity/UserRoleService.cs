@@ -60,7 +60,7 @@ internal class UserRoleService : AdminServiceBase, IUserRoleService
         var existing = await _dbContext.UserRoles
             .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
 
-        if (existing != null)
+        if (existing is { IsDeleted: false })
         {
             return await BuildUserRoleResponseAsync(userId, cancellationToken);
         }
@@ -68,7 +68,7 @@ internal class UserRoleService : AdminServiceBase, IUserRoleService
         var now = _clock.UtcNow;
         var currentUserId = CurrentUserProvider.GetCurrentUserId();
 
-        var userRole = new UserRole
+        var userRole = existing ?? new UserRole
         {
             UserId = userId,
             RoleId = roleId,
@@ -76,7 +76,13 @@ internal class UserRoleService : AdminServiceBase, IUserRoleService
             CreatedBy = currentUserId
         };
 
-        _dbContext.UserRoles.Add(userRole);
+        if (existing is null) _dbContext.UserRoles.Add(userRole);
+        else
+        {
+            userRole.IsDeleted = false;
+            userRole.DeletedAt = null;
+            userRole.DeletedBy = null;
+        }
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         await _auditLogWriter.LogAsync(
@@ -101,7 +107,7 @@ internal class UserRoleService : AdminServiceBase, IUserRoleService
         var role = await EnsureRoleInTenantAsync(roleId, tenantId, cancellationToken);
 
         var userRole = await _dbContext.UserRoles
-            .FirstOrDefaultAsync(ur => ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
+            .FirstOrDefaultAsync(ur => !ur.IsDeleted && ur.UserId == userId && ur.RoleId == roleId, cancellationToken);
 
         if (userRole == null)
         {
@@ -154,7 +160,7 @@ internal class UserRoleService : AdminServiceBase, IUserRoleService
         CancellationToken cancellationToken)
     {
         var roles = await _dbContext.UserRoles
-            .Where(ur => ur.UserId == userId)
+            .Where(ur => !ur.IsDeleted && ur.UserId == userId)
             .OrderBy(ur => ur.Role.Name)
             .Select(ur => new RoleSummary(ur.Role.Id, ur.Role.Name))
             .ToListAsync(cancellationToken);

@@ -4,8 +4,10 @@ using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
+using Aonik.Agents.Services.Workflows;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Observability;
 using Aonik.SharedKernel.Events.Integration;
 using Aonik.SharedKernel.Modules;
@@ -22,6 +24,9 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
     private readonly IAuditLogWriter? _auditLogWriter;
     private readonly ICorrelationContext? _correlationContext;
     private readonly IChatRoomApprovalAuthority? _roomApprovalAuthority;
+    private readonly WorkflowApprovalAuthority? _workflowAuthority;
+    private readonly WorkflowContinuationWriter? _workflowContinuations;
+    private readonly IConnectorMutationService? _connectorMutations;
 
     /// <param name="auditLogWriter">
     /// Optional: records a proposal that could not execute because its handler's module is off for
@@ -36,7 +41,10 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         IProposalRejectionDispatcher rejectionDispatcher,
         IAuditLogWriter? auditLogWriter = null,
         ICorrelationContext? correlationContext = null,
-        IChatRoomApprovalAuthority? roomApprovalAuthority = null)
+        IChatRoomApprovalAuthority? roomApprovalAuthority = null,
+        WorkflowApprovalAuthority? workflowAuthority = null,
+        WorkflowContinuationWriter? workflowContinuations = null,
+        IConnectorMutationService? connectorMutations = null)
     {
         _dbContext = dbContext;
         _currentUserProvider = currentUserProvider;
@@ -46,6 +54,9 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         _auditLogWriter = auditLogWriter;
         _correlationContext = correlationContext;
         _roomApprovalAuthority = roomApprovalAuthority;
+        _workflowAuthority = workflowAuthority;
+        _workflowContinuations = workflowContinuations;
+        _connectorMutations = connectorMutations;
     }
 
     public async Task<ProposalDetailResponse?> GetByIdAsync(Guid proposalId, CancellationToken ct = default)
@@ -53,7 +64,23 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         var row = await JoinedQuery()
             .FirstOrDefaultAsync(p => p.Proposal.Id == proposalId, ct);
 
-        return row is null ? null : Map(row);
+        if (row is not null && WorkflowApprovalAuthority.IsGovernanceType(row.Proposal.ProposalType)
+            && (_workflowAuthority is null || !await _workflowAuthority.CanReadGovernanceAsync(ct))) return null;
+        ToolApprovalRequest? connectorRequest = null;
+        if (row is not null && ConnectorInvocationIdentity.IsConnectorProposal(row.Proposal.ProposalType))
+        {
+            if (_connectorMutations is null) return null;
+            ToolApprovalRequest? request = await _dbContext.ToolApprovalRequests.AsNoTracking().SingleOrDefaultAsync(request => request.ProposalId == proposalId, ct);
+            if (request is null) return null;
+            connectorRequest = request;
+            try
+            {
+                if (row.Proposal.Status == ProposalStatus.Proposed) await _connectorMutations.RequireReviewAsync(request.Id, ct);
+                else if (await _connectorMutations.GetStatusAsync(request.Id, cancellationToken: ct) is null) return null;
+            }
+            catch (Exception exception) when (exception is PermissionDeniedException or ConnectorAccessException or WorkflowConflictException) { return null; }
+        }
+        return row is null ? null : Map(row) with { Preview = connectorRequest?.PreviewJson is { } json ? ConnectorJson.Read<ToolApprovalPreview>(json) : null };
     }
 
     public async Task<ListProposalsResponse> ListPendingAsync(
@@ -63,6 +90,9 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         var take = request.Take <= 0 ? 100 : Math.Min(request.Take, 500);
 
         var query = JoinedQuery().Where(r => r.Proposal.Status == ProposalStatus.Proposed);
+        if (_workflowAuthority is null || !await _workflowAuthority.CanReadGovernanceAsync(cancellationToken))
+            query = query.Where(row => row.Proposal.ProposalType != Framework.WorkflowToolApprovalManifest.PublishType
+                && row.Proposal.ProposalType != Framework.WorkflowToolApprovalManifest.RetireType);
 
         if (!string.IsNullOrWhiteSpace(request.ProposalType))
         {
@@ -110,7 +140,10 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p => p.Id == proposalId, ct)
             ?? throw new KeyNotFoundException($"Proposal {proposalId} not found.");
 
-        if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
+        bool workflowGovernance = WorkflowApprovalAuthority.IsGovernanceType(proposal.ProposalType) || proposal.WorkflowStepRunId.HasValue;
+        if (workflowGovernance && (_workflowAuthority is null || !await _workflowAuthority.CanDecideProposalAsync(proposal, ct)))
+            throw new PermissionDeniedException("Workflow.Publish");
+        if (!workflowGovernance && _roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
             throw new PermissionDeniedException("ChatRoom.Approval", "Current room access does not permit deciding this proposal.");
 
         if (proposal.Status != ProposalStatus.Proposed)
@@ -127,9 +160,12 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         // that lets one status field support both recovery models.
         var isHighRisk = string.Equals(proposal.RiskTier, "High", StringComparison.OrdinalIgnoreCase);
 
+        ToolApprovalRequest? dispatchRequest = await RequireDispatchDecisionAsync(proposal, ct);
+
         proposal.Status = ProposalStatus.Approved;
         proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();
         proposal.ApprovedAt = _clock.UtcNow;
+        if (dispatchRequest is not null) StampDispatchDecision(dispatchRequest, ToolApprovalRequestStatus.Approved);
         await _dbContext.SaveChangesAsync(ct);
 
         ProposalHandlerResult result;
@@ -196,7 +232,10 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         {
             // Execution confirmed: Approved → Applied (terminal success).
             proposal.Status = ProposalStatus.Applied;
+            if (result.AiRunId is { } aiRunId && aiRunId != Guid.Empty) proposal.AiRunId = aiRunId;
+            proposal.ExecutionResultJson ??= System.Text.Json.JsonSerializer.Serialize(result);
             EnqueueDecisionResolved(proposal, "Applied"); // Spec 041 — learn from the resolved decision
+            if (proposal.WorkflowStepRunId.HasValue) await RequireWorkflowContinuations().AfterProposalAsync(proposal, ct);
             await _dbContext.SaveChangesAsync(ct);
         }
 
@@ -209,7 +248,10 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         var proposal = await _dbContext.Proposals.FirstOrDefaultAsync(p => p.Id == proposalId, ct)
             ?? throw new KeyNotFoundException($"Proposal {proposalId} not found.");
 
-        if (_roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
+        bool workflowGovernance = WorkflowApprovalAuthority.IsGovernanceType(proposal.ProposalType) || proposal.WorkflowStepRunId.HasValue;
+        if (workflowGovernance && (_workflowAuthority is null || !await _workflowAuthority.CanDecideProposalAsync(proposal, ct)))
+            throw new PermissionDeniedException("Workflow.Publish");
+        if (!workflowGovernance && _roomApprovalAuthority is not null && !await _roomApprovalAuthority.CanDecideAsync(proposal.AiRunId, ct))
             throw new PermissionDeniedException("ChatRoom.Approval", "Current room access does not permit deciding this proposal.");
 
         if (proposal.Status != ProposalStatus.Proposed)
@@ -218,6 +260,7 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
                 $"Proposal {proposalId} is already {proposal.Status} and cannot be dismissed.");
         }
 
+        ToolApprovalRequest? dispatchRequest = await RequireDispatchDecisionAsync(proposal, ct);
         proposal.Status = ProposalStatus.Rejected;
         // V1 reuses ApprovedByUserId / ApprovedAt to record the dismisser and
         // dismissal time (spec 030 §5.6 — schema deliberately unchanged in v1).
@@ -225,6 +268,8 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         // made the Approve-or-Dismiss decision."
         proposal.ApprovedByUserId = _currentUserProvider.GetCurrentUserId();
         proposal.ApprovedAt = _clock.UtcNow;
+        if (dispatchRequest is not null) StampDispatchDecision(dispatchRequest, ToolApprovalRequestStatus.Rejected);
+        if (proposal.WorkflowStepRunId.HasValue) await RequireWorkflowContinuations().AfterProposalAsync(proposal, ct);
         await _dbContext.SaveChangesAsync(ct);
 
         // Rejection dispatch is fire-and-surface: if cleanup fails, the proposal
@@ -282,7 +327,35 @@ internal sealed class ProposalApprovalService : IProposalApprovalService
         // as RevertToProposedAsync: we must persist the terminal state regardless.
         proposal.Status = ProposalStatus.Failed;
         EnqueueDecisionResolved(proposal, "Failed"); // Spec 041 — a failed decision is signal too
+        if (proposal.WorkflowStepRunId.HasValue) await RequireWorkflowContinuations().AfterProposalAsync(proposal, CancellationToken.None);
         await _dbContext.SaveChangesAsync(CancellationToken.None);
+    }
+
+    private WorkflowContinuationWriter RequireWorkflowContinuations() => _workflowContinuations
+        ?? throw new InvalidOperationException("Workflow continuation is unavailable.");
+
+    private async Task<ToolApprovalRequest?> RequireDispatchDecisionAsync(Proposal proposal, CancellationToken cancellationToken)
+    {
+        bool connector = ConnectorInvocationIdentity.IsConnectorProposal(proposal.ProposalType);
+        if (!connector && (!proposal.WorkflowStepRunId.HasValue || proposal.RiskTier != "High")) return null;
+        ToolApprovalRequest request = await _dbContext.ToolApprovalRequests.SingleOrDefaultAsync(request => request.TenantId == proposal.TenantId && request.ProposalId == proposal.Id, cancellationToken)
+            ?? throw new PermissionDeniedException("Integration.Use");
+        if (request.Status != ToolApprovalRequestStatus.Pending || request.ExpiresAt <= _clock.UtcNow || request.RiskTier != "High")
+            throw new WorkflowConflictException("The proposal approval changed or expired.");
+        if (connector)
+        {
+            if (_connectorMutations is null) throw new PermissionDeniedException("Integration.Use");
+            await _connectorMutations.RequireReviewAsync(request.Id, cancellationToken);
+        }
+        return request;
+    }
+
+    private void StampDispatchDecision(ToolApprovalRequest request, ToolApprovalRequestStatus status)
+    {
+        request.Status = status;
+        request.DecidedByUserId = _currentUserProvider.GetCurrentUserId();
+        request.DecidedAt = _clock.UtcNow;
+        request.ConsumedAt = _clock.UtcNow;
     }
 
     /// <summary>

@@ -35,6 +35,10 @@ WORKDIR /app
 
 ARG APP_UID=1654
 
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y tesseract-ocr tesseract-ocr-eng poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=publish /app/publish .
 
 # Local blob storage defaults to /app/App_Data via the relative App_Data

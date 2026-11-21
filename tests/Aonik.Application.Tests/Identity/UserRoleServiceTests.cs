@@ -18,6 +18,33 @@ namespace Aonik.Application.Tests.Identity;
 /// </summary>
 public class UserRoleServiceTests
 {
+    [Fact]
+    public async Task RoleRemovalAndExplicitReassignment_Should_UpdateEffectiveAuthority_AndReuseTheMembership()
+    {
+        await using var database = CreateDbContext();
+        SeedUser(database, TargetUserId, TenantId);
+        SeedRole(database, RoleId, TenantId, "Workflow operators");
+        var permission = new Permission { Key = "Workflow.Write" };
+        database.Permissions.Add(permission);
+        database.RolePermissions.Add(new RolePermission { RoleId = RoleId, PermissionId = permission.Id, Permission = permission });
+        await database.SaveChangesAsync();
+        UserRoleService service = NewService(database);
+        var authority = new PermissionService(database);
+        var roles = new TenantRoleReader(database, _tenantProvider.Object);
+        await service.AssignRoleAsync(TargetUserId, RoleId);
+        (await authority.HasPermissionAsync(TargetUserId, permission.Key)).Should().BeTrue();
+        (await roles.IsMemberAsync(TenantId, TargetUserId, RoleId)).Should().BeTrue();
+
+        (await service.RemoveRoleAsync(TargetUserId, RoleId)).Roles.Should().BeEmpty();
+        (await authority.HasPermissionAsync(TargetUserId, permission.Key)).Should().BeFalse();
+        (await roles.IsMemberAsync(TenantId, TargetUserId, RoleId)).Should().BeFalse();
+        (await service.AssignRoleAsync(TargetUserId, RoleId)).Roles.Should().ContainSingle();
+
+        (await authority.HasPermissionAsync(TargetUserId, permission.Key)).Should().BeTrue();
+        (await roles.IsMemberAsync(TenantId, TargetUserId, RoleId)).Should().BeTrue();
+        (await database.UserRoles.CountAsync(link => link.UserId == TargetUserId && link.RoleId == RoleId)).Should().Be(1);
+    }
+
     private static readonly Guid TenantId = Guid.Parse("d1000000-0000-0000-0000-000000000001");
     private static readonly Guid OtherTenantId = Guid.Parse("d2000000-0000-0000-0000-000000000002");
     private static readonly Guid CallingUserId = Guid.Parse("d1100000-0000-0000-0000-000000000099");

@@ -26,6 +26,7 @@ public class PaymentIntent : AuditableEntity, ITenantScoped
     /// constraining by order would break the public checkout for every product on the platform.
     /// </summary>
     public string? IdempotencyKey { get; set; }
+    public string? ProvenanceJson { get; set; }
     public Guid? InvoiceId { get; set; }
     public string PurposeType { get; set; } = string.Empty;
     public Guid PurposeId { get; set; }

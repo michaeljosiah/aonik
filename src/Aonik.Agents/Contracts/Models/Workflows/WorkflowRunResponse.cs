@@ -15,6 +15,6 @@ public sealed record WorkflowRunResponse(
     string Duration,
     int DurationMs,
     string By,
-    /// <summary>Ordered list of node ids visited in this run.</summary>
+    /// <summary>Ordered legacy node IDs or live step-run IDs, according to Mode.</summary>
     IReadOnlyList<Guid> Sequence,
-    int Total);
+    int Total, string Mode = "Legacy", Guid? WorkflowVersionId = null);

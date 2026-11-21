@@ -15,6 +15,8 @@ export type WorkflowNodeKind =
   | 'notify'
   | 'emit'
   | 'loop'
+  | 'child'
+  | 'parallel'
   | 'end';
 
 /**
@@ -28,7 +30,7 @@ export type StepKind = WorkflowNodeKind;
 /** Equivalent of WorkflowNodeKind for the editor canvas. */
 export type EditorNodeKind = WorkflowNodeKind;
 
-export type WorkflowState = 'Active' | 'Paused' | 'Draft';
+export type WorkflowState = 'Active' | 'Paused' | 'Draft' | 'Retired';
 
 export interface WorkflowStep {
   kind: StepKind;
@@ -38,6 +40,7 @@ export interface WorkflowStep {
 
 export interface WorkflowSummary {
   id: string;
+  definitionKind?: string;
   slug: string;
   name: string;
   desc: string;
@@ -58,9 +61,24 @@ export interface WorkflowSummary {
   steps: WorkflowStep[];
 }
 
-export interface WorkflowNodeParams {
+export interface DecisionComparison { field: string; operator: string; value?: unknown }
+export interface DecisionPredicate { kind: 'Comparison' | 'All' | 'Any' | 'Not'; comparison?: DecisionComparison; children?: DecisionPredicate[] }
+export interface DecisionRow { id: string; priority: number; all: DecisionComparison[]; route: string; condition?: DecisionPredicate; scoreWeight?: string; collectInvoiceId?: WorkflowInputBinding }
+export interface DecisionFixture { name: string; kind: 'Normal' | 'Boundary' | 'MissingData'; facts: Record<string, unknown>; expectedStatus: string; expectedRoutes: string[] }
+export interface DecisionParameters { schemaVersion: number; factSchema: string; hitPolicy: string; rows: DecisionRow[]; defaultRoute: string; fixtures: DecisionFixture[]; currency?: string; optionalFactBehavior?: 'Unknown'; collectRoute?: string; scoreBands?: { minimumInclusive: string; maximumExclusive: string; route: string }[] }
+export interface DecisionFactField { name: string; type: string; required: boolean }
+export interface DecisionLibraryContract { schemaVersion: number; inputs: DecisionFactField[]; routes: string[]; outputType: 'Route' | 'InvoiceList' }
+export interface WorkflowInputBinding { literal?: unknown; fact?: string; step?: string; output?: string }
+export interface WorkflowToolParameters { actionKey: string; contractVersion: number; inputs: Record<string, WorkflowInputBinding>; reviewer?: { roleId?: string; userId?: string; forbidSelfApproval: boolean }; connection?: import('@/services/connectorService').WorkflowConnectorBinding }
+export interface WorkflowHumanChoice { key: string; label: string; route: string }
+export interface WorkflowVersionPin { versionId: string; definitionHash: string }
+export interface WorkflowLoopItem { key: string; invoiceId: string }
+export interface WorkflowParallelBranch { key: string; workflow: WorkflowVersionPin; invoiceId: WorkflowInputBinding }
+export interface WorkflowNodeParams extends Partial<DecisionParameters>, Partial<WorkflowToolParameters> {
+  outcome?: string;
   // trigger
   source?: string;
+  subjectType?: 'Invoice' | 'Document';
   filter?: string;
   // tool
   tool?: string;
@@ -72,11 +90,22 @@ export interface WorkflowNodeParams {
   expr?: string;
   yesLabel?: string;
   noLabel?: string;
+  library?: WorkflowVersionPin;
+  routes?: string[];
+  outputType?: 'Route' | 'InvoiceList';
+  libraryContract?: DecisionLibraryContract;
   // human
   group?: string;
   sla?: string;
+  purpose?: string;
+  timeoutSeconds?: number;
+  choices?: WorkflowHumanChoice[];
+  rejectRoute?: string;
+  timeoutRoute?: string;
   // wait
   duration?: string;
+  delaySeconds?: number | null;
+  untilUtc?: string | null;
   // notify
   channel?: string;
   template?: string;
@@ -85,10 +114,22 @@ export interface WorkflowNodeParams {
   // loop
   over?: string;
   maxIterations?: number | string;
+  workflow?: WorkflowVersionPin;
+  invoiceId?: WorkflowInputBinding;
+  body?: WorkflowVersionPin;
+  items?: WorkflowLoopItem[];
+  itemsFromDecision?: string;
+  completedRoute?: string;
+  exhaustedRoute?: string;
+  errorRoute?: string;
+  branches?: WorkflowParallelBranch[];
+  maxConcurrency?: number;
+  joinPolicy?: 'All' | 'AnySuccess';
 }
 
 export interface WorkflowNode {
   id: string;
+  key?: string;
   kind: EditorNodeKind;
   label: string;
   x: number;
@@ -100,6 +141,7 @@ export interface WorkflowNode {
 
 export interface WorkflowEdge {
   id: string;
+  routeKey?: string | null;
   from: string;
   to: string;
   /** Output port index on the `from` node (decision: 0=yes, 1=no; loop: 0=body, 1=done). */
@@ -117,6 +159,10 @@ export interface WorkflowComment {
 
 export interface WorkflowGraph {
   id: string;
+  expectedVersion?: string;
+  definitionKind?: string;
+  schemaVersion?: number;
+  publishedVersionId?: string | null;
   slug: string;
   name: string;
   desc: string;
@@ -129,6 +175,7 @@ export interface WorkflowGraph {
 
 export interface WorkflowRunSummary {
   id: string;
+  mode?: string;
   when: string;
   status: 'success' | 'held' | 'failed' | 'running';
   duration: string;
@@ -140,6 +187,7 @@ export interface WorkflowRunSummary {
 
 export interface WorkflowVersion {
   id: string;
+  publishedAt?: string | null;
   tag: string;
   when: string;
   by: string;

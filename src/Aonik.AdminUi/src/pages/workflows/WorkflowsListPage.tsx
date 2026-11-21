@@ -9,7 +9,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, RefreshCw, Search, Upload, Workflow } from 'lucide-react';
+import { RefreshCw, Search, Workflow } from 'lucide-react';
 // `Plus` is still used by the page header's "New workflow" action; the
 // empty-state CTA was removed because no create-workflow flow exists yet.
 import { Button } from '@/components/ui/button';
@@ -28,16 +28,18 @@ import { adaptRun, adaptSummary } from './workflowAdapters';
 import { WorkflowCard } from './WorkflowCard';
 import { WorkflowDetailRail } from './WorkflowDetailRail';
 import type { WorkflowState, WorkflowSummary } from './workflowTypes';
+import { NewWorkflowButton } from './NewWorkflowButton';
 
-type Filter = 'All' | 'Active' | 'Paused' | 'Draft';
+type Filter = 'All' | 'Active' | 'Paused' | 'Draft' | 'Retired';
 type Sort = 'Most run' | 'Recent' | 'Success';
 
-const FILTER_LABELS: Filter[] = ['All', 'Active', 'Paused', 'Draft'];
+const FILTER_LABELS: Filter[] = ['All', 'Active', 'Paused', 'Draft', 'Retired'];
 const FILTER_TO_STATE: Record<Filter, WorkflowState | null> = {
   All: null,
   Active: 'Active',
   Paused: 'Paused',
   Draft: 'Draft',
+  Retired: 'Retired',
 };
 
 // Categorical sparkline series.
@@ -74,12 +76,13 @@ export function WorkflowsListPage() {
   }, [selectedSlug, workflows]);
 
   const counts = useMemo(() => {
-    const acc: Record<Filter, number> = { All: 0, Active: 0, Paused: 0, Draft: 0 };
+    const acc: Record<Filter, number> = { All: 0, Active: 0, Paused: 0, Draft: 0, Retired: 0 };
     acc.All = workflows.length;
     for (const wf of workflows) {
       if (wf.state === 'Active') acc.Active += 1;
       else if (wf.state === 'Paused') acc.Paused += 1;
       else if (wf.state === 'Draft') acc.Draft += 1;
+      else if (wf.state === 'Retired') acc.Retired += 1;
     }
     return acc;
   }, [workflows]);
@@ -150,6 +153,7 @@ export function WorkflowsListPage() {
           title="Agent Workflows"
           subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
         />
+        <NewWorkflowButton />
         <EmptyState />
       </div>
     );
@@ -165,18 +169,7 @@ export function WorkflowsListPage() {
         subtitle="Reusable procedures that agents run when triggered. Wire them to events, schedules, or human actions."
         actions={
           <>
-            <Button variant="outline" size="sm">
-              <Search className="h-3 w-3" />
-              Browse library
-            </Button>
-            <Button variant="outline" size="sm">
-              <Upload className="h-3 w-3" />
-              Import
-            </Button>
-            <Button size="sm">
-              <Plus className="h-3 w-3" />
-              New workflow
-            </Button>
+            <NewWorkflowButton />
           </>
         }
       />
@@ -345,9 +338,7 @@ function EmptyState() {
         className="text-[12.5px] text-muted-foreground"
         style={{ lineHeight: 1.5, maxWidth: 480 }}
       >
-        Workflows are reusable procedures agents run when a trigger fires.
-        Run the demo seed from System Tools to populate seven sample
-        workflows — or come back here once a "New workflow" wizard ships.
+        Create an invoice approval draft, configure the reviewer role and test its decision routes.
       </div>
     </div>
   );

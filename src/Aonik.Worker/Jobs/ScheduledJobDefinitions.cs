@@ -185,6 +185,13 @@ internal static class ScheduledJobDefinitions
                 options.SafetyRetention.CronExpression,
                 options.SafetyRetention.Enabled,
                 moduleId: ModuleIds.Ai),
+            new ScheduledJobDefinition<ConnectorContentRetentionJob>(
+                ConnectorContentRetentionJob.Key,
+                new TriggerKey("ConnectorContentRetentionJob-trigger", ScheduledJobGroups.ScheduledJobs),
+                "Connector Content Retention",
+                "Reclaims expired temporary uploads in the private connector store.",
+                options.ConnectorContentRetention.CronExpression,
+                options.ConnectorContentRetention.Enabled),
             new ScheduledJobDefinition<WorkspaceBlobSweepJob>(
                 WorkspaceBlobSweepJob.Key,
                 new TriggerKey("WorkspaceBlobSweepJob-trigger", ScheduledJobGroups.ScheduledJobs),

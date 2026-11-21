@@ -9,7 +9,6 @@ using Aonik.SharedKernel.Abstractions;
 using Aonik.Voice.Pipeline;
 using Aonik.Voice.Tools;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Voxa.Pipelines;
@@ -71,7 +70,8 @@ internal static class VoiceWebSocketEndpoint
 
             // Validate frontend tools against the server-owned allowlist.
             var catalog = services.GetRequiredService<IVoiceFrontendToolCatalog>();
-            var rejected = catalog.Validate(hello.FrontendTools ?? new List<string>());
+            List<string> frontendTools = hello.FrontendTools ?? [];
+            var rejected = catalog.Validate(frontendTools);
             if (rejected.Count > 0)
             {
                 var message = $"Unknown frontend tool name(s): {string.Join(", ", rejected)}";
@@ -134,18 +134,8 @@ internal static class VoiceWebSocketEndpoint
             // negotiation (the server only declares tools the client claims it can
             // render). Once the catalog ships canonical AITool declarations
             // (Phase 3 follow-up), this will populate.
-            var clientTools = catalog.ResolveCanonical(hello.FrontendTools ?? new List<string>());
+            var clientTools = catalog.ResolveCanonical(frontendTools);
             var runOptions = runOptionsBuilder.Build(clientTools, agentContext.ConfiguredModelName);
-
-            // Stamp use_case = "voice" on ChatOptions.AdditionalProperties so
-            // TelemetryChatClient tags AI run logs correctly. Mirrors the AGUI
-            // path (AguiStreamingEndpoint.cs:111 sets the activity tag; here we
-            // also set the property because run options carry it through to
-            // TelemetryChatClient).
-            runOptions ??= new Microsoft.Agents.AI.ChatClientAgentRunOptions { ChatOptions = new ChatOptions() };
-            runOptions.ChatOptions ??= new ChatOptions();
-            runOptions.ChatOptions.AdditionalProperties ??= new AdditionalPropertiesDictionary();
-            runOptions.ChatOptions.AdditionalProperties[AiTelemetry.UseCaseAttribute] = "voice";
 
             // Resolve tenant + user IDs from the request scope (set by
             // OnTokenValidated → tenantContext / currentUserContext).
@@ -160,7 +150,7 @@ internal static class VoiceWebSocketEndpoint
                 VoiceAgent: voiceAgentResult.Agent,
                 UserBriefPreamble: agentContext.UserBriefPreamble,
                 RunOptions: runOptions,
-                FrontendToolNames: catalog.AllowedNames,
+                FrontendToolNames: frontendTools.ToHashSet(StringComparer.OrdinalIgnoreCase),
                 InitialChatThreadId: hello.ChatThreadId,
                 AgentId: hello.AgentId,
                 TenantId: tenantId,
@@ -187,9 +177,8 @@ internal static class VoiceWebSocketEndpoint
 
             // Connection-level AiRun (spec 024 Phase E**). One row per voice connection so
             // the AI dashboard can chart who's using voice mode, with which recipe, for how
-            // long, and how it ended. Per-LLM-turn AiRuns continue to flow through
-            // TelemetryChatClient (use case "voice", set on ChatOptions above) — those track
-            // tokens / cost. This row tracks the *session*.
+            // long, and how it ended. AuditMiddleware records usage for each model invocation
+            // with the voice use case. This row tracks the session.
             //
             // StartRunAsync also runs the tenant kill-switch check, so engaging the kill
             // switch immediately blocks new voice connections without us needing a separate

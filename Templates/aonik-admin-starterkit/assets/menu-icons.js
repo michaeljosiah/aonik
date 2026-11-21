@@ -145,6 +145,8 @@
   assign('jobs', 'settings.background-jobs settings.background-jobs-detail');
   assign('tools', 'settings.system-tools');
   assign('modules', 'settings.modules');
+  assign('credentials', 'settings.my-connections settings.tenant-integrations');
+  assign('workflows', 'ai.workflow-run');
   assign('content-blocks', 'cms.content-blocks cms.content-new cms.content-detail');
   assign('content-wizard', 'cms.content-wizard');
   assign('media', 'cms.media');

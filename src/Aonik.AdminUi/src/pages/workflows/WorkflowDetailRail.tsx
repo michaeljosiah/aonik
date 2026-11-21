@@ -22,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { STEP_KIND } from './stepKindCatalog';
@@ -119,9 +120,9 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
         </div>
 
         <div className="mt-3 flex items-center gap-2">
-          <Button size="sm" className="h-7 px-3">
+          <Button size="sm" className="h-7 px-3" onClick={onOpenEditor}>
             <Play className="h-3 w-3" />
-            Run now
+            Review and run
           </Button>
           <Button
             size="sm"
@@ -286,9 +287,7 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
               Recent runs
             </div>
             <div className="flex-1" />
-            <a className="text-[11px] font-medium text-primary cursor-pointer">
-              Open in Traces →
-            </a>
+            {recent[0]?.mode === 'Live' && <Link to={`/ai/workflow-runs/${recent[0].id}`} className="text-[11px] font-medium text-primary">Open latest run →</Link>}
           </div>
           <div className="flex flex-col gap-1">
             {runsLoading && recent.length === 0 ? (
@@ -333,6 +332,7 @@ export function WorkflowDetailRail({ wf, runs = [], runsLoading = false, onOpenE
                     <span className="text-[10.5px] text-muted-foreground">
                       {r.when}
                     </span>
+                    {r.mode === 'Live' && <Link to={`/ai/workflow-runs/${r.id}`} className="text-xs text-primary underline">Review trace</Link>}
                   </div>
                 );
               })

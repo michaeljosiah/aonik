@@ -58,7 +58,7 @@ public sealed record ScheduleTaskRequest(
     int Priority = 0,
     string? CorrelationId = null,
     string? SourceModule = null,      // origin module, e.g. "PersonalFinance"
-    Guid? TaskId = null);            // internal, source-bound one-off scheduling only
+    Guid? TaskId = null);            // internal, source-bound idempotent scheduling
 
 /// <summary>A task as returned to callers and the admin UI.</summary>
 public sealed record TaskResponse(
@@ -87,4 +87,5 @@ public sealed record TaskResponse(
     string? CorrelationId,
     string? LastError,
     DateTime CreatedAt,
-    DateTime? UpdatedAt);
+    DateTime? UpdatedAt,
+    DateTime? DeferredUntilUtc = null);

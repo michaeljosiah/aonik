@@ -1,17 +1,23 @@
 using System.Linq;
 using System.Text.Json;
 
+using Aonik.Ai.Middleware;
 using Aonik.Agents.Contracts.Models;
 using Aonik.Agents.Contracts.Services;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Services;
 using Aonik.SharedKernel.Abstractions;
 using Aonik.SharedKernel.Abstractions.Agents;
+using Aonik.SharedKernel.Abstractions.Ai;
+using Aonik.SharedKernel.Agents.Approval;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 
 using FluentAssertions;
 using Moq;
+using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Aonik.Application.Tests.Agents.Approval;
 
@@ -34,6 +40,78 @@ namespace Aonik.Application.Tests.Agents.Approval;
 /// </summary>
 public class ToolApprovalServiceTests
 {
+    [Fact]
+    public async Task HighActionWithoutAHumanSession_Should_OnlyCreateAProposal_AndCannotApproveItself()
+    {
+        var fixture = new Fixture();
+        fixture.User.UserId = null;
+        ToolApprovalService service = fixture.Build();
+
+        ToolGateOutcome queued = await service.GateAsync(High());
+
+        queued.Decision.Should().Be(ToolGateDecision.Queued);
+        fixture.ProposalStore.Created.Should().ContainSingle(proposal => proposal.ProposalType == "Finance.CapturePayment");
+        ToolApprovalRequest request = fixture.RequestStore.Requests.Single();
+        request.Status.Should().Be(ToolApprovalRequestStatus.Pending);
+        request.RequestingUserId.Should().BeNull();
+        (await service.DecideAsync(request.Id, new(ToolApprovalDecisionType.Approve))).Outcome.Should().Be(ToolApprovalDecisionOutcome.Forbidden);
+        request.DecidedByUserId.Should().BeNull();
+        request.ConsumedAt.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public async Task HighProposal_Should_LinkOnlyTheServerRecordedModelCall(bool streaming, bool audited, bool conversation)
+    {
+        var fixture = new Fixture();
+        Guid originatingRun = Guid.NewGuid();
+        Guid forgedRun = Guid.NewGuid();
+        var writer = new Mock<IAiRunWriter>();
+        writer.SetupSequence(service => service.StartRunAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(originatingRun).ReturnsAsync(Guid.NewGuid());
+        using ServiceProvider services = new ServiceCollection().AddSingleton<IToolApprovalService>(fixture.Build()).BuildServiceProvider();
+        ToolGateContext high = High();
+        AIFunction inner = AIFunctionFactory.Create(() => "should never execute", high.ToolName);
+        var gated = new ApprovalGatedAIFunction(inner, high.Options, Mock.Of<IToolApprovalAuditSink>(), services);
+        var call = new FunctionCallContent("test-call", high.ToolName, new Dictionary<string, object?>(high.Arguments) { ["aiRunId"] = forgedRun });
+        var client = new Mock<IChatClient>();
+        ChatMessage Reply(IEnumerable<ChatMessage> messages) => messages.SelectMany(message => message.Contents).Any(content => content is FunctionResultContent)
+            ? new ChatMessage(ChatRole.Assistant, "Approval requested.")
+            : new ChatMessage(ChatRole.Assistant, [call]);
+        client.Setup(value => value.GetResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IEnumerable<ChatMessage> messages, ChatOptions _, CancellationToken _) => new ChatResponse(Reply(messages)));
+        client.Setup(value => value.GetStreamingResponseAsync(It.IsAny<IEnumerable<ChatMessage>>(), It.IsAny<ChatOptions>(), It.IsAny<CancellationToken>()))
+            .Returns((IEnumerable<ChatMessage> messages, ChatOptions _, CancellationToken _) => Stream(Reply(messages)));
+
+        IChatClient pipeline = audited ? new AuditMiddleware(client.Object, writer.Object, NullLogger<AuditMiddleware>.Instance) : client.Object;
+        var agent = new ChatClientAgent(pipeline, name: "provenance-test", instructions: "Request payment approval.", tools: [gated]);
+
+        if (streaming)
+        {
+            var options = conversation ? new ChatClientAgentRunOptions(new ChatOptions
+            {
+                AdditionalProperties = new() { [AiTelemetry.ConversationThreadIdProperty] = Guid.NewGuid() },
+            }) : null;
+            await foreach (AgentResponseUpdate _ in agent.RunStreamingAsync("Request payment approval.", options: options)) { }
+        }
+        else
+        {
+            await agent.RunAsync("Request payment approval.");
+        }
+
+        fixture.RequestStore.Requests.Should().ContainSingle().Which.AiRunId.Should().Be(audited ? originatingRun : null);
+        fixture.ProposalStore.Created.Should().ContainSingle().Which.AiRunId.Should().Be(audited ? originatingRun : null);
+
+        static async IAsyncEnumerable<ChatResponseUpdate> Stream(ChatMessage message)
+        {
+            await Task.Yield();
+            yield return new ChatResponseUpdate { Role = message.Role, Contents = message.Contents };
+        }
+    }
+
     // ----- Test doubles -----------------------------------------------------------------------
 
     /// <summary>In-memory <see cref="IToolApprovalRequestStore"/> mirroring the real consumable query.</summary>

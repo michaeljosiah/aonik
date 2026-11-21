@@ -16,8 +16,8 @@ namespace Aonik.Agents.Contracts.Models;
 public sealed record PlaygroundRunRequest
 {
     /// <summary>
-    /// Agent descriptor name (e.g. "personal-finance-agent"). When set, the
-    /// endpoint resolves the descriptor and builds the agent with its tools.
+    /// Agent descriptor name (e.g. "personal-finance-agent") or "master-orchestrator".
+    /// Aonik uses its configured instructions and the signed-in operator's workspace tools.
     /// When <c>null</c>, raw mode is used.
     /// </summary>
     public string? AgentName { get; init; }
@@ -49,7 +49,7 @@ public sealed record PlaygroundRunRequest
     /// sub-agents' read tools) targets the impersonated user's data instead of
     /// the authenticated admin's. Gated by <c>AdminUserPolicy</c> on the
     /// endpoint — only admins can impersonate. Tenancy is not affected; the
-    /// impersonated user must belong to the current tenant.
+    /// impersonated user must belong to the current tenant. Aonik runs as the signed-in operator.
     /// </summary>
     public Guid? ImpersonateUserId { get; init; }
 

@@ -190,6 +190,9 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
         {
             ["TenantAdmin"] =
             [
+                "Integration.Read", "Integration.Use", "Integration.Request", "Integration.Manage",
+                "Workflow.Read", "Workflow.Write", "Workflow.Publish", "Workflow.Run",
+                "Document.Read", "Document.Extract",
                 "Users.Read",
                 "Users.Invite",
                 "Users.Manage",
@@ -226,6 +229,9 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             ],
             ["Operations"] =
             [
+                "Integration.Read", "Integration.Use", "Integration.Request",
+                "Workflow.Read", "Workflow.Run",
+                "Document.Read", "Document.Extract",
                 "Users.RevokeSessions",
                 "Ledger.Read",
                 "Ledger.Write",
@@ -248,6 +254,8 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             ],
             ["ReadOnly"] =
             [
+                "Integration.Read",
+                "Workflow.Read",
                 "Users.Read",
                 "UserInfo.Read",
                 "Roles.Read",
@@ -270,6 +278,7 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             ],
             ["PersonalUser"] =
             [
+                "Integration.Read", "Integration.Use", "Integration.Request",
                 "UserInfo.Read",
                 "UserInfo.Update",
                 "Settings.Read",
@@ -370,6 +379,9 @@ internal class PermissionSeedService : AdminServiceBase, IPermissionSeedService
             "Users.Delete",
             "UserInfo.Read",
             "UserInfo.Update",
+            "Workflow.Read", "Workflow.Write", "Workflow.Publish", "Workflow.Run",
+                "Document.Read", "Document.Extract",
+            "Integration.Read", "Integration.Use", "Integration.Request", "Integration.Manage",
             "Settings.Read",
             "Settings.Write",
             "Roles.Read",

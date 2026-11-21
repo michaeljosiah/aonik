@@ -23,4 +23,11 @@ public class WorkflowVersion : AuditableEntity, ITenantScoped
 
     /// <summary>Hex color for the author's avatar dot.</summary>
     public string AuthorColor { get; set; } = string.Empty;
+
+    public string? DefinitionJson { get; set; }
+    public int? SchemaVersion { get; set; }
+    public string? DefinitionHash { get; set; }
+    public DateTime? PublishedAt { get; set; }
+    public Guid? PublishedByUserId { get; set; }
+    public Guid? AiRunId { get; set; }
 }

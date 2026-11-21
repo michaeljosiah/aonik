@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Aonik.Agents.Entities;
 using Aonik.Agents.Persistence;
+using Aonik.SharedKernel.Abstractions.Connectors;
 using Aonik.SharedKernel.Abstractions.Multitenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -56,7 +57,7 @@ internal sealed class TenantMcpToolProvider : ITenantMcpToolProvider
         // Tenant query filter scopes this to the current tenant automatically.
         var servers = await db.TenantMcpServers
             .AsNoTracking()
-            .Where(s => s.IsActive && s.ApprovalState == TenantExtensionApprovalState.Approved)
+            .Where(s => s.IsActive && s.ApprovalState == TenantExtensionApprovalState.Approved && s.ConnectorPackageJson == null)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -92,6 +93,7 @@ internal sealed class TenantMcpToolProvider : ITenantMcpToolProvider
             var prefixes = ParsePrefixes(server.AllowedToolPrefixesJson);
             foreach (var tool in connection.Tools)
             {
+                if (ConnectorInvocationIdentity.IsCuratedTool(tool.Name)) continue;
                 if (prefixes.Count > 0 && !prefixes.Any(p => tool.Name.StartsWith(p, StringComparison.OrdinalIgnoreCase)))
                 {
                     continue;

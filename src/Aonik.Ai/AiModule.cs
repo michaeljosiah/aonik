@@ -206,6 +206,7 @@ public sealed class AiModule : IModule
 
         // Capture-parse (Spec 047) — image/text/transcript → structured draft proposal.
         services.AddScoped<Contracts.Services.ICaptureParseService, Services.Capture.CaptureParseService>();
+        services.AddScoped<SharedKernel.Abstractions.Documents.IFinancialDocumentParser, Services.Capture.FinancialDocumentParser>();
         services.AddSingleton<ITextToSpeechRateLimiter, TextToSpeechRateLimiter>();
         services.AddScoped<TextToSpeechService>();
         services.AddScoped<ITextToSpeechService>(sp => sp.GetRequiredService<TextToSpeechService>());

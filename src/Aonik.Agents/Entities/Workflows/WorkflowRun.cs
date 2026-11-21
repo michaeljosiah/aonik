@@ -19,6 +19,7 @@ public class WorkflowRun : AuditableEntity, ITenantScoped
     public DateTime StartedAt { get; set; }
 
     public DateTime? CompletedAt { get; set; }
+    public DateTime? DeadlineUtc { get; set; }
 
     /// <summary>One of <see cref="WorkflowRunStatuses"/>.</summary>
     public string Status { get; set; } = WorkflowRunStatuses.Running;
@@ -32,6 +33,43 @@ public class WorkflowRun : AuditableEntity, ITenantScoped
     /// </summary>
     public string StartedBy { get; set; } = string.Empty;
 
-    /// <summary>JSON array of node ids visited, in order.</summary>
+    /// <summary>Ordered legacy node IDs or live step-run IDs; live details use the pinned version.</summary>
     public string SequenceJson { get; set; } = "[]";
+
+    // Null metadata preserves the meaning of legacy, non-durable run history.
+    public Guid? WorkflowVersionId { get; set; }
+    public string? DefinitionHash { get; set; }
+    public string Mode { get; set; } = "Legacy";
+    public string? ActorType { get; set; }
+    public Guid? ActorId { get; set; }
+    public Guid? InitiatingUserId { get; set; }
+    public Guid? ConfiguredByUserId { get; set; }
+    public Guid? TriggerBindingId { get; set; }
+    public int? TriggerBindingRevision { get; set; }
+    public Guid? TriggerApprovalProposalId { get; set; }
+    public string? TriggerDefinitionHash { get; set; }
+    public Guid? SourceEventId { get; set; }
+    public DateTime? SourceOccurredAtUtc { get; set; }
+    public Guid? CausationRunId { get; set; }
+    public Guid? RootRunId { get; set; }
+    public Guid? ExecutionRootRunId { get; set; }
+    public Guid? ParentRunId { get; set; }
+    public Guid? ParentStepRunId { get; set; }
+    public string InvocationPath { get; set; } = "root";
+    public int Depth { get; set; }
+    public string TriggerPathJson { get; set; } = "[]";
+    public string? SubjectType { get; set; }
+    public Guid? SubjectId { get; set; }
+    public string? IdempotencyKey { get; set; }
+    public string? InputHash { get; set; }
+    public string? FactsJson { get; set; }
+    public string? FactsHash { get; set; }
+    public string? Outcome { get; set; }
+    public string? ErrorCode { get; set; }
+    public Guid? PendingStepRunId { get; set; }
+    public string? CheckpointId { get; set; }
+    public string? FrameworkSessionId { get; set; }
+    public int Continuation { get; set; }
+    public Guid? LeaseId { get; set; }
+    public DateTime? LeaseExpiresAt { get; set; }
 }

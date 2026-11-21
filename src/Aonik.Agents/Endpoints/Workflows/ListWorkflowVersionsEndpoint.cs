@@ -20,7 +20,6 @@ internal sealed class ListWorkflowVersionsEndpoint
     public override void Configure()
     {
         Get("/ai/workflows/{WorkflowId:guid}/versions");
-        Policies("AdminUserPolicy");
         Summary(s =>
         {
             s.Summary = "List version history for a workflow";

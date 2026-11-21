@@ -5,9 +5,8 @@ namespace Aonik.Voice.Frames;
 
 /// <summary>
 /// AONIK-only frame serializer wired into <c>WebSocketAudioSink</c> via its
-/// <c>customSerializer</c> hook. Returns the <c>threadReady</c> envelope JSON for
-/// <see cref="ThreadReadyFrame"/>; returns <c>null</c> for everything else so Voxa's built-in
-/// envelope serialization (audio, transcription, tool-call, etc.) takes over.
+/// <c>customSerializer</c> hook for thread readiness and approval review links.
+/// Voxa handles the standard envelopes.
 ///
 /// <para>
 /// Replaces the previous <c>AonikVoiceWebSocketSink</c> subclass — Voxa's sink is sealed but
@@ -20,11 +19,19 @@ public static class ThreadReadyFrameSerializer
     private static readonly JsonSerializerOptions JsonOpts = new(JsonSerializerDefaults.Web);
 
     /// <summary>
-    /// Serialize a <see cref="ThreadReadyFrame"/> as the <c>threadReady</c> envelope. Returns
-    /// <c>null</c> for any other frame so the sink falls through to its built-in handling.
+    /// Serializes AONIK frames and leaves other frames to the sink.
     /// </summary>
     public static string? Serialize(Frame frame)
     {
+        if (frame is ApprovalReviewFrame review)
+        {
+            string path = $"/approvals?requestId={review.ApprovalRequestId:D}";
+            string? url = Uri.TryCreate(review.AdminUiBaseUrl, UriKind.Absolute, out var origin)
+                && origin.Scheme == Uri.UriSchemeHttps && string.IsNullOrEmpty(origin.UserInfo)
+                ? new Uri(origin, path).AbsoluteUri : null;
+            return JsonSerializer.Serialize(new { type = "approvalReview", reviewPath = path, reviewUrl = url }, JsonOpts);
+        }
+
         if (frame is not ThreadReadyFrame ready) return null;
 
         return JsonSerializer.Serialize(new

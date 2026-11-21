@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { agentConfigService } from '@/services/aiService';
+import { AONIK_ORCHESTRATOR_NAME, agentDisplayName } from '@/lib/agentIdentity';
 import type { AgentConfigurationResponse } from '@/types/ai';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
@@ -29,6 +30,10 @@ export function AgentPicker({ value, onChange, compact = false }: AgentPickerPro
       onChange(null);
       return;
     }
+    if (name === AONIK_ORCHESTRATOR_NAME) {
+      onChange(name);
+      return;
+    }
     try {
       const config = await agentConfigService.get(name);
       onChange(name, config);
@@ -51,8 +56,9 @@ export function AgentPicker({ value, onChange, compact = false }: AgentPickerPro
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="__raw__">Raw mode (no agent)</SelectItem>
+        <SelectItem value={AONIK_ORCHESTRATOR_NAME}>{agentDisplayName(AONIK_ORCHESTRATOR_NAME)}</SelectItem>
         {agents
-          .filter((a) => a.isActive)
+          .filter((a) => a.isActive && a.name !== AONIK_ORCHESTRATOR_NAME)
           .map((a) => (
             <SelectItem key={a.name} value={a.name}>
               {a.name}

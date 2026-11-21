@@ -34,7 +34,9 @@
     "ai.tasks": {},
     "ai.usage": {},
     "settings": {},
-    "settings.modules": {}
+    "settings.modules": {},
+    "settings.my-connections": {},
+    "settings.tenant-integrations": {}
   },
   "navigation": [
     {
