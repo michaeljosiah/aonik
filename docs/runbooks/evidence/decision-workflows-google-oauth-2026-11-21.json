@@ -1,7 +1,7 @@
 {
   "epic": "https://github.com/michaeljosiah/aonik/issues/438",
   "recordedOn": "2026-11-21",
-  "status": "client-provisioned-host-deployment-pending",
+  "status": "hosts-configured-policy-and-mailbox-consent-pending",
   "implementationPullRequest": "https://github.com/michaeljosiah/aonik/pull/440",
   "testedSourceCommit": "34bf02aa126affe45f87313d2589f87b8f22c269",
   "mergeCommit": "375ab341844bb376b52d25bcb330380f4cd79228",
@@ -32,6 +32,10 @@
     "imageBuildRun": "https://github.com/michaeljosiah/aonik/actions/runs/43697992512",
     "imageBuildAndVulnerabilityScanSucceeded": true,
     "initialDeploymentPreview": "https://github.com/michaeljosiah/aonik/actions/runs/44908769124",
+    "correctedDeploymentPreview": "https://github.com/michaeljosiah/aonik/actions/runs/44909586091",
+    "deploymentRun": "https://github.com/michaeljosiah/aonik/actions/runs/44909873850",
+    "configurationPullRequest": "https://github.com/michaeljosiah/aonik/pull/441",
+    "configurationCommit": "0412189bc1dd35bb13e92e38d26bfd0fd8a1f59d",
     "publishingParametersMatchRunningApiAndWorker": true,
     "preservedPublishingSettingCount": 41,
     "canonicalMigrationBaseline": {
@@ -41,9 +45,22 @@
       "migrationCount": 148,
       "pendingWorkflowMigrationCount": 12
     },
-    "activeApiAndWorkerConfigurationVerified": false
+    "canonicalMigrationVerification": {
+      "run": "https://github.com/michaeljosiah/aonik/actions/runs/44910295770",
+      "dryRunOnly": true,
+      "migrationCount": 148,
+      "pendingMigrationCount": 0
+    },
+    "activeApiAndWorkerConfigurationVerified": true,
+    "apiHealthHttpStatus": 200,
+    "apiRevision": "aonik-dev-api--0000394",
+    "workerRevision": "aonik-dev-worker--0000384",
+    "adminUiRevision": "aonik-dev-adminui--0000375",
+    "privateScannerContainersReady": true
   },
   "liveQualification": {
+    "initialConnectionRequest": "Rejected by current connector policy before account consent",
+    "platformAndTenantPolicyReviewed": false,
     "mailboxConsentCompleted": false,
     "providerReadActionsQualified": false,
     "providerWriteActionsQualified": false,

@@ -69,6 +69,14 @@ interface GlobalTabDef {
   sections: SectionDef[];
 }
 
+const GMAIL_READ_ACTION_KEYS = ['gmail.messages.search', 'gmail.messages.get', 'gmail.attachments.get'];
+const GMAIL_MAIL_ACTION_KEYS = [...GMAIL_READ_ACTION_KEYS,
+  'gmail.drafts.get', 'gmail.messages.prepare', 'gmail.drafts.create', 'gmail.drafts.update', 'gmail.drafts.delete',
+  'gmail.messages.send', 'gmail.messages.reply', 'gmail.messages.forward', 'gmail.drafts.send',
+  'gmail.messages.modify-labels', 'gmail.messages.mark-read', 'gmail.messages.mark-unread',
+  'gmail.messages.archive', 'gmail.messages.trash', 'gmail.messages.restore'];
+const gmailActionPolicy = (keys: string[]) => JSON.stringify(keys.map((key) => ({ key, version: 1 })));
+
 const GLOBAL_TABS: GlobalTabDef[] = [
   {
     id: 'ai',
@@ -222,6 +230,27 @@ const GLOBAL_TABS: GlobalTabDef[] = [
     id: 'features',
     label: 'Feature Flags',
     sections: [
+      {
+        title: 'Gmail connections',
+        description: 'Set the platform limits for Gmail. Each workspace must also enable Gmail and the account owner must complete Google consent.',
+        fields: [
+          { key: 'Integrations.Gmail.Enabled', label: 'Allow Gmail connections', type: 'toggle', defaultValue: 'false' },
+          { key: 'Integrations.Gmail.AllowUserConnections', label: 'Allow personal Gmail accounts', type: 'toggle', defaultValue: 'true' },
+          { key: 'Integrations.Gmail.AllowSelfService', label: 'Let members connect their own accounts', description: 'The workspace must also allow this. Otherwise an integration reviewer approves the request first.', type: 'toggle', defaultValue: 'false' },
+          { key: 'Integrations.Gmail.AllowWorkflowConnections', label: 'Allow reviewed workflow access', description: 'Workflows still need explicit account and action grants.', type: 'toggle', defaultValue: 'false' },
+          {
+            key: 'Integrations.Gmail.AllowedActions', label: 'Maximum Gmail capabilities', type: 'select',
+            description: 'Workspace policy, Google consent and per-action approvals continue to govern use.',
+            options: [
+              { value: gmailActionPolicy(GMAIL_READ_ACTION_KEYS), label: 'Read email and attachments' },
+              { value: gmailActionPolicy(GMAIL_MAIL_ACTION_KEYS), label: 'Read, draft, send and organise email' },
+              { value: gmailActionPolicy([...GMAIL_MAIL_ACTION_KEYS, 'gmail.messages.permanently-delete']), label: 'All Gmail actions, including permanent deletion' },
+            ],
+            defaultValue: gmailActionPolicy(GMAIL_READ_ACTION_KEYS),
+          },
+          { key: 'Integrations.Gmail.AllowPermanentDelete', label: 'Allow permanent deletion requests', description: 'Also requires workspace approval, full-mail consent and a separately reviewed deletion proposal.', type: 'toggle', defaultValue: 'false' },
+        ],
+      },
       {
         title: 'Bill Payments',
         description: 'Control which billing and invoicing features are enabled.',
@@ -803,6 +832,9 @@ export function GlobalSettingsPage() {
               <Select value={value ?? field.defaultValue ?? ''} onValueChange={(v) => updateGlobalValue(field.key, v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  {value && !field.options?.some((option) => option.value === value) && (
+                    <SelectItem value={value}>Custom configuration</SelectItem>
+                  )}
                   {field.options?.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}

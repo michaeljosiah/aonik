@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Gmail setup controls (#438):** Expose the existing platform Gmail limits in Global Settings, including explicit enablement and capability presets. Choose tenant reviewers by role name and focus failed-request explanations above long forms. Workspace policy, Google consent and action approvals continue to apply. Preserve custom setting values when they differ from a preset.
+
 - **Development deployment configuration (#438):** Preserve the running publishing channel, reviewer assignments, intake limits and verifier pool in the existing ACA parameters while provisioning AONIK's dedicated Gmail development client. Record client provisioning separately from mailbox consent and live workflow qualification.
 
 - **Aonik in AI Playground (#438)** Run Aonik’s workflow and connector tools as the signed-in operator using the existing approval cards. Chat and Playground use the orchestrator’s routed model by default. Playground presents each pending decision once, including decisions raised by a delegated agent.
