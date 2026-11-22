@@ -50,12 +50,13 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
   };
   const gmail = catalog.find(item => item.key === 'gmail');
   const requestedConnector = catalog.find(item => item.key === provider);
+  const requestOwnership = tenant || requestedConnector?.authenticationKind === 'ServiceAccount' ? 'Tenant' : 'User';
   const selectedActions = useMemo(() => actions.filter(action => requestedConnector?.actions.some(available => available.key === action.key && available.version === action.version)), [actions, requestedConnector]);
-  const readinessKey = `${provider}:${selectedActions.map(action => `${action.key}@${action.version}`).join(',')}`;
+  const readinessKey = `${provider}:${requestOwnership}:${selectedActions.map(action => `${action.key}@${action.version}`).join(',')}`;
   useEffect(() => {
     if (!selectedActions.length) return;
     let current = true;
-    void Promise.all(selectedActions.map(action => connectorService.readiness(provider, action))).then(results => {
+    void Promise.all(selectedActions.map(action => connectorService.readiness(provider, action, undefined, requestOwnership))).then(results => {
       if (!current) return;
       const blocked = results.some(result => result.code === 'ForbiddenByPolicy');
       const provisioning = results.some(result => ['TenantNotEnabled', 'ConnectorUnavailable'].includes(result.code));
@@ -65,7 +66,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
           : 'Required reviews and consent are checked after submission. Each later action still follows its approval rules.' });
     }).catch(() => { if (current) setReadiness({ key: readinessKey, blocked: true, message: 'We could not check connection availability. Refresh to try again before submitting a request.' }); });
     return () => { current = false; };
-  }, [provider, selectedActions, readinessKey, refreshKey]);
+  }, [provider, selectedActions, requestOwnership, readinessKey, refreshKey]);
   const checkingReadiness = selectedActions.length > 0 && readiness?.key !== readinessKey;
   const curated = catalog.filter(item => item.authenticationKind === 'ServiceAccount');
   const usesServiceAccount = requestedConnector?.authenticationKind === 'ServiceAccount';
@@ -89,7 +90,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
       {checkingReadiness && <p role="status" className="text-sm text-muted-foreground">Checking connection availability…</p>}
       {!checkingReadiness && readiness?.key === readinessKey && <p role={readiness.blocked ? 'alert' : 'status'} className={`rounded-md border p-3 text-sm ${readiness.blocked ? 'border-destructive/40 text-destructive' : 'text-muted-foreground'}`}>{readiness.message}</p>}
       <Button disabled={busy || !selectedActions.length || !purpose.trim() || checkingReadiness || readiness?.blocked} onClick={() => void run(async () => {
-        const created = await connectorService.createRequest({ connectorKey: provider, ownership: tenant || usesServiceAccount ? 'Tenant' : 'User', actions: selectedActions, purpose, idempotencyKey: crypto.randomUUID() });
+        const created = await connectorService.createRequest({ connectorKey: provider, ownership: requestOwnership, actions: selectedActions, purpose, idempotencyKey: crypto.randomUUID() });
         setRequests(items => [created, ...items.filter(item => item.id !== created.id)]);
       })}>Submit access request</Button>
     </CardContent></Card>

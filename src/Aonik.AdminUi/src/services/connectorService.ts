@@ -38,8 +38,8 @@ export const connectorService = {
   reconcileMutation: (id: string) => api.post<ConnectorMutationStatus>(`${root}/mutations/${encodeURIComponent(id)}/reconcile`),
   connections: (key: string) => api.get<ConnectorConnection[]>(`${root}/connectors/${encodeURIComponent(key)}/connections`),
   managed: () => api.get<ConnectorConnection[]>(`${root}/managed-connections`),
-  readiness: (key: string, action: ConnectorActionRef, connectionId?: string) => api.get<{ code: string; nextAction: string; connectionId: string | null }>(
-    `${root}/connectors/${encodeURIComponent(key)}/readiness`, { params: { actionKey: action.key, version: action.version, connectionId } }),
+  readiness: (key: string, action: ConnectorActionRef, connectionId?: string, requestOwnership?: 'User' | 'Tenant') => api.get<{ code: string; nextAction: string; connectionId: string | null }>(
+    `${root}/connectors/${encodeURIComponent(key)}/readiness`, { params: { actionKey: action.key, version: action.version, connectionId, requestOwnership } }),
   requests: () => api.get<ConnectionRequest[]>(`${root}/connection-requests?take=100`),
   request: (id: string) => api.get<ConnectionRequest>(`${root}/connection-requests/${encodeURIComponent(id)}`),
   createRequest: (request: NewConnectionRequest) => api.post<ConnectionRequest>(`${root}/connection-requests`, request),

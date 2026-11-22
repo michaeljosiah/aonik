@@ -82,6 +82,16 @@ it('keeps send permissions separate from the initial read-only request', async (
   expect(element.querySelector('summary')?.textContent).toBe('Additional email permissions');
 });
 
+it('checks the requested tenant ownership without letting an unusable personal account block submission', async () => {
+  service.readiness.mockImplementation(async (_key, _action, _connection, ownership) => ({ code: ownership === 'Tenant' ? 'Ready' : 'ForbiddenByPolicy' }));
+  service.createRequest.mockResolvedValue({ id: 'request', connectorKey: 'gmail', ownership: 'Tenant', status: 'Pending', actions: [], requiredScopes: [], expiresAt: new Date().toISOString() });
+  await render(true);
+  expect(service.readiness).toHaveBeenCalledWith('gmail', { key: 'gmail.messages.search', version: 1 }, undefined, 'Tenant');
+  expect(button('Submit access request').disabled).toBe(false);
+  await act(async () => button('Submit access request').click());
+  expect(service.createRequest).toHaveBeenCalledWith(expect.objectContaining({ ownership: 'Tenant' }));
+});
+
 it('requires an explicit named reviewer for reviewed connection requests and saves its ID', async () => {
   await render(true); await check('Enable Gmail');
   expect(button('Save tenant policy').disabled).toBe(true);

@@ -39,17 +39,24 @@ internal sealed partial class ConnectorService(PlatformDbContext database, Conne
     }
 
     public async Task<ConnectorReadiness> GetReadinessAsync(string connectorKey, ConnectorActionRef action, Guid? connectionId = null,
-        CancellationToken cancellationToken = default)
+        string? requestOwnership = null, CancellationToken cancellationToken = default)
     {
         Guid userId = await authorization.RequireUserAsync("Integration.Read", cancellationToken);
+        if (requestOwnership is not (null or "User" or "Tenant") || (requestOwnership is not null && connectionId.HasValue))
+            throw new ArgumentException("Choose User or Tenant request ownership without an existing connection ID.");
         ConnectorActionDescriptor descriptor;
         try { descriptor = catalog.Resolve(connectorKey, action); }
         catch (ConnectorAccessException) { return Readiness("ConnectorUnavailable"); }
         ConnectorPolicy policy = await policies.GetAsync(connectorKey, cancellationToken);
+        if (requestOwnership is not null && ((requestOwnership == "User" && !policy.AllowUserConnections)
+            || !policy.AllowedActions.Contains(action) || (action.Key == GmailActionKeys.PermanentDelete && !policy.AllowPermanentDelete)))
+            return Readiness("ForbiddenByPolicy");
         if (policy.Code != "Ready") return Readiness(policy.Code);
         if (!policy.AllowedActions.Contains(action)) return Readiness("ForbiddenByPolicy");
         if (authorization.ServiceProvider(connectorKey) is null && oauthProviders.SingleOrDefault(provider => provider.ConnectorKey == connectorKey)?.IsConfigured != true
             || !providers.Any(provider => provider.ConnectorKey == connectorKey)) return Readiness("ConnectorUnavailable");
+        if (requestOwnership is not null)
+            return new("Ready", "You can request this action for account review. Consent and use grants remain required.");
         var context = new ConnectorUseContext(new("User", userId, userId));
         if (connectionId.HasValue) return await ForConnectionAsync(connectionId.Value);
         foreach (Guid preferred in await policies.PreferredConnectionsAsync(userId, connectorKey, cancellationToken))
