@@ -58,6 +58,104 @@
     "adminUiRevision": "aonik-dev-adminui--0000375",
     "privateScannerContainersReady": true
   },
+  "userExperienceReview": {
+    "recordedOn": "2026-11-21",
+    "scope": "Default development tenant; Gmail setup, live read-only agent probe and synthetic invoice draft",
+    "findings": [
+      {
+        "surface": "Organisation picker",
+        "observation": "Three organisations were listed without identifying the default development tenant. The user had to ask which one to select.",
+        "recommendation": "Label the default/last-used organisation clearly and explain its purpose.",
+        "severity": "medium",
+        "verified": true
+      },
+      {
+        "surface": "My connections — first connection",
+        "observation": "A first-time Gmail setup shows 19 raw action keys and version suffixes, including permanent deletion, as one long checkbox list. The submit button is below the fold at 694×925.",
+        "recommendation": "Offer a plain-language Connect Gmail flow with read-only permissions first and advanced actions separately, while retaining exact backend grants and approval requirements.",
+        "severity": "high",
+        "verified": true
+      },
+      {
+        "surface": "My connections — recovery",
+        "observation": "An Approval request ID / Check recorded status form is shown alongside first-time connection setup.",
+        "recommendation": "Place recovery tools under Troubleshooting or show them when an operation needs attention.",
+        "severity": "medium",
+        "verified": true
+      },
+      {
+        "surface": "My connections — failed submission",
+        "observation": "The server correctly rejects a connector request while platform or tenant policy denies use. The persistent alert is above the long form and off-screen after submitting; it does not identify the blocked policy or offer an actionable next step. The request list remains empty.",
+        "recommendation": "Check readiness before enabling the request form, explain whether the workspace/admin must enable Gmail, and place or focus an actionable error near submission.",
+        "severity": "high",
+        "verified": true
+      },
+      {
+        "surface": "Tenant integrations — reviewer assignment",
+        "observation": "The administrator must enter an Integration reviewer role ID in a free-text field. The page also exposes raw Integration.Manage and Workflow.Write permission names in setup guidance.",
+        "recommendation": "Reuse a named tenant-role picker and plain-language permission guidance, keeping IDs and permission keys in advanced details.",
+        "severity": "high",
+        "verified": true
+      },
+      {
+        "surface": "My connections — navigation",
+        "observation": "The personal connections route is rendered outside the normal application shell; the tenant integrations route has the sidebar and breadcrumbs.",
+        "recommendation": "Keep personal connection setup in the same application shell so the selected organisation, navigation and support paths remain visible.",
+        "severity": "medium",
+        "verified": true
+      },
+      {
+        "surface": "Ask Aonik — provider quota failure",
+        "observation": "A read-only live agent request in the default tenant fails with HTTP 429 insufficient_quota: credit_balance_exhausted. The panel labels this Connection error and renders the raw provider error twice.",
+        "recommendation": "Use a clear service-unavailable message, show a single actionable provider-budget notice to administrators, and retain diagnostic codes in details.",
+        "severity": "high",
+        "verified": true
+      },
+      {
+        "surface": "Workflow registry — compact layout and trend data",
+        "observation": "At 694×925 the four single-column KPI cards occupy the first screen, hiding the workflow list. Sparklines remain visible with zero active workflows and zero runs; source confirms four fixed sample arrays.",
+        "recommendation": "Remove sample trend lines until real time-series data exists and use compact metric cards so workflow selection is visible sooner.",
+        "severity": "high",
+        "verified": true,
+        "source": "src/Aonik.AdminUi/src/pages/workflows/WorkflowsListPage.tsx"
+      },
+      {
+        "surface": "Workflow editor — narrow desktop window",
+        "observation": "At 694×925 fixed palette and properties panels leave almost no canvas or fixture-panel width; the title overlaps the toolbar and the canvas starts at 0% zoom. Maximizing and explicitly selecting Fit view restores a readable 100% view.",
+        "recommendation": "Collapse palette/properties by breakpoint, keep the title constrained, and initialize/clamp canvas zoom after measuring nonzero available space.",
+        "severity": "high",
+        "verified": true
+      },
+      {
+        "surface": "New invoice workflow — default validation",
+        "observation": "The supplied Normal, Boundary and MissingData fixture names contain spaces and are rejected by the server's key contract. Validation repeats the same generic diagnostic for all three without identifying the fields. Correcting only the names clears those errors; the expected action reviewer requirement remains.",
+        "recommendation": "Generate valid fixture keys and make validation diagnostics identify the exact fixture and correction.",
+        "severity": "high",
+        "verified": true
+      },
+      {
+        "surface": "Workflow action reviewer",
+        "observation": "The invoice action editor asks for a raw tenant reviewer role GUID, repeating the connection-policy setup friction.",
+        "recommendation": "Reuse the named tenant-role picker for invoice action reviewers and retain explicit selection and separation of duties.",
+        "severity": "high",
+        "verified": true
+      }
+    ]
+  },
+  "agentReadiness": {
+    "readOnlyLiveProbe": "Failed",
+    "safeErrorCode": "insufficient_quota: credit_balance_exhausted",
+    "fundedRouteRequiredBeforeAgentQualification": true
+  },
+  "operatorRehearsal": {
+    "workflowId": "3699f06d-1dd7-4719-97eb-f788dc211d4d",
+    "workflowSlug": "invoice-approval-rehearsal-20261121",
+    "draftCreated": true,
+    "fixtureNamesCorrectedAndSaved": true,
+    "remainingValidationRequirement": "A current tenant reviewer role is required for this action.",
+    "published": false,
+    "liveFinancialActionsExecuted": false
+  },
   "liveQualification": {
     "initialConnectionRequest": "Rejected by current connector policy before account consent",
     "platformAndTenantPolicyReviewed": false,
