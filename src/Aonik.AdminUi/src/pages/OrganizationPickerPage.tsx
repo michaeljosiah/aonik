@@ -5,7 +5,8 @@ import { ArrowRight, Building2 } from 'lucide-react';
 import { useAuth } from '@/auth';
 import { LoadingScreen } from '@/components/layout';
 import { Button } from '@/components/ui/button';
-import { setSelectedTenant } from '@/lib/tenantContext';
+import { Badge } from '@/components/ui/badge';
+import { getLastSelectedTenantId, setSelectedTenant, tenantEnvironmentLabel } from '@/lib/tenantContext';
 import { useTenantBootstrap } from '@/hooks/useTenantBootstrap';
 import { invalidateModuleManifest } from '@/modules/manifestCache';
 import type { MyTenantSummary } from '@/types';
@@ -21,7 +22,7 @@ import type { MyTenantSummary } from '@/types';
 export function OrganizationPickerPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const { state, refetch } = useTenantBootstrap(isAuthenticated && !authLoading);
 
   const from =
@@ -41,7 +42,7 @@ export function OrganizationPickerPage() {
       name: tenant.name,
       subdomain: tenant.subdomain,
       environment: tenant.environment,
-    });
+    }, user?.id);
     // The module manifest is tenant-scoped; drop anything cached before.
     invalidateModuleManifest();
     navigate(from, { replace: true, state: { adminEntry: true } });
@@ -73,7 +74,8 @@ export function OrganizationPickerPage() {
     return <LoadingScreen phase="loading-workspace" />;
   }
 
-  const tenants = state.tenants;
+  const lastUsed = getLastSelectedTenantId(user?.id);
+  const tenants = [...state.tenants].sort((a, b) => Number(b.tenantId === lastUsed) - Number(a.tenantId === lastUsed));
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-background px-6 py-10">
@@ -81,7 +83,7 @@ export function OrganizationPickerPage() {
         <header className="mb-6 text-center">
           <h1 className="text-2xl font-semibold text-foreground">Choose an organization</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Your account has access to {tenants.length} organizations. Pick the one you want to work in.
+            Choose where you want to work. We remember your choice on this browser. Development workspaces are for testing.
           </p>
         </header>
 
@@ -99,10 +101,11 @@ export function OrganizationPickerPage() {
                 <span className="flex-1 min-w-0">
                   <span className="block font-medium truncate">{t.name}</span>
                   <span className="block text-xs truncate text-muted-foreground">
-                    {t.environment}
+                    {tenantEnvironmentLabel(t.environment)} workspace
                     {t.subdomain ? ` · ${t.subdomain}` : ''}
                   </span>
                 </span>
+                {t.tenantId === lastUsed && <Badge variant="secondary" className="shrink-0">Last used</Badge>}
                 <ArrowRight size={16} aria-hidden className="text-muted-foreground" />
               </button>
             </li>

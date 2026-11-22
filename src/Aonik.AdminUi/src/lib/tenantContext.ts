@@ -7,6 +7,17 @@ export interface SelectedTenant {
 
 const SelectedTenantKey = 'selected_tenant';
 const SelectedTenantIdKey = 'selected_tenant_id';
+const LastSelectedTenantKey = 'last_selected_tenant:';
+const EnvironmentLabels: Record<string, string> = { Dev: 'Development', Test: 'Test', Staging: 'Staging', Prod: 'Production' };
+
+export function tenantEnvironmentLabel(environment: string | undefined): string {
+  return EnvironmentLabels[environment ?? ''] ?? environment ?? 'Workspace';
+}
+
+export function getLastSelectedTenantId(userId: string | undefined): string | null {
+  if (!userId) return null;
+  try { return getFromStorage(localStorage, LastSelectedTenantKey + encodeURIComponent(userId)); } catch { return null; }
+}
 
 function getFromStorage(storage: Storage, key: string): string | null {
   try {
@@ -64,11 +75,12 @@ export function getSelectedTenant(): SelectedTenant | null {
   return null;
 }
 
-export function setSelectedTenant(tenant: SelectedTenant): void {
+export function setSelectedTenant(tenant: SelectedTenant, userId?: string): void {
   const changed = getSelectedTenant()?.tenantId !== tenant.tenantId;
   const raw = JSON.stringify(tenant);
   setInStorage(localStorage, SelectedTenantIdKey, tenant.tenantId);
   setInStorage(localStorage, SelectedTenantKey, raw);
+  if (userId) setInStorage(localStorage, LastSelectedTenantKey + encodeURIComponent(userId), tenant.tenantId);
 
   // Keep sessionStorage in sync for same-tab flows.
   setInStorage(sessionStorage, SelectedTenantIdKey, tenant.tenantId);

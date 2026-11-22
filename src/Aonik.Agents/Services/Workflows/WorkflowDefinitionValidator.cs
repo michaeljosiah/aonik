@@ -210,19 +210,42 @@ internal static class WorkflowDefinitionValidator
             return;
         }
         var names = new HashSet<string>(StringComparer.Ordinal);
-        foreach (DecisionFixture fixture in table.Fixtures)
+        for (int index = 0; index < table.Fixtures.Count; index++)
         {
-            if (fixture is null || !WorkflowDefinitionCodec.IsKey(fixture.Name) || !names.Add(fixture.Name)
-                || fixture.Facts is null || fixture.Facts.Count > 100 || fixture.ExpectedRoutes is null || !required.Contains(fixture.Kind))
+            DecisionFixture? fixture = table.Fixtures[index];
+            string fixturePath = $"{path}.fixtures[{index}]";
+            if (fixture is null)
             {
-                diagnostics.Add(new("InvalidFixture", path, "Use unique fixture names, bounded facts and a supported fixture kind."));
+                diagnostics.Add(new("InvalidFixture", fixturePath, "Provide a fixture object."));
+                continue;
+            }
+            if (!WorkflowDefinitionCodec.IsKey(fixture.Name) || !names.Add(fixture.Name))
+            {
+                diagnostics.Add(new("InvalidFixture", fixturePath + ".name", "Use a unique fixture name of 1–128 letters, numbers, dots, hyphens or underscores, starting with a letter or number. Spaces are not allowed."));
+                continue;
+            }
+            if (fixture.Facts is null || fixture.Facts.Count > 100)
+            {
+                diagnostics.Add(new("InvalidFixture", fixturePath + ".facts", "Provide a facts object containing at most 100 facts."));
+                continue;
+            }
+            if (fixture.ExpectedRoutes is null)
+            {
+                diagnostics.Add(new("InvalidFixture", fixturePath + ".expectedRoutes", "Provide an expectedRoutes array; use an empty array when manual review is expected."));
+                continue;
+            }
+            if (!required.Contains(fixture.Kind))
+            {
+                diagnostics.Add(new("InvalidFixture", fixturePath + ".kind", "Choose Normal, Boundary or MissingData as the fixture kind."));
                 continue;
             }
             DecisionEvaluation actual = library is null ? DecisionTableEvaluator.Evaluate(table, fixture.Facts)
                 : fixture.Facts.Keys.Any(name => !library.Inputs.Any(field => field.Name == name))
                     ? new("NeedsManualReview", [], [], [], "UndeclaredLibraryInput") : DecisionTableEvaluator.EvaluateAdvanced(table, fixture.Facts, library.Inputs);
-            if (actual.Status != fixture.ExpectedStatus || !actual.Routes.SequenceEqual(fixture.ExpectedRoutes, StringComparer.Ordinal))
-                diagnostics.Add(new("FixtureMismatch", $"{path}.fixtures[{fixture.Name}]", "Fixture outcome differs from its expected status or routes."));
+            if (actual.Status != fixture.ExpectedStatus)
+                diagnostics.Add(new("FixtureMismatch", fixturePath + ".expectedStatus", "The expected status differs from this fixture's decision result. Review the simulation trace."));
+            else if (!actual.Routes.SequenceEqual(fixture.ExpectedRoutes, StringComparer.Ordinal))
+                diagnostics.Add(new("FixtureMismatch", fixturePath + ".expectedRoutes", "The expected routes differ from the routes selected by this decision table. Review the simulation trace."));
         }
     }
 

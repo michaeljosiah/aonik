@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { Send, Square, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { ChatErrorNotice } from '@/components/ai/ChatErrorNotice';
 import type { PlaygroundRunMetrics } from '@/lib/playground-client';
 
 interface ChatMessage {
@@ -83,11 +84,7 @@ export function PlaygroundChatPanel({
           </div>
         ))}
 
-        {streamError && (
-          <div className="rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            {streamError}
-          </div>
-        )}
+        {streamError && <ChatErrorNotice error={streamError} />}
       </div>
 
       {/* Metrics bar */}

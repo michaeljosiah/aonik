@@ -164,12 +164,39 @@ public class WorkflowDefinitionTests
         missing.Should().Contain(error => error.Code == "PublicationFixtures");
         valid.Should().NotContain(error => error.Code == "PublicationFixtures" || error.Code == "FixtureMismatch");
         wrong.Should().Contain(error => error.Code == "FixtureMismatch");
+        wrong.Should().Contain(error => error.Code == "FixtureMismatch" && error.Path == "decision.fixtures[1].expectedRoutes");
 
         WorkflowDefinition WithTable(DecisionTable value) => original with
         {
             Nodes = original.Nodes.Select(node => node.Key == "decision"
                 ? node with { Parameters = JsonSerializer.SerializeToElement(value, WorkflowDefinitionCodec.JsonOptions) } : node).ToList(),
         };
+    }
+
+    [Theory]
+    [InlineData("Normal invoice", 0)]
+    [InlineData("normal", 1)]
+    public void PublicationValidation_Should_IdentifyTheFixtureNameToCorrect(string name, int index)
+    {
+        // Arrange
+        DecisionFixture[] fixtures =
+        [
+            new("normal", "Normal", DecisionTableEvaluatorTests.Facts("100.00"), "Completed", ["standard"]),
+            new("boundary", "Boundary", DecisionTableEvaluatorTests.Facts("5000.00"), "Completed", ["elevated"]),
+            new("missing", "MissingData", new Dictionary<string, JsonElement>(), "NeedsManualReview", []),
+        ];
+        fixtures[index] = fixtures[index] with { Name = name };
+        DecisionTable table = DecisionTableEvaluatorTests.InvoiceTable() with { Fixtures = fixtures };
+        WorkflowDefinition original = Definition();
+        WorkflowDefinition definition = original with { Nodes = original.Nodes.Select(node => node.Key == "decision"
+            ? node with { Parameters = JsonSerializer.SerializeToElement(table, WorkflowDefinitionCodec.JsonOptions) } : node).ToList() };
+
+        // Act
+        IReadOnlyList<WorkflowDiagnostic> errors = WorkflowDefinitionValidator.Validate(definition, true);
+
+        // Assert
+        errors.Should().ContainSingle(error => error.Code == "InvalidFixture" && error.Path == $"decision.fixtures[{index}].name")
+            .Which.Message.Should().Contain("unique").And.Contain("Spaces are not allowed");
     }
 
     private static WorkflowDefinition Definition() => new(1, "Workflow", "invoice-routing", "Invoice routing", "",

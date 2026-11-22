@@ -2,8 +2,7 @@
 // inspector and the optional bottom panels. Reads its initial workflow
 // graph + comments + recent runs + version history from the live API
 // (workflowService.getBySlug / listRuns / listVersions). Edits stay
-// in-memory — there's no PUT endpoint yet, so save/discard cycle the
-// fetched copy rather than persisting.
+// in-memory until explicitly saved through the existing workflow service.
 //
 // Initial port: templates/aonik-admin-starterkit/screens/workflow-editor-screen.jsx
 
@@ -30,6 +29,8 @@ import { EditorPalette } from './EditorPalette';
 import { EditorInspector } from './EditorInspector';
 import { HistoryPanel, TraceBar } from './EditorPanels';
 import { WorkflowQualificationPanel } from './WorkflowQualificationPanel';
+import { EditorSidePanel } from './EditorSidePanel';
+import { snap } from './editorGeometry';
 import { nodeRoutes, compositionParameters, humanTaskParameters, invoiceDecision, replaceNodeParameters } from './decisionParameters';
 
 // Validation — derive errors from the graph state.
@@ -101,9 +102,18 @@ export function WorkflowEditorPage() {
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   const [paletteCollapsed, setPaletteCollapsed] = useState(false);
+  const [compact, setCompact] = useState(() => window.matchMedia('(max-width: 1279px)').matches);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1279px)');
+    const update = () => setCompact(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
 
   // Bottom panels
-  const [testOpen, setTestOpen] = useState(true);
+  const [testOpen, setTestOpen] = useState(false);
   const [traceOpen, setTraceOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [rollbackId, setRollbackId] = useState<string>();
@@ -307,6 +317,7 @@ export function WorkflowEditorPage() {
   // ── Keyboard: Delete/Backspace removes selection, Escape clears it ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || document.activeElement?.closest('[role="dialog"]')) return;
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const tag = (document.activeElement as HTMLElement | null)?.tagName;
         if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
@@ -384,6 +395,12 @@ export function WorkflowEditorPage() {
         validationErrors={validationErrors}
       />
 
+      {compact && <div className="flex flex-wrap items-center gap-2 border-b bg-card px-3 py-2">
+        <Button variant="outline" size="sm" onClick={() => setPaletteOpen(true)}>Add nodes</Button>
+        <Button variant="outline" size="sm" onClick={() => setInspectorOpen(true)}>Properties</Button>
+        <p className="text-xs text-muted-foreground">Select a step, then open Properties to edit it.</p>
+      </div>}
+
       {traceOpen && (
         <TraceBar
           trace={trace}
@@ -395,7 +412,10 @@ export function WorkflowEditorPage() {
       )}
 
       <div className="flex min-h-0 flex-1">
-        <EditorPalette collapsed={paletteCollapsed} setCollapsed={setPaletteCollapsed} definitionKind={wf.definitionKind} />
+        <EditorSidePanel compact={compact} open={paletteOpen} onOpenChange={setPaletteOpen} title="Workflow nodes" side="left" width={240}>
+          <EditorPalette collapsed={compact ? false : paletteCollapsed} setCollapsed={value => compact ? setPaletteOpen(!value) : setPaletteCollapsed(value)} definitionKind={wf.definitionKind}
+            onAdd={compact ? kind => { onDropPaletteItem(kind, snap((120 - view.tx) / view.scale), snap((120 - view.ty) / view.scale)); setPaletteOpen(false); setInspectorOpen(true); } : undefined} />
+        </EditorSidePanel>
 
         <div className="flex min-w-0 flex-1 flex-col">
           <WorkflowCanvas
@@ -429,6 +449,7 @@ export function WorkflowEditorPage() {
           )}
         </div>
 
+        <EditorSidePanel compact={compact} open={inspectorOpen} onOpenChange={setInspectorOpen} title="Workflow properties">
         <EditorInspector
           onUpdateWorkflow={patch => { setWf(current => current ? { ...current, ...patch } : current); dirty(); }}
           selection={selection}
@@ -440,13 +461,16 @@ export function WorkflowEditorPage() {
           onDeleteNode={onDeleteNode}
           onDeleteEdge={onDeleteEdge}
         />
+        </EditorSidePanel>
 
         {historyOpen && (
+          <EditorSidePanel compact={compact} open={historyOpen} onOpenChange={setHistoryOpen} title="Workflow history" width={280}>
           <HistoryPanel
             versions={versions}
             onClose={() => setHistoryOpen(false)}
             onRestore={id => { setRollbackId(id); setTestOpen(true); }}
           />
+          </EditorSidePanel>
         )}
       </div>
     </div>

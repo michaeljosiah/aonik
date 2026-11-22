@@ -6,7 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { AccessRoleSummary } from '@/types';
 import { MyConnectionsPage, TenantIntegrationsPage } from './ConnectionsPage';
 
-const service = vi.hoisted(() => ({ catalog: vi.fn(), managed: vi.fn(), connections: vi.fn(), requests: vi.fn(), createRequest: vi.fn() }));
+const service = vi.hoisted(() => ({ catalog: vi.fn(), managed: vi.fn(), connections: vi.fn(), requests: vi.fn(), createRequest: vi.fn(), readiness: vi.fn() }));
 const settings = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn() }));
 const roles = vi.hoisted(() => ({ list: vi.fn() }));
 vi.mock('@/services/connectorService', () => ({ connectorService: service, connectorError: (reason: Error) => reason.message, consentUrl: (value: string) => value }));
@@ -24,6 +24,7 @@ beforeEach(() => {
   vi.clearAllMocks(); vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
   service.catalog.mockResolvedValue([{ key: 'gmail', displayName: 'Gmail', actions: [{ key: 'gmail.messages.search', version: 1 }] }]);
   service.managed.mockResolvedValue([]); service.connections.mockResolvedValue([]); service.requests.mockResolvedValue([]);
+  service.readiness.mockResolvedValue({ code: 'NoAuthorizedConnection', nextAction: 'Request an account.' });
   settings.get.mockResolvedValue({ value: null }); settings.put.mockResolvedValue({});
   roles.list.mockResolvedValue({ items: [reviewerRole] });
   element = document.createElement('div'); document.body.appendChild(element); root = createRoot(element);
@@ -43,7 +44,7 @@ async function check(label: string) {
 
 it('focuses a failed request explanation and retains the selected actions', async () => {
   service.createRequest.mockRejectedValue(new Error('Current platform or tenant policy denies this connector use.'));
-  await render(); await check('gmail.messages.search');
+  await render();
   await act(async () => button('Submit access request').click());
   const alert = element.querySelector('[role="alert"]');
   expect(alert?.textContent).toContain('platform or tenant policy');
@@ -51,6 +52,34 @@ it('focuses a failed request explanation and retains the selected actions', asyn
   expect(element.querySelector('button[role="checkbox"]')?.getAttribute('data-state')).toBe('checked');
   expect(service.createRequest).toHaveBeenCalledTimes(1);
   expect(settings.put).not.toHaveBeenCalled();
+});
+
+it('blocks a policy-denied request before submission and gives an actionable next step', async () => {
+  service.readiness.mockResolvedValue({ code: 'ForbiddenByPolicy' });
+  await render();
+  expect(button('Submit access request').disabled).toBe(true);
+  expect(element.querySelector('[role="alert"]')?.textContent).toContain('integration administrator');
+  expect(service.createRequest).not.toHaveBeenCalled();
+  expect(settings.put).not.toHaveBeenCalled();
+});
+
+it('allows a request for an unprovisioned connector and sends only displayed read permissions', async () => {
+  service.readiness.mockResolvedValue({ code: 'ConnectorUnavailable' });
+  service.createRequest.mockResolvedValue({ id: 'request', connectorKey: 'gmail', ownership: 'User', status: 'Pending', actions: [], requiredScopes: [], expiresAt: new Date().toISOString() });
+  await render();
+  expect(button('Submit access request').disabled).toBe(false);
+  expect(element.textContent).toContain('finish setup');
+  await act(async () => button('Submit access request').click());
+  expect(service.createRequest).toHaveBeenCalledWith(expect.objectContaining({ actions: [{ key: 'gmail.messages.search', version: 1 }] }));
+});
+
+it('keeps send permissions separate from the initial read-only request', async () => {
+  service.catalog.mockResolvedValue([{ key: 'gmail', displayName: 'Gmail', actions: [{ key: 'gmail.messages.search', version: 1 }, { key: 'gmail.messages.send', version: 1 }] }]);
+  await render();
+  const send = [...element.querySelectorAll('button[role="checkbox"]')].find(item => item.closest('label')?.textContent === 'Send email');
+  expect(send?.getAttribute('data-state')).toBe('unchecked');
+  expect(send?.closest('details')?.open).toBe(false);
+  expect(element.querySelector('summary')?.textContent).toBe('Additional email permissions');
 });
 
 it('requires an explicit named reviewer for reviewed connection requests and saves its ID', async () => {

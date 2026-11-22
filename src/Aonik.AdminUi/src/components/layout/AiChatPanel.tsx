@@ -117,7 +117,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
         : chatRunState === 'awaiting-approval'
           ? 'Awaiting approval'
           : streamError
-            ? 'Connection error'
+            ? 'AI response unavailable'
             : 'Ready · Orchestrator';
 
   return (
@@ -228,7 +228,7 @@ export function AiChatPanel({ onClose, onExpand }: AiChatPanelProps) {
             ) : chatRunState === 'awaiting-approval' ? (
               'Awaiting approval'
             ) : streamError ? (
-              <span className="text-destructive">{streamError}</span>
+              <span className="text-destructive">See the response above for help</span>
             ) : (
               'AG-UI connected'
             )}

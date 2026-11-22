@@ -53,9 +53,10 @@ const GROUPS: PaletteGroup[] = [
 
 interface PaletteItemProps {
   kind: EditorNodeKind;
+  onAdd?: (kind: EditorNodeKind) => void;
 }
 
-function PaletteItem({ kind }: PaletteItemProps) {
+function PaletteItem({ kind, onAdd }: PaletteItemProps) {
   const meta = NODE_KIND[kind];
   const Icon = ICON_BY_NAME[meta.icon] ?? Bolt;
 
@@ -66,10 +67,10 @@ function PaletteItem({ kind }: PaletteItemProps) {
 
   return (
     <div
-      draggable
+      draggable={!onAdd}
       onDragStart={handleDragStart}
       className="group flex select-none items-center gap-2.5 rounded-md border border-transparent hover:border-border hover:bg-muted"
-      style={{ padding: '7px 8px', cursor: 'grab' }}
+      style={{ padding: '7px 8px', cursor: onAdd ? 'default' : 'grab' }}
     >
       <span
         className="inline-flex flex-none items-center justify-center text-primary-foreground"
@@ -85,7 +86,8 @@ function PaletteItem({ kind }: PaletteItemProps) {
           {meta.desc}
         </div>
       </div>
-      <MoreHorizontal size={10} className="text-muted-foreground" />
+      {onAdd ? <Button variant="outline" size="sm" aria-label={`Add ${meta.label} node`} onClick={() => onAdd(kind)}>Add</Button>
+        : <MoreHorizontal size={10} className="text-muted-foreground" />}
     </div>
   );
 }
@@ -94,9 +96,10 @@ export interface EditorPaletteProps {
   collapsed: boolean;
   setCollapsed: (v: boolean) => void;
   definitionKind?: string;
+  onAdd?: (kind: EditorNodeKind) => void;
 }
 
-export function EditorPalette({ collapsed, setCollapsed, definitionKind }: EditorPaletteProps) {
+export function EditorPalette({ collapsed, setCollapsed, definitionKind, onAdd }: EditorPaletteProps) {
   const [executable, setExecutable] = useState<string[]>([]);
   useEffect(() => { void workflowService.capabilities().then(result => setExecutable(result.nodeKinds.filter(kind => kind.canExecute).map(kind => kind.kind.toLowerCase()))).catch(() => setExecutable([])); }, []);
   return (
@@ -142,7 +145,7 @@ export function EditorPalette({ collapsed, setCollapsed, definitionKind }: Edito
               </div>
               <div className="flex flex-col gap-0.5">
                 {g.kinds.filter(kind => executable.includes(kind) && (definitionKind !== 'DecisionLibrary' || ['trigger', 'decision', 'end'].includes(kind))).map((k) => (
-                  <PaletteItem key={k} kind={k} />
+                  <PaletteItem key={k} kind={k} onAdd={onAdd} />
                 ))}
               </div>
             </div>
@@ -153,7 +156,7 @@ export function EditorPalette({ collapsed, setCollapsed, definitionKind }: Edito
           >
             <Info size={11} className="flex-none text-primary" />
             <span>
-              Drag any node onto the canvas. Hold <b>Space</b> to pan.
+              {onAdd ? 'Add a node, then edit its properties. You can move it on the canvas.' : <>Drag any node onto the canvas. Hold <b>Space</b> to pan.</>}
             </span>
           </div>
         </div>

@@ -437,7 +437,7 @@ function PrivateAiChatPage({ agentId, agents, onSelectAgent, onOpenRooms }: AiCh
                     ) : chatRunState === 'awaiting-approval' ? (
                       'Awaiting approval'
                     ) : streamError ? (
-                      <span className="text-destructive">{streamError}</span>
+                      <span className="text-destructive">See the response above for help</span>
                     ) : voiceError ? (
                       <span className="text-warning">{voiceError}</span>
                     ) : (

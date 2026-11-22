@@ -108,7 +108,7 @@ export interface ServerApprovalChatMessage {
 
 export type ChatMessage =
   | { type: 'user'; id: string; content: string }
-  | { type: 'assistant'; id: string; content: string; agentName?: string; toolCalls?: ChatToolCall[] }
+  | { type: 'assistant'; id: string; content: string; agentName?: string; toolCalls?: ChatToolCall[]; error?: string }
   | { type: 'tool-result'; id: string; toolCallId: string; toolCallName: string; content: string; error?: string }
   | { type: 'step'; id: string; stepName: string; status: 'started' | 'finished' }
   | { type: 'reasoning'; id: string; content: string }
@@ -716,7 +716,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
                 message.id === currentAssistantId && message.type === 'assistant'
                   ? {
                       ...message,
-                      content: message.content || `Error: ${event.message || 'Something went wrong'}`,
+                      error: event.message || 'Something went wrong',
                     }
                   : message,
               ),
@@ -743,7 +743,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
 
         setMessages((prev) =>
           prev.map((message) =>
-            message.id === currentAssistantId && message.type === 'assistant' && !message.content && !message.toolCalls?.length
+            message.id === currentAssistantId && message.type === 'assistant' && !message.content && !message.error && !message.toolCalls?.length
               ? { ...message, content: 'No response received from the agent.' }
               : message,
           ),
@@ -761,7 +761,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
           if (hasAssistant) {
             return prev.map((message) =>
               message.id === currentAssistantId && message.type === 'assistant'
-                ? { ...message, content: message.content || `Error: ${errorMessage}` }
+                ? { ...message, error: errorMessage }
                 : message,
             );
           }
@@ -771,7 +771,7 @@ export function useAguiChat(agentIdOrOptions?: string | UseAguiChatOptions): Use
             {
               type: 'assistant',
               id: currentAssistantId,
-              content: `Error: ${errorMessage}`,
+              content: '', error: errorMessage,
             },
           ];
         });

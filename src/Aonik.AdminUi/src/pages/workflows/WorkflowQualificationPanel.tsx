@@ -10,6 +10,14 @@ import { invoiceDecision } from './decisionParameters';
 import type { WorkflowGraph } from './workflowTypes';
 import { WorkflowTriggerPanel } from './WorkflowTriggerPanel';
 
+function diagnosticLabel(workflow: WorkflowGraph, path: string): string {
+  const fixture = /^(.*)\.fixtures\[(\d+)\](?:\.(\w+))?$/.exec(path);
+  const key = fixture?.[1] ?? path;
+  const node = workflow.nodes.find(item => item.key === key || item.id === key);
+  const fields: Record<string, string> = { name: 'name', facts: 'facts', kind: 'kind', expectedRoutes: 'expected routes', expectedStatus: 'expected status' };
+  return fixture ? `${node?.label ?? key} · Fixture ${Number(fixture[2]) + 1}${fixture[3] ? ` · ${fields[fixture[3]] ?? fixture[3]}` : ''}` : node?.label ?? path;
+}
+
 export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onChanged, rollback, onClearRollback, publishedHash, publishedSubjectType }: {
   workflow: WorkflowGraph; hasChanges: boolean; onClose: () => void; onChanged: () => void; rollback?: WorkflowVersionDto; onClearRollback: () => void; publishedHash?: string | null; publishedSubjectType?: 'Invoice' | 'Document' | null;
 }) {
@@ -32,7 +40,7 @@ export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onCh
       definitionHash: rollback?.definitionHash ?? checked.definitionHash, expectedPublishedVersionId: workflow.publishedVersionId ?? null, targetVersionId: rollback?.id });
     setApproval({ id: result.approvalRequestId, approvalRequestId: result.approvalRequestId, proposalId: result.proposalId, kind: 'high', tool: 'aonik_request_publish_workflow', tier: 'High', actionKind: rollback ? `Rollback to ${rollback.tag}` : 'Publish saved workflow', status: 'pending', preview: result.preview });
   };
-  return <div className="max-h-96 flex-none space-y-3 overflow-auto border-t bg-card p-4">
+  return <div className="max-h-[min(24rem,45vh)] flex-none space-y-3 overflow-auto border-t bg-card p-4">
     <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Validate, simulate and launch</h2><Button variant="ghost" size="sm" onClick={onClose}>Close</Button></div>
     {hasChanges && <p className="text-sm text-muted-foreground">Save your changes before validating or simulating this revision.</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
@@ -49,7 +57,9 @@ export function WorkflowQualificationPanel({ workflow, hasChanges, onClose, onCh
       })}>Request retirement</Button>}
       {!workflow.publishedVersionId && <div className="space-y-2"><Button disabled={busy || hasChanges} variant="outline" onClick={() => setDeleting(true)}>Delete unused draft</Button>
         {deleting && <div className="space-y-2 rounded-md border border-destructive p-3 text-sm"><p>Delete the unused draft “{workflow.name}”? Published and referenced workflows are protected by the server.</p><div className="flex gap-2"><Button disabled={busy} variant="destructive" onClick={() => void act(async () => { await workflowService.delete(workflow.slug, workflow.expectedVersion ?? ''); navigate('/ai/workflows'); })}>Confirm draft deletion</Button><Button variant="outline" onClick={() => setDeleting(false)}>Keep draft</Button></div></div>}</div>}
-      {validation && <div className="space-y-1 text-xs"><p>{validation.isValid ? 'Saved draft is valid for publication.' : 'Publication is blocked.'}</p>{validation.diagnostics.map((item, index) => <p key={index}>{item.path}: {item.message}</p>)}</div>}
+      {validation && <div className="space-y-2 text-xs"><p>{validation.isValid ? 'Saved draft is valid for publication.' : 'Publication is blocked.'}</p>{validation.diagnostics.map((item, index) => <p key={index}><strong>{diagnosticLabel(workflow, item.path)}:</strong> {item.message}</p>)}
+        {validation.diagnostics.length > 0 && <details className="text-muted-foreground"><summary className="cursor-pointer">Technical validation details</summary>{validation.diagnostics.map((item, index) => <p key={index} className="mt-1 break-all">{item.code} · {item.path}</p>)}</details>}
+      </div>}
     </div><div className="space-y-3">
       {simulation && <details open><summary className="cursor-pointer text-sm">Fixture result: {simulation.status}</summary><pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border p-2 text-xs">{JSON.stringify(simulation, null, 2)}</pre></details>}
       {approval && <ServerApprovalCard approval={busy ? { ...approval, status: 'deciding' } : approval} onDecide={(_value, decision) => { void act(async () => {

@@ -10,7 +10,6 @@ import {
   Check,
   Clock,
   Eye,
-  MoreHorizontal,
   Play,
   Zap,
 } from 'lucide-react';
@@ -81,21 +80,21 @@ export function EditorHeader({
 }: EditorHeaderProps) {
   return (
     <div
-      className="flex flex-none items-center gap-3 border-b border-border bg-card"
-      style={{ height: 52, padding: '0 16px' }}
+      className="flex min-h-13 flex-none flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2"
     >
       <Button
         variant="ghost"
         size="sm"
         onClick={onClose}
-        className="h-7 gap-1.5 px-2.5 text-[12px] font-normal text-muted-foreground"
+        aria-label="Back to Workflows"
+        className="h-7 shrink-0 gap-1.5 px-2.5 text-[12px] font-normal text-muted-foreground"
       >
-        <ArrowLeft size={12} /> Back to Workflows
+        <ArrowLeft size={12} /><span className="hidden md:inline">Back to Workflows</span>
       </Button>
       <span className="h-5 w-px bg-border" />
 
       {/* Title block */}
-      <div className="flex min-w-0 items-center gap-2.5">
+      <div className="flex min-w-0 flex-1 basis-40 items-center gap-2">
         <span
           className="inline-flex flex-none items-center justify-center"
           style={{
@@ -108,19 +107,19 @@ export function EditorHeader({
         >
           <Zap size={13} />
         </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-[14px] font-semibold text-foreground">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-[14px] font-semibold text-foreground" title={workflow.name}>
               {workflow.name}
             </span>
             <span
-              className="text-[10.5px] text-muted-foreground"
+              className="hidden shrink-0 text-[10.5px] text-muted-foreground 2xl:inline"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {workflow.id}
             </span>
             <span
-              className="rounded-sm bg-muted px-1.5 py-px text-[10px] text-muted-foreground"
+              className="shrink-0 rounded-sm bg-muted px-1.5 py-px text-[10px] text-muted-foreground"
               style={{ fontFamily: 'var(--font-mono)' }}
             >
               {workflow.version}
@@ -151,11 +150,9 @@ export function EditorHeader({
         </div>
       )}
 
-      <div className="flex-1" />
-
       {/* View toggles */}
       <div
-        className="flex items-center gap-0.5 rounded-md bg-muted"
+        className="flex shrink-0 items-center gap-0.5 rounded-md bg-muted"
         style={{ padding: 2 }}
       >
         <ViewToggle
@@ -187,9 +184,6 @@ export function EditorHeader({
             Discard
           </Button>
         )}
-        <Button variant="outline" size="sm" className="h-7 px-2.5" aria-label="More options">
-          <MoreHorizontal size={11} />
-        </Button>
         <Button
           size="sm"
           onClick={onSave}

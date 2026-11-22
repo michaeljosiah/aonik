@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { TenantRoleSelect } from '@/components/access/TenantRoleSelect';
 import { api } from '@/lib/api';
+import { connectorActionLabel, gmailReadActionKeys, gmailReadActions } from '@/lib/connectorActions';
 import { connectorService, connectorError, consentUrl, type ConnectionRequest, type ConnectorActionRef, type ConnectorConnection, type ConnectorDescriptor, type ConnectorGrant } from '@/services/connectorService';
 import { AutomationIdentitiesPanel } from './AutomationIdentitiesPanel';
 import { WorkflowExecutionPolicyPanel } from './WorkflowExecutionPolicyPanel';
@@ -31,28 +32,48 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
   const [busy, setBusy] = useState(false);
   const [provider, setProvider] = useState('gmail');
   const [purpose, setPurpose] = useState('Read invoice correspondence');
-  const [actions, setActions] = useState<ConnectorActionRef[]>([]);
+  const [actions, setActions] = useState<ConnectorActionRef[]>(gmailReadActions);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [readiness, setReadiness] = useState<{ key: string; blocked: boolean; message: string } | null>(null);
   const refresh = useCallback(async () => {
     const [descriptors, managed, eligible, items] = await Promise.all([connectorService.catalog(), connectorService.managed(), connectorService.connections(provider), connectorService.requests()]);
     if (requestId && !items.some(item => item.id === requestId)) items.unshift(await connectorService.request(requestId));
     setCatalog(descriptors); setManagedIds(managed.map(account => account.id));
     setAccounts([...new Map([...eligible, ...managed].map(account => [account.id, account])).values()]); setRequests(items);
+    setReadiness(null); setRefreshKey(value => value + 1);
   }, [requestId, provider]);
   useEffect(() => { void refresh().catch(reason => setError(connectorError(reason))); }, [refresh]);
   useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
-  const run = async (operation: () => Promise<unknown>) => {
+  const run = async (operation?: () => Promise<unknown>) => {
     setBusy(true); setError(null);
-    try { await operation(); await refresh(); } catch (reason) { setError(connectorError(reason)); } finally { setBusy(false); }
+    try { if (operation) await operation(); await refresh(); } catch (reason) { setError(connectorError(reason)); } finally { setBusy(false); }
   };
   const gmail = catalog.find(item => item.key === 'gmail');
   const requestedConnector = catalog.find(item => item.key === provider);
+  const selectedActions = useMemo(() => actions.filter(action => requestedConnector?.actions.some(available => available.key === action.key && available.version === action.version)), [actions, requestedConnector]);
+  const readinessKey = `${provider}:${selectedActions.map(action => `${action.key}@${action.version}`).join(',')}`;
+  useEffect(() => {
+    if (!selectedActions.length) return;
+    let current = true;
+    void Promise.all(selectedActions.map(action => connectorService.readiness(provider, action))).then(results => {
+      if (!current) return;
+      const blocked = results.some(result => result.code === 'ForbiddenByPolicy');
+      const provisioning = results.some(result => ['TenantNotEnabled', 'ConnectorUnavailable'].includes(result.code));
+      setReadiness({ key: readinessKey, blocked, message: blocked
+        ? 'Your workspace or platform currently restricts these permissions. Ask an integration administrator to review connection settings, then refresh this page.'
+        : provisioning ? 'An integration administrator needs to finish setup. You can submit an access request for review.'
+          : 'Required reviews and consent are checked after submission. Each later action still follows its approval rules.' });
+    }).catch(() => { if (current) setReadiness({ key: readinessKey, blocked: true, message: 'We could not check connection availability. Refresh to try again before submitting a request.' }); });
+    return () => { current = false; };
+  }, [provider, selectedActions, readinessKey, refreshKey]);
+  const checkingReadiness = selectedActions.length > 0 && readiness?.key !== readinessKey;
   const curated = catalog.filter(item => item.authenticationKind === 'ServiceAccount');
   const usesServiceAccount = requestedConnector?.authenticationKind === 'ServiceAccount';
   const visibleAccounts = accounts.filter(account => !tenant || account.ownership === 'Tenant');
   return <div className="h-full space-y-6 overflow-auto p-6">
     <div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-semibold">{tenant ? 'Tenant integrations' : 'My connections'}</h1>
       <p className="mt-2 max-w-3xl text-sm text-muted-foreground">{tenant ? 'Review organizational access, account consent and exact use grants. Managing an account does not grant access to its email.' : 'Choose the accounts Aonik can use, review connection requests and manage your grants.'}</p></div>
-      <Button variant="outline" disabled={busy} onClick={() => void run(refresh)}>Refresh</Button></div>
+      <Button variant="outline" disabled={busy} onClick={() => void run()}>Refresh</Button></div>
     {error && <p ref={errorRef} tabIndex={-1} role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</p>}
     {tenant && <IntegrationPolicyPanel disabled={busy} onSave={run} availableActions={gmail?.actions ?? []} />}
     {tenant && <AutomationIdentitiesPanel />}
@@ -60,13 +81,15 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
     {tenant && <ConnectorCatalogPanel onAccountConnected={refresh} availableActions={curated.flatMap(connector => connector.actions)} />}
     <Card><CardHeader><CardTitle>Request connector access</CardTitle></CardHeader><CardContent className="space-y-4">
       <label className="block space-y-1 text-sm">Connector<NativeSelect value={provider} onChange={event => {
-        setProvider(event.target.value); setActions([]); setPurpose(event.target.value === 'gmail' ? 'Read invoice correspondence' : '');
+        setProvider(event.target.value); setActions(event.target.value === 'gmail' ? gmailReadActions : []); setReadiness(null); setPurpose(event.target.value === 'gmail' ? 'Read invoice correspondence' : '');
       }}><option value="gmail">Gmail</option>{curated.map(item => <option key={item.key} value={item.key}>{item.displayName}</option>)}</NativeSelect></label>
-      <p className="text-sm text-muted-foreground">{usesServiceAccount ? 'An integration reviewer selects a reviewed tenant service account and grants the requested actions.' : 'Select the Gmail actions you need. Google consent is required for a new account.'}</p>
-      <ActionChoices actions={requestedConnector?.actions ?? []} selected={actions} onChange={setActions} />
+      <p className="text-sm text-muted-foreground">{usesServiceAccount ? 'An integration reviewer selects a reviewed organization account and approves the requested permissions.' : 'Start with read-only email access. Choose additional permissions only when needed. You will review the account and Google consent before it can be used.'}</p>
+      <ActionChoices actions={requestedConnector?.actions ?? []} selected={selectedActions} onChange={values => { setActions(values); setReadiness(null); }} />
       <label className="block space-y-2 text-sm">Purpose<Textarea value={purpose} maxLength={1000} onChange={event => setPurpose(event.target.value)} /></label>
-      <Button disabled={busy || !actions.length || !purpose.trim()} onClick={() => void run(async () => {
-        const created = await connectorService.createRequest({ connectorKey: provider, ownership: tenant || usesServiceAccount ? 'Tenant' : 'User', actions, purpose, idempotencyKey: crypto.randomUUID() });
+      {checkingReadiness && <p role="status" className="text-sm text-muted-foreground">Checking connection availability…</p>}
+      {!checkingReadiness && readiness?.key === readinessKey && <p role={readiness.blocked ? 'alert' : 'status'} className={`rounded-md border p-3 text-sm ${readiness.blocked ? 'border-destructive/40 text-destructive' : 'text-muted-foreground'}`}>{readiness.message}</p>}
+      <Button disabled={busy || !selectedActions.length || !purpose.trim() || checkingReadiness || readiness?.blocked} onClick={() => void run(async () => {
+        const created = await connectorService.createRequest({ connectorKey: provider, ownership: tenant || usesServiceAccount ? 'Tenant' : 'User', actions: selectedActions, purpose, idempotencyKey: crypto.randomUUID() });
         setRequests(items => [created, ...items.filter(item => item.id !== created.id)]);
       })}>Submit access request</Button>
     </CardContent></Card>
@@ -79,7 +102,7 @@ function ConnectionsPage({ tenant = false }: { tenant?: boolean }) {
       {visibleAccounts.map(account => <ConnectionAccountCard key={`${account.id}:${account.expectedVersion}`} account={account} canManage={managedIds.includes(account.id)}
         catalog={catalog} tenantDefault={tenant} disabled={busy} onAction={run} />)}
     </section>
-    <ConnectorMutationStatusPanel />
+    <details className="rounded-lg border p-4"><summary className="cursor-pointer text-sm font-medium">Troubleshooting</summary><div className="mt-4"><ConnectorMutationStatusPanel /></div></details>
   </div>;
 }
 
@@ -92,8 +115,9 @@ function ConnectionRequestCard({ request, accounts, serviceAccount, disabled, on
     <CardContent className="space-y-3 text-sm"><p>{request.purpose}</p><p className="text-muted-foreground">{request.nextAction}</p>
       {request.desiredCapability && <p>{request.desiredCapability}</p>}
       {request.automationIdentityId && <p className="break-all rounded-md border p-3">Unattended access for automation identity {request.automationIdentityId}. A tenant workflow administrator reviews this use before the account owner consents.</p>}
-      <div className="flex flex-wrap gap-2">{request.actions.map(action => <Badge key={`${action.key}:${action.version}`} variant="secondary">{action.key} · v{action.version}</Badge>)}</div>
+      <div className="flex flex-wrap gap-2">{request.actions.map(action => <Badge key={`${action.key}:${action.version}`} variant="secondary">{connectorActionLabel(action)}</Badge>)}</div>
       <details><summary className="cursor-pointer text-muted-foreground">Requested scopes and references</summary><div className="mt-2 space-y-1 break-all text-xs">
+        {request.actions.map(action => <p key={`${action.key}:${action.version}`}>{connectorActionLabel(action)}: {action.key} · v{action.version}</p>)}
         {request.requiredScopes.map(scope => <p key={scope}>{scope}</p>)}<p>Request: {request.id}</p><p>Expires: {new Date(request.expiresAt).toLocaleString()}</p>
         {request.connectionId && <p>Account: {request.connectionId}</p>}{request.workflowId && <p>Workflow: {request.workflowId}</p>}{request.runId && <p>Run: {request.runId}</p>}
       </div></details>
@@ -148,7 +172,18 @@ function ConnectionGrantPanel({ account, descriptor, disabled, onAction }: { acc
 }
 
 export function ActionChoices({ actions, selected, onChange }: { actions: ConnectorActionRef[]; selected: ConnectorActionRef[]; onChange: (value: ConnectorActionRef[]) => void }) {
-  return <div className="space-y-2">{actions.map(action => { const checked = selected.some(item => item.key === action.key && item.version === action.version); return <label key={`${action.key}:${action.version}`} className="flex items-center gap-2 text-sm"><Checkbox checked={checked} onCheckedChange={value => onChange(value ? [...selected, { key: action.key, version: action.version }] : selected.filter(item => item.key !== action.key || item.version !== action.version))} />{action.key} · v{action.version}</label>; })}</div>;
+  const read = actions.filter(action => gmailReadActionKeys.includes(action.key));
+  const advanced = actions.filter(action => action.key.startsWith('gmail.') && !gmailReadActionKeys.includes(action.key));
+  const other = actions.filter(action => !action.key.startsWith('gmail.'));
+  const choices = (items: ConnectorActionRef[]) => items.map(action => {
+    const checked = selected.some(item => item.key === action.key && item.version === action.version);
+    return <label key={`${action.key}:${action.version}`} className="flex items-center gap-2 text-sm"><Checkbox checked={checked} onCheckedChange={value => onChange(value ? [...selected, { key: action.key, version: action.version }] : selected.filter(item => item.key !== action.key || item.version !== action.version))} /><span>{connectorActionLabel(action)}{action.key === 'gmail.messages.permanently-delete' && <span className="ml-2 text-xs text-destructive">Cannot be undone</span>}</span></label>;
+  });
+  return <div className="space-y-3">
+    <div className="space-y-2">{choices([...read, ...other])}</div>
+    {advanced.length > 0 && <details className="rounded-md border p-3"><summary className="cursor-pointer text-sm">Additional email permissions{selected.some(action => advanced.some(item => item.key === action.key && item.version === action.version)) && ` (${selected.filter(action => advanced.some(item => item.key === action.key && item.version === action.version)).length} selected)`}</summary><p className="my-3 text-xs text-muted-foreground">Drafting, sending and organizing email need additional consent and their own action approvals.</p><div className="space-y-2">{choices(advanced)}</div></details>}
+    {actions.length > 0 && <details className="text-xs text-muted-foreground"><summary className="cursor-pointer">Technical action references</summary><ul className="mt-2 space-y-1 break-all">{actions.map(action => <li key={`${action.key}:${action.version}`}>{connectorActionLabel(action)}: {action.key} · v{action.version}</li>)}</ul></details>}
+  </div>;
 }
 
 function IntegrationPolicyPanel({ disabled, onSave, availableActions }: { disabled: boolean; onSave: RunAction; availableActions: ConnectorActionRef[] }) {

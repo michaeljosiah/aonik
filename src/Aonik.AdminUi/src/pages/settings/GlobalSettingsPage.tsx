@@ -33,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { PageLoadingScreen } from '@/components/layout/PageLoadingScreen';
 import { globalSettingsService } from '@/services/globalSettingsService';
+import { gmailReadActionKeys as GMAIL_READ_ACTION_KEYS } from '@/lib/connectorActions';
 import { formatTenantCountryLabel, tenantCountryOptions } from '@/lib/tenantCountryOptions';
 import { getSelectedTenant } from '@/lib/tenantContext';
 import { tenantService } from '@/services/tenantService';
@@ -69,7 +70,6 @@ interface GlobalTabDef {
   sections: SectionDef[];
 }
 
-const GMAIL_READ_ACTION_KEYS = ['gmail.messages.search', 'gmail.messages.get', 'gmail.attachments.get'];
 const GMAIL_MAIL_ACTION_KEYS = [...GMAIL_READ_ACTION_KEYS,
   'gmail.drafts.get', 'gmail.messages.prepare', 'gmail.drafts.create', 'gmail.drafts.update', 'gmail.drafts.delete',
   'gmail.messages.send', 'gmail.messages.reply', 'gmail.messages.forward', 'gmail.drafts.send',

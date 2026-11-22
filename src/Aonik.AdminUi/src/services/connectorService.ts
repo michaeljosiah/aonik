@@ -61,8 +61,11 @@ export const connectorService = {
 };
 
 export function connectorError(error: unknown): string {
-  if (error && typeof error === 'object' && 'userMessage' in error) return String(error.userMessage);
-  return error instanceof Error ? error.message : 'The connection operation failed. Reload its current state before trying again.';
+  const message = error && typeof error === 'object' && 'userMessage' in error ? String(error.userMessage)
+    : error instanceof Error ? error.message : 'The connection operation failed. Refresh to load its current state before trying again.';
+  if (/ForbiddenByPolicy|Current platform or tenant policy denies/i.test(message))
+    return 'These permissions are restricted by workspace or platform policy. Ask an integration administrator to review connection settings, then refresh.';
+  return message;
 }
 
 export function consentUrl(value: string): string {
