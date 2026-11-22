@@ -19,7 +19,7 @@ export function AutomationIdentitiesPanel() {
   const refresh = useCallback(async () => { setIdentities(await automationIdentityService.list()); setError(null); }, []);
   useEffect(() => { void automationIdentityService.list().then(items => { setIdentities(items); setError(null); }).catch(reason => setError(connectorError(reason))); }, []);
   return <Card><CardHeader><CardTitle>Workflow automation identities</CardTitle></CardHeader><CardContent className="space-y-4">
-    <p className="text-sm text-muted-foreground">Give unattended work an independent tenant identity and exact access. Invoice writes still wait for a human. Administration requires Integration.Manage and Workflow.Write.</p>
+    <p className="text-sm text-muted-foreground">Give unattended workflows their own identity and explicit access. Invoice changes still need human approval. Integration and workflow administrators manage this access.</p>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {identities.map(identity => <div key={identity.id} className="space-y-2 rounded-md border p-3 text-sm"><p className="font-medium">{identity.name} <Badge variant="outline">{identity.status}</Badge></p><p className="break-all text-xs text-muted-foreground">Identity: {identity.id} · Accountable administrator: {identity.accountableUserId}</p>
       <GrantSummary grants={identity.grants} />

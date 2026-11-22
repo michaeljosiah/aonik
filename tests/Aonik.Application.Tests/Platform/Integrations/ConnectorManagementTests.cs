@@ -4,13 +4,72 @@ using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
 using Aonik.Platform.Persistence;
+using Aonik.Platform.Entities.Settings;
 using Aonik.Platform.Services.Integrations;
+using Aonik.Platform.Settings;
 using Aonik.SharedKernel.Abstractions.Connectors;
+using Aonik.SharedKernel.Abstractions.Settings;
 
 namespace Aonik.Application.Tests.Platform.Integrations;
 
 public class ConnectorManagementTests
 {
+    [Fact]
+    public async Task RequestReadiness_Should_CheckRequestedOwnership_WithoutUsingAnExistingPersonalAccount()
+    {
+        // Arrange
+        using var scenario = new ConnectorScenario();
+        await scenario.InitializeAsync();
+        using var scope = scenario.Scope();
+        var requests = scope.ServiceProvider.GetRequiredService<ConnectorConnectionRequestService>();
+        var consent = scope.ServiceProvider.GetRequiredService<ConnectorConsentService>();
+        var request = await requests.CreateAsync(scenario.Request());
+        var challenge = await consent.BeginAsync(request.Id, new(request.ExpectedVersion));
+        await consent.ReceiveCallbackAsync(challenge.Cookie, ConnectorScenario.State(challenge), "code", scenario.Current.OwnerId);
+        await consent.ConfirmAsync(request.Id, new((await requests.GetAsync(request.Id))!.ExpectedVersion));
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        database.Settings.Add(new Setting { Key = IntegrationSettingNames.GmailAllowUserConnections, Value = "false", Scope = SettingScope.Tenant, TenantId = scenario.TenantId });
+        await database.SaveChangesAsync();
+        var connectors = scope.ServiceProvider.GetRequiredService<ConnectorService>();
+        var action = new ConnectorActionRef(GmailActionKeys.Search, 1);
+
+        // Act
+        ConnectorReadiness existing = await connectors.GetReadinessAsync("gmail", action);
+        ConnectorReadiness tenant = await connectors.GetReadinessAsync("gmail", action, requestOwnership: "Tenant");
+        ConnectorReadiness personal = await connectors.GetReadinessAsync("gmail", action, requestOwnership: "User");
+        ConnectionRequestDetail tenantRequest = await requests.CreateAsync(scenario.Request("tenant-access") with { Ownership = "Tenant" });
+
+        // Assert
+        existing.Code.Should().Be("ForbiddenByPolicy");
+        existing.ConnectionId.Should().NotBeNull();
+        tenant.Code.Should().Be("Ready");
+        tenant.ConnectionId.Should().BeNull();
+        personal.Code.Should().Be("ForbiddenByPolicy");
+        tenantRequest.Id.Should().NotBeEmpty();
+        scenario.Actions.Verify(provider => provider.InvokeAsync(It.IsAny<ConnectorProviderCall>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("User")]
+    [InlineData("Tenant")]
+    public async Task RequestReadiness_Should_RespectPlatformPolicy_ForEitherOwnership(string ownership)
+    {
+        // Arrange
+        using var scenario = new ConnectorScenario();
+        await scenario.InitializeAsync();
+        using var scope = scenario.Scope();
+        var database = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        database.Settings.Add(new Setting { Key = IntegrationSettingNames.GmailEnabled, Value = "false", Scope = SettingScope.Global });
+        await database.SaveChangesAsync();
+
+        // Act
+        ConnectorReadiness result = await scope.ServiceProvider.GetRequiredService<ConnectorService>()
+            .GetReadinessAsync("gmail", new(GmailActionKeys.Search, 1), requestOwnership: ownership);
+
+        // Assert
+        result.Code.Should().Be("ForbiddenByPolicy");
+    }
+
     [Fact]
     public void RequestLimiter_Should_BoundNewRequests_IndependentlyForEachTenantAndUser()
     {

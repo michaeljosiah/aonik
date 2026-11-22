@@ -1,6 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/api', () => ({ api: {} }));
-import { consentUrl } from './connectorService';
+import { connectorError, consentUrl } from './connectorService';
+
+it('turns a policy denial into a corrective next step while preserving other server guidance', () => {
+  expect(connectorError({ userMessage: 'ForbiddenByPolicy: Current platform or tenant policy denies this connector use.' })).toContain('integration administrator');
+  expect(connectorError(new Error('Refresh this expired request.'))).toBe('Refresh this expired request.');
+});
 
 describe('connector consent navigation', () => {
   it('accepts the exact HTTPS Google account host returned by the server', () => {

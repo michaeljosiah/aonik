@@ -20,6 +20,16 @@ Select **AONIK Orchestrator** in Chat or **AONIK** in AI Playground. Use a synth
 
 Ask Aonik to request the exact Gmail actions and ownership needed for the rehearsal. Confirm the request in the conversation, then open its review link. My Connections handles personal requests and Tenant Integrations handles organizational accounts and grants. Mailbox access begins after the applicable reviews and owner consent.
 
+## Operator interface
+
+The organization picker labels the environment and remembers the last organization selected by the signed-in user on this browser. Selection remains explicit; the tenant API does not identify a default organization. My Connections uses the shared application shell while retaining its existing personal-access route and server permissions. Admin screens remain subject to their manifest and policies.
+
+Gmail access requests initially select the available **Search email**, **Read email** and **Read attachments** actions. Expand **Additional email permissions** only when needed; exact action keys and versions remain under technical references. Availability is checked for the requested ownership before submission; an unusable existing personal account cannot block an otherwise permitted organizational request. A policy restriction requires an integration administrator to review connection settings and refresh. An unprovisioned connector can still receive an access request for review. **Troubleshooting** contains the existing mutation status and recovery controls.
+
+In a narrow editor, use **Add nodes** and **Properties** to open the existing panels as sheets; Escape or Close dismisses them. Incomplete JSON keeps a sheet open until corrected or explicitly discarded using that field's **Discard invalid edit** button. Use a node's **Add** button to place it on the visible canvas and open its properties. **Test** opens validation, simulation and publication controls. Fixture errors identify the node, one-based fixture number and field; exact paths remain under technical validation details. Provider credit, rate and connection errors use one actionable notice, with a safe diagnostic code.
+
+These presentation changes do not provision a mailbox or prove a live workflow run. Synthetic responsive checks cover the editor and connection forms at 694 × 925, the editor at 375 × 812, and the desktop editor at 1600 × 1000. Live consenting-account qualification remains tracked separately below.
+
 ## Source behavior
 
 Invoice creation and issue stage typed events in Finance's own save. Events contain invoice references and trusted causation, rather than model-provided facts. Admission reloads current facts and preserves the source event, binding revision and exact activation receipt. Repeated delivery returns the original run.

@@ -135,7 +135,7 @@ interface InspectorShellProps {
 function InspectorShell({ title, eyebrow, kindTint, children }: InspectorShellProps) {
   return (
     <aside
-      className="flex flex-none flex-col overflow-hidden border-l border-border bg-card"
+      className="flex min-h-0 max-w-full flex-none flex-col overflow-hidden border-l border-border bg-card"
       style={{ width: 320 }}
     >
       <div className="border-b border-border" style={{ padding: 16 }}>

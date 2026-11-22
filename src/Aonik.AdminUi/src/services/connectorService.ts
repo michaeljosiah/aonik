@@ -38,8 +38,8 @@ export const connectorService = {
   reconcileMutation: (id: string) => api.post<ConnectorMutationStatus>(`${root}/mutations/${encodeURIComponent(id)}/reconcile`),
   connections: (key: string) => api.get<ConnectorConnection[]>(`${root}/connectors/${encodeURIComponent(key)}/connections`),
   managed: () => api.get<ConnectorConnection[]>(`${root}/managed-connections`),
-  readiness: (key: string, action: ConnectorActionRef, connectionId?: string) => api.get<{ code: string; nextAction: string; connectionId: string | null }>(
-    `${root}/connectors/${encodeURIComponent(key)}/readiness`, { params: { actionKey: action.key, version: action.version, connectionId } }),
+  readiness: (key: string, action: ConnectorActionRef, connectionId?: string, requestOwnership?: 'User' | 'Tenant') => api.get<{ code: string; nextAction: string; connectionId: string | null }>(
+    `${root}/connectors/${encodeURIComponent(key)}/readiness`, { params: { actionKey: action.key, version: action.version, connectionId, requestOwnership } }),
   requests: () => api.get<ConnectionRequest[]>(`${root}/connection-requests?take=100`),
   request: (id: string) => api.get<ConnectionRequest>(`${root}/connection-requests/${encodeURIComponent(id)}`),
   createRequest: (request: NewConnectionRequest) => api.post<ConnectionRequest>(`${root}/connection-requests`, request),
@@ -61,8 +61,11 @@ export const connectorService = {
 };
 
 export function connectorError(error: unknown): string {
-  if (error && typeof error === 'object' && 'userMessage' in error) return String(error.userMessage);
-  return error instanceof Error ? error.message : 'The connection operation failed. Reload its current state before trying again.';
+  const message = error && typeof error === 'object' && 'userMessage' in error ? String(error.userMessage)
+    : error instanceof Error ? error.message : 'The connection operation failed. Refresh to load its current state before trying again.';
+  if (/ForbiddenByPolicy|Current platform or tenant policy denies/i.test(message))
+    return 'These permissions are restricted by workspace or platform policy. Ask an integration administrator to review connection settings, then refresh.';
+  return message;
 }
 
 export function consentUrl(value: string): string {

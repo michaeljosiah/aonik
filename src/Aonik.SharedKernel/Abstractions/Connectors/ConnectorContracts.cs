@@ -29,7 +29,7 @@ public interface IConnectorService
     Task<IReadOnlyList<ConnectorDescriptor>> ListConnectorsAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ConnectorConnectionSummary>> ListConnectionsAsync(string connectorKey, CancellationToken cancellationToken = default);
     Task<ConnectorReadiness> GetReadinessAsync(string connectorKey, ConnectorActionRef action, Guid? connectionId = null,
-        CancellationToken cancellationToken = default);
+        string? requestOwnership = null, CancellationToken cancellationToken = default);
     Task<JsonElement> InvokeReadAsync(Guid connectionId, ConnectorActionRef action, JsonElement arguments, CancellationToken cancellationToken = default);
     Task<JsonElement> InvokeWorkflowReadAsync(Guid runId, Guid stepRunId, Guid connectionId, ConnectorActionRef action, JsonElement arguments,
         CancellationToken cancellationToken = default);

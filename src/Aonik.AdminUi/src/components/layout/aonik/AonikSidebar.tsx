@@ -62,7 +62,7 @@ import { invalidateModuleManifest } from '@/modules/manifestCache';
 import { useAuth, type AuthUser } from '@/auth/useAuth';
 import { identityService } from '@/services/identityService';
 import { tenantService } from '@/services/tenantService';
-import { getSelectedTenant, setSelectedTenant } from '@/lib/tenantContext';
+import { getSelectedTenant, setSelectedTenant, tenantEnvironmentLabel } from '@/lib/tenantContext';
 import type { MyTenantSummary } from '@/types';
 import { getWorkspacePanelForRoute, getWorkspaceTemplates } from '@/workspace/registry';
 import { loadWorkspaceState } from '@/workspace/storage';
@@ -434,6 +434,7 @@ function TenantTile({ name, className }: { name?: string; className?: string }) 
 }
 
 function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
+  const { user } = useAuth();
   const tenant = getSelectedTenant();
   const [open, setOpen] = useState(false);
   const [tenants, setTenants] = useState<MyTenantSummary[] | null>(null);
@@ -473,7 +474,7 @@ function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
       name: next.name,
       subdomain: next.subdomain,
       environment: next.environment,
-    });
+    }, user?.id);
     // Never serve the previous tenant's module manifest, even briefly.
     invalidateModuleManifest();
     // Hard reload onto the home route so modules, routes, breadcrumbs and
@@ -482,7 +483,7 @@ function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
   };
 
   const loading = open && tenants === null && error === null;
-  const meta = [tenant.environment, tenant.subdomain].filter(Boolean).join(', ');
+  const meta = [tenantEnvironmentLabel(tenant.environment), tenant.subdomain].filter(Boolean).join(', ');
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -521,7 +522,7 @@ function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
         {error && <p className="px-2 py-1.5 text-sm text-destructive">{error}</p>}
         {tenants?.map((t) => {
           const isCurrent = t.tenantId === tenant.tenantId;
-          const tMeta = [t.environment, t.subdomain].filter(Boolean).join(', ');
+          const tMeta = [tenantEnvironmentLabel(t.environment), t.subdomain].filter(Boolean).join(', ');
           return (
             <DropdownMenuItem key={t.tenantId} onSelect={() => handleSwitch(t)} className="gap-2 p-2">
               <TenantTile name={t.name} className="size-6 text-[10px]" />
@@ -529,7 +530,7 @@ function WorkspaceSwitcher({ collapsed }: { collapsed: boolean }) {
                 <span className="truncate font-medium">{t.name}</span>
                 {tMeta && <span className="truncate text-xs text-muted-foreground">{tMeta}</span>}
               </span>
-              {isCurrent && <CheckIcon className="ml-auto" />}
+              {isCurrent && <><Badge variant="secondary" className="ml-auto">Current</Badge><CheckIcon className="size-4" aria-hidden /></>}
             </DropdownMenuItem>
           );
         })}

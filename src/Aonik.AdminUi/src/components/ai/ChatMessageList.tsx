@@ -19,6 +19,7 @@ import {
 } from '@/components/ai-elements';
 import { Badge } from '@/components/ui/badge';
 import { AgentAvatar } from './AgentAvatar';
+import { ChatErrorNotice } from './ChatErrorNotice';
 import { ConnectionRequestResultCard } from './ConnectionRequestResultCard';
 import { agentDisplayName } from '@/lib/agentIdentity';
 import { Button } from '@/components/ui/button';
@@ -93,7 +94,7 @@ export function ChatMessageList({
                     <MessageContent from="assistant">
                       <ChatMarkdown text={m.content} />
                     </MessageContent>
-                  ) : isStreaming && !m.toolCalls?.length ? (
+                  ) : isStreaming && !m.error && !m.toolCalls?.length ? (
                     <MessageContent from="assistant">
                       <span className="inline-flex items-center gap-2 text-muted-foreground">
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -101,6 +102,8 @@ export function ChatMessageList({
                       </span>
                     </MessageContent>
                   ) : null}
+
+                  {m.error && <ChatErrorNotice error={m.error} />}
 
                   {/* Tool calls — 8px gap between them */}
                   {m.toolCalls && m.toolCalls.length > 0 && (

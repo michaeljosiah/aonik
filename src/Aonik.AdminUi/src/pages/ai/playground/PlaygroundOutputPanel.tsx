@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ConnectionRequestResultCard } from '@/components/ai/ConnectionRequestResultCard';
+import { ChatErrorNotice } from '@/components/ai/ChatErrorNotice';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -328,9 +329,7 @@ export function PlaygroundOutputPanel({
               </pre>
             )}
             {streamError && (
-              <div className="mt-3 rounded-md border border-destructive bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                {streamError}
-              </div>
+              <div className="mt-3"><ChatErrorNotice error={streamError} /></div>
             )}
             {voiceModeEnabled && voiceDetails && (
               <div className="mt-3 rounded-md border border-border bg-muted px-3 py-3 text-xs text-muted-foreground">

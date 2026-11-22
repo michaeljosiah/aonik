@@ -6,7 +6,8 @@ import { expect, it, vi } from 'vitest';
 import { WorkflowQualificationPanel } from './WorkflowQualificationPanel';
 import type { WorkflowGraph } from './workflowTypes';
 const start = vi.hoisted(() => vi.fn(async () => ({ id: 'run-1' })));
-vi.mock('@/services/workflowService', () => ({ workflowService: { start } }));
+const validate = vi.hoisted(() => vi.fn());
+vi.mock('@/services/workflowService', () => ({ workflowService: { start, validate } }));
 vi.mock('@/services/connectorService', () => ({ connectorError: (reason: Error) => reason.message }));
 vi.mock('@/components/ai/chatSupport', () => ({ ServerApprovalCard: () => null }));
 vi.mock('./WorkflowTriggerPanel', () => ({ WorkflowTriggerPanel: () => null }));
@@ -24,5 +25,19 @@ it('starts the published Document subject even while the saved draft advertises 
     const launch = [...element.querySelectorAll('button')].find(button => button.textContent === 'Start live document run');
     await act(async () => launch!.click());
     expect(start).toHaveBeenCalledWith('intake', 'published-document', id, expect.any(String), 'Document');
+  } finally { await act(async () => root.unmount()); element.remove(); vi.unstubAllGlobals(); }
+});
+
+it('identifies the decision and one-based fixture field while keeping technical paths in details', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
+  validate.mockResolvedValue({ isValid: false, diagnostics: [{ code: 'InvalidFixture', path: 'route.fixtures[0].name', message: 'Use a unique fixture name without spaces.' }] });
+  const element = document.createElement('div'); document.body.appendChild(element); const root = createRoot(element);
+  const workflow = { id: 'workflow', slug: 'invoice', name: 'Invoice routing', nodes: [{ id: 'route', key: 'route', label: 'Invoice amount rule' }], edges: [] } as unknown as WorkflowGraph;
+  try {
+    await act(async () => root.render(<MemoryRouter><WorkflowQualificationPanel workflow={workflow} hasChanges={false} onChanged={() => {}} onClose={() => {}} onClearRollback={() => {}} /></MemoryRouter>));
+    await act(async () => [...element.querySelectorAll('button')].find(button => button.textContent === 'Validate saved draft')!.click());
+    expect(element.textContent).toContain('Invoice amount rule · Fixture 1 · name');
+    expect(element.querySelector('details')?.open).toBe(false);
+    expect(element.querySelector('details')?.textContent).toContain('route.fixtures[0].name');
   } finally { await act(async () => root.unmount()); element.remove(); vi.unstubAllGlobals(); }
 });

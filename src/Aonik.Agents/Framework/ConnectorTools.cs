@@ -26,7 +26,7 @@ internal sealed partial class ConnectorTools(IConnectorService connectors, IConn
         => connectors.ListConnectionsAsync(connectorKey, cancellationToken);
     [Description("Check policy, provisioning, scopes and grants for an exact action. A missing connection can be requested; a request cannot override policy.")]
     public Task<ConnectorReadiness> GetReadiness(string connectorKey, ConnectorActionRef action, Guid? connectionId = null, CancellationToken cancellationToken = default)
-        => connectors.GetReadinessAsync(connectorKey, action, connectionId, cancellationToken);
+        => connectors.GetReadinessAsync(connectorKey, action, connectionId, cancellationToken: cancellationToken);
     [Description("Propose an exact connection request. Server confirmation is required. This cannot enable policy, install adapters, grant access or complete OAuth. The owner follows the trusted review link.")]
     public Task<ConnectionRequestDetail> CreateConnectionRequest(CreateConnectionRequest request, CancellationToken cancellationToken = default)
         => requests.CreateAsync(request, cancellationToken);

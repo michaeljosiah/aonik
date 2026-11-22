@@ -1,6 +1,6 @@
 import { InvitationPage } from './pages/InvitationPage';
 import { MyConnectionsPage } from './pages/settings/ConnectionsPage';
-import { useEffect, useRef, useState, createElement, useCallback, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, createElement, useCallback, lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, HashRouter, Navigate, Routes, Route, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { isElectron, setTitleBarColor } from '@/lib/electron';
 
@@ -145,16 +145,16 @@ function ApiAuthSetup() {
 //     based routing on the web continues to "just work" on the server
 //     side without the client needing to pre-select.
 
-function AppLayout() {
-  return <AdminModulesProvider><ContextAppLayout /></AdminModulesProvider>;
+function AppLayout({ children }: { children?: ReactNode }) {
+  return <AdminModulesProvider><ContextAppLayout>{children}</ContextAppLayout></AdminModulesProvider>;
 }
 
-function ContextAppLayout() {
+function ContextAppLayout({ children }: { children?: ReactNode }) {
   const { contextKey } = useModules();
-  return <AppLayoutContent key={contextKey} />;
+  return <AppLayoutContent key={contextKey}>{children}</AppLayoutContent>;
 }
 
-function AppLayoutContent() {
+function AppLayoutContent({ children }: { children?: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
@@ -270,11 +270,12 @@ function AppLayoutContent() {
   }, [isAiChat, navigate]);
 
   const isPublicGuide = location.pathname === '/setup-guides' || location.pathname.startsWith('/setup-guides/');
-  if (isAuthenticated && !isPublicGuide && (loading || unavailable)) {
+  // Personal connection access retains its UserPolicy route even without an admin manifest.
+  if (isAuthenticated && !children && !isPublicGuide && (loading || unavailable)) {
     return <AdminUnavailablePage loading={loading} unavailable={unavailable} />;
   }
 
-  if ((location.state as { adminEntry?: boolean } | null)?.adminEntry && manifest) {
+  if (!children && (location.state as { adminEntry?: boolean } | null)?.adminEntry && manifest) {
     const destination = isPathVisible(location.pathname)
       ? `${location.pathname}${location.search}${location.hash}`
       : landingPath ?? '/';
@@ -313,7 +314,7 @@ function AppLayoutContent() {
           <main
             className={isAiChat || isWorkspace ? 'flex-1 overflow-hidden min-w-0 transition-[width] duration-400 ease-in-out' : 'flex-1 overflow-auto bg-background min-w-0 transition-[width] duration-400 ease-in-out'}
           >
-            <Routes>
+            {children ?? <Routes>
               {modules.flatMap((module) => module.routes).map((route) => (
                 <Route key={route.path} path={route.path} element={
                   route.path === '/' && landingPath !== '/'
@@ -333,7 +334,7 @@ function AppLayoutContent() {
               <Route path="/module-disabled/:moduleId" element={<ModuleDisabledPage />} />
               {/* Fallback — a route owned by a disabled module explains itself instead of 404ing */}
               <Route path="*" element={<AdminUnavailablePage />} />
-            </Routes>
+            </Routes>}
           </main>
           {showAiChat && isPathVisible('/ai/chat') && (
             <AiChatPanel
@@ -527,7 +528,7 @@ function AuthenticatedApp() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/setup" element={<SetupWizardPage />} />
-        <Route path="/settings/my-connections" element={<ProtectedRoute><TenantResolutionGate><MyConnectionsPage /></TenantResolutionGate></ProtectedRoute>} />
+        <Route path="/settings/my-connections" element={<ProtectedRoute><TenantResolutionGate><AppLayout><MyConnectionsPage /></AppLayout></TenantResolutionGate></ProtectedRoute>} />
         <Route
           path="/select-organization"
           element={

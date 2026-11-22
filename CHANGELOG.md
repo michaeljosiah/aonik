@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **Workflow and connector usability (#438):** Show readable workspace environments and a user-specific last-used choice. Start Gmail requests with the three available read permissions, separate additional permissions, check readiness for the requested ownership and place mutation recovery under Troubleshooting. Keep My Connections in the shared application shell without requiring admin access. Reuse one actionable AI error notice, responsive editor sheets and exact fixture/field validation diagnostics. Keep incomplete JSON visible until corrected or explicitly discarded before closing a sheet.
+
 - **Workflow first-run fixes (#438):** Use valid fixture keys in the invoice template, keep the canvas above its existing minimum zoom, and remove sample trend lines from live workflow metrics. Show compact metric cards in narrow windows and reuse the named role picker for action reviewers.
 
 - **Gmail setup controls (#438):** Expose the existing platform Gmail limits in Global Settings, including explicit enablement and capability presets. Choose tenant reviewers by role name and focus failed-request explanations above long forms. Workspace policy, Google consent and action approvals continue to apply. Preserve custom setting values when they differ from a preset.
