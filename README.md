@@ -1,9 +1,11 @@
 <div align="center">
 
-<img src=".github/assets/readme-banner.webp" alt="AONIK, for the agent-staffed company. Every company will be run by a few people and many agents. AONIK is the foundation they run it on." width="100%">
+<img src=".github/assets/readme-banner.webp" alt="AONIK. A new kind of business: people and agents, working as one team. AONIK is the foundation it is built on." width="100%">
 
-**Owner-operated. Agent-staffed.** AONIK is one system for customers, money and operations,
-with a staff of agents that have defined roles and a human decision wherever it matters.
+A new kind of business is taking shape, one where people and agents work side by side.
+AONIK is the foundation for it: one system for customers, money and operations, where agents
+carry the routine, people bring the judgement, and every decision that matters stays with a
+person.
 
 The first modules are in finance, from personal finance and payment collection to an online
 store and the purchasing, stock and production behind a food business.
@@ -43,23 +45,24 @@ store and the purchasing, stock and production behind a food business.
 
 ## The idea
 
-For thirty years software gave a business tools, and the business supplied the labour. Every
-new need meant another application: one for invoices, one for customers, one for the shop,
-one for support, each with its own login and its own version of the truth.
+For thirty years software gave a business tools, and its people did all of the work with
+them. Every new need meant another application: one for invoices, one for customers, one for
+the shop, one for support, each with its own login and its own version of the truth.
 
-Agents change who does the work. So far they have arrived in two ways: as an assistant bolted
-onto each of those applications, seeing a tenth of the business, or as an autonomous bot
-nobody would trust with a bank account.
+Agents change that. So far they have arrived in two ways: as an assistant bolted onto each of
+those applications, seeing a tenth of the business, or as automation meant to run without the
+people who understand the business.
 
-AONIK takes a third way. **A few people decide, and a staff of agents does the work**, on one
-system that holds the record and asks before it acts. We call that an *agent-staffed
-company*. The agents have roles, tools and limits, as staff do. The owner still runs the
-business.
+AONIK takes a third way. **People and agents work as one team**, on one system that holds the
+record. Agents take the work that is repetitive and constant: drafting invoices, classifying
+transactions, checking stock, preparing the purchase order. People do what people are for:
+judgement, relationships, and the decisions that carry weight. Each agent has a role, tools
+and limits, and works in the open, where its colleagues can see what it did and why.
 
-Small companies gain most. A founder working alone can have agents raising invoices, checking
-stock and drafting the purchase order, planning tomorrow's production and reading the margin
-report, while every payment still waits for the founder's decision. Headcount stops being the
-limit on what a company can take on.
+It is a new kind of business, and it suits any size. A larger team hands the routine to agents
+and spends its time on customers and decisions. A founder working alone gains colleagues. In
+both, an agent proposes and a person decides, so what a company can take on is no longer set
+by the hours in its people's day.
 
 <div align="center">
 
@@ -86,7 +89,7 @@ whatever it sells:
 | **Documents** | Files with versions, links to the records they belong to, extraction and search. |
 | **People and access** | Sign-in, roles, permissions and sessions, with a workspace for each business. |
 | **Compliance** | Identity documents and their verification, screening checks, cases and an audit record. |
-| **Agents and automation** | A staff of agents, approvals, workflows, connectors, chat and voice. |
+| **Agents and automation** | Agents that work alongside your team, with approvals, workflows, connectors, chat and voice. |
 
 The first modules built on it follow the money outward, from one person's finances to a
 working kitchen:
@@ -943,6 +946,10 @@ are chunked, embedded and indexed in Qdrant by the Worker, scoped to the party t
 them, so an agent retrieves only what its user may see.
 
 ## Principles
+
+**People and agents are one team.** Agents carry the routine and the constant. People bring
+judgement, relationships and accountability. Neither works out of sight of the other: every
+author in a conversation is named, and everything an agent does can be traced.
 
 **Agents propose. Systems apply. Humans stay in control.** An agent may reason, plan and
 draft as boldly as it likes. It cannot quietly change a balance, send a payment or publish a
