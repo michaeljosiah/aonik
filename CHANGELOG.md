@@ -4,6 +4,8 @@ All notable changes to the AONIK project will be documented in this file.
 
 ## [Unreleased]
 
+- **README rewrite:** Replace the top-level README with a product-led overview, positioned as the foundation for a business where people and agents work as one team, covering the foundation, the first finance-led modules and the current modules, agents, tiered approvals, workflows, connectors, finance, remittance, commerce, publishing, voice and observability, plus business-type packs, a run-from-source guide and an explicit status section separating what is built from what is only drawn. Add 55 light/dark screenshot pairs, a Payabo phone composite and a banner under `.github/assets`, rendered from the admin and Payabo mobile design kits. No runtime changes.
+
 - **Workflow and connector usability (#438):** Show readable workspace environments and a user-specific last-used choice. Start Gmail requests with the three available read permissions, separate additional permissions, check readiness for the requested ownership and place mutation recovery under Troubleshooting. Keep My Connections in the shared application shell without requiring admin access. Reuse one actionable AI error notice, responsive editor sheets and exact fixture/field validation diagnostics. Keep incomplete JSON visible until corrected or explicitly discarded before closing a sheet.
 
 - **Workflow first-run fixes (#438):** Use valid fixture keys in the invoice template, keep the canvas above its existing minimum zoom, and remove sample trend lines from live workflow metrics. Show compact metric cards in narrow windows and reuse the named role picker for action reviewers.
