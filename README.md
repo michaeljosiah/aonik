@@ -1,16 +1,19 @@
 <div align="center">
 
-<img src=".github/assets/readme-banner.webp" alt="AONIK. Agents propose. Systems apply. Humans stay in control. One governed core. Every product is a configuration of it." width="100%">
+<img src=".github/assets/readme-banner.webp" alt="AONIK, for the agent-staffed company. Owner-operated. Agent-staffed. One foundation to run the business. A staff of agents. Your decision wherever it matters." width="100%">
 
-AONIK is the platform underneath a family of products. Identity, money, agents and the rules
-that govern them are built once. A remittance desk, a food shop, a personal-finance app and a
-publishing house each run on that core as a configuration of it.
+Every company will be run by a few people and many agents. AONIK is the foundation they run
+it on: one system for customers, money and operations, a staff of agents with defined roles,
+and a human decision wherever it matters.
+
+The first modules are in finance, from personal finance and payment collection to an online
+store and the purchasing, stock and production behind a food business.
 
 [![CI](https://github.com/michaeljosiah/aonik/actions/workflows/ci.yml/badge.svg)](https://github.com/michaeljosiah/aonik/actions/workflows/ci.yml)
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)](global.json)
 [![Licence](https://img.shields.io/badge/licence-non--commercial%20source-055a60)](LICENSE)
 
-**[Agents](#meet-the-agents) · [Approvals](#nothing-moves-without-a-decision) · [Chat](#one-chat-for-people-and-agents) · [Workflows](#workflows-you-can-read) · [Money](#money-end-to-end) · [Remittance](#remittance) · [Commerce](#commerce) · [Publishing](#publishing) · [Voice](#voice) · [Observe](#see-what-happened) · [Payabo](#payabo) · [Run it](#run-from-source)**
+**[Foundation](#the-foundation-and-what-is-built-on-it) · [Agents](#meet-the-agents) · [Approvals](#nothing-moves-without-a-decision) · [Chat](#one-chat-for-people-and-agents) · [Workflows](#workflows-you-can-read) · [Money](#money-end-to-end) · [Remittance](#remittance) · [Commerce](#commerce) · [Publishing](#publishing) · [Voice](#voice) · [Observe](#see-what-happened) · [Payabo](#payabo) · [Run it](#run-from-source)**
 
 </div>
 
@@ -41,19 +44,23 @@ publishing house each run on that core as a configuration of it.
 
 ## The idea
 
-Most software is organised around *an application*. You build a billing product, and when the
-next product arrives (a remittance service, a shop, a consumer app) you build identity,
-payments, audit and an AI assistant again, each time slightly differently.
+For thirty years software gave a business tools, and the business supplied the labour. Every
+new need meant another application: one for invoices, one for customers, one for the shop,
+one for support, each with its own login and its own version of the truth.
 
-AONIK inverts that. **The platform is the asset.** Tenancy, parties, orders, payments, the
-ledger, agents, approvals and audit are built once, as modules with hard boundaries. A product
-is a *business type*: a pack of configuration that switches modules on, names the screens, sets
-the agent's persona and seeds the reference data. No product's name belongs in platform code.
+Agents change who does the work. So far they have arrived in two ways: as an assistant bolted
+onto each of those applications, seeing a tenth of the business, or as an autonomous bot
+nobody would trust with a bank account.
 
-That inversion is the whole design. Because every product shares one order spine and one
-ledger, an agent that can reconcile an invoice for a logistics firm can do it for a kitchen.
-Because every mutating tool passes through one approval gate, the rule that stops an agent
-moving money on its own holds in every product at once.
+AONIK takes a third way. **A few people decide, and a staff of agents does the work**, on one
+system that holds the record and asks before it acts. We call that an *agent-staffed
+company*. The agents have roles, tools and limits, as staff do. The owner still runs the
+business.
+
+Small companies gain most. A founder working alone can have agents raising invoices, checking
+stock and drafting the purchase order, planning tomorrow's production and reading the margin
+report, while every payment still waits for the founder's decision. Headcount stops being the
+limit on what a company can take on.
 
 <div align="center">
 
@@ -66,6 +73,39 @@ moving money on its own holds in every product at once.
 waits for Apply, Review or Dismiss.*
 
 </div>
+
+## The foundation, and what is built on it
+
+AONIK is one foundation with modules on top. The foundation is what every business needs,
+whatever it sells:
+
+| | |
+|---|---|
+| **Customers** | One record for each person or business you deal with: profile, contacts, relationships, consent and preferences, documents, and what they have ordered across every module. |
+| **Reaching them** | Enquiries, sign-up lists with unsubscribe, content and media for your site, message templates, and email, SMS and push. Discounts, gift cards and loyalty for a shop. |
+| **Money** | Orders, invoices, payments and a double-entry ledger that every module shares. |
+| **Documents** | Files with versions, links to the records they belong to, extraction and search. |
+| **People and access** | Sign-in, roles, permissions and sessions, with a workspace for each business. |
+| **Compliance** | Identity documents and their verification, screening checks, cases and an audit record. |
+| **Agents and automation** | A staff of agents, approvals, workflows, connectors, chat and voice. |
+
+The first modules built on it follow the money outward, from one person's finances to a
+working kitchen:
+
+| | |
+|---|---|
+| **Personal finance** | Accounts and transactions, bills, budgets and a plan for a household. This is what Payabo runs on. |
+| **Payment collection** | Invoices, customer accounts, allocations and dunning plans, bill payments, and online checkout. |
+| **Cross-border transfers** | Corridors, FX rates, payout partners, beneficiaries and receipts. |
+| **An online store** | A catalogue, baskets, checkout, delivery dates and promotions, behind a public storefront API. |
+| **A food business** | Recipes, production orders, ingredients and their costs, suppliers, purchase orders, goods received, stock levels and margins: the work usually handed to an ERP system. |
+| **Publishing and subscriptions** | Editions reviewed and released to a catalogue, with plans, entitlements and metered usage. |
+
+A module is switched on, not installed separately. It shares the same customers, the same
+ledger and the same agents as every other module, so the customer who bought a meal box and
+the customer who owes an invoice are one record. New kinds of business arrive as a
+[pack](#one-platform-many-products) of configuration, and no product's name belongs in
+platform code.
 
 ## Three mechanics
 
@@ -1093,6 +1133,10 @@ themselves are not built.
 Arke Player, including large packages, withdrawal and offline retention. The production
 cutover has not happened. The Arke Worlds screens beyond publishing are drawn, and in the app
 they report what is connected instead of showing live data.
+
+**The customer foundation is a record and its channels, not yet a full CRM.** Customers,
+consent, enquiries, sign-up lists, content, templates, discounts, gift cards and loyalty are
+built. Sales pipelines, segments and campaigns are not.
 
 **Voice is built:** the WebSocket pipeline, provider and recipe settings, and approval
 hand-off to the Admin UI.
