@@ -1,10 +1,9 @@
 <div align="center">
 
-<img src=".github/assets/readme-banner.webp" alt="AONIK, for the agent-staffed company. Owner-operated. Agent-staffed. One foundation to run the business. A staff of agents. Your decision wherever it matters." width="100%">
+<img src=".github/assets/readme-banner.webp" alt="AONIK, for the agent-staffed company. Every company will be run by a few people and many agents. AONIK is the foundation they run it on." width="100%">
 
-Every company will be run by a few people and many agents. AONIK is the foundation they run
-it on: one system for customers, money and operations, a staff of agents with defined roles,
-and a human decision wherever it matters.
+**Owner-operated. Agent-staffed.** AONIK is one system for customers, money and operations,
+with a staff of agents that have defined roles and a human decision wherever it matters.
 
 The first modules are in finance, from personal finance and payment collection to an online
 store and the purchasing, stock and production behind a food business.
